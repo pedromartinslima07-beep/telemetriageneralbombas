@@ -692,8 +692,11 @@ function _mcPinIcon(kind) {
 // Os basemaps Canvas (cinza claro/escuro) foram descartados por isso: param
 // no 16, e o cadastro precisa da porta do prédio.
 //
-// Basemap CLARO: nenhuma camada leva className de inversão (a antiga
-// `.map-tiles-dark` saiu do CSS junto com a troca).
+// ⚠️ O BASEMAP É CLARO E O MAPA APARECE ESCURO — quem faz isso é o filtro de
+// `.map-tiles-dark` (admin.css), aplicado via `className` abaixo. Não existe
+// basemap escuro nesta lista que chegue ao zoom 19: o Esri Dark Gray para no
+// 16, e ainda é mais apagado que o Topo invertido (comparados em tela).
+// Quem trocar de basemap decide também o que fazer com esse filtro.
 const TILE_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
 const TILE_ATTR = "© Esri · © OpenStreetMap";   // curto de propósito: quebra em 2 linhas tapa o mapa
 const TILE_MAX_ZOOM = 19;
@@ -701,6 +704,7 @@ const TILE_MAX_TENTATIVAS = 3;
 
 function _criarTileLayer(map, onLoad) {
   const layer = L.tileLayer(TILE_URL, {
+    className: "map-tiles-dark",   // basemap é claro; o escuro é feito no CSS
     maxZoom: TILE_MAX_ZOOM,
     attribution: TILE_ATTR,
     keepBuffer: 4,

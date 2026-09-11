@@ -108,11 +108,33 @@ Os dois têm de andar juntos — o comentário longo mora no `admin.js`.
 | Esri World Street Map | funciona até 19, mas é bege e laranja: o vermelho das rodovias briga com o vermelho do pino crítico. |
 | Esri World Imagery (satélite) | funciona até 19; pesado para o painel, mas seria o melhor no mini-mapa do cadastro. Não adotado (um estilo só, por ora). |
 
-Basemap **claro** — nenhuma camada leva className de inversão (a antiga
-`.map-tiles-dark` foi removida de `admin.css` e `operador.css`). O
-`background` do `.leaflet-container` acompanha a cor do papel do basemap
-(`#ecebe4`), não a do painel: é o que se vê enquanto a tile não chegou, e
-escuro ali fazia cada pan piscar um buraco preto.
+### O basemap é claro; o mapa é escuro
+
+O Topo é um basemap **claro**, e no painel ele aparece **escuro**. Quem faz a
+travessia é o CSS: `.map-tiles-dark` (em `admin.css` e `operador.css`), ligada
+pela `className` da camada nos dois fronts.
+
+```css
+filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+```
+
+O `hue-rotate(180deg)` é o que separa isso de um negativo fotográfico: sozinho,
+o `invert` joga o verde dos parques em rosa e a água em laranja; a rotação de
+matiz devolve cada cor à família original, já escura.
+
+**Os pinos não são afetados** — o filtro está no pane das tiles, e marcadores
+vivem no `.leaflet-marker-pane`, irmão dele.
+
+Por que não um basemap escuro de origem: o Esri Dark Gray, comparado em tela
+com o Topo invertido, é cinza-médio e sem detalhe — e para no zoom 16. O
+caminho mais longo dá o mapa mais bonito e chega ao 19.
+
+⚠️ Quem trocar o basemap decide também o que fazer com esse filtro: um basemap
+já escuro passando por ele volta a ficar claro. Foi o que aconteceu na troca
+para o Carto `dark_all`, no mesmo dia.
+
+O `background` do `.leaflet-container` fica escuro (`#0d1325`) porque a tile
+também chega escura: é o que se vê enquanto ela não chegou.
 
 O crédito é curto de propósito (`© Esri · © OpenStreetMap`): o card do mapa no
 painel do operador tem ~350px, e o texto longo quebrava em duas linhas, tapando

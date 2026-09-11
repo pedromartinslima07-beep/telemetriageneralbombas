@@ -3033,14 +3033,24 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   color: var(--text);
 }
 
-/* Leaflet dentro do painel dark. Os controles seguem escuros — botão escuro
-   sobre basemap claro tem contraste de sobra e mantém a moldura do painel.
-   ⚠️ O `background` aqui é o que se vê ENQUANTO a tile não chegou. Com o
-   basemap claro de hoje (Esri Topo), deixá-lo escuro fazia cada pan piscar um
-   buraco preto na direção do gesto. Ele acompanha a cor do papel do basemap,
-   não a do painel. */
+/* ⚠️ ESTA REGRA É O QUE DEIXA O MAPA ESCURO. O basemap (Esri Topo) é CLARO;
+   o escuro é feito aqui, invertendo a tile. Some com ela e o painel ganha um
+   retângulo branco no meio.
+   O `hue-rotate(180deg)` é o que impede o invert de entregar um mapa em
+   negativo fotográfico: sozinho, `invert` joga o verde dos parques em rosa e a
+   água em laranja; a rotação de matiz devolve cada cor à família original, já
+   escura. Os pinos NÃO são afetados — vivem no `.leaflet-marker-pane`, e o
+   filtro está no pane das tiles.
+   Medido contra o Esri Dark Gray nativo (que seria o caminho óbvio): o nativo
+   é cinza-médio e sem detalhe, e ainda por cima para no zoom 16. Este é mais
+   bonito e chega ao 19. */
+.map-tiles-dark { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+
+/* Tema dark do Leaflet — atenua o fundo branco dos controles.
+   O `background` é o que se vê enquanto a tile não chegou: escuro, porque a
+   tile também chega escura (pela regra acima). */
 .leaflet-container {
-  background: #ecebe4 !important;
+  background: #0d1325 !important;
   font-family: inherit;
 }
 .leaflet-control-zoom a {

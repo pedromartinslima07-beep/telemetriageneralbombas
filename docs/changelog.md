@@ -12044,11 +12044,15 @@ O que mudou no código:
 - **`img-src` da CSP** (`src/app.js`) passa a listar `services.arcgisonline.com`
   — sem isso o browser bloqueia a tile sem erro no lugar certo, e o mapa fica
   cinza. Foi exatamente o que aconteceu no primeiro teste.
-- **`.map-tiles-dark` removida** de `admin.css` e `operador.css`: ela invertia a
-  tile clara do OSM, e sobre um basemap claro clarearia o mapa de volta.
-- `.leaflet-container` ganha fundo `#ecebe4` (cor do papel do basemap) no lugar
-  do `#0d1325`: escuro ali fazia o pan piscar um buraco preto onde a tile ainda
-  não chegou.
+- **`.map-tiles-dark` sai e volta no mesmo dia.** Ela foi removida na troca
+  para o Carto (basemap `dark_all` já era escuro, e o `invert()` o clarearia de
+  volta) — e voltou quando o Topo, que é **claro**, entrou: com o painel inteiro
+  escuro, um retângulo branco no meio da tela não se sustenta. Hoje ela é o que
+  deixa o mapa escuro, ligada pela `className` das duas camadas.
+  O Esri Dark Gray nativo foi comparado em tela e perdeu: cinza-médio, sem
+  detalhe, e parando no zoom 16.
+- `.leaflet-container` segue com fundo escuro (`#0d1325`) — a tile chega escura
+  pelo filtro, então é a cor certa para o que se vê antes de ela chegar.
 - Crédito curto (`© Esri · © OpenStreetMap`): o texto longo quebrava em duas
   linhas e tapava o canto do mapa no card do operador.
 
@@ -12062,8 +12066,8 @@ mapas do admin (dashboard, página Mapa, mini-mapa do cadastro) usam a mesma
 
 **Sem migration** — nada de schema.
 
-`?v=N`: `admin.js` 352 → **354**, `admin.css` 262 → **264**, `operador.js`
-80 → **82**, `operador.css` 109 → **111** (e 108 → **111** em
+`?v=N`: `admin.js` 352 → **355**, `admin.css` 262 → **265**, `operador.js`
+80 → **83**, `operador.css` 109 → **112** (e 108 → **112** em
 `operador-orcamentos.html`, `operador-preventivas.html` e `tecnico.html`, que
 carregam o mesmo CSS). `sw.js` não muda: tile é cross-origin e já passa direto,
 sem tocar no cache do service worker.

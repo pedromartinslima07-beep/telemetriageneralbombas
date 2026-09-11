@@ -337,9 +337,10 @@ Detalhe e o porquê de cada uma em
   da lista. Os rótulos de seção são texto (8.8px mono) em todas as faixas
   menos a mais apertada (614–700px, notebook com barra de tarefas), onde
   viram filete de 1px. Ver [decisions.md](decisions.md).
-- **Mapa interativo Leaflet** (tiles Esri World Topo Map, basemap claro, direto
-  do provedor): pinos por status, painel lateral com tabs, KPIs, donuts,
-  classificação por zona de SP.
+- **Mapa interativo Leaflet** (tiles Esri World Topo Map + filtro CSS que
+  inverte para dark): pinos por status, painel lateral com tabs, KPIs, donuts,
+  classificação por zona de SP. O basemap é claro; o escuro é feito em
+  `.map-tiles-dark` — um basemap já escuro passando por ali volta a clarear.
   ⚠️ **Não voltar para `tile.openstreetmap.org`** — o OSM bloqueou o app em
   11/09/2026 (403 "App is not following the tile usage policy" em toda tile). O
   Carto, tentado no mesmo dia, carimba "API KEY REQUIRED" sem chave. Teto de

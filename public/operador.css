@@ -1902,10 +1902,11 @@ body.com-ficha{overflow:hidden}
    fica embutido na chapa como um visor — com o fio escuro em volta para a
    junta ficar usinada, não colada. */
 .mapa{min-height:340px;background:#0d1325;box-shadow:inset 0 0 0 1px var(--fio-esc)}
-/* ⚠️ Cor do PAPEL do basemap (Esri Topo, claro), não do painel: é o que
-   aparece no lugar da tile que ainda não chegou. Escuro aqui fazia o pan
-   piscar um buraco preto. */
-.leaflet-container{background:#ecebe4;font-family:inherit}
+/* ⚠️ O basemap (Esri Topo) e CLARO — quem deixa o mapa escuro e o filtro de
+   `.map-tiles-dark`, abaixo. O fundo aqui e escuro porque a tile chega
+   escura. Detalhe do filtro no admin.css. */
+.leaflet-container{background:#0d1325;font-family:inherit}
+.map-tiles-dark{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)}
 /* O crédito do OSM é obrigatório e vinha na caixa branca padrão do Leaflet,
    acesa no canto de um mapa escuro. Aqui ele é etiqueta gravada, como toda
    legenda desta folha. */

@@ -367,7 +367,12 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
     detecta.
   - **Esri Street Map ❌** — vai até 19, mas é bege e laranja. Num painel onde a
     cor do pino é o alarme, o vermelho das rodovias briga com o P1.
-  - **Esri Topo ✅** — claro, cinza-suave, zoom 19, pinos legíveis por cima.
+  - **Esri Topo ✅** — zoom 19, detalhe bom, e **invertido no CSS** para dark
+    (`.map-tiles-dark`). O basemap claro sem inversão chegou a ser commitado e
+    durou o tempo de o Pedro olhar: *"to achando esse mapa mt claro"* — um
+    retângulo branco no meio de um painel escuro. Comparado em tela contra o
+    Esri Dark Gray nativo, o Topo invertido é mais bonito, mais detalhado e
+    chega a um zoom mais fundo.
   - Ressalva registrada: o Esri **também** não pede chave, que é o mesmo arranjo
     que nos derrubou com o OSM. Os termos deles pedem conta ArcGIS para uso em
     aplicação. Se repetir, o caminho já está mapeado — conta + chave no proxy.

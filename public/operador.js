@@ -829,10 +829,11 @@ function dlgDespacho(id) {
    a primeira tentativa de troca, carimba "API KEY REQUIRED" por cima do mapa
    inteiro quando não há chave. O motivo completo, a ordem invertida `{z}/{y}/{x}`
    e o porquê do teto de zoom 19 estão em `_criarTileLayer` (admin.js); os dois
-   têm de andar juntos. Basemap CLARO: nenhuma inversão de cor. */
+   têm de andar juntos. ⚠️ O basemap é CLARO e o mapa aparece escuro: quem
+   inverte é `.map-tiles-dark` (operador.css), pela `className` abaixo. */
 function camadaTiles(mapa) {
   const camada = L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 19,
+    { maxZoom: 19, className: "map-tiles-dark",  // basemap claro + filtro no CSS
       attribution: "© Esri · © OpenStreetMap",  // curto: quebra em 2 linhas tapa o mapa
       // ⚠️ OS TRÊS DO ADMIN (`_criarTileLayer`, admin.js), que faltavam aqui.
       // `keepBuffer` guarda um anel de tiles fora da vista, então arrastar o
