@@ -41,6 +41,21 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O técnico devolve o chamado para a fila** (11/09/2026). *"depois que você
+  aceita o chamado no app não dá para cancelar, então o chamado fica em
+  atendimento até o técnico conseguir voltar no condomínio"*. A única saída do
+  `em_atendimento` era finalizar a O.S. — afirmar que o serviço foi feito.
+  `POST /chamados/:id/devolver` com motivo obrigatório, válido a caminho ou em
+  atendimento, apagando a O.S. rascunho e **sem avisar o cliente**. Detalhe em
+  [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md); o porquê
+  em [`decisions.md`](decisions.md).
+  - 📋 **A "pausa com retorno" ficou de fora, de propósito.** O caso "não
+    termino hoje, mas volto amanhã" hoje é devolver e outro técnico pegar. Se o
+    uso mostrar que a maioria das devoluções é isso, o desenho a ser feito é um
+    estado `aguardando_retorno` que **mantém** o vínculo com o técnico e a O.S.
+    rascunho — e aí o painel do cliente pode dizer o motivo real em vez de "em
+    atendimento" há três dias.
+
 - ✅ **O técnico tem painel no site** (10/09/2026). *"o login do técnico só
   entra no app, no site não vai"* — e não era o login: `/tecnico/painel` nunca
   foi servido pelo Express, então a senha certa dava 404. A tela nova é a

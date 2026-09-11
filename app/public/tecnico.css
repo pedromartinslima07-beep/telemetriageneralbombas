@@ -1267,6 +1267,21 @@ body::before { content: none !important; }
 }
 [data-screen^="tecnico-"] .btn.btn-caminho::before { background: var(--surface2); }
 
+/* Devolver: o mesmo botao da placa, so que calado. Nao tem cor propria porque
+   nao e uma decisao que a tela queira sugerir -- e a saida de quem nao
+   conseguiu concluir. */
+[data-screen^="tecnico-"] .td-cta-bar .btn.btn-devolver {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  min-height: 40px;
+  font-size: 12.5px;
+}
+[data-screen^="tecnico-"] .td-cta-bar .btn.btn-devolver::before { background: var(--mar-900); }
+[data-screen^="tecnico-"] .td-cta-bar .btn.btn-devolver::after  { background: var(--fio); }
+[data-screen^="tecnico-"] .td-cta-bar .btn.btn-devolver:hover,
+[data-screen^="tecnico-"] .td-cta-bar .btn.btn-devolver:active { color: var(--text); }
+
 
 /* ════════════════════════════════════════════════════════════════════════
    CORREÇÃO DE DIREÇÃO — A PLACA É CLARA (01/09/2026)

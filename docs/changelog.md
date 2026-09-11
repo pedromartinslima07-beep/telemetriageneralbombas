@@ -11938,6 +11938,65 @@ para fechar os 44 (o desenho tem 20px; a palavra tinha 38).
 `tecnico.html`). `sw.js` não muda — não há endpoint novo.
 
 
+### 2026-09-11 · Aceitar o chamado deixa de ser porta de mão única
+
+Relato do Pedro: *"em alguns casos, quando o técnico está no condomínio para
+fazer o serviço, ele não consegue finalizar, mas hoje, depois que você aceita o
+chamado no app, não dá para cancelar — então o chamado fica em atendimento até o
+técnico conseguir voltar no condomínio, e acho que isso não está certo"*.
+
+Ele está certo, e o buraco era mais fundo do que o status: **a única saída do
+`em_atendimento` era finalizar a O.S.** — ou seja, AFIRMAR que o serviço foi
+feito. Quem não podia afirmar isso não tinha porta nenhuma. O chamado ficava
+mentindo "em atendimento" por dias, segurando o técnico no workload do painel ao
+vivo e o prédio fora da fila de despacho.
+
+**`POST /chamados/:id/devolver`** (`{motivo}`, mín. 5 caracteres), só para o
+técnico dono, válido em qualquer ponto — a caminho ou já em atendimento. O
+chamado volta a `aberto` sem técnico e outro pega.
+
+O que **não** é óbvio, e por isso está no código e em
+[`modulos/chamados-sla.md`](modulos/chamados-sla.md):
+
+- **`tecnico_a_caminho_em` é limpo, `tecnico_chegou_em` NÃO.** O primeiro é o
+  campo que decide o botão do app (`configurarCTA`): mantê-lo faria o próximo
+  técnico abrir o chamado já vendo "Iniciar atendimento" sem ter saído de casa.
+  O segundo é um fato — se um técnico chegou dentro do prazo da cláusula 7, o
+  SLA de chegada foi cumprido, e zerar isso seria reescrever a história a favor
+  da empresa. `primeira_resposta_em` fica pela mesma régua.
+- **A O.S. rascunho morre junto** (decisão do Pedro na mesma conversa: *"pode
+  apagar"*). Ela tem `UNIQUE` em `chamado_id`: deixá-la colada travaria o
+  `/iniciar-atendimento` do próximo técnico, e mantê-la faria ele herdar chegada
+  e GPS de outra pessoa. Filhas saem por CASCADE; quem aponta vira NULL. O app
+  avisa antes de confirmar quando há O.S. aberta — foto tirada no subsolo sem
+  sinal é trabalho que não volta. A O.S. **finalizada** não: 409.
+- **O cliente não é avisado** (*"não quero que a informação vá para o cliente"*,
+  e sobre ver o chamado voltar a "Aberto": *"não tem problema"*). É o **oposto
+  do cancelamento**, onde o motivo vai para o cliente de propósito: devolver é
+  rodízio interno de equipe, não uma decisão sobre o pedido dele.
+- **O motivo mora no histórico**, em `historico_chamados` com
+  `campo_alterado = 'devolvido'` — `valor_novo` é o motivo, `valor_anterior` o
+  número da O.S. descartada. Sem essa linha, a devolução apareceria no painel
+  como uma desatribuição qualquer. Com ela, dá para ler depois *por que* os
+  serviços não fecham na primeira visita.
+
+No app, botão **secundário** da barra de ação (nunca competindo com "Iniciar
+atendimento"/"Preencher O.S."), visível só depois que ele aceitou, abrindo o
+mesmo bottom sheet do chooser de foto com o campo de motivo.
+
+Teste: **`scripts/testes/devolver-chamado.test.js`** — 24 checagens contra o
+banco de teste, exercitando a sequência real do app (`/a-caminho` → `/chegou` →
+`/iniciar-atendimento` → `/devolver`). A primeira versão errou justamente aí:
+ela pulava o `/chegou` e "provava" que `tecnico_chegou_em` sobrevivia a uma
+devolução em que ele nunca tinha sido gravado.
+
+**Sem migration** — nenhuma coluna nova; `historico_chamados` já aceita
+`campo_alterado` livre.
+
+`?v=N`: `admin.js` 351 → **352**, `admin.css` 261 → **262**. `sw.js` não muda —
+o endpoint novo é `POST` (a lista network-first só vale para `GET`).
+
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

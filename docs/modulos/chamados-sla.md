@@ -127,6 +127,7 @@ aberto → técnico atribuído → em_atendimento (GPS chegada)
        → O.S. digital preenchida → fechado
 
 aberto | em_atendimento → cancelado          (com motivo, pela gestão)
+aberto | em_atendimento → aberto sem técnico (devolução, pelo próprio técnico)
 fechado | cancelado     → aberto             (reabertura)
 ```
 
@@ -173,6 +174,61 @@ na taxa de resolução e no tempo médio do painel como atendimento cumprido.
   deixou de ser feito. Cancelado devolve `livre`. Mesmo defeito e mesma correção
   no `_avExecBadge` do admin — as duas telas escolhem pelo mesmo critério.
 - **Teste:** `scripts/testes/cancelar-chamado.test.js` (23 checagens, rota de
+  verdade contra o banco de teste).
+
+### A devolução (11/09/2026)
+
+⚠️ **ACEITAR ERA PORTA DE MÃO ÚNICA.** Pedido do Pedro: *"em alguns casos,
+quando o técnico está no condomínio para fazer o serviço, ele não consegue
+finalizar — mas hoje, depois que você aceita o chamado no app, não dá para
+cancelar, então o chamado fica em atendimento até o técnico conseguir voltar no
+condomínio"*. O único caminho para fora do `em_atendimento` era **finalizar a
+O.S.**, ou seja, AFIRMAR que o serviço foi feito. Quem não podia afirmar isso
+ficava preso: o chamado mentia "em atendimento" por dias, segurando o técnico no
+workload do painel ao vivo e o prédio fora da fila de despacho.
+
+`POST /chamados/:id/devolver` (`{motivo}`, mínimo 5 caracteres) devolve o
+chamado à fila. Vale em **qualquer ponto** — a caminho ou já em atendimento.
+
+| | o que acontece | por quê |
+|---|---|---|
+| `status` | volta a `aberto` | volta para a fila de despacho |
+| `tecnico_id` | vira `NULL` | outro técnico pode pegar |
+| `tecnico_a_caminho_em` | **limpo** | é o campo que decide o botão do app (`configurarCTA`); mantê-lo faria o próximo técnico já ver "Iniciar atendimento" sem ter saído de casa |
+| `tecnico_chegou_em` | **fica** | se um técnico chegou de verdade no prazo da cláusula 7, o SLA de chegada foi cumprido — zerar seria reescrever a história a favor da empresa |
+| `primeira_resposta_em` | **fica** | mesma régua do TTFR: alguém respondeu |
+| O.S. rascunho | **apagada** | decisão do Pedro |
+| `historico_chamados` | 3 linhas: `status`, `tecnico_id` e `devolvido` | ver abaixo |
+
+- **Quem pode:** só o **técnico dono** do chamado (403 para qualquer outro, admin
+  incluído — a gestão remaneja pelo `PATCH /chamados/:id`, que é outra conversa).
+- **Chamado `fechado`/`cancelado` não se devolve** (409), nem chamado cuja O.S.
+  já foi finalizada: a essa altura o serviço aconteceu.
+- ⚠️ **A O.S. rascunho MORRE JUNTO** (decisão do Pedro, 11/09/2026). Ela tem
+  `UNIQUE` em `chamado_id`: deixá-la colada travaria o `/iniciar-atendimento` do
+  próximo técnico, e mantê-la faria ele herdar chegada e GPS de outra pessoa.
+  Filhas (`os_fotos`, `os_pecas`) saem por CASCADE; quem só aponta
+  (`orcamentos.os_id`, `equipamentos`, planos) vira `NULL`. **O app avisa antes
+  de confirmar** quando o chamado está em atendimento — foto tirada no subsolo
+  sem sinal é trabalho que não volta.
+- ⚠️ **O CLIENTE NÃO É AVISADO** (decisão do Pedro, 11/09/2026). Sem
+  notificação e sem motivo no painel dele — o **oposto do cancelamento**, onde o
+  motivo vai para o cliente de propósito. Devolver é rodízio interno de equipe,
+  não uma decisão sobre o pedido dele. O que ele vê, se estiver com a tela
+  aberta, é o chamado voltar a "Aberto" sem técnico; isso o Pedro aceitou
+  explicitamente ("não tem problema").
+- **O motivo mora no histórico**, em `historico_chamados` com
+  `campo_alterado = 'devolvido'`: `valor_novo` = o motivo em texto livre,
+  `valor_anterior` = o número da O.S. descartada (ou `NULL`, se ele devolveu
+  ainda a caminho). Sem essa linha, o histórico mostraria a devolução como uma
+  desatribuição qualquer do painel. O admin renderiza como
+  "Técnico devolveu o chamado para a fila" (`_chRenderHistEntry` em
+  `public/admin.js`).
+- **Onde se devolve:** botão secundário da barra de ação no [app do
+  técnico](app-mobile.md), visível só depois que ele aceitou (saiu para o prédio
+  ou já está em atendimento). É secundário de propósito: é a saída, não o
+  caminho.
+- **Teste:** `scripts/testes/devolver-chamado.test.js` (24 checagens, rota de
   verdade contra o banco de teste).
 
 - **`em_atendimento` só é setado via app do técnico** em

@@ -475,6 +475,15 @@ ninguém ter escolhido isso; campo agora nasce vazio.
 **`historico_chamados`** (033) — auditoria: `chamado_id (CASCADE)`,
 `alterado_por`, mudança de status, reabertura.
 
+⚠️ **`campo_alterado` NÃO é só nome de coluna.** Além dos campos de
+`CAMPOS_AUDITADOS` (`chamado-historico.service.js`), a tabela guarda **eventos**,
+com `valor_anterior`/`valor_novo` em texto livre: `criado` (abertura) e, desde
+11/09/2026, **`devolvido`** — o técnico devolvendo o chamado à fila, com
+`valor_novo` = o motivo e `valor_anterior` = o número da O.S. rascunho
+descartada. Quem renderiza precisa tratar esses casos à parte, senão a linha sai
+como "devolvido: OS-2026-0042 → não consegui acesso ao barrilete". Ver
+[chamados-sla.md](modulos/chamados-sla.md). **Não exigiu migration.**
+
 **`alerta_comentarios`** (004) — comentários na página /alertas.
 `alerta_origem (telemetria|chamado)` + `alerta_id` (sem FK, cobre 2 origens),
 `autor_id`, `texto`, `criado_em`. 019: `foto_url` + texto opcional (CHECK texto

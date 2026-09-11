@@ -969,6 +969,69 @@ a informação, e a simetria custa uma linha.
   O comentário do próprio arquivo, escrito em 03/09, dizia "não existe
   'cancelado'" e virou o mapa do conserto.
 
+## Devolver não é cancelar (11/09/2026)
+
+Relato do Pedro: *"em alguns casos, quando o técnico está no condomínio para
+fazer o serviço, ele não consegue finalizar, mas hoje, depois que você aceita o
+chamado no app, não dá para cancelar"*.
+
+- **O buraco não era o status, era a afirmação.** A única saída do
+  `em_atendimento` era **finalizar a O.S.** — que AFIRMA que o serviço foi
+  feito. Mesma família do problema que criou o [`cancelado`
+  em 04/09](#cancelar-um-chamado-não-é-fechar-04092026): quando a única porta de
+  saída é a que declara sucesso, quem não teve sucesso não sai. A diferença é
+  que ali o preso era a métrica; aqui era o técnico, com um chamado grudado nele
+  até conseguir voltar ao prédio.
+
+- **Foram consideradas DUAS saídas, e o Pedro escolheu uma.** "Pausar com
+  retorno" (o vínculo continua, o chamado vira "aguardando retorno") e
+  "devolver para a fila" (o vínculo se desfaz). Perguntado se devolver valia em
+  qualquer momento ou só antes de iniciar, ele respondeu **"a qualquer
+  momento"**. A pausa **não foi implementada** — se a prática mostrar que a
+  maioria dos casos é "vou voltar amanhã", ela volta à mesa; hoje esse caso é
+  devolver e outro técnico pegar.
+
+- **O cliente não é avisado** (*"não quero que a informação vá para o
+  cliente"*). É o **oposto deliberado do cancelamento**, onde o motivo vai para
+  o cliente de propósito: cancelar é uma decisão sobre o pedido DELE; devolver é
+  rodízio interno de equipe. Foi perguntado se valia esconder também a
+  regressão visível no painel do cliente ("Em atendimento — João" virando
+  "Aberto" sem técnico): **"não tem problema"**. Ou seja — o que não vai é
+  notificação e motivo, não o estado.
+
+- **`tecnico_a_caminho_em` é limpo; `tecnico_chegou_em` não.** Os dois são
+  carimbos do mesmo deslocamento, e mesmo assim tratá-los igual estaria errado
+  nos dois sentidos. O primeiro é **estado de UI** — é o que faz o app decidir
+  entre "A caminho" e "Iniciar atendimento", e mantê-lo daria ao próximo técnico
+  um botão de chegada sem ele ter saído de casa. O segundo é **fato de
+  contrato**: aquele técnico chegou àquele prédio naquela hora, e o SLA da
+  cláusula 7 mede chegada. Apagar seria reescrever a história a favor da
+  empresa — o mesmo princípio que fez `cancelado` não marcar TTFR, só na direção
+  contrária. A regra que fica: **antes de zerar um timestamp, pergunte se ele é
+  estado ou fato.**
+
+- **A O.S. rascunho é apagada** (*"pode apagar"*). Alternativa considerada:
+  soltá-la do chamado (`chamado_id = NULL`) para não perder o que já foi
+  preenchido. Recusado — sobrariam O.S. órfãs em listagens que ninguém sabe ler,
+  e reaproveitá-la seria pior ainda: o próximo técnico herdaria `chegada_em` e
+  o GPS de outra pessoa, com o documento afirmando que ELE esteve lá. O app
+  avisa antes de confirmar. **O.S. finalizada é 409** — aí o serviço aconteceu.
+
+- **Só o técnico dono devolve; o admin leva 403.** A gestão já remaneja pelo
+  `PATCH /chamados/:id`, com outras regras e outro registro. Duas portas para o
+  mesmo efeito é como uma passa a divergir da outra no primeiro ajuste.
+
+- **O motivo vira dado, não desabafo.** Ele é obrigatório (mín. 5 caracteres) e
+  entra em `historico_chamados` com `campo_alterado = 'devolvido'`. Sem ele, o
+  botão vira fuga silenciosa e perde-se a informação mais valiosa do fluxo: *por
+  que* os serviços não fecham na primeira visita.
+
+- ⚠️ **Cicatriz do próprio teste:** a primeira versão de
+  `devolver-chamado.test.js` pulava o `POST /chegou` e afirmava que
+  `tecnico_chegou_em` sobrevivia à devolução — provando a preservação de um
+  campo que nunca tinha sido gravado. **Teste que não reproduz a sequência real
+  do app prova a asserção, não o comportamento.**
+
 ## A preventiva vence no MÊS, não no dia (04/09/2026)
 
 **Regra de negócio dita pelo Pedro**, e ela não estava em lugar nenhum do

@@ -803,6 +803,153 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
   }
 });
 
+// POST /chamados/:id/devolver — técnico devolve o chamado para a fila.
+//
+// ⚠️ ACEITAR NÃO PODE SER PORTA DE MÃO ÚNICA (11/09/2026, pedido do Pedro:
+// "o técnico está no condomínio, não consegue finalizar, e hoje não dá para
+// cancelar — o chamado fica em atendimento até ele conseguir voltar").
+// Sem esta rota o único caminho para fora do `em_atendimento` era finalizar a
+// O.S. — ou seja, AFIRMAR que o serviço foi feito. O chamado ficava mentindo
+// "em atendimento" por dias, segurando o técnico na fila de trabalho do painel
+// ao vivo e o prédio fora da fila de despacho.
+//
+// Vale em QUALQUER ponto: a caminho ou já em atendimento. Exige motivo.
+//
+// O que ele faz, e por quê cada coisa:
+//  - `status` volta a `aberto` e `tecnico_id` vira NULL → o chamado volta para
+//    a fila e outro técnico pode pegá-lo.
+//  - `tecnico_a_caminho_em` é LIMPO. É o campo que o app do técnico lê para
+//    decidir o botão (`configurarCTA` em `app/public/app.js`): mantê-lo faria o
+//    próximo técnico abrir o chamado já vendo "Iniciar atendimento" sem ter
+//    saído de casa.
+//  - `tecnico_chegou_em` e `primeira_resposta_em` FICAM. Se um técnico chegou
+//    de verdade dentro do prazo da cláusula 7, o SLA de chegada foi cumprido;
+//    zerar isso seria reescrever a história a favor da empresa.
+//  - A O.S. rascunho é APAGADA (decisão do Pedro, 11/09/2026). Ela tem UNIQUE
+//    em `chamado_id`: deixá-la colada travaria o `/iniciar-atendimento` do
+//    próximo técnico, e mantê-la faria ele herdar chegada e GPS de outra
+//    pessoa. Filhas (`os_fotos`, `os_pecas`) saem por CASCADE; quem só aponta
+//    (`orcamentos.os_id`, `equipamentos`, planos) vira NULL.
+//  - **O cliente não é avisado** (decisão do Pedro, 11/09/2026): sem
+//    notificação e sem motivo no painel dele — ao contrário do cancelamento,
+//    onde o motivo VAI para o cliente. Isto aqui é rodízio interno de equipe.
+//    O que ele vê é o chamado voltar a "Aberto" sem técnico.
+router.post("/:id/devolver", authRequired, async (req, res) => {
+  if (req.user.role !== "tecnico") {
+    return res.status(403).json({ error: "Apenas técnicos" });
+  }
+
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "id inválido" });
+  }
+
+  const motivo = String((req.body || {}).motivo || "").trim();
+  if (motivo.length < 5) {
+    return res.status(400).json({ error: "Informe o motivo (mínimo 5 caracteres)" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const tec = await client.query(
+      `SELECT id FROM tecnicos WHERE usuario_id = $1 AND ativo = true LIMIT 1`,
+      [req.user.id]
+    );
+    if (tec.rows.length === 0) {
+      return res.status(403).json({ error: "Sua conta não está vinculada a um técnico ativo" });
+    }
+    const tecnicoId = tec.rows[0].id;
+
+    const ch = await client.query(
+      `SELECT id, status, prioridade, categoria, responsavel_id,
+              condominio_id, tecnico_id
+       FROM chamados WHERE id = $1`,
+      [id]
+    );
+    if (ch.rows.length === 0) {
+      return res.status(404).json({ error: "Chamado não encontrado" });
+    }
+    const chamado = ch.rows[0];
+    if (chamado.tecnico_id !== tecnicoId) {
+      return res.status(403).json({ error: "Chamado não está atribuído a você" });
+    }
+    if (chamado.status === "fechado" || chamado.status === "cancelado") {
+      return res.status(409).json({ error: `Chamado já está ${chamado.status}` });
+    }
+
+    await client.query("BEGIN");
+
+    // A O.S. rascunho morre junto. A finalizada não: a essa altura o serviço
+    // foi prestado e o chamado não deveria mais estar aberto — devolver aqui
+    // apagaria um atendimento que aconteceu.
+    const os = await client.query(
+      `SELECT id, numero, finalizada_em FROM ordens_servico WHERE chamado_id = $1`,
+      [id]
+    );
+    const osRow = os.rows[0] || null;
+    if (osRow && osRow.finalizada_em) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "A O.S. deste chamado já foi finalizada — não é possível devolver",
+      });
+    }
+    if (osRow) {
+      await client.query(`DELETE FROM ordens_servico WHERE id = $1`, [osRow.id]);
+    }
+
+    const upd = await client.query(
+      `UPDATE chamados
+          SET status               = 'aberto',
+              tecnico_id           = NULL,
+              tecnico_a_caminho_em = NULL,
+              atualizado_em        = NOW()
+        WHERE id = $1
+        RETURNING id, status, prioridade, categoria, responsavel_id,
+                  condominio_id, tecnico_id`,
+      [id]
+    );
+
+    await registrarMudancas({
+      client,
+      chamadoId: id,
+      antes: {
+        status: chamado.status,
+        prioridade: chamado.prioridade,
+        categoria: chamado.categoria,
+        responsavel_id: chamado.responsavel_id,
+        tecnico_id: chamado.tecnico_id,
+        condominio_id: chamado.condominio_id,
+      },
+      depois: upd.rows[0],
+      alteradoPor: req.user.id,
+    });
+
+    // A linha que conta O PORQUÊ. `registrarMudancas` só sabe dizer que o
+    // status voltou e o técnico saiu — sem esta, o histórico do admin mostraria
+    // a devolução como se fosse uma desatribuição qualquer do painel.
+    await client.query(
+      `INSERT INTO historico_chamados
+         (chamado_id, campo_alterado, valor_anterior, valor_novo, alterado_por)
+       VALUES ($1, 'devolvido', $2, $3, $4)`,
+      [id, osRow ? osRow.numero : null, motivo, req.user.id]
+    );
+
+    await client.query("COMMIT");
+
+    return res.json({
+      chamado_id: id,
+      status: "aberto",
+      os_descartada: osRow ? osRow.numero : null,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[chamados] POST /:id/devolver:", err);
+    return res.status(500).json({ error: "Erro ao devolver o chamado" });
+  } finally {
+    client.release();
+  }
+});
+
 // GET /chamados/:id/historico — timeline cronológica de mudanças do chamado.
 // Retorna linhas de historico_chamados + nome do autor (LEFT JOIN usuarios).
 // alterado_por = NULL significa "sistema" (IA, jobs).

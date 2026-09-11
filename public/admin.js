@@ -4566,6 +4566,7 @@ function _chFmtCampo(campo) {
     responsavel_id:  "Responsável",
     tecnico_id:      "Técnico",
     condominio_id:   "Condomínio",
+    devolvido:       "Devolvido para a fila",
   })[campo] || campo;
 }
 
@@ -4583,6 +4584,24 @@ function _chRenderHistEntry(h) {
   const autor = h.alterado_por_nome
     ? `<span class="ch-hist-autor">${_waEscaparHtml(h.alterado_por_nome)}</span>`
     : `<span class="ch-hist-autor ch-hist-sistema">Sistema</span>`;
+  // Devolução do técnico (11/09/2026): `valor_novo` e o MOTIVO em texto livre e
+  // `valor_anterior` o número da O.S. rascunho descartada (ou NULL, se ele
+  // devolveu ainda a caminho). Sem este caso a linha sairia como
+  // "devolvido: OS-2026-0042 → não consegui acesso ao barrilete", que lê mal.
+  if (h.campo_alterado === "devolvido") {
+    const osTxt = h.valor_anterior
+      ? `<div class="ch-hist-meta">O.S. ${_waEscaparHtml(h.valor_anterior)} descartada</div>`
+      : "";
+    return `<div class="ch-hist-item">
+      <div class="ch-hist-dot"></div>
+      <div class="ch-hist-body">
+        <div class="ch-hist-titulo">Técnico devolveu o chamado para a fila</div>
+        <div class="ch-hist-meta">${_waEscaparHtml(String(h.valor_novo || "-"))}</div>
+        ${osTxt}
+        <div class="ch-hist-meta">${autor} · ${quando}</div>
+      </div>
+    </div>`;
+  }
   if (h.campo_alterado === "criado") {
     return `<div class="ch-hist-item">
       <div class="ch-hist-dot ch-hist-dot-criado"></div>

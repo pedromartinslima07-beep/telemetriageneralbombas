@@ -1289,6 +1289,44 @@ body:has(.screen-auth[data-active])::before { display: none; }
 .td-cta-bar .btn-lg { width: 100%; }
 .td-cta-bar .btn.btnAccent { box-shadow: 0 8px 24px rgba(240,176,20,.25); }
 
+/* Devolver o chamado para a fila (11/09/2026). Botao secundario de proposito:
+   e a SAIDA, nao o caminho -- ele nao pode competir com a acao principal da
+   barra ("Iniciar atendimento" / "Preencher O.S."). */
+.td-cta-bar .btn-devolver {
+  width: 100%;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 12px;
+  box-shadow: none;
+}
+.td-cta-bar .btn-devolver:active { background: rgba(255,255,255,.05); color: var(--text); }
+
+/* Bottom sheet do "Devolver" (reusa .os-foto-src-sheet do chooser de foto) */
+.td-dev-body { gap: 10px; }
+.td-dev-titulo { font-size: 16px; font-weight: 700; color: var(--text); }
+.td-dev-sub { font-size: 13px; color: var(--muted); margin-top: -4px; }
+.td-dev-aviso {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--danger);
+  background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.28);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.td-dev-motivo { width: 100%; resize: vertical; font-family: inherit; }
+.btn-devolver-confirm {
+  width: 100%;
+  background: var(--danger);
+  border: none;
+  color: #fff;
+}
+.btn-devolver-confirm:active { filter: brightness(.9); }
+
 /* Header back button */
 .header-back {
   width: 38px;

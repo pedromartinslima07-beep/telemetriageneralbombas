@@ -180,6 +180,28 @@ de `abrirChamadoAuto` e o guard da IA dependem disso.
 
 Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
 
+### ⚠️ O técnico devolve o chamado para a fila (11/09/2026)
+
+`POST /chamados/:id/devolver` (`{motivo}`, mín. 5 caracteres), **só o técnico
+dono**, válido a caminho ou já em atendimento. Até aqui a única saída do
+`em_atendimento` era **finalizar a O.S.** — afirmar que o serviço foi feito —,
+então quem não conseguia concluir ficava com o chamado preso até voltar ao
+prédio.
+
+- Volta a `aberto`, zera `tecnico_id` e `tecnico_a_caminho_em`; **mantém
+  `tecnico_chegou_em` e `primeira_resposta_em`** (o técnico chegou de verdade; o
+  SLA de chegada é fato, não estado de tela).
+- **Apaga a O.S. rascunho** — `UNIQUE (chamado_id)` travaria o próximo técnico,
+  e herdá-la daria a ele a chegada e o GPS de outra pessoa. O.S. **finalizada**
+  é 409.
+- **O cliente NÃO é avisado** — o oposto do cancelamento, de propósito. O motivo
+  fica em `historico_chamados` (`campo_alterado = 'devolvido'`).
+- **Sem migration.** Teste: `scripts/testes/devolver-chamado.test.js` (24).
+
+Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md)
+e [`../docs/modulos/app-mobile.md`](../docs/modulos/app-mobile.md); o porquê em
+[`decisions.md`](decisions.md).
+
 ### ⚠️ Escolher prédio é campo de BUSCA, não `<select>` (02/09/2026)
 
 `public/condo-picker.js` — arquivo **compartilhado** por `admin.html` e

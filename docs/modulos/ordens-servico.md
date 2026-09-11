@@ -37,6 +37,23 @@ um chamado.
 4. **Acesso ao PDF** — `GET /:id/pdf` (dono ou admin);
    `GET /cliente/ordens-servico/:id/pdf` (cliente do condomínio).
 
+### ⚠️ A O.S. rascunho é descartável — a finalizada não (11/09/2026)
+
+Uma O.S. nasce no `POST /chamados/:id/iniciar-atendimento`, antes de o técnico
+escrever qualquer coisa. Quando ele **devolve o chamado para a fila** (ver
+[chamados-sla.md](chamados-sla.md)), essa O.S. **é apagada** — fotos e peças
+saem por CASCADE, e quem só aponta para ela (`orcamentos.os_id`,
+`equipamentos.os_id`, `planos_manutencao.ultima_os_id*`) vira `NULL`.
+
+O motivo é o `UNIQUE` em `ordens_servico.chamado_id`: mantê-la colada travaria
+o `/iniciar-atendimento` do próximo técnico, e reaproveitá-la faria ele herdar
+`chegada_em`, `chegada_lat` e `chegada_lng` de outra pessoa — dados de GPS
+afirmando que ELE esteve lá naquela hora.
+
+⚠️ **O.S. com `finalizada_em` não entra nessa conta:** devolver o chamado
+devolve **409**. A essa altura o serviço foi prestado, com PDF, assinatura e
+possivelmente e-mail já enviado ao cliente.
+
 ### ⚠️ A assinatura vem em duas chamadas
 
 `assinatura_b64` (PNG base64, ~120KB) fica **fora** do `GET /:id` de

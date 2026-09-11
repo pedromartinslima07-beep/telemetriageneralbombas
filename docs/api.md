@@ -155,6 +155,7 @@ Webhook em **Públicas**. Demais exigem admin:
 | GET/POST | `/chamados/meus/:id/mensagens` | técnico (chat do chamado) |
 | POST | `/chamados/:id/iniciar-atendimento` | técnico (com GPS → `em_atendimento`) |
 | POST | `/chamados/:id/a-caminho` · `/:id/chegou` | técnico (SLA de chegada) |
+| POST | `/chamados/:id/devolver` | **técnico dono do chamado** (11/09/2026). Devolve o chamado à fila em qualquer ponto — a caminho ou já em atendimento —, exigindo **`motivo`** no corpo (mín. 5 caracteres). Volta o `status` a `aberto`, zera `tecnico_id` e `tecnico_a_caminho_em`, e **apaga a O.S. rascunho** (a finalizada não: 409). ⚠️ **`tecnico_chegou_em` e `primeira_resposta_em` FICAM** — o técnico chegou de verdade, e zerar isso reescreveria o SLA a favor da empresa. ⚠️ **O cliente não é avisado**, ao contrário do cancelamento: devolver é rodízio interno de equipe. 403 para qualquer um que não seja o técnico dono (admin incluído); 409 se o chamado estiver `fechado`/`cancelado`. O motivo fica em `historico_chamados` (`campo_alterado = 'devolvido'`) |
 
 ---
 

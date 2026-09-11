@@ -1393,6 +1393,101 @@ function configurarCTA(c) {
     btn.style = "";
     btn.onclick = () => abrirFormularioOS(c.id, c.ordem_servico?.id);
   }
+
+  // Devolver: só aparece depois que o técnico ACEITOU (saiu para o prédio ou já
+  // está em atendimento). Antes disso não há o que devolver — o chamado ainda
+  // está na fila. É botão secundário de propósito: é a saída, não o caminho.
+  //
+  // ⚠️ O `status` entra na conta, não só o carimbo. `cancelado` chega aqui com
+  // a barra visível (só `fechado` sai no return lá em cima) e pode ter
+  // `tecnico_a_caminho_em` de antes do cancelamento — o botão apareceria para
+  // dar 409.
+  const podeDevolver = (c.status === "aberto" && c.tecnico_a_caminho_em)
+                    || c.status === "em_atendimento";
+  if (podeDevolver) {
+    const sec = document.createElement("button");
+    sec.id = "tdCtaBtnSec";
+    sec.className = "btn btn-devolver";
+    sec.type = "button";
+    sec.textContent = "Devolver chamado";
+    sec.onclick = () => abrirSheetDevolver(c);
+    bar.appendChild(sec);
+  }
+}
+
+// Devolver o chamado para a fila (11/09/2026).
+//
+// O motivo é obrigatório no backend (mínimo 5 caracteres) e vai para o
+// histórico do chamado no painel do admin. Ele NÃO chega ao cliente — isto é
+// rodízio interno de equipe, não o cancelamento (aquele conta o porquê ao
+// cliente de propósito).
+function abrirSheetDevolver(c) {
+  const existing = document.getElementById("tdDevolverSheet");
+  if (existing) { existing.remove(); return; }
+
+  // Em atendimento significa que a O.S. rascunho já existe e vai ser apagada.
+  // O técnico precisa saber disso ANTES de confirmar — foto tirada no subsolo
+  // sem sinal nenhum é trabalho que não volta.
+  const avisoOs = c.status === "em_atendimento"
+    ? '<div class="td-dev-aviso">A Ordem de Serviço iniciada será descartada: fotos, peças e o que você já preencheu se perdem.</div>'
+    : "";
+
+  const sheet = document.createElement("div");
+  sheet.id = "tdDevolverSheet";
+  sheet.className = "os-foto-src-sheet";
+  sheet.innerHTML = `
+    <div class="os-foto-src-backdrop"></div>
+    <div class="os-foto-src-body td-dev-body">
+      <div class="td-dev-titulo">Devolver para a fila</div>
+      <div class="td-dev-sub">O chamado volta para a fila e sai da sua lista. Quem vai atender depois é decisão do escritório.</div>
+      ${avisoOs}
+      <textarea class="input td-dev-motivo" id="tdDevMotivo" rows="3" maxlength="500"
+        placeholder="Por que você não consegue concluir? (obrigatório)"></textarea>
+      <div class="alert error" id="tdDevAlert" hidden></div>
+      <button type="button" class="btn btn-lg btn-devolver-confirm" id="tdDevConfirm">Devolver chamado</button>
+      <button type="button" class="btn btn-lg" id="tdDevCancel">Voltar</button>
+    </div>`;
+  document.body.appendChild(sheet);
+
+  const fechar = () => sheet.remove();
+  sheet.querySelector(".os-foto-src-backdrop").addEventListener("click", fechar);
+  document.getElementById("tdDevCancel").addEventListener("click", fechar);
+  document.getElementById("tdDevMotivo").focus();
+  document.getElementById("tdDevConfirm").addEventListener("click", () => devolverChamado(c.id));
+}
+
+async function devolverChamado(id) {
+  const btn = document.getElementById("tdDevConfirm");
+  const alertEl = document.getElementById("tdDevAlert");
+  const motivo = (document.getElementById("tdDevMotivo")?.value || "").trim();
+
+  hideAlert(alertEl);
+  if (motivo.length < 5) {
+    showAlert(alertEl, "Escreva o motivo (pelo menos 5 caracteres).", "error");
+    return;
+  }
+
+  setBtnLoading(btn, true);
+  try {
+    if (!IS_DEMO) await api(`/chamados/${id}/devolver`, { method: "POST", body: { motivo } });
+
+    // O chamado deixou de ser dele: para o GPS daquele atendimento, fecha a
+    // ficha e volta pra lista, que recarrega sem ele.
+    gpsStop();
+    pararTimerTec();
+    document.getElementById("tdDevolverSheet")?.remove();
+    TD.chamado = null;
+    showScreen("tecnico-chamados");
+    if (!IS_DEMO) {
+      carregarMeusChamados(true);
+    } else {
+      TC.chamados = TC.chamados.filter((x) => x.id !== id);
+      renderTecnicoChamados();
+    }
+  } catch (err) {
+    showAlert(alertEl, err.message, "error");
+    setBtnLoading(btn, false);
+  }
 }
 
 async function registrarACaminho(id) {

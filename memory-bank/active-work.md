@@ -10,7 +10,7 @@ aliases:
 > Branch atual: **`main`**, limpa. `feature/admin-chapa` (11 commits) e a tela
 > de orçamento do cliente já foram mergeadas — a produção
 > (`telemetria.generalbombas.com`) está servindo as duas.
-> Última sessão registrada: **2026-09-08**.
+> Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
 > ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
@@ -121,6 +121,53 @@ placar saiu e a frase que sobrou já estava lá), a legenda de cor dos pinos do
 mapa, e o rótulo "TURNO" ao lado da marca.
 
 ---
+
+## Sessão 2026-09-11 — O técnico devolve o chamado que não conseguiu fazer
+
+*"em alguns casos, quando o técnico está no condomínio para fazer o serviço, ele
+não consegue finalizar, mas hoje, depois que você aceita o chamado no app, não dá
+para cancelar — então o chamado fica em atendimento até o técnico conseguir
+voltar no condomínio, e acho que isso não está certo"*.
+
+**A saída que faltava não era um status, era uma porta.** A única maneira de
+tirar um chamado do `em_atendimento` era **finalizar a O.S.** — que afirma que o
+serviço foi feito. Quem não podia afirmar isso não saía: o chamado mentia "em
+atendimento" por dias, o técnico ficava carregado no workload do painel ao vivo
+e o prédio, fora da fila de despacho.
+
+**Entregue:** `POST /chamados/:id/devolver` (motivo obrigatório, só o técnico
+dono, vale a caminho ou em atendimento) + botão secundário na barra de ação do
+app + linha própria no histórico do admin.
+
+As duas perguntas que mudaram o desenho, e as respostas do Pedro:
+
+| Pergunta | Resposta |
+|---|---|
+| Devolver a qualquer momento, ou só antes de iniciar? | **"a qualquer momento"** |
+| A O.S. rascunho já preenchida: apagar ou guardar? | **"pode apagar"** |
+| O cliente fica sabendo? | **"não quero que a informação vá para o cliente"** |
+| Ele vai ver o chamado voltar a "Aberto" sem técnico — esconder isso também? | **"não tem problema"** |
+
+⚠️ **O que quase passou batido: `tecnico_a_caminho_em` e `tecnico_chegou_em`
+parecem o mesmo carimbo e não são.** O primeiro é estado de UI — é ele que faz
+o app decidir entre "A caminho" e "Iniciar atendimento", e mantê-lo entregaria
+ao próximo técnico um botão de chegada sem ele ter saído de casa. O segundo é
+fato de contrato: aquele técnico chegou naquela hora, e a cláusula 7 mede
+chegada. **Antes de zerar um timestamp, pergunte se ele é estado ou fato.**
+
+⚠️ **A cicatriz desta sessão foi do teste, não do código.** A primeira versão de
+`devolver-chamado.test.js` pulava o `POST /chegou` (que é quem grava
+`tecnico_chegou_em`) e "provava" que o campo sobrevivia à devolução — provando a
+preservação de algo que nunca havia sido gravado. Ela falhou e mostrou o buraco.
+**Teste que não reproduz a sequência real do app prova a asserção, não o
+comportamento.** Corrigido: 24/24.
+
+**Não implementado de propósito:** a "pausa com retorno" (o técnico continua
+dono, o chamado vira "aguardando retorno"). Foi oferecida junto com a devolução;
+o Pedro escolheu a devolução. Se a prática mostrar que a maioria dos casos é "vou
+voltar amanhã", ela volta à mesa — ver [`decisions.md`](decisions.md).
+
+**Sem migration.** `?v=N`: `admin.js` 352, `admin.css` 262.
 
 ## Sessão 2026-09-08 — Os alertas do admin
 

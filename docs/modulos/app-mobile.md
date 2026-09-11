@@ -620,6 +620,37 @@ armazenamento leva o rascunho junto. É local, não é backup.
 PATCH e do rascunho, que é justamente o caminho a exercitar. O jeito é
 interceptar o `fetch` na página e derrubar/levantar a rede.
 
+## Devolver o chamado para a fila (11/09/2026)
+
+Até aqui, `configurarCTA()` só sabia avançar: "A caminho" → "Iniciar
+atendimento" → "Preencher Ordem de Serviço". **Não havia marcha à ré** — quem
+aceitava e não conseguia concluir ficava com o chamado preso em
+`em_atendimento` até voltar ao prédio.
+
+`abrirSheetDevolver()` + `devolverChamado()` (`app/public/app.js`) chamam
+[`POST /chamados/:id/devolver`](chamados-sla.md) com motivo obrigatório.
+
+- **O botão é secundário, e aparece tarde.** `#tdCtaBtnSec` só é criado com
+  `status = 'aberto'` **e** `tecnico_a_caminho_em`, ou com `em_atendimento` —
+  antes disso não há o que devolver. ⚠️ **O `status` entra na conta, não só o
+  carimbo:** `cancelado` chega em `configurarCTA()` com a barra visível (só
+  `fechado` sai no `return` do topo) e pode carregar um `tecnico_a_caminho_em`
+  de antes do cancelamento — o botão apareceria só para dar 409. É discreto de propósito: a barra tem **uma** ação
+  principal, e devolver não é ela. ⚠️ `configurarCTA()` **remove o secundário
+  no topo**, toda vez: a `.td-cta-bar` do `index.html` é uma só, reusada por
+  todos os chamados, e um botão esquecido nela apareceria no chamado seguinte.
+- **O sheet reusa `.os-foto-src-sheet`** (o chooser câmera/galeria) para não
+  criar um segundo padrão de modal no app. Ele é anexado ao `document.body`, ou
+  seja, **fora do `[data-screen^="tecnico-"]`** — herda o tema base do
+  `app.css`, exatamente como o chooser de foto.
+- ⚠️ **O aviso sobre a O.S. não é enfeite.** Em `em_atendimento` a O.S. rascunho
+  já existe e **vai ser apagada** pelo backend. O técnico precisa ler isso antes
+  de confirmar: foto tirada no subsolo, sem sinal, é trabalho que não volta.
+- **Ao devolver:** `gpsStop()`, `pararTimerTec()`, volta à lista e recarrega. O
+  chamado deixou de ser dele — continuar mandando GPS daquele atendimento seria
+  rastrear o técnico por um serviço que ele não está mais fazendo.
+- **O cliente não é avisado** — ver [chamados-sla.md](chamados-sla.md).
+
 ## A tela de fim de O.S. (01/09/2026)
 
 `mostrarOSSucesso()` (`app/public/app.js`) troca o conteúdo de `#osSections`
