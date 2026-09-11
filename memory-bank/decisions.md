@@ -347,15 +347,30 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   subdomínios) e resolvia bloqueio por adblock/firewall corporativo, mas **não é
   mais o caminho do mapa**: concentrar as tiles de todos os clientes num IP só
   da Railway dava rate-limit. Hoje cada browser baixa do CDN do Carto.
-- **Tile do OSM está fora, e é definitivo** (11/09/2026). Entre o rate-limit do
-  proxy e o Carto direto, passou-se um período usando
-  `tile.openstreetmap.org` no browser — até o OSM bloquear o app: **403 em toda
-  tile**, cada uma virando um cartaz *"App is not following the tile usage
-  policy of OpenStreetMap's volunteer-run servers"*. Aqueles servidores são de
-  voluntários e a política não cobre app em produção; o bloqueio é por
+- **Tile do OSM está fora, e é definitivo** (11/09/2026). Passou-se um período
+  usando `tile.openstreetmap.org` no browser — até o OSM bloquear o app: **403
+  em toda tile**, cada uma virando um cartaz *"App is not following the tile
+  usage policy of OpenStreetMap's volunteer-run servers"*. Aqueles servidores
+  são de voluntários e a política não cobre app em produção; o bloqueio é por
   aplicação, então a URL segue respondendo 200 em `curl` de fora e o problema
-  parece ser de quem está olhando a tela. **Não há request a ajustar** — tile
-  para produção sai de provedor que vende isso.
+  parece ser de quem está olhando a tela. **Não há request a ajustar.**
+- **Provedor é o Esri World Topo Map** (11/09/2026), escolhido com os candidatos
+  lado a lado, num comparador montado no browser. O que pesou:
+  - **Carto ❌** — resolveu o 403, mas hoje exige chave, e sem chave não recusa:
+    carimba "API KEY REQUIRED" por cima do mapa. Volta a ser opção no dia em que
+    houver conta (e aí a chave vai no proxy `/tiles`, não no front, que é
+    público).
+  - **Esri Canvas cinza ❌** — o mais bonito dos candidatos no painel, e o de
+    melhor contraste com os pinos. Descartado por **parar no zoom 16**: o
+    mini-mapa do cadastro precisa da porta do prédio, e acima do teto a Esri
+    devolve 200 com a placa "Map data not yet available", que nada no código
+    detecta.
+  - **Esri Street Map ❌** — vai até 19, mas é bege e laranja. Num painel onde a
+    cor do pino é o alarme, o vermelho das rodovias briga com o P1.
+  - **Esri Topo ✅** — claro, cinza-suave, zoom 19, pinos legíveis por cima.
+  - Ressalva registrada: o Esri **também** não pede chave, que é o mesmo arranjo
+    que nos derrubou com o OSM. Os termos deles pedem conta ArcGIS para uso em
+    aplicação. Se repetir, o caminho já está mapeado — conta + chave no proxy.
 - **Geocoding híbrido:** ViaCEP (texto) + BrasilAPI + AwesomeAPI (coords) +
   Nominatim (fallback, fila de 1 req/s respeitando ToS). Reverse geocode ao
   arrastar o pino sobrescreve os campos.

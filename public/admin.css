@@ -3033,9 +3033,14 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   color: var(--text);
 }
 
-/* Tema dark do Leaflet — atenua o fundo branco dos controles */
+/* Leaflet dentro do painel dark. Os controles seguem escuros — botão escuro
+   sobre basemap claro tem contraste de sobra e mantém a moldura do painel.
+   ⚠️ O `background` aqui é o que se vê ENQUANTO a tile não chegou. Com o
+   basemap claro de hoje (Esri Topo), deixá-lo escuro fazia cada pan piscar um
+   buraco preto na direção do gesto. Ele acompanha a cor do papel do basemap,
+   não a do painel. */
 .leaflet-container {
-  background: #0d1325 !important;
+  background: #ecebe4 !important;
   font-family: inherit;
 }
 .leaflet-control-zoom a {

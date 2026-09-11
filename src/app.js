@@ -63,15 +63,19 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      // Tiles do mapa — Leaflet baixa imagens diretamente do CDN público.
-      // Carto Dark é o preferido (tema dark), com fallback pro OpenStreetMap
-      // padrão caso o Carto seja bloqueado por adblock / rede / etc.
+      // Tiles do mapa — Leaflet baixa as imagens direto do servidor do
+      // provedor. Hoje é o Esri (World Topo Map); ver `_criarTileLayer` em
+      // `public/admin.js` para o histórico da troca.
+      //
+      // ⚠️ Esta lista é o que decide se o mapa aparece. Provedor fora dela é
+      // bloqueado pelo browser SEM ERRO VISÍVEL no lugar certo: a tile
+      // simplesmente não vem, o mapa fica cinza, e o console mostra violação
+      // de CSP e não falha de rede. Ao trocar de provedor, trocar aqui junto.
       "img-src": [
         "'self'",
         "data:",
         "blob:",
-        "https://*.basemaps.cartocdn.com",
-        "https://*.tile.openstreetmap.org",
+        "https://services.arcgisonline.com",
       ],
       // Auto-preenchimento de endereço por CEP:
       //   ViaCEP      — texto granular
@@ -235,6 +239,16 @@ const _TILE_CACHE_MAX = 4000;
 const _tileInflight = new Map();
 
 async function _baixarTileUpstream(z, x, y) {
+  // ⚠️ ESTE PROXY ESTÁ FORA DO CAMINHO DO MAPA desde 11/09/2026, e o upstream
+  // aqui é o Carto — que hoje, SEM CHAVE, devolve a tile com "API KEY
+  // REQUIRED" carimbado por cima. Quem chamar `/tiles/...` recebe mapa
+  // carimbado, não erro. O mapa de verdade vai direto ao provedor pelo
+  // browser (ver `_criarTileLayer` em `public/admin.js`).
+  //
+  // A rota fica de pé porque é o lugar certo para uma chave de API no dia em
+  // que houver uma: no front ela é pública, aqui não. Quem for religar isso
+  // troca o upstream e a chave JUNTO — religar como está só espalha o carimbo.
+  //
   // Rotaciona subdomínios pro paralelismo (Carto aceita a/b/c/d)
   const sub = "abcd"[(Number(z) + Number(x) + Number(y)) % 4];
   const url = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`;

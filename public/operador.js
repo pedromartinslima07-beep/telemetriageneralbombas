@@ -823,15 +823,17 @@ function dlgDespacho(id) {
    ajuste que existe aqui (reenvio de tile) foi caro de descobrir.
    Tiles direto no browser, como no admin: o proxy `/tiles` do backend dava
    rate-limit no IP da Railway (ver `_criarTileLayer`, admin.js).
-   ⚠️ Provedor é o Carto, NÃO o `tile.openstreetmap.org` — em 11/09/2026 o OSM
+   ⚠️ Provedor é o Esri, NÃO o `tile.openstreetmap.org` — em 11/09/2026 o OSM
    passou a devolver 403 "Access blocked / App is not following the tile usage
-   policy" em toda tile, e o mapa do turno virou um mosaico de aviso. O motivo
-   inteiro está em `_criarTileLayer` (admin.js); os dois têm de andar juntos.
-   `dark_all` já é escuro: sem a className `map-tiles-dark`, que inverteria. */
+   policy" em toda tile, e o mapa do turno virou um mosaico de aviso. O Carto,
+   a primeira tentativa de troca, carimba "API KEY REQUIRED" por cima do mapa
+   inteiro quando não há chave. O motivo completo, a ordem invertida `{z}/{y}/{x}`
+   e o porquê do teto de zoom 19 estão em `_criarTileLayer` (admin.js); os dois
+   têm de andar juntos. Basemap CLARO: nenhuma inversão de cor. */
 function camadaTiles(mapa) {
-  const camada = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    { subdomains: "abcd", maxZoom: 20,
-      attribution: "© OpenStreetMap contributors © CARTO",
+  const camada = L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    { maxZoom: 19,
+      attribution: "© Esri · © OpenStreetMap",  // curto: quebra em 2 linhas tapa o mapa
       // ⚠️ OS TRÊS DO ADMIN (`_criarTileLayer`, admin.js), que faltavam aqui.
       // `keepBuffer` guarda um anel de tiles fora da vista, então arrastar o
       // mapa não abre buraco cinza na direção do gesto; `updateWhenIdle:false`

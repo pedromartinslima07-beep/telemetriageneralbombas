@@ -72,11 +72,11 @@ prefixo descarta respostas obsoletas em arrastos rápidos.
 
 ## Renderização do mapa (tiles)
 
-Os tiles vêm do **Carto, basemap `dark_all`**, baixados **direto do CDN pelo
-browser** de cada usuário:
+Os tiles vêm do **Esri World Topo Map**, baixados **direto pelo browser** de
+cada usuário:
 
 ```
-https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
+https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}
 ```
 
 Um único ponto de verdade por front: `_criarTileLayer` em `public/admin.js`
@@ -84,26 +84,49 @@ Um único ponto de verdade por front: `_criarTileLayer` em `public/admin.js`
 `camadaTiles` em `public/operador.js` (mapa do turno e do diálogo de despacho).
 Os dois têm de andar juntos — o comentário longo mora no `admin.js`.
 
-**Por que Carto e não `tile.openstreetmap.org`:** os servidores de tile do OSM
-são mantidos por voluntários e a política de uso deles não cobre aplicação em
-produção. Em 11/09/2026 o OSM bloqueou este app: **403 em toda tile**, cada uma
-substituída por um cartaz *"Access blocked — App is not following the tile usage
-policy"*. O mapa do operador virou um mosaico de aviso. Detalhe que atrapalha o
-diagnóstico: o bloqueio é **por aplicação**, então a mesma URL responde 200 num
-`curl` de fora. **Não voltar para o OSM.**
+### Três armadilhas desta URL
 
-`dark_all` já é escuro de origem — por isso **não** leva mais a classe
-`.map-tiles-dark` (o `invert()` daquela regra clareava uma tile já escura). A
-regra foi removida de `admin.css` e `operador.css` junto.
+1. **A ordem é `{z}/{y}/{x}`** — y **antes** de x, convenção da Esri, o
+   contrário de todo mundo. Trocar os dois **não dá erro**: devolve uma tile
+   válida do lugar errado, e o mapa abre num pedaço aleatório do planeta.
+2. **O teto real é o zoom 19.** Dali em diante a Esri responde **200** com uma
+   imagem cinza escrita *"Map data not yet available"* — sempre **2521 bytes**,
+   que é como se reconhece. Não é erro, então nada no código percebe. O
+   `maxZoom: 19` é o que impede o Leaflet de chegar lá.
+3. **A CSP decide se o mapa aparece.** `img-src` em `src/app.js` lista o host
+   do provedor; fora dela o browser bloqueia sem erro no lugar certo — mapa
+   cinza, e a queixa aparece no console como violação de CSP, não como falha de
+   rede. Trocar de provedor = trocar a CSP junto.
+
+### Por que não os outros
+
+| Provedor | Situação |
+|---|---|
+| `tile.openstreetmap.org` | **bloqueou o app em 11/09/2026** — 403 em toda tile, com o cartaz "App is not following the tile usage policy". Servidores de voluntários; a política não cobre app em produção. **Não voltar.** |
+| Carto (`dark_all`, `voyager`, `light_all`) | hoje exige chave. Sem chave não recusa: serve o mapa com **"API KEY REQUIRED" carimbado na diagonal**. Volta a ser opção no dia em que houver conta. |
+| Esri Canvas (cinza claro/escuro) | o mais bonito no painel, mas **para no zoom 16** — o cadastro precisa da porta do prédio. |
+| Esri World Street Map | funciona até 19, mas é bege e laranja: o vermelho das rodovias briga com o vermelho do pino crítico. |
+| Esri World Imagery (satélite) | funciona até 19; pesado para o painel, mas seria o melhor no mini-mapa do cadastro. Não adotado (um estilo só, por ora). |
+
+Basemap **claro** — nenhuma camada leva className de inversão (a antiga
+`.map-tiles-dark` foi removida de `admin.css` e `operador.css`). O
+`background` do `.leaflet-container` acompanha a cor do papel do basemap
+(`#ecebe4`), não a do painel: é o que se vê enquanto a tile não chegou, e
+escuro ali fazia cada pan piscar um buraco preto.
+
+O crédito é curto de propósito (`© Esri · © OpenStreetMap`): o card do mapa no
+painel do operador tem ~350px, e o texto longo quebrava em duas linhas, tapando
+o canto do mapa.
 
 Cliente Leaflet: `keepBuffer: 4`, `updateWhenIdle: false`, `updateInterval: 100`
 (carrega durante o pan, sensação de fluidez) e reenvio de tile que falhou — o
-Leaflet não repete o pedido sozinho, e tile perdida fica preta para sempre.
+Leaflet não repete o pedido sozinho, e tile perdida fica em branco para sempre.
 
 O proxy `GET /tiles/:z/:x/:y.png` (em `src/app.js`) **continua existindo** mas
-não é mais o caminho do mapa: concentrar todas as tiles de todos os clientes num
-IP só da Railway dava rate-limit. Direto do CDN, cada usuário gasta a própria
-cota.
+não é o caminho do mapa: concentrar todas as tiles de todos os clientes num IP
+só da Railway dava rate-limit. Direto do provedor, cada usuário gasta a própria
+cota. Ele volta a fazer sentido no dia em que houver uma chave de API a
+esconder do front.
 
 > **Sem markercluster** — decisão consciente (ver
 > [`../../memory-bank/decisions.md`](../../memory-bank/decisions.md)).

@@ -11996,6 +11996,4804 @@ devolução em que ele nunca tinha sido gravado.
 `?v=N`: `admin.js` 351 → **352**, `admin.css` 261 → **262**. `sw.js` não muda —
 o endpoint novo é `POST` (a lista network-first só vale para `GET`).
 
+## O OSM bloqueou o mapa; provedor agora é o Esri (2026-09-11)
+
+O mapa do painel do operador amanheceu como um mosaico de cartazes **"Access
+blocked — App is not following the tile usage policy of OpenStreetMap's
+volunteer-run servers"**, com **403 em toda tile**. O admin usa a mesma origem
+e estava no mesmo estado.
+
+Não era código quebrado: os servidores de tile do OSM são mantidos por
+voluntários, a política deles não cobre aplicação em produção, e o bloqueio é
+**por aplicação** — a mesma URL responde 200 num `curl` de fora, o que faz o
+problema parecer local de quem está olhando. Não há ajuste de request que
+contorne.
+
+**Duas trocas no mesmo dia.** A primeira foi para o Carto (`dark_all`), que
+resolveu o 403 — e revelou outro problema só quando o mapa foi aberto no
+browser: os basemaps do Carto hoje exigem chave, e **sem chave ele não recusa,
+ele carimba** "API KEY REQUIRED" na diagonal, repetido por cima da cidade. Pior
+de detectar que um 403, porque o mapa "funciona".
+
+A segunda troca foi decidida olhando os candidatos lado a lado, e é a que ficou:
+**Esri World Topo Map** — claro, cinza-suave, sem chave, e com os pinos de
+status legíveis por cima (num painel onde a cor do pino é o alarme, basemap
+colorido briga com o vermelho do P1).
+
+```
+https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}
+```
+
+Medido tile a tile, não lido na documentação:
+
+| Basemap | Zoom com dados |
+|---|---|
+| Esri Street / Topo / Satélite | **19** |
+| Esri Canvas cinza (claro e escuro) | 16 |
+| Carto (com chave) | 20 |
+
+Acima do teto a Esri devolve **200** com a imagem "Map data not yet available"
+(2521 bytes, sempre a mesma) — por isso `maxZoom: 19`, e por isso os Canvas
+cinza foram descartados apesar de serem os mais bonitos no painel: o mini-mapa
+do cadastro precisa chegar na porta do prédio.
+
+O que mudou no código:
+
+- `public/admin.js` → `_criarTileLayer` e `public/operador.js` → `camadaTiles`.
+  São os **dois únicos** pontos de tile; têm de andar juntos.
+- **`img-src` da CSP** (`src/app.js`) passa a listar `services.arcgisonline.com`
+  — sem isso o browser bloqueia a tile sem erro no lugar certo, e o mapa fica
+  cinza. Foi exatamente o que aconteceu no primeiro teste.
+- **`.map-tiles-dark` removida** de `admin.css` e `operador.css`: ela invertia a
+  tile clara do OSM, e sobre um basemap claro clarearia o mapa de volta.
+- `.leaflet-container` ganha fundo `#ecebe4` (cor do papel do basemap) no lugar
+  do `#0d1325`: escuro ali fazia o pan piscar um buraco preto onde a tile ainda
+  não chegou.
+- Crédito curto (`© Esri · © OpenStreetMap`): o texto longo quebrava em duas
+  linhas e tapava o canto do mapa no card do operador.
+
+Detalhe, e as três armadilhas da URL (ordem `{z}/{y}/{x}`, teto de zoom, CSP),
+em [`modulos/mapa-geocoding.md`](modulos/mapa-geocoding.md).
+
+Testado sem login pela rota `/dev/_operador-preview.html`, que roda o
+`operador.js` de verdade: mapa do turno e mapa do diálogo de despacho. Os três
+mapas do admin (dashboard, página Mapa, mini-mapa do cadastro) usam a mesma
+`_criarTileLayer`, mas **não foram vistos em tela** — exigem sessão.
+
+**Sem migration** — nada de schema.
+
+`?v=N`: `admin.js` 352 → **354**, `admin.css` 262 → **264**, `operador.js`
+80 → **82**, `operador.css` 109 → **111** (e 108 → **111** em
+`operador-orcamentos.html`, `operador-preventivas.html` e `tecnico.html`, que
+carregam o mesmo CSS). `sw.js` não muda: tile é cross-origin e já passa direto,
+sem tocar no cache do service worker.
+
+
+> Decisões, itens descartados e backlog futuro:
+> [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
+> [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
+> [`modulos/`](modulos/README.md).
+
+### 2026-08-31 · O trilho responde "quem pode ir" com duas peças
+
+Continuação do corte de 28/08, agora na coluna da direita. Cada técnico
+mostrava **quatro coisas** — selo de iniciais, nome, estado e uma nota de GPS
+("no mapa" / "sem posição") — para responder **uma** pergunta: *quem pode ir*.
+Duas dessas quatro não respondiam nada.
+
+| | Antes | Agora |
+|---|---|---|
+| Peças por linha | 4 | **2** (nome · estado) |
+| Colunas da linha | 3 (flex) | **nenhuma** — nome, e o estado embaixo |
+| Sinais de disponibilidade | 2 (anel verde + tinta) | **1** (a tinta do estado) |
+
+- **O selo de iniciais saiu.** Ele não identifica ninguém que o operador já não
+  reconheça pelo nome — é a equipe dele, quatro pessoas. Um "MR" chanfrado ao
+  lado de "Marcos Ribeiro" é decoração ocupando a primeira posição da linha,
+  que é justamente onde o olho entra.
+- **"no mapa" saiu.** Aparecia em quase toda linha, **logo abaixo do mapa que
+  já mostra o pino** — a nota repetia o que o instrumento acima diz melhor.
+  Ficou só a **exceção**: quando falta posição, isso se diz, em tinta apagada
+  (`--muted`, medido em 5,7:1 sobre a chapa).
+- **O anel verde foi junto com o selo**, e isso é ganho, não perda: a
+  disponibilidade tinha dois lugares para morar (o anel e a cor do estado) e
+  agora tem um. `.tec[data-liv="1"] .tec-av` era a única regra viva desse anel;
+  o `.tec-av` que sobrou serve só ao diálogo de despacho, que ainda não passou
+  pelo corte.
+- **"Despachados hoje" perdeu o ícone de rota**, que se repetia idêntico em
+  toda linha. O cabeçalho da seção já diz que ali é rota.
+- `.tec` deixou de ser `flex` de três colunas e virou bloco: sem selo e sem
+  nota, não havia mais eixo horizontal nenhum para distribuir.
+
+⚠️ **O "·" da ressalva é TEXTO, não `content` de `::before`.** Como
+pseudo-elemento ele sumia do `innerText`: quem copiasse a linha — e quem a
+ouvisse num leitor de tela — recebia *"Ocupadosem posição"* numa palavra só. O
+defeito não aparece em screenshot nenhum; apareceu ao ler o `innerText` na
+prévia. **Separador que o usuário lê é conteúdo, e conteúdo mora no markup.**
+
+Verificado em `/dev/_operador-preview.html` (mesa a 1440 e celular a 390, por
+iframe): render correto nos quatro estados da fixture — ocupado com posição,
+livre com posição, e livre/ocupado **sem** posição —, console limpo,
+`node --check` limpo, detector do impeccable sem achado novo.
+
+### 2026-09-08 (7ª rodada) · A etiqueta grande, pra recortar e plastificar
+
+Nem toda bomba mora ao alcance da mão. Quando o QR precisa ser lido de longe —
+ou quando não há folha adesiva por perto — o caminho é imprimir em sulfite
+comum, recortar e plastificar. Entrou o formato `grande`: **130 × 80 mm, 3 por
+folha** (1 × 3), com marcas de corte.
+
+⚠️ **Ele tomou o lugar do `pimaco6180`** no seletor, a pedido: a A4260 não é
+papel que a operação use. Os três formatos hoje são `corte`, `grande` e
+`pimacoA4263`.
+
+**Só cabe uma por linha** — 2 × 130 mm estouraria os 210 da folha. Sobram 40 mm
+de cada lado e a grade fica centralizada (aqui pode: papel comum não tem
+picotagem pra respeitar). Três linhas de 80 mm com 5 de medianiz ocupam 250 dos
+297, deixando 23,5 mm em cima.
+
+Aqui a **borda tracejada é recurso, não sujeira**: nas folhas adesivas ela é
+omitida pra não imprimir traço em cima do picote; no papel comum ela é a linha
+da tesoura.
+
+⚠️ **Aumentar só o QR deixaria a faixa marinho parecendo tarja perdida no topo.**
+Como na A4263, o formato declara `medidas` próprias e tudo cresce junto: faixa
+de 20 mm, chanfro de 14, logo 82 × 14, **QR de 45 mm** (mais que o dobro da área
+do da A4263) e o código humano a 30pt — porque é ele que salva quando a
+plastificação amarelar ou riscar.
+
+Conferido renderizando a folha e olhando: os 80 mm comportam faixa + QR + pé sem
+transbordo, e o código de 9 caracteres cabe na largura que sobra ao lado do QR.
+
+`?v=N`: nada a bumpar — a mudança no front foi só uma `<option>` do
+`admin.html`, que já sai com `Cache-Control: no-cache`.
+
+> Decisões, itens descartados e backlog futuro:
+> [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
+> [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
+> [`modulos/`](modulos/README.md).
+
+### 2026-08-31 · O placar de três números sai, e a engrenagem muda de casa
+
+Segundo passe do dia, na mesma direção. O Pedro deixou a decisão em aberto
+("some, ou vira uma linha só?") e delegou a escolha. **Escolhido: some.**
+
+**Por que "some" e não "uma linha":** uma linha ainda seria um terceiro lugar
+dizendo o mesmo. Os dois cabeçalhos de seção **já são** essa linha, e são
+melhores por estarem colados na lista que contam — número a 400px de distância
+da coisa contada é um placar que se precisa memorizar.
+
+Dos três números, dois eram repetição literal, com as mesmas palavras, a 40px
+de distância:
+
+| Placar dizia | O que já estava na tela |
+|---|---|
+| `4` esperando alguém | cabeçalho **"Esperando alguém — 4 chamados"** |
+| `1` com técnico | cabeçalho **"Já tem técnico — 1 chamado"** |
+| `1` fora do prazo | *nada* — este era o único que valia |
+
+E no dia calmo o placar dizia **"0 chamados abertos"** em miniatura logo acima
+do **"Nenhum chamado aberto."** em corpo de manchete: a mesma frase, dois
+tamanhos, 40px de distância. Era esta duplicação que abriu o item.
+
+- **"fora do prazo" desceu para o cabeçalho da seção**, em `--risco` (6,3:1) —
+  a mesma tinta da régua do item estourado, para o cabeçalho e os itens que ele
+  conta dizerem a mesma coisa com a mesma cor. **Nenhuma palavra nova entrou na
+  tela:** "fora do prazo" é o rótulo que o placar já usava.
+- **E ficou mais preciso ali.** O placar somava a fila inteira; agora cada
+  seção conta os seus. Um chamado estourado que **já tem técnico** não é
+  pendência de despacho, e contá-lo junto com os que esperam era enganoso.
+  Quando o número é zero, o trecho não aparece.
+- **Ganho de primeira tela:** o primeiro item subiu de **y=225 para y=120** na
+  mesa, e de y=302 para ~y=105 no celular. Quem abre o painel cai na fila.
+
+⚠️ **A ENGRENAGEM DE FUNDO MUDOU DE CASA, e o campo aberto mudou de eixo.**
+A máscara em px do `.eng` a continha numa faixa HORIZONTAL — barra + placar +
+cabeçalho da fila. Sem o placar essa faixa caiu de **157px para 49** (a barra
+é opaca por cima), e o que sobrava não era engrenagem: era uma mancha, o topo
+de um círculo de 720px. **A conclusão errada seria "a peça não cabe mais
+nesta tela".** Ela cabe — o campo aberto virou vertical. Medido a 1920: o
+conteúdo ocupa x=255..1675 (fila de 1000 + trilho de 400), sobrando **245px de
+margem à direita correndo a altura inteira do viewport**, mais área contínua
+do que a faixa antiga jamais teve.
+
+**Ela passou a abraçar o mapa** — pedido do Pedro, e foi o terceiro arranjo da
+peça no mesmo dia. Os dois anteriores ficam registrados porque falharam pelo
+mesmo motivo, e o motivo é a lição:
+
+| Arranjo | Por que caiu |
+|---|---|
+| Faixa horizontal no topo, contida por máscara em px | A faixa dependia do placar; caiu de 157px para 49 |
+| Margem direita da janela, sangrando pela borda | Só existia acima de 1800px — a margem é `(largura − 1420) / 2` e some no notebook |
+
+**Os dois ancoravam a peça na JANELA.** Ancorada no **conteúdo** ela para de
+depender do tamanho do monitor. Hoje são dois elementos: `.eng` é o **recorte**
+— a coluna do trilho, com `overflow:hidden` — e `.eng-roda` é a peça, centrada
+no mapa. Com isso **a engrenagem não encosta na coluna da fila em largura
+nenhuma**, e o dente aparecendo nas frestas entre cartões deixou de ser
+possível **por construção, não por calibragem**. Quem corta a roda por dentro é
+o **mapa**, que é opaco e fica por cima: ela emerge acima, à direita e abaixo
+dele. Não há máscara em px em lugar nenhum deste bloco — a oclusão virou
+geometria de layout. É `fixed`, e funciona porque o trilho é `sticky`: a
+posição do mapa no viewport não muda enquanto a fila rola por baixo.
+
+⚠️ **A roda NÃO fica no centro do mapa.** Centrada nele (`left: -179px`, a
+conta exata) ela sumia quase inteira atrás da peça — foi o que o Pedro apontou.
+Puxada 99px para a direita (`-80px`), ela emerge à direita do mapa sem perder o
+abraço: o anel continua passando acima e abaixo dele. Testei o extremo (`0px`)
+e ali ela lê como peça **ao lado** do mapa, não abraçando.
+
+⚠️ **Pré-requisito: `.trilho` perdeu o `background`.** Ele era `--mar-900`,
+EXATAMENTE a cor do `body` — pintava por cima da engrenagem sem mudar um pixel
+do que se via. Quem devolver aquele fundo faz a peça sumir sem nenhum outro
+sintoma.
+
+⚠️ **A borda esquerda do recorte é um `min()` de duas expressões**, porque o
+trilho muda de regime: acima de ~1340 o par centra (`50% + 315px`), abaixo
+disso o conteúdo encosta no gutter (`100% − trilho − 10px`). Com só a primeira,
+o recorte ficava 120px à direita do trilho a 1200px e comia a peça; com só a
+segunda, avançaria sobre a fila a 1920.
+
+⚠️ **Abaixo de 1180 ela não entra** — a quebra exata em que o trilho vira faixa
+horizontal. **Eu tinha escrito 1080** (o número da landing), e a 1150 a
+engrenagem aparecia por cima dos itens. Nenhum screenshot pegou: só apareceu
+comparando o retângulo do `.eng` com o do `.trilho` na mesma medição.
+
+Saíram com a máscara os dois falsos positivos de cor do detector (o `#000` das
+máscaras), que o comentário do CSS já registrava como falsos.
+
+Verificado em `/dev/_operador-preview.html`, mesa a 1440 e celular a 390: dia
+cheio, **dia calmo** (a frase agora aparece uma vez só), estourado na fila,
+estourado com técnico e zero estourados (o trecho some). Console limpo,
+`node --check` limpo, detector sem achado novo — 31 advertências de
+`font-size`, contra 34 antes, e nenhuma de cor.
+
+### 2026-08-31 (15ª rodada) · Os pinos crescem quando o mapa cresce
+
+> "Abri ele em uma tela grande e os ícones não estão muito bonitos, são muito
+> pequeninhos, então a leitura não fica muito boa." — o Pedro, sobre o mapa do
+> painel do operador.
+
+Os três pinos do mapa nasceram medidos para a caixa em que foram desenhados: a
+coluna do trilho, 400px de largura. Em **tela cheia** (ou na faixa abaixo de
+1180px, onde o trilho deixa de ser coluna) a caixa vira a janela inteira e os
+mesmos 22 · 28 · 26px viram confete — o mapa continua certo e deixa de ser
+legível, que é o pior tipo de defeito porque não parece defeito.
+
+**A escala segue a largura do MAPA, não a da janela.** `escalaPinos()` mede o
+próprio Leaflet depois do `invalidateSize()` e escreve `data-esc="g"` no
+`.mapa-tela` acima de **800px** — o mesmo limiar que já escolhia o
+enquadramento, agora extraído em `MAPA_LARGO` para não haver dois números
+querendo dizer "mapa largo". Acima dele os pinos vão para **30 · 40 · 36px**,
+com face, chanfro e halo do estourado na mesma proporção, e a legenda ganha 6px
+de respiro para não encostar na face maior.
+
+⚠️ **Um `@media` de largura de janela seria o caminho errado**, e a razão é
+`--trilho-w`: ele é **fixo em 400px**. Num monitor de 2560 a coluna continua com
+400, então a regra de janela cresceria o pino exatamente onde ele não pode
+crescer — 86 prédios empilhados uns sobre os outros na tela que o operador olha
+o turno inteiro — e a tela cheia é que ficaria certa por acidente.
+
+⚠️ **O tamanho do pino deixou de depender do `iconSize`.** O `iconSize` /
+`iconAnchor` do divIcon posiciona a **caixa**; a face agora é centrada nela por
+`transform` no `.pin`, então crescer a face cresce **em volta do ponto** e o
+pino continua marcando a coordenada certa. Sem isso, um pino maior que a caixa
+escorregaria para baixo e para a direita da posição real — e a alternativa
+(crescer a caixa) desalinharia tudo, porque o `iconAnchor` é escrito no JS.
+
+⚠️ **O transbordo não custa o clique do chamado** — o único pino que abre
+alguma coisa. O Leaflet escuta na caixa e o evento sobe da face por bubbling;
+`.leaflet-marker-icon` **não** recorta (o `overflow:hidden` do `leaflet.css` é
+do `.leaflet-container`, não do marcador), e `pointer-events` é herdado, então a
+face é clicável em toda a área.
+
+⚠️ **Nenhuma regra de pino pode declarar `position` daqui em diante.** O
+`.pin-ch` e o `.pin-tec` tinham `position:relative` para a chapa de duas
+camadas; o `::before` só precisa de um pai **posicionado**, e `absolute`
+também é. Os dois `relative` saíram: eles ganhavam do `.pin` na cascata (mesma
+especificidade, regra posterior) e tirariam a face do centro da coordenada — em
+um dos dois casos silenciosamente, porque a ordem no arquivo decidia qual pino
+quebrava.
+
+Sem mudança de dado, de rota ou de schema: `operador.css` e `operador.js`,
+`?v=` bumpado nos dois (72 / 68) no `operador.html` e no
+`_operador-preview.html`. `node --check` limpo.
+
+### 2026-08-31 · O app do técnico aponta a bomba, e a O.S. dele para de nascer órfã
+
+A Fase 12C (18/08) ligou a O.S. ao equipamento e pôs o seletor no modal do
+admin. **O app do técnico ficou de fora** — e é lá que a O.S. de campo é
+escrita. Quem digita a O.S. na casa de máquinas não tinha como dizer qual bomba
+atendeu; quem tinha o campo era quem não estava lá.
+
+O `equipamento_id` da O.S. paga duas contas, e as duas ficavam sem pagar:
+
+1. **O orçamento chega na bancada colado na bomba.**
+   `_garantirOrcamentoDaOs` usa o vínculo pra adotar um pedido que a bancada já
+   tenha aberto pela etiqueta, em vez de abrir um segundo pro mesmo serviço.
+2. **A O.S. entra no histórico da ficha** (`GET /equipamentos/:id` filtra por
+   `os.equipamento_id`), que é o que sustenta o contador de idas à oficina — o
+   número que justifica trocar a bomba em vez de consertar de novo.
+
+**Nada de backend.** O `PATCH /ordens-servico/:id` já aceitava
+`equipamento_id`, o `GET /:id` já devolvia `equipamento_id` **e**
+`condominio_id` (o app recebia os dois e ignorava), e `GET /equipamentos` já
+passa em `equipeInterna` — o guard que existe justamente porque o técnico não
+passa em `adminOnly`. Era só a camada web do app.
+
+⚠️ **A seção só existe se houver bomba etiquetada no condomínio** (ou se a O.S.
+já tiver uma vinculada). Sem essa condição, todo prédio sem etiqueta ganharia
+uma seção vazia — e hoje isso é **todo prédio**: `equipamentos` está zerada em
+produção. A seção nasce sozinha no dia em que as etiquetas subirem, sem APK
+novo.
+
+⚠️ **Ela é "•", não numerada.** `atualizarProgresso` conta 7 seções com lógica
+de completude e a barra é calibrada nesse 7 — uma oitava marcando `complete`
+passaria de 100%. E numerar teria dois efeitos ruins: renumeraria todas as
+outras e, como a seção é condicional, o mesmo passo teria número diferente em
+prédio com e sem etiqueta. Segue o precedente da seção de orçamento, que já é
+opcional e já é "•".
+
+⚠️ **A pegadinha do vínculo apagado em silêncio, de novo.** É a mesma que
+apareceu no admin em 18/08, e reaparece aqui por outro caminho: a bomba
+vinculada pode não vir no `GET /equipamentos?condominio_id=` porque trocou de
+prédio **ou porque está inativa** (a listagem filtra `ativo = true`). Nos dois
+casos o `<select>` cairia em "Não vinculada" e o primeiro toque em qualquer
+outro campo salvaria o apagamento. `_osCarregarEquipamentos` busca a ficha
+avulsa e a acrescenta com o rótulo "(outro condomínio)".
+
+⚠️ **`Number("")` é `0`, não `null`.** "Não vinculada" tem `value=""`; sem o
+ternário, desvincular gravaria `equipamento_id = 0`, que não é id de bomba
+nenhuma.
+
+**Nome:** a seção se chama **"Bomba atendida"**, não "Equipamento" — a O.S. já
+tem uma seção "Equipamentos verificados" logo abaixo, que é checklist genérico
+(comando elétrico, bombas de recalque…) e vive em `itens_verificados`. Dois
+"equipamento" na mesma tela seriam duas coisas diferentes com o mesmo nome.
+
+**CSS:** `.os-select` (44px de alvo, corpo 14px) em vez do `.input` base, que
+tem 36px e corpo 12,5px — dimensão de formulário de mesa. Quem toca nesse
+select está de pé na casa de máquinas, muitas vezes de luva.
+
+**Verificado exercitando as rotas** contra o banco de TESTE, com JWT de técnico
+e O.S. criada e removida no fim: `GET /equipamentos?condominio_id=` responde
+200 ao técnico e traz a bomba; `PATCH { equipamento_id }` grava; o `GET` relê;
+a ficha avulsa de outro condomínio responde 200; e `{ equipamento_id: null }`
+desvincula. Mais 20 verificações de render no app real (`/app/` em navegador
+headless, 390px) lendo o **`innerText`** e o estado do `<select>`, não
+screenshot — a lição do "Ocupadosem posição" de hoje mais cedo: ordem das
+seções, marcador "•", código formatado `XXXX-XXXX`, fallback marca+modelo
+quando não há apelido, altura real do alvo **com a seção aberta** (fechada ela
+mede 0 e o teste passaria achando que mediu algo), gravação como `number`,
+desvínculo como `null`, e a bomba de fora chegando selecionada. Console limpo,
+`node --check` limpo.
+
+📋 **Fica em aberto:** escanear o QR direto do app, que é o gesto natural na
+bancada. Não há plugin de leitura de código no `app/package.json` (só
+geolocation, filesystem e share) — exige `@capacitor-mlkit/barcode-scanning` e
+mexida no nativo. O seletor resolve o vínculo sem isso.
+
+⚠️ **Só chega no técnico com APK novo:** o web do app é empacotado
+(`webDir: public`), então isto exige `npm run build:apk` e reinstalação. Não há
+`?v=N` a bumpar — o app não versiona assets — e o SW já trata `/app` e
+`/equipamentos` como network-first.
+
+### 2026-08-31 (16ª rodada) · O chamado pode nascer já despachado
+
+> *"Queria que quando fosse criar o chamado já desse para atribuir o técnico,
+> por exemplo na tela de orçamento, ou no botão novo chamado."* — o Pedro.
+
+Os dois diálogos de criação ganharam um seletor **Técnico**, opcional: o
+**Novo chamado** da fila e o **Abrir chamado** dos Aprovados. Antes o chamado
+nascia sempre sem ninguém — quem já sabia quem ia (e no telefone quase sempre
+sabe) tinha de gravar, achar o item na fila e despachar. Dois passos para uma
+decisão só.
+
+**Backend, e as regras são iguais nas duas portas** porque são a mesma decisão:
+
+- `POST /chamados` e `POST /operador/orcamentos/:id/chamado` aceitam
+  `tecnico_id` opcional.
+- Quem valida é o **`chamado-atribuicao.service.js`**, novo: `ativo` **e**
+  `cargo = 'tecnico'`, senão `400` com frase que o operador resolve sozinho
+  ("Este técnico não está mais disponível. Recarregue a tela."). A FK já
+  barraria um id inexistente, mas com `23503` traduzido em `500` — FK é rede de
+  segurança, não mensagem de erro. ⚠️ **Não checa `disponivel`**: ocupado não é
+  impedimento, e num P1 às 18h quem está ocupado às vezes é quem está perto.
+- **Atribuir marca `primeira_resposta_em`**, a mesma regra do `PATCH`. Se o
+  operador despachou no ato de abrir, a resposta foi imediata — deixar o
+  relógio do TTFR correndo cobraria uma resposta que já veio.
+- **O status continua `aberto`.** `em_atendimento` é do app do técnico, com
+  GPS. Atribuir não é começar.
+- A atribuição entra no `historico_chamados` como linha `tecnico_id`,
+  **indistinguível de um despacho feito depois** — a ficha responde "quem
+  mandou e quando" do mesmo jeito nos dois casos.
+
+⚠️ **`$7::int` NAS DUAS APARIÇÕES nos dois INSERT.** O mesmo parâmetro entra
+como valor de coluna e dentro do `CASE` que decide o `primeira_resposta_em`;
+sem o cast explícito o Postgres deduz tipos diferentes e recusa a query **no
+parse** (42P08). É exatamente o defeito que derrubou
+`POST /cliente/orcamentos/:id/responder` desde o dia em que nasceu — e que só
+aparece quando alguém usa a rota de verdade. Por isso as duas foram
+**exercitadas**, não só `node --check`: Express de pé, JWT assinado, 20 casos
+contra o banco de teste (com técnico, sem técnico, id inexistente, id inválido,
+string vazia, clique duplo nas duas variantes), tudo verde e as linhas de teste
+removidas no fim.
+
+⚠️ **No clique duplo dos Aprovados a escolha PREENCHE VAZIO e nunca troca.**
+Chamado que já existe sem técnico recebe o escolhido (`tecnico_atribuido:
+true`); com técnico, nada muda e a faixa diz isso, em vez de afirmar um
+despacho que não houve. Sobrescrever seria o outro extremo: o segundo clique
+desfazendo, sem aviso, o despacho do primeiro — ou o de outro operador.
+
+**Endpoint novo: `GET /operador/tecnicos`** — id, nome, `disponivel`,
+`abertos`, GPS de 30 min. ⚠️ Existe para a tela de Aprovados **não** chamar
+`GET /tecnicos`, que devolve a ficha inteira do funcionário (CPF, RG, endereço,
+data de nascimento) porque serve o cadastro do admin. Uma tela que só precisa de
+nomes não tem por que receber isso — dado que não trafega não vaza. A consulta
+é a **mesma** da fila, agora em `SQL_EQUIPE`: tela que oferece um técnico que a
+gravação recusa é o pior sintoma possível. (O prefixo `/operador` já está na
+lista network-first do `sw.js` — nada a bumpar lá.)
+
+**Front:**
+
+- O seletor vem **depois da descrição**, que é a ordem da conversa ao telefone:
+  onde · o que · quanto corre · o que foi dito · **quem vai**.
+- O padrão é **"Despachar depois"**, nunca o primeiro da lista: formulário que
+  já vem com alguém escolhido atribui por inércia.
+- Cada opção traz o **mesmo estado do cartão de despacho** (livre agora · N
+  chamados · ocupado) e a **mesma ordem** (livre primeiro, depois menos
+  carregado). Um nome só não é escolha informada, e ordem diferente em cada
+  tela ensinaria que a primeira posição não quer dizer nada.
+- A faixa de confirmação passou a dizer **para qual seção o chamado foi** —
+  mesma correção do despacho de mais cedo: o item nasce em "Já tem técnico" ou
+  em "Esperando alguém" e pode cair abaixo da dobra.
+- ⚠️ De quebra, o `operador-orcamentos.html` estava com `operador.css?v=71`
+  enquanto as outras duas telas já tinham ido para 72 — as três foram para 73.
+
+Sem migration: `chamados.tecnico_id` existe desde a 009.
+
+### 2026-09-01 · O técnico ganha a pele do admin no mapa do operador
+
+Pedido do Pedro depois de olhar as duas telas lado a lado: *"analisa todos os
+atributos de cor e visuais do mapa de admin e leve para o operador"*.
+
+**O achado que mudou o escopo: a paleta já era a mesma.** `--ok`/`--warn`/
+`--danger`/`--muted` do `admin.css` e `--verde`/`--amarelo`/`--vermelho`/
+`--muted` do `operador.css` são os mesmos quatro valores (`#63d8a0`, `#fbb329`,
+`#ff5a4d`, `#8294c2`), e o filtro de tile (`.map-tiles-dark`) é idêntico ao
+caractere. Não havia divergência de cor a corrigir — a divergência era de
+**presença**, e estava concentrada num pino só.
+
+**O pino de técnico.** Era um círculo de `--fio-forte` (branco a 34% sobre
+marinho) — a mesma construção de "presença sem sinal" da carteira de fundo.
+Num mapa em que ele é a única peça que se **move** e a única que responde
+"quem pode ir agora", isso o deixava com menos presença que os 87 prédios de
+fundo. Ganhou a pele do `.tec-pin`: gradiente de identidade, anel branco de
+2px, glow da própria cor, sombra de apoio e o `@keyframes pinPulse`.
+
+⚠️ **O `data-liv` não se perdeu no caminho.** No admin o técnico é sempre
+violeta, porque aquele mapa não sabe quem está livre; aqui livre e ocupado
+precisam se distinguir. Mas **dentro da identidade**: matiz violeta constante,
+estado na luminosidade. O glow segue a cor por `--tec-gl`.
+
+⚠️ **Isto foi corrigido no mesmo dia, e o erro merece registro.** A primeira
+versão pintou "livre agora" de verde (`#7ce8b8`→`#3fae7c`), e o prédio em ordem
+é `--verde` `#63d8a0` — que cai no **meio** desse gradiente: **ΔE 7,8**, contra
+o piso de 15 do DESIGN.md. E no par pior possível, porque são os dois estados
+**normais**: "livre" é o comum do técnico e "em ordem" é o dos 87 prédios de
+fundo. No dia a dia o mapa ficava com técnicos verdes perdidos num campo verde
+— o mesmo defeito que a pele nova tinha acabado de corrigir, refeito por outro
+caminho uma hora depois. O Pedro viu na hora: *"o pin do técnico do mapa com a
+mesma cor dos condomínios, sério?"*.
+
+A regra que fica: **cor de estado (verde/âmbar/vermelho) é dos prédios.** Estado
+de técnico se faz dentro da matiz dele, pela luminosidade — que é o mesmo
+princípio que o DESIGN.md já usa onde a matiz colapsa sob daltonismo.
+
+| | tinta | contraste | ΔE do vizinho mais próximo |
+|---|---|---|---|
+| livre | violeta claro `#c4b5fd`→`#a78bfa`, marinho | 9,09:1 | 29 (prédio mudo) |
+| ocupado | violeta fundo `#6d28d9`→`#4c1d95`, branca | 8,87:1 | 82 |
+| sem sinal | cinza `#64748b`→`#475569`, branca | 6,02:1 | 33 (prédio mudo) |
+
+Separação entre os três estados do técnico: ΔE 58 · 47 · 79.
+
+⚠️ **Os degraus são daqui, a matiz é do admin.** Lá o técnico é sempre
+`#8b5cf6`→`#6d28d9` porque aquele mapa não tem o estado a mais; esse violeta não
+serve para nenhum dos dois extremos daqui (branco sobre ele dá 3,7:1 e marinho,
+3,4:1).
+
+⚠️ **O tamanho não veio.** No admin o técnico tem 32px contra 28 do prédio;
+aqui o maior continua sendo o pino de chamado, que é o único que abre alguma
+coisa no clique. Pele é cor; tamanho é hierarquia.
+
+**Estado novo: "sem sinal" (`_gpsParado`, 10 min — o número do `_tecStale` do
+admin, que é do Android e não do produto).** É a faixa **entre** os 10 minutos
+e a janela de 30 do backend: a posição ainda vem, mas já não é "agora". A tela
+não distinguia isso — um GPS parado há 25 minutos pulsava igual a quem acabou
+de mandar posição, e o operador despachava para onde o técnico **estava**. O
+pino fica cinza, opaco e **parado** (o pulse quer dizer "ao vivo"), e a legenda
+diz há quanto tempo, via `haQuanto`.
+
+**Pulse: só o técnico.** A regra da tela — *"halo só no estourado, e não
+pisca"* — continua valendo para prédio e chamado. 87 pontos piscando na coluna
+de 400px apagariam os 3 que pedem alguém. O técnico é a exceção porque é o
+único que se move e o único que a tela precisa que seja **achado**, não
+vigiado. Guardado por `prefers-reduced-motion`.
+
+**Também vieram do admin:** hover `scale` nos três pinos (a tela não tinha
+nenhum feedback de ponteiro) e os três parâmetros de tile que faltavam —
+`keepBuffer: 4`, `updateWhenIdle: false`, `updateInterval: 100`. Arrastar o
+mapa deixa de abrir buraco cinza na direção do gesto, que é exatamente o
+momento em que o operador olha o que tem em volta do chamado.
+
+⚠️ **`transform` no hover REESCREVE o `translate(-50%,-50%)` do `.pin`.** É uma
+propriedade só: escrever apenas `scale()` apaga o translate que centra a face
+na coordenada, e o pino salta um quarto de si mesmo no meio do gesto de apontar
+para ele. O admin não corre esse risco porque lá a face não é centrada por
+transform.
+
+⚠️ **`zIndexOffset: 500` no técnico** — entre a carteira (0/400) e o chamado
+(1000). O Leaflet empilha por latitude, então um prédio de fundo ao sul cobria
+o técnico. Continua abaixo do chamado, pelo mesmo motivo que deu 1000 a ele.
+
+**Cor nova nesta folha:** o violeta do técnico (`#8b5cf6` → `#6d28d9`) não está
+no DESIGN.md. Ele não é estado e não entra na paleta categórica — é a cor de
+**identidade** do técnico, herdada do `admin.css` justamente para que as duas
+telas digam a mesma coisa. Se um dia virar token, é nas cinco folhas.
+
+### 2026-09-01 · O mapa do operador para de perder quem entra em campo depois
+
+Relatado pelo Pedro: *"tem um técnico hoje sendo rastreado e aparecendo no mapa
+do painel de admin, mas no painel de operador ele não [aparece]"*.
+
+**Não era o backend.** As duas consultas devolvem o mesmo técnico, com a mesma
+coordenada e o mesmo horário — conferido contra produção. `SQL_EQUIPE` filtra
+`cargo = 'tecnico'` e `GET /tecnicos/localizacao` não, mas o técnico em questão
+**é** cargo técnico, então essa divergência (real, e ainda de pé) não era esta.
+Também não era o `sw.js`: `/operador` já está na lista network-first.
+
+**Era o enquadramento, e o gatilho estava errado.** `if (!_mapaEnquadrado)`
+enquadrava **uma vez por carregamento de página** e nunca mais. A intenção era
+boa — não arrancar a vista da mão de quem acabou de dar zoom num bairro —, mas
+numa tela que fica aberta o turno inteiro isso faz o enquadramento ser decidido
+pelo estado do sistema às 8h da manhã.
+
+O caso, com os números medidos em produção:
+
+| | |
+|---|---|
+| Fila às 8h | **zero** chamado aberto, nenhum técnico com GPS → `_pontos` vazio |
+| Enquadramento aplicado | mediana dos 87 prédios (`-23,5567 / -46,6571`), zoom 12 |
+| Alcance na coluna de 400px | **±7,01 km** (35,05 m/px) |
+| Técnico às 12h53 | `-23,5350 / -46,5803` — **7,84 km a leste** |
+| Resultado | 830 m além da borda direita, e a vista nunca mais recalculada |
+
+O pino era desenhado a cada ciclo de 30s e o trilho listava o nome; só F5 ou o
+botão de tela cheia (que chama `enquadrarMapa` de novo) traziam ele de volta.
+
+**A correção troca o gatilho, não a regra.** `_operadorMexeu` substitui
+`_mapaEnquadrado` no `if`: enquanto ninguém tocou no mapa ele é automático; no
+primeiro gesto, congela para sempre naquela sessão. O motivo original fica
+intacto — só passou a ser disparado por quem ele sempre quis proteger.
+
+⚠️ **`zoomstart`/`movestart` do Leaflet NÃO servem para detectar o gesto** — o
+próprio `fitBounds` os dispara, e o mapa se travaria sozinho no primeiro
+enquadramento, de volta ao bug por um caminho mais difícil de enxergar.
+`_ouvirGestos` escuta só os cinco que exigem a mão do operador: `dragstart`,
+`wheel`, `dblclick`, `keydown` e `touchstart` com dois dedos. (`zoomControl` é
+`false` nesta tela, então não há botão +/- a escutar.)
+
+⚠️ **O critério é "fora da vista", não "mudou de lugar"** (`_precisaEnquadrar`).
+Reenquadrar a cada ciclo daria um tranco de 30 em 30 segundos enquanto um
+técnico anda pela mesma quadra. O que precisa de correção é o ponto que o
+operador **não consegue ver**.
+
+Cenários verificados com a vista real da coluna: tela aberta vazia → enquadra ·
+técnico entra fora da vista → reenquadra · mesmo técnico andando dentro da
+vista → **não** mexe · depois do gesto → nunca mais mexe · mapa recriado →
+volta ao automático.
+
+### 2026-09-01 · O chamado novo leva o mapa até ele, e abre um balão
+
+Pedido do Pedro: *"qnd tiver uma questão com um condomínio além dele mudar de
+cor, a tela focar nele, e dele sair um balão com as informações"*.
+
+**Metade já existia.** `_vistos` (no `render()`) compara a fila deste ciclo com
+a do anterior desde sempre — é o que destaca o item recém-chegado na lista. O
+gatilho de "questão nova num condomínio" estava pronto; só não chegava no mapa.
+Agora o mesmo conjunto vira `_novos` e o mapa lê dali.
+
+**O foco.** `flyTo` até o prédio, `ZOOM_FOCO` 13 — o mesmo teto do
+`enquadrarMapa`, porque um zoom a mais cola no prédio e varre a vizinhança da
+tela, e a pergunta que o mapa responde ("quem pode ir") é sobre o que está em
+volta. O voo é o que faz o operador **perceber** que a tela se moveu; um salto
+instantâneo desorienta quem estava olhando outra região. Em
+`prefers-reduced-motion`, `setView` seco.
+
+⚠️ **ISTO PASSA POR CIMA DO `_operadorMexeu`, e é a única coisa que passa.** O
+gesto do operador trava o reenquadramento do ciclo de 30s porque aquilo é ruído
+do sistema; um chamado novo é o evento mais importante que a tela tem. A
+concessão é limitada: interrompe uma vez, quando o chamado nasce, e nunca mais.
+
+⚠️ **Um alvo, não vários.** Se entram três no mesmo ciclo, foca no mais urgente
+— `DADOS.fila` já vem ordenada pelo SLA que estoura primeiro, então o primeiro
+que casar é ele. Focar em três é não focar em nenhum; os outros seguem pinados
+e na fila, onde já eram visíveis.
+
+⚠️ **Na abertura da tela não foca em nada**, de propósito: `_vistos` é `null` no
+primeiro ciclo e `novos` sai vazio. Um painel que acabou de carregar com cinco
+chamados abertos não pode dar zoom em coisa velha antes de o operador olhar a
+fila. Esse comportamento já estava codificado — só passou a ter consequência.
+
+**O balão.** `L.popup` standalone, **não** `bindPopup`. ⚠️ O `bindPopup`
+registra o próprio handler de clique no marcador, e o pino de chamado já tem um
+(`dlgDespacho`): os dois disparariam juntos, e a regra da tela — *"clique no
+pino abre o mesmo diálogo de despacho"* — viraria "abre duas coisas". Com o
+popup solto, o clique continua sendo só o despacho e o balão é exclusivamente
+automático.
+
+⚠️ **Ele abre ANTES do voo**, ancorado na coordenada, e viaja junto. Abrir no
+`moveend` teria um buraco: `flyTo` para um ponto onde o mapa já está não dispara
+evento nenhum, e o balão simplesmente não apareceria. `autoPan:false` porque
+quem enquadra é o voo — os dois juntos brigam pelo centro.
+
+⚠️ **O balão sobrevive ao ciclo de 30s** (não vive no `_pinos`, que é limpo a
+cada volta), mas `_sincronizarBalao` não o deixa congelar: o relógio dentro dele
+continua correndo, e um chamado que saiu da fila fecha o balão em vez de seguir
+oferecendo "Despachar". Fechado pelo operador, fica fechado — o ciclo seguinte
+já não o considera novo.
+
+**Visual:** mesma construção do `.pin-rot` (marinho, fio de 1px, chanfro, raio
+zero), com o `.selo` da fila e o mesmo `data-s` — o balão não inventa
+vocabulário, reposiciona o que a lista já diz. A descrição corta em duas linhas:
+ela existe aqui para reconhecer o caso, não para lê-lo. O relógio pinta pelo
+grau, e só atrasado/apertado acendem (Regra do Crítico Silencioso).
+
+O botão "Despachar" do balão funciona em tela cheia sem nada novo: `abrirFundo`
+já usa `<dialog>` + `showModal()`, que põe o diálogo no **top layer**.
+
+Verificado por execução (não só `node --check`, que não pega crase mal fechada
+em template literal): `_balaoChamado` renderiza nos três casos — P1 atrasado sem
+técnico, P3 folgado com técnico, e sem SLA nem condomínio — sem vazar
+`undefined`. `_chamadoParaFocar` passa nos cinco: `_novos` nulo · nenhum novo ·
+um novo · dois novos (pega o mais urgente) · novo sem coordenada.
+
+Sem migration e sem endpoint novo — nada a bumpar no `sw.js`.
+`operador.css` 73 → **74**, `operador.js` 69 → **70**, nos três HTMLs (as três
+entregas de hoje saem no mesmo bump).
+
+### 2026-09-01 · A tela de login do app troca o âmbar pelo Chapa
+
+O app do técnico abria numa tela que não se parecia com nada: cartão escuro
+centrado, âmbar `#f0b014`, filete HUD animado no topo, anel de varredura no
+splash. O comentário no `index.html` dizia "visual idêntico ao site" e estava
+desatualizado desde **25/08**, quando o `/login` foi redesenhado. Pedido do
+Pedro: "colocar a tela de login do app igual à do PWA".
+
+**Só o visual — o mecanismo não mudou, e isso foi escolha dele.** O app segue
+pedindo **e-mail e senha juntos** no `POST /auth/login`. O PWA hoje pergunta só
+o e-mail e deixa o `/auth/metodo` decidir se mostra senha (equipe) ou dispara
+`/auth/codigo` (síndico). Consequência conhecida e aceita: **o app não chama
+`/auth/codigo`**, então quem não tem senha continua sem entrar por ele. Hoje
+isso não atinge ninguém — produção não tem nenhum usuário `cliente` (1 admin,
+2 gerentes, 1 operador, 4 técnicos, todos com senha) —, mas abre no dia em que
+o primeiro síndico for cadastrado. O `abrirTelaCliente()` já existe no app,
+esperando por gente que não consegue chegar nele.
+
+**Arquivo próprio, não sobrescrita.** `app/public/login.css` (novo, ~19 KB) é o
+porte do `public/login.css`, e os 281 blocos de auth saíram do `app.css`. Tudo
+escopado em `.screen-auth`: os tokens do Chapa **não** vão para o `:root`, ou o
+marinho vazaria para as telas do técnico logo depois do login. O resto do app
+continua Mission Control âmbar.
+
+⚠️ **Quatro adaptações que o porte exigiu, e o porquê de cada uma:**
+
+- **Sem `color-mix()` e sem `clamp()` de fonte.** Isto roda no WebView do
+  aparelho, não num Chrome atual: `color-mix` só existe do Chrome 111 em
+  diante e, num WebView velho, a declaração inteira cai — o anel do botão
+  secundário sumiria sem nenhum outro sintoma. Valores literais e medidos.
+- **Caminhos relativos.** No APK a origem é o esquema do Capacitor
+  (`https://localhost`), não o servidor: um `/static/...` daria 404 mudo —
+  fonte sem erro visível, foto sem imagem.
+- **`:active` junto de `:hover` no varrimento do botão.** O gesto do amarelo
+  entrando pelo chanfro é o único momento de movimento da tela, e `:hover` não
+  dispara em toque: sem isso ele nunca tocaria no aparelho onde roda.
+- **Layout empilhado, sem o grid de duas colunas.** A superfície é sempre um
+  celular; carregar o layout de 861px seria fidelidade ao arquivo, não à tela.
+
+⚠️ **A frase da faixa da marca NÃO foi portada, e é decisão, não esquecimento.**
+No PWA ela diz "O nível dos **seus** reservatórios..." — escrita para o
+síndico, dono do prédio. Quem abre este app é o técnico: os reservatórios não
+são dele. Uma frase para ele é copy nova, que é decisão do Pedro. Sem frase, a
+faixa faz o que o próprio `login.css` do PWA diz que ela faz no celular:
+identifica.
+
+⚠️ **`showAlert()` faz `el.className = "alert " + tipo`** — apaga a lista de
+classes inteira. A caixa de erro do Chapa teve de pegar por `.alert` sozinho;
+qualquer classe extra permanente nela sumiria no primeiro erro.
+
+**Um defeito de contraste corrigido só aqui:** o placeholder do PWA é
+`color-mix(--tinta-2 62%, transparent)` sobre branco = **3,11:1**, abaixo do
+piso de 4,5:1. No app virou `#6b7693` (78%), que dá **4,53:1** e continua bem
+distante do valor digitado (8,1:1). **O PWA segue com o defeito** — mexer nele
+é outra tarefa.
+
+**Alvo de toque:** o link "Fale com a gente no WhatsApp" media 39px como link em
+linha corrida. Cresceu por `padding: 11px` com `margin: -11px` devolvendo o
+espaço ao parágrafo — o desenho não muda, muda a área que aceita o dedo. É o
+link de quem já não está conseguindo entrar.
+
+**Verificado renderizando**, a 390×844 e 360×640, lendo valores computados e
+`innerText` — não screenshot: sem rolagem horizontal, foto e as duas fontes
+carregando (200, não 404), h1 15,6:1 · subtítulo 6,8:1 · campo 18,6:1 ·
+placeholder 4,53:1, e todo alvo de toque ≥ 44px. Os únicos 404 são
+`/app/manifest.json` e `/static/favicon.png` — caminhos absolutos do `<head>`,
+**anteriores a este trabalho**, que só resolvem quando o Express serve o app em
+`/app`. No APK empacotado eles falham; não foi mexido.
+
+Detector da skill: dois achados, os dois falso positivo. A faixa listrada de
+6px é a assinatura de limite do Chapa (a mesma da base do hero da landing), não
+"borda de destaque em card"; e os 23 travessões estão em **comentários** de
+HTML, não na copy — a copy visível não tem nenhum.
+
+**Nada de backend, nada de migration, nada a bumpar no `sw.js`** — o app não
+registra service worker. **Só chega no técnico com APK novo:** 5,8 → **6,17 MB**
+(as duas fontes, 214 KB, e a foto, 215 KB).
+
+
+### 2026-09-01 · A tela de fim de O.S. para de oferecer o que não faz sentido
+
+Relato do Pedro: depois de finalizar a O.S. no app sobra o botão "Baixar PDF",
+que ele não quer, e **"lá embaixo confirmar e finalizar O.S., que é um botão
+que não faz sentido já que já foi finalizado, inclusive acho que nem
+funciona"**. O palpite estava certo, e a causa é mais boba do que parece.
+
+**A causa: `querySelector` pega o primeiro do documento.** `mostrarOSSucesso()`
+fazia `document.querySelector(".td-cta-bar").style.display = "none"`, mas
+existem **duas** `.td-cta-bar` no `index.html` — a da tela de detalhe do chamado
+(`#tdCtaBar`, linha 376) vem antes da tela da O.S. (linha 435). A linha
+escondia a errada. E como a errada já é `[hidden]`, e `[hidden]` é
+`display: none !important` (`app.css:96`), a linha **não fazia absolutamente
+nada**: a barra de finalizar continuava na tela de uma O.S. já finalizada.
+
+E ele não funcionava mesmo: tocar nele chamava `finalizarOS()` de novo, e o
+`POST /ordens-servico/:id/finalizar` recusa uma O.S. já fechada — o toque só
+produzia mensagem de erro.
+
+**Um terceiro defeito da mesma família, que ninguém tinha relatado.** A mesma
+função esconde o card do timer/progresso (`document.querySelector(".os-shell
+.td-card")` — esse seletor está certo), e **nada nunca o restaurava**. Depois
+de finalizar uma O.S., **todas as seguintes abriam sem timer e sem barra de
+progresso** até o app ser reaberto.
+
+**A correção não foi só trocar o seletor.** As duas peças moram no
+`index.html` e são reusadas por toda O.S.; restaurá-las no handler do "Voltar
+pra minha lista" não bastava, porque o cabeçalho tem uma **segunda porta** (a
+seta `#osBack`) — quem saísse por ela abriria a O.S. seguinte quebrada. O
+restauro foi para a **entrada** (`abrirFormularioOS`), onde nenhuma rota de
+saída o contorna. A barra ganhou `id="osCtaBar"`, que mata a ambiguidade de vez.
+
+**O botão de PDF saiu** a pedido do Pedro. A função `baixarPdfOS()` **ficou**,
+sem chamador e marcada como tal: ela carrega a integração nativa de
+salvar/compartilhar (Filesystem + Share do Capacitor), que não é trivial de
+reescrever, e religar é uma linha. Apagar de vez é decisão dele.
+
+**Verificado exercitando o fluxo** em `?demo=tecnico` (sem rede), a 390×844, nos
+quatro passos: O.S. aberta (barra e timer visíveis) → finalizada (as duas
+somem, sem botão de PDF, "Voltar pra minha lista" no lugar) → **saída pela seta
+do cabeçalho, não pelo botão** → O.S. seguinte (barra e timer de volta). Zero
+erro de JS; os únicos 404 são `/app/manifest.json` e `/static/favicon.png`,
+anteriores a este trabalho.
+
+**Sem backend, sem migration, nada no `sw.js`.** Só chega no técnico com APK
+novo — 6,17 MB, gerado e conferido por dentro.
+
+### 2026-09-01 · O app do técnico entra no Chapa (etapa 1: paleta + lista de chamados)
+
+Pedido do Pedro, depois de eu abrir o app no navegador ao lado dos painéis:
+"trazer o front do app próximo a eles". As telas de cliente do app **saíram do
+escopo** — ele confirmou que não existem em uso.
+
+**Etapa 1 de 4.** Esta entrega faz duas coisas: remapeia os tokens do `:root`
+(o que move o app **inteiro** de paleta de uma vez) e recompõe a **lista de
+chamados**, que é a porta de entrada e onde moram as peças reusadas pelo resto.
+Faltam: detalhe do chamado (2), formulário da O.S. (3), Conta e Roteiro (4).
+
+Arquivo próprio: `app/public/tecnico.css`, carregado depois do `app.css` e do
+`login.css`. Mesmas restrições do porte do login (sem `color-mix`, caminhos
+relativos, `:active` junto de `:hover`).
+
+**Três defeitos estruturais corrigidos, e nenhum era de paleta:**
+
+1. **A barra colorida de 3px na lateral do item** — o padrão "side-tab", o tell
+   que o detector da skill marca e que o Chapa não usa em superfície nenhuma.
+2. **A prioridade existia SÓ COMO COR.** O filete e o tom do ícone eram os
+   únicos portadores de P1/P2/P3/P4 — nenhum texto dizia. A regra do DESIGN.md
+   é que estado nunca aparece sem rótulo escrito; a cor é reforço, nunca a
+   informação. Virou selo com "P1" escrito.
+3. **Categoria e status preenchidos lado a lado.** Categoria é classificação,
+   não estado, e nunca preenche (Regra do Selo). Virou etiqueta gravada;
+   status virou selo de fio; só a prioridade preenche.
+
+**O placar de 4 números saiu** (autorizado pelo Pedro). Dois deles — "Abertos"
+e "Fechados hoje" — eram repetição literal dos contadores das abas 40px abaixo
+(Hoje · Próximos · Histórico). É o mesmo padrão que saiu do painel do operador
+em 31/08, pelo mesmo motivo. "Críticos", o único que não se repetia, virou uma
+linha que **só existe quando há crítico** e diz o que fazer: "1 chamado crítico
+esperando".
+
+⚠️ **A faixa do ROTEIRO usa a mesma classe e NÃO saiu.** Lá os números são
+Prédios · Serviços · Atrasadas · Em curso, que não se repetem em lugar nenhum
+da tela — não é o mesmo defeito. A regra de esconder foi escopada em
+`#tcKpiGrid`, não em `.tec-kpi-strip`. Decidir o Roteiro é a etapa 4.
+
+**O item virou duas colunas:** a RÉGUA (prioridade + distância) e o CORPO. É a
+gramática do item do operador comprimida para 390px — a régua responde às duas
+perguntas de quem está com a van na rua. O ícone de prédio saiu: toda linha é
+um condomínio, então ele não distinguia nada e custava 44px de uma tela de 390.
+
+⚠️ **Três armadilhas de especificidade, todas encontradas na tela:**
+
+- **`.ch-row-mob[data-pri="p1"]::before` (0,2,1) vencia a chapa de duas camadas
+  da folha nova (0,1,1)** e pintava o ITEM INTEIRO de vermelho/âmbar — eu
+  reusei o mesmo pseudo-elemento que antes era o filete de 3px. Conserto:
+  remover os 163 blocos superados do `app.css`, não brigar por especificidade.
+- **`#tcRefresh` era o único seletor por ID da tela** (1,0,0) e vencia
+  silenciosamente a regra de classe: o botão ficava com a caixa arredondada do
+  Mission Control e alvo de 30px numa tela toda em 44.
+- **Remapear `--font-mono` para Martian Mono transbordou o cabeçalho da O.S.**
+  em 22px de uma tela de 375, cortando o selo de andamento. Martian Mono é bem
+  mais largo, e o token é usado por regras de telas que ainda não foram
+  recompostas. `--font-mono` ficou como estava; Martian entra por `var(--mono)`,
+  peça por peça, onde a largura já foi medida. **Diagnosticado desligando a
+  folha nova no navegador e remedindo** — com ela `+22px`, sem ela `-19px`.
+
+**Verificado no navegador a 390px** (`?demo=tecnico` dentro de um `<iframe>`,
+porque o Chrome desta máquina não obedece resize — nota do `active-work.md`),
+lendo valores computados: título 14,4:1 · endereço 7,7:1 · mono 5,2:1 · selos
+preenchidos 6,3 a 10,8:1; nenhum alvo abaixo de 44px; sem rolagem horizontal; e
+**nenhum transbordo de cabeçalho em nenhuma das três telas** (lista 0, detalhe
+−132, O.S. −19, idêntico ao estado sem a folha).
+
+Detector: só o aviso de travessões, que estão em **comentários** de HTML — a
+copy visível não tem nenhum.
+
+**Sem backend, sem migration, nada no `sw.js`.** APK 6,17 MB, gerado e
+conferido por dentro.
+
+
+### 2026-09-01 (2ª rodada) · O app do técnico fecha no Chapa — e a placa é clara
+
+Continuação da etapa 1. Entraram as etapas 2, 3 e 4 (detalhe do chamado, O.S.,
+Conta e Roteiro) e um passe de polimento. **No meio do trabalho o Pedro mandou
+a tela de orçamentos do cliente como referência** — *"leve em consideração esse
+tipo de tela, com palavras em amarelo, e campos brancos"* — e isso corrigiu a
+direção.
+
+⚠️ **A CORREÇÃO QUE VALE MAIS QUE O RESTO DESTA ENTRADA.** As etapas 1 a 4
+tinham montado **placa escura sobre campo escuro**. Está errado, e o DESIGN.md
+já dizia: *"o marinho é tratado como MATERIAL, não como fundo: a tela é o campo,
+e as superfícies claras são PLACAS POUSADAS sobre ele para os trechos de leitura
+densa."* O `.orc-item` do `cliente.css` faz exatamente isso — `--chapa` de
+fundo, anel `inset 1px --fio-esc`, chanfro de 14px, tinta `--tinta`, selo
+amarelo preenchido com tinta marinho. Eu tinha lido a regra como "escureça
+tudo". Item da lista, cards do detalhe, seções da O.S. e cards do Roteiro
+viraram placa clara.
+
+**O mecanismo da placa clara:** ela **redeclara os tokens de tinta
+localmente**. Como as regras de dentro usam `var(--text)`, `var(--muted)` etc.,
+elas viram tinta escura sozinhas — sem caçar cor por cor em cinquenta
+seletores. É a "Regra do Preenchimento Cru" do operador, e a contrapartida dela
+importa: **fundo de selo usa o token CRU** (`--amarelo`, `--vermelho`,
+`--verde`, que não flipam, para preencher com tinta marinho por cima) e **texto
+e borda usam o semântico** (`--risco`, `--ok`, `--warn`, `--accent`, que flipam
+para a família `-t`, porque sobre claro nenhum sinal saturado passa contraste
+como texto — Regra do Amarelo Cego). Sem essa separação o selo P4 ficaria
+`#414f74` sobre `#414f74`.
+
+**A palavra em amarelo.** O segundo pedido. Uma por tela, e só sobre o campo
+marinho — sobre placa clara o amarelo não é tinta. O único lugar da lista onde
+uma frase é o conteúdo é o estado vazio: *"Você está **em dia**"*. Junto, a
+linha de apoio **deixou de ser âmbar**: com a palavra da manchete em amarelo,
+dois acentos na mesma tela matam o primeiro.
+
+**Emojis viraram ícones** (pedido do Pedro, e a skill proíbe emoji fazendo papel
+de ícone). Saíram 📍🔥🕒 dos rótulos de ordenação, o ⚠ do aviso de desvio do
+Roteiro e o ✓ do botão de confirmar assinatura.
+⚠️ **O ícone de ordenação teve de sair de dentro do `<select>`**: um `<option>`
+aceita só texto, não SVG. Virou peça própria ao lado do campo.
+⚠️ **E a junta dos ícones foi endireitada de uma vez.** O Chapa é chapa de aço
+cortada — ponta reta, canto vivo. Os SVGs do app vinham com
+`stroke-linecap="round"` como **atributo**, e atributo de apresentação perde
+para CSS: uma regra endireitou os oitenta ícones sem editar nenhum.
+
+**Outros achados corrigidos no caminho:**
+
+- **O botão "A caminho" era estilo INLINE** (azul a 20%, borda e cor), aplicado
+  pelo `app.js`. Inline vence qualquer folha — o botão ficava fora do sistema e
+  não havia como tematizá-lo. Virou a classe `.btn-caminho`, com o mesmo papel
+  (fase 1 pesa menos que a fase 2, que é a amarela).
+- **`opacity: .5` no botão desabilitado deixava o CTA ilegível.** Sobre marinho
+  o amarelo a 50% vira oliva e a tinta some — justamente quando o rótulo mais
+  importa ("Confirmar e finalizar O.S." é o que diz o que falta alcançar).
+  Virou anel amarelo apagado + interior marinho + tinta clara: **9,6:1**,
+  obviamente inativo e ainda legível. WCAG isenta controle desabilitado; quem
+  usa isto é gente mais velha numa casa de máquinas mal iluminada.
+- **`.tc-empty-sub` tinha `!important` no `app.css`** — colocado para vencer
+  `.tc-empty p` (0,1,1), que tem especificidade maior que `.tc-empty-sub`
+  (0,1,0). Remédio errado para problema de seletor. Resolvido com
+  `.tc-empty p.tc-empty-sub` (0,1,2), sem `!important`.
+- **O tique âmbar de 2px à esquerda dos cabeçalhos de seção** (`.cardHead
+  ::before`) saiu — o mesmo "side-tab" que saiu do item na etapa 1.
+- **A barra do reservatório seguia a Regra da Água Visível**: era um gradiente
+  verde→amarelo→vermelho por faixa, contando a mesma história duas vezes (cor
+  e comprimento) e gastando o vermelho num estado que ainda não é emergência.
+  Agora a lâmina abre em `--agua` e só escurece para vinho no **crítico**; no
+  **baixo** a água continua azul e quem avisa é a crista âmbar.
+- **O timer da O.S. NÃO virou placa clara**: ele é instrumento, e instrumento
+  neste sistema é sempre marinho fundo. É o único bloco escuro da tela da O.S.,
+  e é isso que faz o tempo saltar.
+- **Cabeçalho da O.S. transbordava 9px a 360px** — número da O.S. mais selo de
+  andamento. Passaram a quebrar em duas linhas.
+
+**Verificado no navegador**, 4 telas × 2 larguras (390×844 e 360×640), lendo
+valores computados: sem rolagem horizontal, nenhum cabeçalho transbordando,
+nenhum alvo de toque abaixo de 44px, zero erro de JS e nenhum 404 novo. Sobre a
+placa clara: título 15,6:1 · endereço, id, categoria, status e meta 6,8:1 ·
+selos preenchidos 8,1 a 10,8:1 — nada abaixo do piso. Detector da skill:
+**zero achados**.
+
+⚠️ **Sobraram emojis em três lugares, todos FORA do fluxo do técnico**: o 👋 e
+o ✓/✗ da tela `home` (o placeholder de admin/cliente) e o 📄 e o ✓ das telas
+`cliente-*`. Saem junto com a remoção dessas telas, que continua pendente.
+
+**Sem backend, sem migration, nada no `sw.js`.** APK 6,19 MB.
+
+
+### 2026-09-01 (3ª rodada) · "Mais próximos" mentia, e o menu dele era branco no branco
+
+Três defeitos no mesmo controle, achados a pedido do Pedro ("veja a
+funcionalidade e a visibilidade do 'mais próximos'") mais um que ele viu na
+tela.
+
+**1. O rótulo mentia — e era o caso comum, não a exceção.**
+
+`ordenarChamados` tinha `if (TC.sort === "proximidade" && TC.geo)`. **Sem
+`TC.geo` o código caía no `else` final, que é o ramo da ordenação POR DATA.** O
+controle dizia "Mais próximos", a lista vinha por mais recente, e nada avisava.
+"proximidade" é o padrão do app.
+
+Não é caso de canto: o GPS **só opera das 8h às 18h** (`gpsDentroDoHorario`),
+então toda abertura fora do expediente caía nisso — e também toda abertura sem
+a permissão concedida, que hoje é quase todo aparelho (o roadmap registra que
+só o técnico de teste tem a permissão correta).
+
+O ramo virou explícito e a queda passou a ser para **prioridade**, não data:
+data é ordem arbitrária para quem está com a van na rua; prioridade é a ordem
+operacional. `TC.ordemReal` registra o que foi de fato aplicado — `TC.sort`
+continua sendo o que foi **pedido**.
+
+⚠️ **E a tela passou a dizer.** `#tcAvisoOrdem` aparece só quando o pedido não
+pôde ser cumprido: *"Sem GPS · ordenado por prioridade"* + **"Tentar de novo"**.
+É **botão**, não texto: o erro tem conserto (`obterGPS({force:true})` — `force`
+porque o cache de 5 minutos faria o toque não fazer nada visível), e a regra é
+que aviso nomeia o problema **e** a saída. Fora do expediente o texto muda e o
+botão desabilita, porque ali tocar não resolveria.
+
+⚠️ **O aviso é renderizado DEPOIS de `ordenarChamados`, nunca antes** — é ele
+que define `TC.ordemReal`. Chamado no topo do render, mostraria o resultado da
+renderização anterior e ficaria um passo atrás a cada troca.
+
+**2. O menu do `<select>` era branco sobre branco.** Achado do Pedro. O app
+**nunca estilizou `<option>` e não declarava `color-scheme` em lugar nenhum**:
+o menu nativo é pintado claro pelo sistema enquanto as opções herdam a cor
+quase-branca do `<select>`. Abria e não se lia nada. **Defeito antigo, não
+regressão do redesenho** — já era assim no âmbar.
+
+⚠️ **Não dá para resolver só com `color-scheme: dark` na raiz.** O app tem
+`<select>` nos dois campos: os de ordenação vivem sobre o marinho (menu
+escuro) e o `.os-select` da O.S. vive **dentro da placa clara** (menu claro).
+Um `color-scheme` global acertaria um e quebraria o outro — trocaria branco
+sobre branco por escuro sobre escuro. Cada select declara o seu, e as `option`
+levam cor explícita em vez de herdar. Agora **16,4:1**.
+
+**3. O controle não parecia um controle.** Texto solto com um chevron, corpo de
+10,5px em mono, sem fundo nem contorno — e é ele que decide a ordem da rota do
+dia. Ganhou a mesma peça dos outros campos: chanfro, anel de fio e alvo de
+44px. O chevron era um data-URI com `stroke='%237a7e9c'` (cinza fixo do Mission
+Control, que não acompanha a paleta) e ponta arredondada; foi redesenhado no
+tom da paleta e com junta reta.
+
+**4. A barra amarela do menu inferior estava descentralizada.** Achado do
+Pedro, e o erro era meu.
+
+⚠️ **A LIÇÃO: numa sobrescrita de pseudo-elemento, o que você não redeclara
+continua valendo.** O `app.css` já centrava a barra com
+`transform: translateX(-50%)`. A regra nova sobrescreveu `left`, `width` e cor
+e acrescentou `margin-left: -13px` — mas **não zerou o transform**. A barra
+levou os dois deslocamentos (−13 de margem −13 de transform) e saiu **uma
+largura inteira** à esquerda do ícone.
+
+⚠️ **E a minha medição não pegou**, o que é a parte que interessa: eu conferi
+`left` e `margin-left`, somei, deu centrado, e concluí que estava certo — sem
+olhar o `transform` herdado. Quem viu foi o Pedro, na tela. Medir só as
+propriedades que você escreveu não mede nada; **a verificação passou a somar
+`left + margin-left + transform` e comparar com o centro do ícone**.
+
+**Verificado**, 4 telas × 2 larguras: sem rolagem horizontal, sem cabeçalho
+transbordando, nenhum alvo < 44px, barra do nav com **0px de desvio**, menu do
+select com fundo explícito, zero erro de JS. Detector: **zero achados**.
+APK regerado.
+
+
+### 2026-09-01 (4ª rodada) · A O.S. preenchida no subsolo para de evaporar
+
+Pergunta do Pedro: dá para terminar a O.S. sem internet e o app enviar quando o
+sinal voltar? "muitas vezes a O.S. é feita em subsolo ou lugares com o sinal
+ruim". A resposta era **não — e pior que não: o app perdia o que já tinha sido
+digitado.** Esta entrada é a **etapa 1** do conserto: parar de perder.
+
+**O defeito, exato.** Em `_osEnviarPatchPendente` a linha
+`OS.pendingPatch = null` rodava **antes** do `try`. Quando o PATCH falhava por
+falta de sinal, o patch acumulado era **descartado** — não havia fila nem
+repetição. E nada gravava rascunho no aparelho: o `Storage` do app só guardava
+token, usuário e device token. O que o técnico digitava vivia **só em memória**,
+e `sairFormularioOS` zera `OS.data` — sair da tela ou o Android matar o app em
+segundo plano levava a O.S. inteira. Ele refazia do zero.
+
+**O conserto.** O patch pendente passa a ser gravado em `localStorage` por id de
+O.S. (`gb_os_rascunho_<id>`) **antes** de tentar a rede — é o disco que garante,
+não o servidor. Ao falhar, o patch **volta** para `OS.pendingPatch` (com o que
+chegou durante o voo por cima, que é mais novo). Ao reabrir a O.S., o rascunho é
+aplicado **por cima** do que o `GET` devolveu, antes do render, e sobe sozinho.
+Sai de cena quando o servidor confirma, e quando a O.S. é finalizada.
+
+⚠️ **"Sem sinal" deixou de ser erro vermelho.** Antes cada campo digitado offline
+pintava um alerta de falha. Isso é estado, não erro do técnico — e quem trabalha
+em subsolo veria vermelho o dia inteiro, o que ensina a **não olhar** o aviso que
+importa. Virou uma linha âmbar entre o timer e as seções: "Salvo no aparelho ·
+envia quando o sinal voltar".
+
+⚠️ **MAS ERRO DO SERVIDOR CONTINUA VERMELHO — e essa distinção não existia.**
+O `api()` estourava o mesmo `Error` para falha de rede e para recusa HTTP, então
+não dava para separar "vale tentar de novo" de "vai recusar igual". Guardar um
+400 numa fila seria uma repetição infinita silenciosa. Agora o `api()` marca
+`err.httpStatus` nas respostas do servidor; o `fetch` estoura `TypeError` quando
+não há rede e nem chega lá, então **a ausência de `httpStatus` é o sinal de falha
+de rede**. Rede → guarda e reenvia; servidor → mostra.
+
+⚠️ **A assinatura é o único campo grande, e é a primeira a sair se a cota
+estourar.** `assinatura_b64` (data URL do canvas) passa pelo mesmo auto-save, e
+`localStorage` tem ~5 MB. Se a gravação falhar, o rascunho é regravado **sem a
+assinatura** e a reabertura avisa para refazê-la: perder a assinatura e manter o
+formulário é muito melhor que perder os dois — e quem redesenha é o cliente, que
+ainda está na frente do técnico.
+
+⚠️ **O auto-save no debounce precisava de `.catch()`.** `_osEnviarPatchPendente`
+relança de propósito (o `finalizarOS` aborta com isso antes de fechar a O.S.),
+mas o caminho do debounce não capturava: cada campo digitado sem sinal virava uma
+promessa rejeitada sem tratamento. Apareceu no teste, não na leitura.
+
+**Verificado exercitando a rede caindo e voltando** (não no modo demo — o demo
+curto-circuita justamente este caminho): O.S. aberta com rede → rede cai → três
+campos preenchidos → os três no rascunho e na fila, linha de estado visível, **sem
+alerta vermelho** → **app fechado e reaberto** → rascunho sobreviveu, os três
+campos voltam na tela, um único PATCH leva os três, rascunho apagado, linha some.
+E um quarto caso: PATCH recusado com 400 **aparece em vermelho** e não vira fila.
+Layout conferido nas 4 telas × 2 larguras, sem regressão.
+
+⚠️ **O QUE ESTA ETAPA NÃO COBRE**, e o técnico precisa saber: **fotos e o envio
+da assinatura continuam exigindo rede no momento do toque**, e **finalizar a O.S.
+continua exigindo rede**. Fotos vão em base64 e não cabem em `localStorage` —
+exigem IndexedDB e envio uma a uma (etapa 2). Finalizar offline exige backend: o
+`POST /:id/finalizar` grava `finalizada_em = NOW()`, então uma O.S. terminada às
+14h no subsolo e sincronizada às 17h ficaria registrada como 17h — e isso alimenta
+o `tempo_resolucao_seg`, que é o SLA (etapa 3).
+
+Sem migration. Só chega no técnico com APK novo.
+
+
+### 2026-09-01 (5ª rodada) · A foto e a assinatura do subsolo entram na fila (etapa 2)
+
+Pergunta do Pedro depois da etapa 1: *"no final de todas as etapas meu pedido vai
+ser realizado, ou vamos continuar perdendo assinatura e foto?"* — e ela obrigou
+duas correções ao que eu mesmo tinha dito, além desta etapa.
+
+**Correção 1: eu exagerei o risco da assinatura.** Ela é um PNG do canvas de
+~120 KB (o próprio código anota isso), contra ~5 MB de cota do `localStorage` —
+**3%**. Na etapa 1 ela sobrevivia normalmente; o descarte que programei era uma
+rede de segurança para cota já cheia, não o caminho comum. Apresentei como
+rotina e não era.
+
+**Correção 2: a etapa 2 precisava ser maior do que eu descrevi.** Eu tinha dito
+"fila de fotos"; o certo é **mover para o IndexedDB tudo que é grande** — fotos
+E assinatura. É isso que faz o problema de cota desaparecer em vez de ficar
+administrado.
+
+── DOIS ARMAZÉNS, POR DURABILIDADE ──────────────────────────────────────
+
+| | O quê | Por quê |
+|---|---|---|
+| `localStorage` | campos | escrita **síncrona**: quando `setItem` retorna, já gravou. O Android mata o app sem avisar e os campos mudam a cada tecla |
+| IndexedDB (`gb_os`) | assinatura, fotos | assíncrono, mas cabe muito mais que 5 MB. Peças grandes e raras |
+
+Não é organização, é durabilidade: para o que muda a cada tecla, a gravação
+instantânea vale mais que o espaço; para o que é grande e raro, o contrário.
+
+── A FILA DE FOTOS ──────────────────────────────────────────────────────
+
+A foto tirada sem sinal vai para o IndexedDB e **aparece na tela marcada como
+"na fila"**, com um id **local** (`loc_…`). Antes ela era descartada com um
+alerta vermelho, e o técnico tinha de voltar ao local para fotografar de novo —
+quando dava.
+
+⚠️ **Mostrar a foto pendente não é enfeite.** Escondida, o técnico tira de novo
+achando que perdeu, e a O.S. termina com a mesma foto duplicada.
+
+⚠️ **`Number(card.dataset.fotoId)` quebraria tudo.** O id local é string;
+`Number("loc_…")` é `NaN`, o filtro não removeria nada e o DELETE iria para
+`/fotos/NaN`. A comparação passou a ser por string, e `_ehFotoLocal(id)` decide
+entre tirar da fila e chamar o servidor.
+
+⚠️ **Uma foto por vez, nunca em lote.** Cada uma vai em base64 no corpo do POST
+e o `express.json` corta em 8 MB (CLAUDE.md). O laço **para no primeiro erro de
+rede**, o que também preserva a ordem em que foram tiradas. Recusa do servidor
+(não de rede) tira a foto da fila e avisa — senão vira reenvio infinito.
+
+⚠️ **`finalizarOS` descarrega a fila antes de fechar.** Finalizar exige rede de
+qualquer forma; se ela está de pé, é a última chance das fotos subirem. Fechar
+com foto na fila a deixaria órfã — o backend recusa envio em O.S. finalizada, e
+o técnico teria fotografado à toa. Sobrando alguma, a finalização é **barrada**
+com a contagem.
+
+── VERIFICAÇÃO ──────────────────────────────────────────────────────────
+
+Vinte checagens com a rede caindo e voltando de verdade: duas fotos e a
+assinatura offline → as duas na fila do IndexedDB e visíveis como pendentes, a
+assinatura no IndexedDB e **fora** do `localStorage` (o rascunho lá ficou com
+**63 caracteres**), a linha de estado contando "2 fotos" → **app morto e
+reaberto**, tudo sobreviveu → rede volta: fila esvazia, as duas chegam ao
+servidor, a assinatura sobe no PATCH, os cartões deixam de ser pendentes, a
+linha some, a assinatura sai do IndexedDB → apagar foto da fila **não** chama o
+servidor → finalizar com foto na fila é **barrado** com a razão certa. Zero erro
+de JS. Layout conferido nas 4 telas × 2 larguras; detector zerado.
+
+── O BURACO QUE FICA (etapa 5, registrado no roadmap) ───────────────────
+
+⚠️ **Se a O.S. for finalizada ou fechada do outro lado enquanto o técnico está
+offline, a fila dele chega e não tem onde pousar** — o backend recusa edição e
+envio de foto em O.S. finalizada. Hoje a foto sairia da fila com um alerta.
+Precisa de caminho definido: ou o backend aceita sincronização atrasada, ou o
+app mostra "isto não conseguiu subir" com o conteúdo à mão. É a diferença entre
+"não perde" e "não perde nunca". Levantado pelo Pedro, não por mim.
+
+⚠️ **E um limite que nenhuma etapa remove:** desinstalar o app ou limpar o
+armazenamento leva o rascunho junto. É local, não é backup.
+
+Faltam ainda a etapa 3 (finalizar offline — **exige backend**, por causa do
+`finalizada_em = NOW()`) e a 4 (abrir a O.S. offline).
+
+Sem migration. Só chega no técnico com APK novo.
+
+
+### 2026-09-01 (6ª rodada) · O PWA parecia deslogar ao fechar, e a sessão estava lá o tempo todo
+
+Relato do Pedro: *"estou fazendo login no painel de operador, fechando e quando
+abro logo em seguida o PWA está na tela de login novamente"*. **Nada desconectava
+ninguém.** O token seguia no `localStorage`, dentro da validade — a tela de login
+é que nunca olhou para ele.
+
+**Os dois fatos que se somam.** O `start_url` do manifest é lido **uma vez, na
+instalação**, e até 31/08/2026 valia `/login` para todas as superfícies (o
+`src/app.js` passou a gerar um por app via `?app=`, mas isso só vale para quem
+instalar o ícone **depois** — e no iOS nem isso, porque lá o `start_url` é
+ignorado em favor da página aberta na hora de instalar). Do outro lado, o
+`login.js` só chamava `redirectByRole` **depois** de um POST bem-sucedido: não
+havia nenhuma checagem de sessão no carregamento. Ícone antigo abre em `/login`,
+`/login` desenha o formulário por cima de uma sessão viva.
+
+⚠️ **O comentário do `src/app.js` afirmava o contrário** — *"com sessão válida o
+/login redireciona sozinho"* — e era falso desde sempre. Foi escrito descrevendo
+o comportamento pretendido, e ninguém conferiu: quem instala o PWA raramente é
+quem lê essa linha. Agora é verdade, e o comentário passou a dizer isso sem
+prometer o que o arquivo não faz.
+
+**O conserto**: `public/login.js` decide no carregamento. Token no storage, `exp`
+no futuro, `role` no `PAINEL_POR_ROLE` → `location.replace` para o painel, sem
+pintar formulário nenhum. `replace` e não `href`: com `href` o botão "voltar" cai
+no `/login`, que redireciona de novo, e o histórico vira parede.
+
+⚠️ **AS DUAS GUARDAS SÃO CONTRA LOOP, e o loop é real:** login manda pro painel →
+painel pede dado → 401 → painel manda pro login → login manda pro painel, para
+sempre, com a tela piscando. Fecham o ciclo (1) o `motivo` na URL — quem chegou
+com `?motivo=expirado` ou `?motivo=inatividade` foi mandado para cá de propósito
+e vê o formulário com a mensagem, nunca um redirect — e (2) o `exp` lido do
+próprio JWT, a mesma leitura que o `inatividade.js` faz do `iat`. Token vencido
+não vai a lugar nenhum.
+
+⚠️ **O carimbo de inatividade NÃO é conferido aqui, de propósito.** Repetir os 30
+minutos e a chave `tg_ultima_atividade` no `login.js` criaria uma segunda cópia da
+regra para alguém esquecer de mudar junto — o mesmo apodrecimento que o
+`inatividade.js` evita concentrando o corte num arquivo só. Quem volta com o tempo
+estourado é redirecionado, cortado antes de qualquer dado pintar e devolvido com
+`?motivo=inatividade`: a mensagem certa, ao custo de um flash, e a guarda 1 impede
+que vire ida e volta.
+
+⚠️ **Cliente sem `condominio_id` no token fica no login** — mesma barreira que o
+`redirectByRole` aplica depois do login. Mandá-lo ao painel seria trocar a tela por
+um 403 (o vínculo pode ter sido removido depois de o token nascer).
+
+**Verificado exercitando o arquivo**, não lendo: `login.js` carregado num contexto
+com `localStorage`, `location` e DOM falsos, 14 casos, todos passando — operador,
+admin e cliente com token vivo vão para o painel certo; token vencido, `?motivo=`
+(os dois), storage vazio, token que não é JWT (`harness`), `admin_viewer` e cliente
+sem condomínio **ficam** no login; o `?next=` do QR leva o técnico ao equipamento e
+é ignorado para o cliente; o `?next=` de orçamento leva o síndico ao documento com
+`?orc=`; e `next=//evil.com` continua barrado pela allowlist.
+
+⚠️ **O que isto NÃO resolve:** o ícone instalado antes de 31/08 continua abrindo em
+`/login` — agora ele apenas atravessa a tela em vez de parar nela. Reinstalar o PWA
+pega o `start_url` certo e economiza o salto.
+
+Sem migration. Bump de `login.js?v=8` no `login.html`.
+
+
+### 2026-09-01 (6ª rodada) · A O.S. fecha no subsolo (etapa 3, migration 081)
+
+Terceira das cinco etapas do trabalho offline, e a primeira que mexe no
+**backend**. O técnico agora **finaliza** a O.S. sem sinal; ela sobe sozinha
+depois. Com isso o pedido original do Pedro está atendido para o caminho
+principal.
+
+⚠️ **O HORÁRIO GRAVADO É O DO SERVIÇO, NÃO O DO ENVIO — e é aqui que estava o
+risco real.** O `POST /:id/finalizar` gravava `finalizada_em = NOW()`, e o mesmo
+`NOW()` fechava o chamado e calculava `tempo_resolucao_seg`. Uma O.S. resolvida
+em 40 minutos no subsolo e sincronizada 3h depois entraria no **SLA como 3h40**.
+Agora o app manda `finalizada_em` e o backend usa esse instante nos dois lugares.
+
+**Migration 081 — `ordens_servico.sincronizada_em`** (+ índice parcial). NULL =
+finalizada online; preenchida = o app mandou o próprio horário, e o valor é
+quando chegou.
+
+⚠️ **Por que a coluna precisa existir:** a partir daqui o `finalizada_em` vem do
+**relógio do celular**, que pode estar errado. E `ordens_servico` **não tem
+`atualizado_em`** — sem esta coluna não sobraria nem rastro indireto de que
+aquele horário não veio do servidor. Ela é o que torna aceitável confiar no
+cliente.
+
+⚠️ **Horário inválido NÃO recusa o envio.** Sanidade: futuro além de 5 min, mais
+velho que 7 dias, ou anterior à `chegada_em` → cai para `NOW()`. Recusar
+deixaria o trabalho do técnico preso na fila do aparelho para sempre, que é o
+pior desfecho possível. `sincronizada_em` é marcada mesmo no descarte, então a
+auditoria vê que veio do app com horário rejeitado.
+
+⚠️ **`$n` REPETIDO COM CAST EXPLÍCITO EM TODOS OS USOS.** O mesmo parâmetro é
+valor de duas colunas na O.S. **e** entra num `EXTRACT` no UPDATE do chamado —
+exatamente o `42P08 inconsistent types deduced for parameter` do CLAUDE.md, que
+o Postgres recusa no PARSE, antes de olhar valor nenhum. `node --check` e UPDATE
+manual não pegam: **a rota foi exercitada de verdade**, com Express, JWT de
+técnico e fixtures criadas e removidas no banco de teste.
+
+── NO APP ───────────────────────────────────────────────────────────────
+
+⚠️ **ORDEM OBRIGATÓRIA: campos → fotos → finalizar.** O backend recusa `PATCH` e
+envio de foto em O.S. já finalizada; inverter deixa as fotos órfãs.
+`_osEnviarFinalizacaoPendente(osId)` faz as três e **recebe o id** em vez de
+olhar `OS.data` — o técnico pode ter fechado três O.S. antes de o sinal voltar,
+e nenhuma delas está aberta na tela. Por isso `_osSubirFotosDaFila(osId)` foi
+separada da versão que atualiza a interface.
+
+⚠️ **`finalizarOS` parou de abortar em falha de rede.** O auto-save estourando
+sem sinal derrubava a finalização inteira — que é justamente o que o técnico do
+subsolo precisava fazer. Agora só a recusa do **servidor** interrompe.
+
+⚠️ **A tela de conclusão não mente:** enquanto está na fila diz "Guardada no
+aparelho · envia sozinha", não "chamado fechado". O técnico juraria que enviou,
+e é ele que responde quando o escritório não acha a O.S.
+
+⚠️ **A lista marca "Aguardando envio" MESMO COM O `GET` FALHANDO**, e isso foi
+achado no teste. A marcação estava dentro do `try` do carregamento: como é
+justamente no subsolo que o `GET` falha, ela só apareceria quando já não fosse
+necessária — e o técnico veria o chamado que acabou de fechar como "Em
+atendimento", e refaria o serviço. Passou para o `finally`.
+
+⚠️ **Reabrir a O.S. finalizada consulta a fila ANTES do `GET`** — depois não
+funcionaria offline: ele receberia "erro ao carregar" numa O.S. que ele mesmo
+fechou.
+
+── VERIFICAÇÃO ──────────────────────────────────────────────────────────
+
+**Rota** (Express + JWT + banco de teste, 15 checagens): finalização normal
+deixa `sincronizada_em` NULL; offline de 3h atrás grava o horário do app em
+`finalizada_em` e `saida_em`, marca `sincronizada_em`, e o
+**`tempo_resolucao_seg` deu 3601s** — contando do chamado até o serviço, não até
+a sincronização; relógio adiantado e horário anterior à chegada caem para
+`NOW()` **sem recusar**; O.S. já finalizada continua recusada com 400.
+
+**App** (rede caindo e voltando, 17 checagens): foto + campo + finalizar sem
+sinal → tudo na fila, tela em modo pendente, nada no servidor; a lista marca
+"Aguardando envio"; reabrir mostra a conclusão sem botão de finalizar; a rede
+volta e a ordem observada foi exatamente **patch → foto → finalizar**, com o
+servidor recebendo o horário do subsolo.
+
+Layout conferido nas 4 telas × 2 larguras.
+
+**Migration 081 aplicada em teste e em PRODUÇÃO** (01/09/2026), nessa ordem e
+**antes** do deploy do código — que é a lição da Fase 7E: esta entrada escreve
+em `sincronizada_em`, e o backend subindo antes da coluna existir quebraria
+**toda** finalização, não só as offline.
+
+Faltam a etapa 4 (abrir a O.S. offline) e a 5 (O.S. fechada do outro lado).
+
+
+### 2026-09-01 (7ª rodada) · O app abre no subsolo (etapa 4) e a marca do cabeçalho lê
+
+**Etapa 4 de 5.** O app já abria sem rede — é APK, o HTML vem do bundle — mas
+**toda chamada de dado morria**: lista, detalhe do chamado, O.S. e equipamentos.
+Quem descia sem as telas já abertas não trabalhava.
+
+Agora as leituras passam por `apiComCache(path)`, que grava a resposta no
+IndexedDB e, **só em falha de rede**, serve o que está guardado.
+
+⚠️ **A PRÉ-CARGA É O QUE FAZ A ETAPA FUNCIONAR.** Cachear apenas o que ele já
+abriu não resolveria nada: o problema é abrir, no subsolo, a O.S. que ele
+**ainda não tinha aberto**. Depois de cada carga da lista **com rede**,
+`_preCarregarParaOffline()` busca em segundo plano o detalhe de cada chamado
+aberto (até 12) e, quando a O.S. já existe, ela e os equipamentos do prédio.
+Roda solta e nunca derruba a lista.
+
+⚠️ **A CHAVE DO CACHE É O PRÓPRIO CAMINHO**, e isso não é preguiça: chave
+inventada à parte abre espaço para descasamento silencioso — a pré-carga
+gravando em `chamado_12` e a leitura procurando `chamado_meus_12`, com o cache
+existindo e nunca sendo encontrado. **Aconteceu comigo aqui**: pré-carreguei
+`/chamados/:id` enquanto a tela lê `/chamados/meus/:id`. Com a chave derivada do
+path, esse erro deixa de ser possível.
+
+⚠️ **Só falha de REDE cai para o cache.** Um 403 ou 404 é resposta legítima do
+servidor: servir dado velho ali esconderia, por exemplo, um chamado que deixou
+de ser deste técnico. Está coberto por teste.
+
+⚠️ **`IDB_VERSAO` SUBIU PARA 2, e sem isso nada funcionaria.** O
+`onupgradeneeded` do IndexedDB só dispara quando a versão pedida é maior que a
+gravada no aparelho — quem já abriu o app com a v1 **nunca ganharia o store
+`cache`**. E a falha seria silenciosa: as escritas estouram numa transação para
+um store inexistente, o `.catch()` engole, e o técnico simplesmente fica sem
+cache, sem nada na tela dizendo isso.
+
+⚠️ **Uma linha de aviso só, e ela prioriza.** Sem sinal os dois avisos são
+verdadeiros — a lista veio do cache E o GPS não respondeu. Duas barras âmbar
+empilhadas no topo não são o dobro do aviso, são metade da atenção: "você está
+sem sinal" explica o outro, e o contrário não. Na O.S., os dois fatos (dado
+guardado + coisa por enviar) são compostos num recado só, porque ao abrir
+offline **sempre** há algo pendente — o próprio render dispara um save antes de
+o técnico digitar.
+
+⚠️ **O QUE A ETAPA 4 NÃO RESOLVE, e é preciso dizer:** **começar um atendimento
+novo**. A O.S. nasce de `POST /chamados/:id/iniciar-atendimento`, e sem rede não
+há como criar — todo o resto (rascunho, fotos, finalização) depende desse id.
+Fazer isso offline exigiria id local e uma camada de reconciliação de ids. Na
+prática: o técnico precisa tocar em **"Iniciar atendimento" enquanto ainda tem
+sinal** (na rua, na portaria); dali para baixo tudo funciona.
+
+**A marca do cabeçalho estava errada** (apontado pelo Pedro). Era o
+`login-logo.png`, o lockup **com a assinatura** embaixo — 867×288, proporção
+3:1: a 26px de altura a assinatura sai com ~5px e vira borrão. Virou
+`logo-topo.png`, o wordmark (826×180, 4,6:1), nos 12 cabeçalhos. É a mesma
+escolha que o `operador.html` já documentava — "a versão SEM a assinatura, que é
+a que aguenta escala de barra". O lockup continua nas telas de entrada, onde
+aparece grande. Saiu junto o `border-radius: 8px` que recortava os cantos da
+marca.
+
+**Verificado:** 20 checagens do fluxo offline (lista carrega com rede e
+pré-carrega; app morto e reaberto no subsolo; lista, detalhe e **formulário da
+O.S.** abrem do cache, com equipamentos; preencher continua guardando; e um 403
+aparece em vez de dado velho). Mais 12 de regressão das etapas 1 a 3 depois do
+refactor — a ordem de sincronização segue **campos → fotos → finalizar**. Marca
+conferida no render: arquivo certo, 826×180, sem raio, cabendo na barra. Layout
+nas 4 telas × 2 larguras.
+
+**Sem migration** — a etapa 4 é só front. APK 6,4 MB.
+
+Falta a **etapa 5**: a O.S. fechada do outro lado enquanto o técnico estava sem
+sinal.
+
+
+### 2026-09-01 (8ª rodada) · "Failed to fetch" ao abrir a O.S. no subsolo
+
+Relato do Pedro testando a etapa 4: *"cliquei para preencher ordem de serviço sem
+internet e deu failed to fetch"*. **Reproduzido e corrigido** — e a reprodução
+achou um segundo defeito, este meu e ainda não visto por ninguém.
+
+**A causa: a O.S. nasce DEPOIS da pré-carga.** A sequência real é
+
+1. a lista carrega **com sinal** — e a pré-carga guarda o detalhe do chamado,
+   que naquele instante está `aberto` e **sem O.S. nenhuma**;
+2. o técnico toca **"Iniciar atendimento"** (ainda com sinal) e o
+   `POST /chamados/:id/iniciar-atendimento` **cria** a O.S.;
+3. ele desce para o subsolo;
+4. toca "Preencher Ordem de Serviço" → `GET /ordens-servico/:id` → não está no
+   cache, porque quando o cache foi montado a O.S. não existia.
+
+A pré-carga estava certa; o que faltava era **guardar a O.S. no instante em que
+ela nasce**, que é justamente quando o técnico ainda tem sinal — ele está na
+portaria e vai descer. `iniciarAtendimento` passou a cachear a O.S. nova, o
+detalhe atualizado do chamado e os equipamentos do prédio antes de devolver a
+tela. Segurar o botão por mais um instante é barato perto de perder a O.S.
+
+⚠️ **O SEGUNDO DEFEITO, ACHADO AO CONSERTAR O PRIMEIRO — E ERA MEU.** A lista faz
+**polling a cada 30 segundos**, e eu disparava a pré-carga em **toda** carga
+bem-sucedida. Isso são até 12 chamados × 3 requisições **a cada meio minuto** —
+milhares por hora nos dados móveis e na bateria do técnico, e no servidor. Nunca
+teria aparecido numa tela; aparece na conta dele no fim do mês.
+
+Freio de 5 minutos, com o refresh **manual** ignorando (`forcar: true`): quem
+toca em atualizar normalmente está prestes a sair, e ali garantir o cache vale o
+tráfego. Medido: quatro ciclos do polling = **4 requisições**, não 4 × 20.
+
+**Verificado** reproduzindo a sequência exata do relato — antes: "Failed to
+fetch", 0 seções, O.S. ausente do cache. Depois: sem erro, 9 seções, O.S. no
+cache. Mais 4 checagens do freio.
+
+Sem migration. APK novo.
+
+
+### 2026-09-01 (9ª rodada) · A fila só subia se o navegador avisasse — e ele não avisa
+
+Relato do Pedro, na **terceira instalação**: *"terminei a os off, voltei para a
+página inicial, liguei a internet, mas continua lá escrito aguardando envio"*.
+
+**A causa: os únicos gatilhos da sincronização eram o evento `online` e reabrir
+a O.S.** Nenhum dos dois acontece nessa sequência.
+
+⚠️ **E O EVENTO `online` NÃO É CONFIÁVEL NO APARELHO.** No subsolo o rádio
+continua *conectado* — `navigator.onLine` fica `true` — e só os **dados** é que
+não passam. Quando eles voltam **não há transição**, logo não há evento. O
+técnico finalizava, voltava para a lista, ligava a internet e ficava para sempre
+em "Aguardando envio".
+
+**O conserto: uma chamada que deu certo é a prova de que há rede.** A lista já
+faz polling a cada 30s; cada volta bem-sucedida dela passou a descarregar a
+fila. É um sinal melhor que qualquer flag do navegador, e já existia.
+
+Junto veio uma trava de reentrada: quando algo sobe, a sincronização recarrega a
+lista — e a carga da lista chama a sincronização. Sem a trava seria um laço.
+
+⚠️ **A LIÇÃO É SOBRE O TESTE, NÃO SOBRE O CÓDIGO — E É MINHA.** Os testes das
+etapas 1 a 4 chamavam `_osSincronizarTudoPendente()` **à mão**. Eles provavam
+que a função sincroniza, e nunca que **alguém a chama**. Por isso passaram
+verdes enquanto o app falhava no bolso do técnico, três instalações seguidas.
+
+A regra que fica: **teste de sincronização não pode invocar o sincronizador.**
+Só toque de botão e o que dispara sozinho. Foi assim que este bug apareceu no
+primeiro segundo do teste novo — e é assim que ele fica pego daqui para frente.
+
+**Verificado** reproduzindo a sequência exata do relato, sem simular o evento
+`online`: finaliza sem sinal → volta para a lista → liga a internet → **só o
+polling roda**. Antes: 0 enviadas, fila cheia, selo "Aguardando envio". Depois:
+1 enviada, fila vazia, selo sumiu.
+
+Sem migration. APK novo.
+
+### 2026-09-02 · A O.S. assinada aparecia como "Não assinada" no admin
+
+Relato do Pedro, com a tela aberta na OS-2026-0016: *"foi assinado, está no
+PDF a assinatura, porém ali aparece 'não assinada'"*.
+
+**A causa está no jeito certo de servir a assinatura, aplicado pela metade.**
+`GET /ordens-servico/:id` deixa `assinatura_b64` de fora de propósito — são
+~120KB de PNG que o técnico rebaixaria no 4G a cada abertura — e manda só o
+booleano `tem_assinatura`; a imagem sai por `GET /:id/assinatura`, sob demanda.
+O app mobile faz essa segunda chamada. **O painel admin nunca fez:** lia
+`os.assinatura_b64` direto do detalhe, recebia `undefined` e caía no ramo
+"Não assinada." — para toda O.S., assinada ou não.
+
+⚠️ **O PDF ESCONDIA O DEFEITO EM VEZ DE DENUNCIÁ-LO.** `os-pdf.service.js` lê a
+coluna direto do banco, então a assinatura sempre saiu no documento. O dado
+nunca esteve perdido; só a tela não sabia pedi-lo. Quem conferia pelo PDF —
+que é o que vale para o cliente — não tinha como notar.
+
+⚠️ **O MESMO `SELECT` DERRUBAVA MAIS QUATRO CAMPOS, E UM DELES APAGAVA DADO.**
+A lista de colunas não trazia `saida_em`, `chegada_lat/lng`, `saida_lat/lng`
+nem `necessario_retorno` — todos renderizados pela view, todos saindo como
+"—". O grave é o último: `_osEditsFromOS` monta o rascunho de edição com
+`!!os.necessario_retorno`, que sem o campo é **sempre `false`**. Abrir uma O.S.
+que pedia retorno, mexer em qualquer outra coisa e salvar **desmarcava o
+retorno em silêncio** — o PATCH mandava `necessario_retorno: false`.
+
+Junto foi o mapa `_OS_ITENS_VERIFICADOS`: a seção "Verificações" imprimia a
+chave crua do JSONB (`comando_eletrico: Sim`) porque só o app e o PDF tinham
+os rótulos.
+
+**Verificado** contra o banco, exercitando as duas rotas com JWT de admin:
+`GET /ordens-servico/1` agora responde `tem_assinatura: true`,
+`necessario_retorno`, `saida_em` e as coordenadas, e segue **sem**
+`assinatura_b64`; `GET /ordens-servico/1/assinatura` devolve o data URI.
+
+Sem migration. `?v=N` do `admin.js` bumpado (325 → 326).
+
+### 2026-09-02 (2ª rodada) · Três ajustes no painel do operador
+
+Relato do Pedro, os três na mesma frase: *"às vezes quando o mapa está em tela
+cheia ele simplesmente fecha sozinho"*, *"essa tela em específico não pode
+desconectar por inatividade, porque o objetivo é deixar o mapa aberto"* e
+*"quando clica em um condomínio no mapa que já tem técnico atribuído, acho que
+hoje a funcionalidade não faz sentido"*.
+
+**1. A tela cheia fechava sozinha — e quem fechava era o ciclo de 30s.**
+O nó do mapa é persistente para atravessar o `render()` (comentário antigo em
+`mapaTurnoNo`), mas ele mora **dentro** do `#tela`: o `innerHTML` o arranca do
+documento e o `replaceWith` o devolve no instante seguinte. O Leaflet atravessa
+esse vaivém — pan, zoom e tiles ficam de pé, que é o que o comentário promete e
+cumpre. **A tela cheia não atravessa.** Por especificação, tirar do documento o
+elemento em tela cheia encerra a tela cheia, e devolvê-lo no mesmo instante não
+desfaz nada; o `fullscreenchange` via `fullscreenElement === null` e o mapa
+fechava. Não era "às vezes": era **toda** volta do polling — o "às vezes" é
+onde do ciclo a pessoa abriu.
+
+⚠️ **MOVER O NÓ PARA OUTRO LUGAR ANTES DO `innerHTML` NÃO RESOLVERIA** — mover
+é remover e inserir, e é a remoção que encerra. Em tela cheia o ciclo passou a
+pular o HTML e atualizar só o mapa, que é a única coisa que o navegador pinta
+ali; o `#tela` é reposto na saída (`_renderAdiado`).
+
+**2. A tela não desconecta mais por inatividade.** `<body data-corte="nunca">`,
+lido pelo `inatividade.js` — mesmo mecanismo do `data-corte="cartao"` da tela
+de orçamentos: atributo no `<body>`, que já está no DOM quando aquele `defer`
+roda e não esbarra na CSP `script-src 'self'`.
+
+⚠️ **O CARIMBO CONTINUA SENDO GRAVADO, e isso não é sobra.** O
+`tg_ultima_atividade` é compartilhado entre as telas. Se esta parasse de
+carimbar, um dia de trabalho no operador deixaria o carimbo velho e abrir o
+`/admin/painel` na mesma máquina cortaria a sessão no ato — o corte de
+carregamento dispara antes de a tela pintar. Só o **corte** foi dispensado.
+Vale só para o `/operador/painel`; a tela de Aprovados segue cortando.
+
+**3. O clique no pino segue o estado do chamado.** Todo pino abria o diálogo de
+despacho, inclusive o de chamado que já tinha técnico — e era a **única** peça
+da tela que oferecia isso: na fila, o item com técnico não tem botão
+"Despachar", e o próprio balão já troca o botão pelo nome de quem foi. Só o
+mapa perguntava "quem pode ir" sobre um chamado onde alguém já estava indo, com
+a lista inteira da equipe e nenhuma palavra sobre o técnico atual — clicar num
+nome dali **reatribuía em silêncio**. Agora: sem técnico → despacho (como
+sempre); com técnico → o **balão**, no próprio mapa. O Pedro escolheu entre
+quatro opções, e o motivo é o item 2: com a tela aberta o turno inteiro, sair
+do mapa para ler quem foi é o que não se quer.
+
+⚠️ **E O BALÃO ESTAVA COM 132px DE LARGURA — achado ao verificar o item 3.**
+O `width:auto!important` do `.balao-pop .leaflet-popup-content` anula
+exatamente a linha em que o Leaflet aplica `minWidth`/`maxWidth`
+(`_updateLayout` mede sem quebra, limita e escreve `style.width`). O balão
+virava shrink-to-fit: 132px para um mínimo pedido de 214, nome do prédio em três
+linhas, **438px de altura num mapa de 391** — o pé, e com ele o "Ver detalhes",
+ficava fora da caixa. Valia para o balão do chamado novo desde sempre; o clique
+só o pôs na frente. A largura passou para o `.balao` (`width:268px`, o mesmo
+`maxWidth` que o JS pede): **271 × 337 com a seta**, dentro dos 391 da coluna.
+
+⚠️ **E A LARGURA SOZINHA NÃO BASTAVA.** Na faixa em que o trilho deixa de ser
+coluna o mapa fica largo e BAIXO — medido, **947 × 292** numa janela de 1000px
+—, e ali nem os 318 do balão corrigido cabiam. `autoPan` não resolve: não há
+para onde panar quando o conteúdo é mais alto que o contêiner. Entrou um
+`maxHeight` calculado do tamanho do mapa ao abrir; naquela faixa o balão fecha
+em 270 e rola por dentro, e na coluna de 1920 e em tela cheia a conta nem morde
+— nenhuma rolagem aparece.
+
+**Verificado no Chrome, com tela cheia NATIVA de verdade** — que é a única
+forma de testar isto, porque o caminho por classe (o plano B) não reproduz o
+defeito: a classe vive no próprio nó e sobrevive à mudança. Entrou por clique
+real no botão; o vaivém do `render()` antigo derruba o `fullscreenElement` para
+`null` e limpa o `is-fs`, e com o desvio a tela cheia atravessa o ciclo com o
+balão aberto, o mapa recebendo pino novo (5 → 6) e o `#tela` reposto na saída
+com o chamado que chegou. Mais: pino com técnico → balão sem "Despachar", com
+"Marcos Ribeiro" e "Ver detalhes" dentro da caixa; pino sem técnico → despacho
+com os 4 candidatos, igual a antes; console limpo.
+
+O `inatividade.js` foi verificado fora do navegador (a extensão bloqueia
+escrever a chave `token`, e sem sessão o arquivo não roda): 14 checagens
+cobrindo as duas telas — a que corta segue cortando aos 45 min e ao voltar para
+a aba com 3h, a que não corta não arma timer e sobrevive a 26h paradas, e o
+cartão de orçamentos segue no caminho dele.
+
+Sem migration. `?v=N`: `operador.js` 70 → 73, `operador.css` 75 → 77,
+`inatividade.js` 8 → 9 nas cinco páginas que o carregam.
+
+### 2026-09-02 (3ª rodada) · O pedido de orçamento do técnico deixa de ser invisível
+
+Pergunta do Pedro: *"se no app o técnico colocar que é necessário orçamento,
+essa informação chega onde?"*. Rastreando: o app salva
+`orcamento_necessario` + `orcamento_observacoes` na O.S. (PATCH com debounce,
+enquanto ele digita), e daí a informação aparece em **quatro lugares, todos no
+admin** — a aba "Solicitados pelos técnicos", o drawer do condomínio, o
+detalhe da O.S. e a ficha do equipamento. **Não dispara notificação nenhuma**
+(nem e-mail, nem WhatsApp), **não sai no PDF da O.S.**, não chega ao operador
+(a tela Aprovados filtra `status = 'aprovado'`) e não chega ao cliente.
+
+⚠️ **E O CONTADOR NÃO CONTAVA JUSTAMENTE ESSE ESTADO.** O pedido recém-chegado
+tem `orcamento_status` **NULO** — o orçamento formal ainda não existe. A tabela
+já sabia desenhá-lo (`_orcStatusLabel(null)` devolve SOLICITADO, com comentário
+dizendo que é *"o estado que mais precisa aparecer nesta aba"*), mas o KPI
+"Pendentes", os contadores das abas e os DOIS badges contavam
+`status === 'rascunho'`. Nulo não é rascunho: **o pedido novo não entrava em
+contador nenhum**, e sob a aba "Pendentes" nem aparecia.
+
+⚠️ **E O BADGE SÓ EXISTIA DEPOIS DE ABRIR A SEÇÃO.** `_orcAtualizarBadge` só
+roda dentro de `carregarOrcamentos`, chamada apenas ao ENTRAR em Orçamentos.
+Abrir o admin e olhar a barra lateral não mostrava nada — que é exatamente o
+que um badge existe para evitar.
+
+Os dois consertados: o estado ganhou nome (`_orcSolicitado`) e aba própria, o
+badge soma **solicitado + rascunho**, e `carregarTudo` carrega a lista no boot
+— uma requisição a mais na primeira carga e nenhuma no polling.
+
+**E a tela foi unificada com a aba irmã**, a pedido do Pedro. As duas vivem na
+mesma seção, a um clique uma da outra, e eram coisas diferentes: "Criar
+orçamento" já era master-detail agrupado por condomínio, "Solicitados pelos
+técnicos" era tabela de 7 colunas. A pergunta das duas é a mesma — *o que este
+prédio está esperando de orçamento?* — e agrupar é o que permite respondê-la de
+uma vez: um técnico que pediu três coisas no mesmo prédio virava três linhas
+soltas. Reaproveitou `.av-condo-row`, `.av-dot`, `.av-orc-pane-head` e
+`.av-orc-item` **inteiros**; a única classe nova é `.av-orc-item-obs`, a
+observação do técnico na linha — ela não é metadado, é o texto que a aba existe
+para entregar.
+
+A ficha por O.S. não se perdeu: virou o modal de tela cheia, que já era o
+destino do botão "Preencher orçamento" e já carregava a observação. **Aprovar
+e Rejeitar foram junto**, e isso conserta um defeito de caminho: o `_orcAcao`
+escreve o resultado em `#orcFormMsg`, que só existe dentro do modal — aprovar
+pelo painel era ação sem confirmação e sem mensagem de erro.
+
+⚠️ **DOIS DEFEITOS ANTIGOS APARECERAM AO OLHAR O MODAL NA TELA.** O título saía
+**"Orçamento formal · OS OS-2026-0042"** (o `numero` já traz o prefixo), e o
+botão "Gerar PDF" usava `#f0b014` como **texto** sobre a placa clara: **1,6:1**
+medido, contra os 4,5 do piso. É a Regra do Amarelo Cego do DESIGN.md, e a
+correção é o token — `--warn` vira `--warn-t` dentro do `.av-modal-dialog` e
+mede **4,67:1**.
+
+⚠️ **A CRASE DENTRO DE TEMPLATE LITERAL ME PEGOU DUAS VEZES NESTA RODADA**, nos
+comentários `<!-- -->` que escrevi dentro do HTML do modal. É o item do
+CLAUDE.md, e o sintoma é o de lá: erro apontando para identificador solto,
+longe da linha real. Fica o reforço: dentro de template literal, nome de
+função e de classe vai **sem marcação nenhuma**.
+
+**Verificado no Chrome**, numa prévia sem sessão criada para isto
+(`/dev/_orcamentos-preview.html`, mesmo molde do `_operador-preview.html`):
+badge da barra e da aba em **3** (2 solicitados + 1 rascunho, o número que
+antes era 1); KPIs Total 6 · Solicitados 2 · Em orçamento 1 · Total aprovado;
+aba "Solicitados" filtrando para os 2 condomínios com pedido não atendido;
+troca de condomínio, busca por técnico, clique no pedido abrindo o modal com a
+observação, o formulário e as quatro ações; selo sem colidir com o ×; PDF a
+4,67:1; e as duas abas lado a lado com o mesmo esqueleto. Console limpo.
+
+Sem migration. `?v=N`: `admin.js` 326 → 328, `admin.css` 239 → 240.
+
+### 2026-09-02 (4ª rodada) · O modal que faz o orçamento, desenhado
+
+Reclamação do Pedro, com o print: *"mas o modal para fazer o orçamento você não
+arrumou né?"*. Estava certo. Na rodada anterior eu tinha consertado três
+defeitos pontuais dele — título duplicado, selo colidindo com o ×, contraste do
+botão de PDF — e nunca desenhado a tela. Ela é onde o orçamento é feito de
+verdade e era a menos cuidada do fluxo.
+
+**A CAUSA: OS DOIS MODAIS DE ORÇAMENTO DIVIDEM O `#avModal`.** Em algum momento
+o avulso ganhou layout de duas colunas, e o shell foi ajustado para ele —
+`padding: 0`, `display: flex`, `height: min(92vh, 880px)`, `max-width: 1360px`.
+**Só o avulso tem a marcação desse layout.** O modal da O.S. despejava
+`.av-modal-head` + `.orc-form-section` num diálogo sem padding nenhum: rótulo
+colado na borda esquerda e campo na direita (medido, **0px**), o cabeçalho
+recuado 20px por regra própria e o corpo em zero, 1360px de largura gastos com
+campos de 660, e nenhuma zona de rolagem — o formulário inteiro era uma coluna
+só. Era dano colateral, não desenho.
+
+Agora ele usa os mesmos componentes do avulso (`.av-layout`, `.av-col-form`,
+`.av-itens-zone`, `.av-itens-scroll`, `.av-cond`, `.av-rail`) e herda o que já
+tinha sido resolvido lá: só a zona de itens rola, o "+ Adicionar item" gruda no
+pé dela, e as condições comerciais nascem fechadas com o resumo no sumário.
+
+⚠️ **O QUE ESTE MODAL TEM E O AVULSO NÃO: um documento de origem.** O trilho da
+direita mostra o PEDIDO DO TÉCNICO — a observação dele, quem foi, de qual
+chamado veio, quando a O.S. fechou. É material de consulta enquanto se escreve,
+e por isso fica AO LADO e não acima: como faixa no topo ele rolava para fora da
+vista exatamente quando o operador começava a lançar os itens.
+
+⚠️ **O TOTAL MUDOU DE LUGAR PELO MESMO MOTIVO.** Era uma linha de 12px no fim
+da tabela — dentro da zona que rola —, então sumia a partir do quarto item, que
+é justo quando o número começa a importar. No trilho é o `.av-total` do avulso:
+mono, 29px, sempre visível, com subtítulo contando os itens e avisando quantos
+estão **sem valor** (o caso que faz o PDF sair errado).
+
+⚠️ **E O TRILHO REPROVAVA CONTRASTE — NOS DOIS MODAIS.** `.av-rail` tinha
+`background: rgba(0,0,0,.22)`, sobra de quando este modal era marinho. Sobre a
+placa clara aquilo resolve para rgb(181,183,189), um cinza médio, e as duas
+famílias de tinta do modal foram calibradas contra `--chapa`, não contra ele:
+`--tinta-2` media **4,04:1** (rótulo, chave, e agora a observação do técnico) e
+`--atencao-t` media **2,78:1** ("definir manualmente", "Enviar ao cliente").
+
+⚠️ **E O DEGRAU TEM DE SER PARA CIMA — a primeira tentativa errou o lado.**
+Usar `--surface2` (o degrau ESCURO) consertava a tinta (5,78) e deixava o âmbar
+em 3,98: melhor que 2,78, ainda reprovado. O motivo é aritmético — a família
+`-t` do DESIGN.md é calibrada contra `--chapa`, que é o TETO DE ESCURIDÃO em
+que ela passa; qualquer fundo mais escuro quebra o âmbar antes da tinta. O
+trilho virou placa POUSADA sobre o formulário (`--surface`, `--chapa-cl`):
+**7,55** e **5,20**, e o avulso vai junto. Nos dois modais não sobrou nenhum
+texto abaixo de 4,5 — pior caso medido, 5,03 no avulso e 7,54 no da O.S. Mais
+duas trocas de `--muted2` (3,59:1) por `--text-dim` (6,78:1) no estado vazio da
+tabela e na observação ausente.
+
+A tabela de itens ganhou `<colgroup>` com as mesmas larguras (84/122/122/40) do
+grid do "+ Adicionar item" — sem ele as colunas numéricas se auto-dimensionam e
+os campos caem fora da vertical das colunas que preenchem.
+
+**Verificado na prévia**, nos dois estados que importam. Vazio: padding real em
+toda volta, duas colunas (1060 + 300 em 1360), a observação do técnico legível
+no trilho, estado vazio dizendo o próximo passo. Cheio, com 4 itens: total
+**R$ 1.491,00** no trilho com "4 itens · 1 sem valor", a zona de itens rolando
+com o "+ Adicionar item" grudado (`position: sticky`), e as colunas do formulário
+de adicionar caindo na vertical das da tabela — cabeçalhos em 300/940/1024,
+campos em 308/948/1032, os 8px do padding das células. Contrastes remedidos no
+DOM, varrendo TODO texto dos dois trilhos: nenhum abaixo de 4,5 (pior caso 5,03
+no avulso, 7,54 no da O.S.); estado vazio da tabela 6,78. Console limpo.
+
+Sem migration. `?v=N`: `admin.js` 328 → 329, `admin.css` 240 → 243.
+
+---
+
+### 2026-09-02 · O condomínio aparecia com a razão social na lista e com o fantasia no PDF
+
+Pergunta do Pedro: *"por que o condomínio que tem o nome fantasia AURI FARIA
+LIMA está aparecendo na lista como ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS
+LTDA?"*
+
+**A [migration 044](#migrations-numeradas-módulo-whatsappia-em-diante) declarou
+`condominios.nome_fantasia` como "nome principal de exibição" e só metade do
+sistema foi atrás.** O PDF (`orcamento-pdf.service.js`), o e-mail de envio e o
+painel do cliente usavam o fantasia; as duas rotas que alimentam a seção de
+Orçamentos do admin — `GET /admin/orcamentos` e `GET /admin/orcamentos/avulsos`
+— liam só `c.nome`, a razão social.
+
+O resultado: o painel dizia "ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA" e
+o síndico recebia um PDF escrito "AURI FARIA LIMA". Mesmo orçamento, dois nomes.
+**71 dos 86 condomínios** em produção têm fantasia diferente da razão social, e
+**44 das 61 linhas** da lista trocavam de nome entre a tela e o documento.
+
+É a mesma regressão pós-044 que o `buscarDadosAvulso` já tinha sofrido — só que
+desta vez do lado da tela.
+
+| Rota / arquivo | Agora |
+|---|---|
+| `GET /admin/orcamentos` (as duas consultas) | `COALESCE(NULLIF(c.nome_fantasia,''), c.nome)` + `c.nome AS condominio_razao_social` |
+| `GET /admin/orcamentos/avulsos` | idem, com `o.cliente_nome` fechando o `COALESCE` |
+| `orcamento-pdf.service.js`, e-mail de envio, `cliente.routes.js` | ganharam o `NULLIF` que faltava |
+
+⚠️ **`NULLIF` não é enfeite:** `COALESCE(c.nome_fantasia, …)` aceita string
+vazia, e um fantasia salvo como `''` apagaria o nome da tela. As rotas de
+equipamentos, planos de manutenção e do select de condomínios já faziam assim.
+
+⚠️ **A busca passou a aceitar os dois nomes.** O blob de
+`_avFiltrados`/`_orcFiltrados` só olhava `condominio_nome`; com o fantasia ali,
+procurar por "Elvira" — o nome que consta no CNPJ, no contrato e na nota —
+pararia de achar o prédio. A razão social viaja em `condominio_razao_social`,
+entra no blob e aparece na linha `.av-orc-pane-razao` do cabeçalho do painel,
+**só quando difere** do fantasia. Mesmo par que o PDF imprime.
+
+⚠️ **A segunda consulta do `GET /admin/orcamentos` tem `GROUP BY`** e ler
+`c.nome_fantasia` no `SELECT` sem adicioná-lo ali derruba a query inteira com
+`42803` no parse — irmão do `42P08` do [CLAUDE.md](../CLAUDE.md), e igualmente
+invisível para `node --check`. Não há agregação sobre `condominios` (o único
+`SUM` é o dos itens), então a linha por orçamento não muda.
+
+**Verificado exercitando as rotas**, não só lendo o SQL: Express com o
+`adminRouter`, JWT assinado com o `JWT_SECRET`, `GET` nas duas contra o banco de
+produção. 200 nas duas; `tela="AURI FARIA LIMA"` / `razao="ELVIRA FERRAZ
+EMPREENDIMENTOS IMOBILIARIOS LTDA"`. O orçamento sem condomínio vinculado
+(`GENOVA E BARCELONA`, razão social nula) atravessa sem a linha extra.
+
+⚠️ **`.env` aponta para o banco de TESTE por padrão**, não para produção como
+diz o CLAUDE.md: `src/db-url.js` só escolhe `DATABASE_URL` com
+`NODE_ENV=production` ou sem `DATABASE_URL_TESTE`. A primeira rodada do teste
+voltou com os condomínios de demonstração ("Ed. Aurora") e quase passou por
+"nenhuma linha desse condomínio".
+
+**E verificado em tela**, em `/dev/_orcamentos-preview.html` a 1920px, nas
+**duas** abas: nome fantasia no título, "Razão social: …" abaixo, e a linha
+**ausente** no Edifício Aurora Paulista, que a fixture ganhou com os dois
+campos iguais justamente para cobrir o condomínio sem fantasia. Busca por
+"administradora" e por "empreendimentos" — palavras que só existem na razão
+social — acha o prédio pelo nome de tela. Console limpo depois de recarregar.
+
+⚠️ **A primeira versão da linha usava `opacity: .8` e reprovou contraste:
+3,26:1 medido no DOM.** O painel é `rgba(255,255,255,.14)` sobre `--chapa`
+(fundo efetivo rgb(40,49,84)) e a opacidade compõe contra ele, comendo o que o
+token tinha. Sem opacidade, `--text-dim` dá **6,22:1**. A hierarquia fica por
+conta do tamanho (11px contra os 14px do título) e do rótulo — é o nome do
+CNPJ, ninguém deveria apertar os olhos para conferir com quem vai contratar.
+
+📋 **Achado de passagem, NÃO corrigido:** `.av-orc-pane-sub` (a contagem de
+orçamentos, logo abaixo) mede **4,22:1** com `--muted` — abaixo do piso de 4,5
+do [DESIGN.md](../DESIGN.md). É anterior a esta sessão e aparece nas duas abas;
+trocar por `--text-dim` resolveria, mas mexe em texto que não é desta mudança.
+
+Sem migration — nenhuma coluna mudou, só quem as lê. `?v=N`: `admin.js`
+329 → 330, `admin.css` 243 → 244, `_orcamentos-preview.js` 6 → 7.
+
+### 2026-09-02 (5ª rodada) · Os dois modais de orçamento, iguais de verdade
+
+O Pedro pôs os dois prints lado a lado: *"está do mesmo jeito para você?"*. Não
+estava. Na rodada anterior eu reaproveitei o **esqueleto** do modal avulso e
+parei ali — o acabamento seguia divergente, e é o que salta ao ver as duas
+telas juntas.
+
+| | Antes | Agora |
+|---|---|---|
+| Ações | rodapé com 5 botões (o avulso não tem rodapé) | no trilho, empilhadas, Salvar em âmbar |
+| Zonas nomeadas | só ITENS e CONDIÇÕES | O DOCUMENTO · CONSTATAÇÃO · ITENS · CONDIÇÕES |
+| Cabeçalho | `<h3>` com estilo inline | placa do cifrão + `.av-modal-num` + `.av-modal-meta` |
+| "+ Adicionar" | botão neutro numa linha abaixo | âmbar, na 4ª coluna da linha |
+
+⚠️ **AS AÇÕES FORAM ESCOLHA DO PEDRO entre três arranjos**, e não é só layout:
+o avulso muda de estado por um select "Situação" no trilho, e este modal tem
+Aprovar/Rejeitar como botões. Mantê-los como botões e mudá-los de lugar
+preserva o comportamento — o motivo da rejeição continua sendo pedido no ato —
+e alinha a posição.
+
+⚠️ **E OS DOIS BOTÕES ERAM DO CAMPO ESCURO.** `.orc-btn-approve` e
+`.orc-btn-reject` usam `#4ade80` e `#f87171`, cores claras feitas para o painel
+marinho. Ao saírem do rodapé para o trilho passaram a viver na PLACA CLARA,
+onde medem **1,9:1** e **2,6:1** — o rótulo some. Dentro do diálogo agora usam
+a família de tinta (`--ok-t`, `--risco-t`).
+
+⚠️ **TERCEIRA OCORRÊNCIA DO PRETO TRANSLÚCIDO.** Depois do `.av-rail`, o
+`.av-seg` — o seletor Cadastrado/Avulso do modal avulso — tinha
+`rgba(0,0,0,.3)` pela mesma razão histórica. A aba **ATIVA** era a pior das
+duas (**3,27:1**), porque o âmbar é o que menos aguenta fundo escuro. Mesmo
+conserto, mesmo motivo: degrau para cima (`--surface`), agora **4,65:1**.
+
+**Verificado na prévia**, abrindo os dois modais em sequência e comparando
+campo a campo: mesmo cabeçalho, mesmas quatro zonas nomeadas, ações no trilho
+nos dois, nenhum rodapé, "+ Adicionar" âmbar na linha. Varredura de contraste
+em TODO texto dos dois diálogos: **nenhum abaixo de 4,5** — pior caso 4,65 no
+avulso e 5,78 no da O.S. Console limpo.
+
+Sem migration. `?v=N`: `admin.js` 329 → 330, `admin.css` 243 → 245.
+
+### 2026-09-02 (6ª rodada) · Um modal de orçamento, não dois
+
+Pergunta do Pedro depois de comparar as duas telas: *"por que você só não
+reaproveita o modal com os mesmos elementos que já existe na tela de orçamento
+normal?"*. Não havia motivo. Nas duas rodadas anteriores eu aproximei o modal
+da aba dos técnicos do modal do avulso — esqueleto, depois acabamento — quando
+o certo era **não existir um segundo modal**.
+
+⚠️ **O CAMINHO JÁ EXISTIA NO CÓDIGO, para outro caso.** `_orcAbrirDaBancada`
+pega o orçamento em `_avData` e abre o modal do avulso — era assim que o pedido
+nascido na oficina já era editado. E funciona porque
+`GET /admin/orcamentos/avulsos` **não tem `WHERE`**: a lista já contém os
+orçamentos nascidos de O.S. Eu construí um modal paralelo em vez de seguir por
+ali.
+
+**Saíram 13 funções e uma delegação de eventos** — `_orcFormalHtml`,
+`_orcRenderItens`, `_orcAcao`, `_orcCarregarItens`, `_orcAdicionarItem`,
+`_orcEditarItem`, `_orcRemoverItem`, `_orcGerarPdf`, `_orcSincronizarModal`,
+`_orcAbrirFormal`/`_orcFecharFormal`/`_orcFormalAberto`/`_orcSomenteLeitura`.
+**−525 linhas, +129.**
+
+⚠️ **E HAVIA DUAS DELEGAÇÕES NO MESMO `#avModalBody`** — a desta aba e a do
+`_avBindEventos`. As duas escutavam clique e change no mesmo elemento, e qual
+respondia dependia da ordem de registro. Não deu defeito visível porque os
+`data-*` diferiam (`data-orc-action` × `data-av-action`), mas era um risco
+calado que saiu junto.
+
+**O que o pedido de O.S. ganhou de graça**, por passar a usar o modal completo:
+**envio por e-mail** (o passo que leva o orçamento ao síndico, e que faltava
+aqui), **tipo de documento** (peças / limpeza de reservatório / dedetização —
+sem ele um orçamento de limpeza nascido de O.S. saía com o layout de peças no
+PDF), valor manual, Excluir, baixa da resposta do cliente e a Situação como
+select.
+
+⚠️ **O PEDIDO DO TÉCNICO ENTROU NO TRILHO DO MODAL ÚNICO**, condicionado a
+`os_id`. É a única coisa que o modal da O.S. tinha e o avulso não, e virou um
+bloco de dez linhas em vez de um modal inteiro. Os campos vêm do próprio
+`GET /avulsos` (`orcamento_observacoes`, `os_tecnico_nome`, `os_chamado_id`) —
+a rota já fazia o `LEFT JOIN` com `ordens_servico`; buscar à parte seria uma
+request por abertura de modal.
+
+⚠️ **O PEDIDO AINDA `SOLICITADO` NÃO TEM LINHA EM `orcamentos`**, e o modal
+precisa de um registro. Ele passa a **nascer na abertura**: um PATCH
+`acao:"salvar"` faz o backend rodar `_garantirOrcamentoDaOs`, que já trata o
+caso de a bancada ter pedido primeiro (adota o orçamento solto em vez de abrir
+um segundo). **Decisão do Pedro** entre isso e exigir um clique em "Criar
+orçamento" dentro da linha: nada nasceria por engano, ao custo de um passo a
+mais em toda abertura.
+
+**Verificado na prévia, nos dois caminhos.** Pedido com orçamento
+(OS-2026-0041) → abre `OR-000501` com o pedido do técnico no trilho, os 2
+itens, Enviar por e-mail, Tipo, Situação e Excluir. Pedido SOLICITADO
+(OS-2026-0042) → materializa, nasce `OR-000700`, o modal abre já com o pedido
+no trilho, e o selo na lista atrás vira PENDENTE sem recarregar. Console limpo.
+
+Sem migration. `?v=N`: `admin.js` 330 → 331.
+
+### 2026-09-02 (7ª rodada) · Achar o prédio para abrir um chamado
+
+Relato do Pedro: *"o filtro para achar um condomínio no modal para abrir um
+chamado está muito ruim"* — e, perguntado onde, *"admin, mas talvez no operador
+esteja igual"*. Estava, e eram **dois** problemas.
+
+**1. Não existia filtro.** É um `<select>` nativo com a carteira inteira
+dentro — **86 prédios** em produção. Sobra rolar, ou a digitação-por-prefixo
+do navegador, que casa só o COMEÇO do texto e se perde a cada tecla lenta.
+
+⚠️ **2. E NO ADMIN OS NOMES ESTAVAM ERRADOS**, que é o que tornava o filtro
+inútil de verdade. A lista era montada com `c.nome` — desde a migration 044 a
+**razão social**. Quem atende o telefone ouve "Auri Faria Lima" e procura numa
+lista que diz "ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA": um nome que
+não está escrito. Em produção **71 dos 86** cadastros têm os dois diferentes.
+O operador não tinha esse defeito (já usava `nome_fantasia || nome`), só o do
+filtro.
+
+Entrou `public/condo-picker.js` — **arquivo compartilhado pelos dois painéis**,
+no molde do `inatividade.js`, que eles já carregam. Isso não fere a regra de
+que "`operador.js` não importa nada de `admin.js`": a regra existe para o
+operador não virar refém do admin, e um terceiro arquivo sem dono é o
+contrário disso. Só o CSS é duplicado nas duas folhas, como todo o Chapa.
+
+Ele busca em **fantasia + razão social + bairro + cidade**, sem acento e sem
+caixa, com todos os termos casando em qualquer ordem ("mariana vila" acha
+"Residencial Vila Mariana"). Na linha, o nome de tela em cima e a razão social
+embaixo — **só quando difere**, senão é a mesma frase duas vezes.
+
+⚠️ **O CAMPO ORIGINAL NÃO SOME: vira `<input type="hidden">` com o MESMO id.**
+Todo o código de gravação (`getElementById("ncCondo").value`) continua valendo
+sem uma linha de mudança, nas duas telas. É o que torna a troca segura numa
+tela que grava chamado.
+
+⚠️ **E O REALCE DA LISTA NASCEU REPROVANDO CONTRASTE — a terceira vez nesta
+casa.** Eu tinha pintado o nome do item marcado de `--accent`; dentro do modal,
+que é placa clara, isso vira `--atencao-t` e mede **3,41:1** sobre o fundo do
+realce. Ou seja: o item selecionado ficava MENOS legível que os outros. É a
+Regra do Amarelo Cego do DESIGN.md, e a correção é a mesma de sempre — o âmbar
+**preenche** (cru, 18%) e o texto continua tinta: **15,7:1** no nome, **6,8:1**
+na razão social. O item marcado ganhou uma barra de 2px à esquerda para se
+distinguir do item sob o mouse.
+
+⚠️ E a lista abre com `--surface` no admin (o degrau CLARO, porque ali ela
+pousa sobre placa clara) e `--surface2` no operador (campo marinho). Mesma
+lição do trilho do orçamento, aplicada antes de cobrar de novo.
+
+**Verificado por teste, não por tela.** `scripts/testes/condo-picker.test.js`
+(novo, roda com `node`) monta o componente sobre um DOM mínimo e cobre 14
+casos: buscar "elvira" acha o prédio que a tela chama de "Auri Faria Lima";
+"sao caetano" acha "São Caetano"; "edis" acha "Édis Center"; bairro e cidade
+filtram; o hidden guarda o id enquanto o campo mostra o nome. Mais a conferência
+estática de que as 8 classes do JS têm regra nas duas folhas, e o cálculo de
+contraste acima.
+
+⚠️ **O DESENHO E O TECLADO NÃO FORAM VISTOS EM NAVEGADOR.** A extensão do
+Chrome caiu no meio da sessão e não voltou em cinco tentativas. Setas, Enter,
+Esc, o fechamento no blur e o encaixe da lista dentro do modal seguem
+**não verificados** — o teste acima não abre navegador. Para olhar sem sessão:
+`/dev/_operador-preview.html`, cuja fixture ganhou 40 prédios com a mesma
+proporção de nomes divergentes da produção (era dois, sem fantasia — com
+aquilo nenhuma das duas coisas se testava).
+
+Sem migration. `?v=N`: `admin.js` 331 → 332, `admin.css` 245 → 247,
+`operador.js` 73 → 74, `operador.css` 77 → 79.
+
+### 2026-09-02 (8ª rodada) · O operador caía por inatividade de OUTRA janela
+
+Relato do Pedro: *"painel de operador continua desconectando por inatividade"*
+— depois de a 2ª rodada de hoje ter posto `data-corte="nunca"` nele e eu ter
+dado o assunto por encerrado.
+
+⚠️ **O CONSERTO ANTERIOR ESTAVA CERTO E ERA INSUFICIENTE, e o motivo é uma
+linha que eu mesmo escrevi sem tirar a conclusão: `localStorage` é do
+NAVEGADOR, não da aba.** Eu tinha usado esse fato para explicar por que o
+plantão precisa CONTINUAR carimbando (senão o admin cortaria a sessão nova ao
+abrir), e não vi o caminho inverso — que é o do relato.
+
+A sequência: o operador fica aberto e não corta. Qualquer OUTRA aba do
+sistema — o admin, a tela de Aprovados, o painel do cliente — mantém o timer
+de 30 min. Ele dispara, o `limparSessao()` daquela aba apaga o token
+**compartilhado**, e o operador morre no 401 da chamada seguinte, mandado
+para `/login` pelo `_redirectSessaoExpirada` do `operador.js`. Ele não cortou:
+morreu com o tapete puxado por uma janela que ele nem sabia que existia.
+
+⚠️ **E HAVIA UM SEGUNDO DEFEITO, MAIS FUNDO E MAIS ANTIGO, que só apareceu
+porque o primeiro me obrigou a olhar o timer: o `setTimeout` de cada aba
+cortava sem CONSULTAR o carimbo compartilhado.** Ou seja — duas abas comuns do
+admin abertas, meia hora trabalhando numa delas, e a outra derrubava a sessão
+assim mesmo. Isso vale desde 25/08 e não tem nada a ver com plantão; era só
+invisível porque ninguém tinha ligado os pontos.
+
+Dois consertos, um para cada:
+
+1. **A tela de plantão carimba sozinha** (`PULSO_PLANTAO_MS`, 60s). Ela é
+   tratada pelo que é — alguém olhando —, e o carimbo que ela escreve é o
+   mesmo que as outras abas leem. Fechou a aba, o pulso para e o tempo volta
+   a correr, inclusive com o navegador fechado (a garantia de 25/08 segue).
+2. **O timer confere o carimbo antes de cortar** (`talvezEncerrar`). Sobrou
+   tempo no relógio compartilhado? Rearma pelo que falta. O corte passa a
+   acontecer quando o RELÓGIO COMUM estoura, não quando o timer desta aba
+   chega ao fim.
+
+⚠️ **ISTO ENFRAQUECE O CORTE, de propósito e por pedido.** Com o mapa aberto, a
+sessão dura na máquina inteira. É a consequência direta de *"o objetivo é
+deixar o mapa aberto"* e precisa ser dita: em máquina compartilhada, **fechar
+o painel do operador passa a ser o que encerra o expediente**.
+
+⚠️ **A LIÇÃO É SOBRE O TESTE, E É MINHA — pela segunda vez em dois dias.** A 2ª
+rodada foi verificada com 14 checagens que passaram verdes, e o defeito estava
+de pé o tempo todo: **elas rodavam UMA aba**. O arquivo inteiro existe por
+causa de um estado que mora fora da aba, e eu o testei como se fosse de dentro
+dela. É o mesmo formato do erro de 01/09 no app (o teste chamava o
+sincronizador à mão e nunca provou que alguém o chamava).
+
+A regra que fica: **teste de `inatividade.js` roda com pelo menos duas abas
+contra um `localStorage` só.** É o que `scripts/testes/inatividade.test.js`
+(novo) faz — 17 checagens, e as duas que importam reprovam contra o código que
+está no ar.
+
+**Verificado** rodando o cenário exato do relato contra as duas versões lado a
+lado: no código de `HEAD`, o token some e o admin vai para
+`/login?motivo=inatividade`; no novo, o token fica e ninguém navega.
+
+Sem migration. `?v=N`: `inatividade.js` 9 → 10 nas cinco páginas que o carregam.
+
+### 2026-09-02 (9ª rodada) · O operador troca a própria senha
+
+Pedido do Pedro: *"queria que o operador tivesse a possibilidade de trocar a
+senha dele também"*.
+
+⚠️ **O BACKEND JÁ EXISTIA E JÁ ATENDIA — faltava só a tela.**
+`POST /auth/trocar-senha` é `authRequired` puro, sem guard de papel: qualquer
+usuário logado. Confirmado exercitando a rota com um usuário `operador` de
+verdade no banco de teste. Nada de backend mudou nesta rodada.
+
+O que existia sem a tela era o caminho ruim: o operador pedia ao admin um
+`POST /admin/usuarios/:id/reset-senha`, que **gera uma senha temporária e a
+devolve em texto puro** para alguém repassar. Trocar a própria senha é o
+caminho em que ela não passa por ninguém.
+
+Entrou "Minha senha" na barra, como **texto** ao lado de Ajuda — não um
+terceiro botão. A gramática da barra está escrita no `operador.html` desde
+31/08 (*navegação é texto; só ação é botão, e são duas*), e trocar senha não é
+o que se veio fazer no turno. Também não foi pendurado no nome: o nome é texto
+de propósito, e a razão está registrada logo abaixo dele.
+
+⚠️ **NÃO É CÓPIA DO `admin.js`.** O `_cfgTrocarSenha` de lá fala com a mesma
+rota, mas vive numa aba de configurações que esta tela não tem — e
+`operador.js` não importa de `admin.js` (regra registrada em
+painel-operador.md). São 20 linhas contra um arquivo compartilhado a mais para
+uma tela só. O diálogo reusa o que já existe aqui: `abrirFundo` (com
+`<dialog>` + `showModal()`, que funciona por cima do mapa em tela cheia),
+`.form`/`.campo` do Novo chamado e a faixa do `avisar()`.
+
+⚠️ **A CONFIRMAÇÃO VAI NA FAIXA, e o erro fica no diálogo.** Sucesso fecha a
+folha — e uma folha que fecha sem dizer nada deixa a dúvida de se trocou
+mesmo. Erro **não** fecha: quem errou a senha atual precisa do campo ainda
+preenchido para tentar de novo.
+
+**Verificado em dois níveis.** A rota, contra o banco de teste com um usuário
+`operador` criado para isso: senha errada dá 401, nova curta dá 400, nova
+igual à atual dá 400, a troca válida dá 200 — e depois dela a senha velha
+**deixou** de casar e a nova casa. E o front, em
+`scripts/testes/senha-operador.test.js` (novo, 12 checagens): as quatro
+recusas de tela não chegam à rede, o corpo sai com os nomes que o backend
+espera (`senha_atual` / `senha_nova`), o sucesso fecha e confirma na faixa, e
+o 401 mostra o erro do servidor sem fechar nem fingir sucesso.
+
+⚠️ **O DIÁLOGO NÃO FOI VISTO EM NAVEGADOR** — a extensão do Chrome segue fora
+desde a rodada anterior. Desenho, foco no primeiro campo e Enter para salvar
+seguem não verificados. A prévia `/dev/_operador-preview.html` já responde a
+`/auth/trocar-senha` (inclusive com o 401 de senha errada, que é o caminho que
+só se vê na tela) para quando ela voltar.
+
+Sem migration. `?v=N`: `operador.js` 74 → 75.
+
+### 2026-09-03 · Três seletores de condomínio no modal de abrir chamado
+
+Relato do Pedro: "o seletor de condomínio na abertura de chamado no painel de
+admin não está funcionando" — e, na sequência, "inclusive está aparecendo 3
+seletores". O segundo relato é o diagnóstico inteiro: eram **três aberturas do
+modal**, cada uma empilhando mais um campo.
+
+**O `id` troca de dono na montagem, e o guard não sabia disso.** O
+`condo-picker.js` transforma o `<select>` original num `<input type="hidden">`
+com o mesmo id — é justamente o seam que faz `getElementById("ncCondo").value`
+continuar valendo no `salvar`. Só que ele gravava a marca `dataset.pickerPronto`
+(e o `_picker`) **no elemento original**, que sai da montagem SEM id. Da segunda
+chamada em diante `getElementById("ncCondo")` devolve o hidden, que não tem
+marca nenhuma: o "já montado?" nunca dava verdadeiro e ele montava outro picker
+por cima, aninhado dentro do primeiro.
+
+E só o ÚLTIMO campo empilhado ficava ligado ao hidden que o `salvar` lê. Quem
+digitasse no de cima — o primeiro que a vista encontra — abria o chamado sem
+prédio nenhum.
+
+⚠️ **O operador não tinha o defeito, e é por isso que ele passou batido.** Lá o
+modal inteiro é redesenhado por template literal a cada abertura, com um
+`<select>` novo em folha, e cada montagem começa do zero. O admin tem o modal
+fixo em `admin.html` e chama `montar` a cada abertura sobre o MESMO elemento —
+que é o caso normal dos outros seis selects de condomínio que ainda vão adotar
+o componente.
+
+Correção: `_picker`, `_pickerAtualizar` e `dataset.pickerPronto` passam a morar
+no **hidden**, que é o elemento que responde pelo id a partir da primeira
+montagem — o mesmo que o guard lê. Junto, o `<label for="…">` do operador passa
+a ser reapontado para o campo de busca (`<id>_busca`): o `for` apontava para um
+hidden, que não recebe foco, e clicar em "Prédio" tinha deixado de acender o
+campo.
+
+**O teste existente não pegou porque o DOM falso mentia.** O
+`scripts/testes/condo-picker.test.js` tinha um `getElementById` que devolvia o
+`<select>` original sempre, para qualquer chamada — ou seja, o teste vivia um
+DOM em que o id NÃO troca de dono, exatamente a condição que o bug precisa. Ele
+agora procura pelo `id` de verdade e ganhou duas checagens (16 no total):
+remontar não cria segundo campo, e remontar devolve o mesmo picker. Rodado
+contra o código anterior, reproduz o relato na letra — `FAIL … 3 caixa(s)`.
+
+Confirmado também em Chrome, com a estrutura do modal do admin servida por
+HTTP: cinco aberturas seguidas → um campo, busca por razão social ("elvira" →
+Auri Faria Lima), termos fora de ordem e sem acento funcionando, e o id gravado
+no hidden.
+
+⚠️ **Uma suspeita levantada e DESCARTADA por medição:** o `<select>` do admin
+mora dentro de um `<label class="f">`, e clicar dentro de um label reenvia o
+clique ao controle rotulado — o que reabriria a lista logo depois de escolher.
+Com clique sintético isso acontece; com clique REAL do mouse, não: o
+`preventDefault` que o componente já dá no `mousedown` impede o reenvio. O
+`preventDefault` extra que eu tinha escrito para isso saiu do código.
+
+### E aí a tela mostrou um segundo defeito, que nenhum teste veria
+
+Pergunta do Pedro: *"vc testou abrindo o painel no chrome?"* — não tinha. Ao
+abrir de verdade, a lista apareceu com **o nome do prédio e a razão social
+idênticos**: os dois em caixa alta, peso 700, 11px, cor de rótulo. A hierarquia
+que a lista inteira depende — nome de tela em cima, razão social um degrau
+abaixo — simplesmente não existia no admin.
+
+**`.f span` é seletor DESCENDENTE.** No admin o campo mora dentro de um
+`<label class="f">`, e `.f span` (0,2,0) alcança todo `<span>` lá dentro —
+inclusive `.cbx-nome` e `.cbx-sub`, que como classe simples (0,1,0) perdiam até
+no `font-size` e na cor. **Terceira vez que esse seletor cobra o mesmo
+pedágio**: `.f span em` e `.f span.cep-msg`, logo acima dele no arquivo, são as
+duas cicatrizes anteriores. Qualquer componente novo que ponha `<span>` dentro
+de um `.f` paga de novo.
+
+As regras do picker passaram a `.cbx-lista .cbx-item .cbx-nome` / `.cbx-sub`
+(0,3,0), que ganha sem depender da ordem dos blocos no arquivo, com
+`text-transform: none` e `letter-spacing: 0` explícitos. Espelhado no
+`operador.css` — lá o campo não vive num `.f` e `.cbx-nome` sozinho bastaria,
+mas as duas folhas são cópia uma da outra e a que diverge é a que se descobre
+errada seis meses depois.
+
+⚠️ **Nada disso aparece em teste sem navegador**, e nada disso aparecia na
+minha réplica em HTML — ela não carregava o `admin.css`. Só a tela mostra.
+
+### E por isso entrou uma prévia: `/dev/_novo-chamado-preview.html`
+
+O modal só se olha depois de entrar no painel, e entrar exige sessão — foi o
+que fez este bug chegar ao Pedro em vez de morrer no desenvolvimento. Agora ele
+tem porta própria, no padrão `public/_*.html` que o `_operador-preview.html`
+já usa (rota `/dev/:arquivo`, **não registrada em produção**).
+
+⚠️ **Ela não copia o markup do modal.** Busca `/admin/painel` — que serve o
+HTML sem exigir sessão, quem manda para o login é o `admin.js` no cliente — e
+recorta o `#novoChamadoOverlay` de lá, com o `admin.css` real por cima. Prévia
+que duplica markup começa fiel e envelhece mentindo. Traz um botão "abrir e
+fechar 3×" e um placar de quantos campos de busca existem na tela, que é o
+defeito desta rodada virado em instrumento.
+
+⚠️ **O `<script>` tem de ser ARQUIVO EXTERNO** (`_novo-chamado-preview.js`).
+O helmet usa `script-src 'self'` sem `unsafe-inline`: script embutido na página
+não executa e **não avisa** — a prévia ficou presa em "Carregando…" sem um erro
+na tela. É o mesmo motivo de o `_operador-preview.js` existir separado.
+
+**Conferido no navegador, na tela real:** quatro aberturas seguidas → um campo;
+"elvira" acha *Auri Faria Lima*; "aurora" traz os dois Aurora separados pelo
+bairro; clicar num item grava o id no hidden, fecha a lista e mostra o nome de
+porta no campo.
+
+Sem migration. `?v=N`: `condo-picker.js` 1 → 2 (`admin.html`, `operador.html`,
+`_operador-preview.html`); `admin.css` 247 → 248; `operador.css` 79 → 80.
+
+### 2026-09-03 (2ª rodada) · O nome de quem está logado vira a gaveta de conta
+
+Duas perguntas do Pedro, na ordem em que vieram. Primeiro: *"em vez de 'minha
+senha' no painel de operador não seria melhor usar um ícone apenas ou algo
+assim, dá uma olhada no padrão do painel de cliente para ver se dá para
+copiar"*. Depois, olhando o resultado: *"penso se n seria melhor q o nome da
+pessoa fosse um botao, e por la ela conseguisse sair e trocar a senha"*.
+
+**O painel do cliente não tinha troca de senha para copiar** — ela morreu em
+25/08 junto com a senha do cliente. O que serviu de lá foi a gramática
+`.conta`: ícone + rótulo na mesa, só o ícone no celular.
+
+**O passo intermediário não sobreviveu à medição** e vale registrar porque é a
+lição: "Minha senha" saiu da nav e virou uma segunda chapa `.conta` ao lado do
+"Sair". Consertava um defeito real de acessibilidade (o botão morava dentro de
+`<nav aria-label="Telas do operador">`, e trocar senha não é uma tela), mas
+**três chapas não cabem na barra do celular**. A segunda pergunta do Pedro é a
+que fechou a conta.
+
+#### O que ficou
+
+O nome é o botão; senha e sair são as duas linhas da gaveta.
+
+- `.eu` (invólucro), `.conta.conta-eu` (o botão, com silhueta e seta) e
+  `.eu-gaveta` com dois `.eu-item`. Chapa de duas camadas, chanfro do `:root`,
+  corte gravado (`--rasgo` + `--luz`) entre as linhas, **sem sombra** —
+  profundidade neste sistema é tonal.
+- **Revoga a regra do `cliente.html`** de que o nome é texto porque *"um alvo
+  que não leva a lugar nenhum ensina a pessoa a duvidar dos outros alvos da
+  barra"*. A regra era contra alvo **morto**; agora o nome leva a algum lugar.
+  ⚠️ No painel do cliente ela **continua valendo** — lá não há gaveta. As duas
+  barras divergem de propósito.
+- ⚠️ **Não é `<dialog>`.** Todo diálogo desta folha é `showModal()`; modal para
+  escolher entre dois itens interrompe o turno e prende o foco numa tela que
+  fica aberta o dia inteiro. Gaveta ancorada: fecha no Esc, no clique fora e ao
+  escolher.
+- ⚠️ **A gaveta é IRMÃ do botão, nunca filha:** `.conta` tem `clip-path`, e
+  `clip-path` recorta a subárvore inteira.
+- ⚠️ **`isolation:isolate` na gaveta**, como todo `.conta`: a placa vive num
+  `::before` com `z-index:-1`, e sem contexto de empilhamento próprio esse
+  `-1` escapa para trás do contexto do pai.
+- ⚠️ **`id="btnSair"` preservado** na linha do sair — a delegação de clique
+  procura o Sair por id. Mudar o seletor quebraria o logout sem erro no
+  console. E o Sair **não é vermelho**, nem dentro da gaveta.
+- ⚠️ **A gaveta fecha ANTES de a ação rodar**, no mesmo handler delegado e
+  antes da linha do `#btnSair`: o `abrirFundo` guarda `document.activeElement`
+  para devolver o foco no fim, e sem isso ele guardaria uma linha já
+  `hidden` — foco devolvido a elemento invisível não vai a lugar nenhum.
+- Teclado: ↓/↑/Home/End percorrem, Esc fecha e devolve o foco ao botão, Tab
+  sai. `aria-haspopup` + `aria-expanded` + `role="menu"`.
+- `.conta` subiu de `min-height:38px` para **44px** — o piso que o `.btn`
+  desta folha já aplicava na mesa. Como chapa única de conta, ela ficava 6px
+  mais baixa que o "+ Novo chamado" ao lado.
+
+#### A barra do celular estava quebrada, e agora fecha
+
+O `operador.css` manda refazer uma conta de largura sempre que `.barra-acoes`
+muda. Refeita no navegador — sobreposição do wordmark sobre a borda das ações:
+
+| largura | antes (em produção) | 2 chapas | gaveta (final) |
+|---|---|---|---|
+| 320px | 128 | 107 | 39 |
+| 360px | 113 | 67 | **0** |
+| 375px (SE) | 98 | 52 | **0** |
+| 390px (iPhone 12–15) | **83** | 37 | **0** |
+| 412px (Pixel) | 61 | 15 | **0** |
+| 430px | 65 | 21 | **0** |
+| 480px+ | 15 | 0 | **0** |
+
+A coluna "antes" é o que estava no ar: o logotipo pintava **83px por cima de
+"Aprovados"** em todo iPhone recente, e ninguém tinha visto — a barra do
+operador só se olha com sessão, e quase sempre na mesa.
+
+A gaveta devolveu 50px, e o resto veio da marca cedendo altura (o mecanismo que
+a folha já usava): **27px abaixo de 420 e 22px abaixo de 386**. Fecha de
+**360px para cima**, que cobre todo aparelho em circulação. ⚠️ **320px segue
+fora e é limite conhecido:** ali sobram ~66px para a marca, o que pediria 14px
+de altura.
+
+⚠️ **Os dois números saíram da tela, não da conta.** A aritmética a partir da
+largura das ações dava 28 e 24, e medido sobrava 1px de sobreposição a 386px e
+8,7px a 360px — a fórmula ignora o `gap` do `.barra-in` e o arredondamento do
+wordmark. Refez a conta? **Meça.**
+
+#### O que quase passou: a tela irmã consome a mesma folha
+
+Ao apagar `.barra-eu` e `.conta-sair` do CSS, a tela de **Aprovados**
+(`operador-orcamentos.html`) ficaria com o nome sem tamanho, sem cor e sem
+ellipsis — ela carrega o mesmo `operador.css` e ainda monta o par "nome
+(texto) + Sair". `.barra-eu` foi restaurada e o hover/foco generalizado para
+`.conta`. ⏳ **As duas barras do operador divergem enquanto isso durar** —
+levar a gaveta para Aprovados exige o `dlgSenha` no `operador-orcamentos.js`,
+que não o tem.
+
+**Conferido no navegador** (prévia, clique real e teclado): abre no clique,
+seta gira, ↓/↑ percorrem, Esc fecha e devolve o foco ao botão, clique fora
+fecha, escolher "Trocar senha" fecha a gaveta e abre o diálogo, e fechar o
+diálogo devolve o foco ao botão — não a uma linha escondida. Contraste sobre a
+placa: rótulo **8,06:1**, ícone **5,47:1**, nome no botão **7,77:1** (o piso
+da folha é 5,2:1).
+
+Sem migration, sem mudança de backend. `?v=N`: `operador.css` 79 → 85 e
+`operador.js` 75 → 76, nos três HTMLs que consomem a folha (`operador.html`,
+`_operador-preview.html`, `operador-orcamentos.html` — esta última estava
+parada no 75).
+
+### 2026-09-03 (3ª rodada) · O pedido de orçamento do técnico não saía nem a pau
+
+Relato do Pedro: *"um técnico fez a solicitação de um orçamento via O.S., mas
+esse orçamento já havia sido enviado, e eu não consigo apagar ele nem a pau"*.
+
+**Ele estava apagando a coisa certa pelo botão errado — que era o único que
+havia.** A linha da aba de orçamentos **não é o orçamento**: é a O.S. com
+`orcamento_necessario = TRUE` (o `GET /admin/orcamentos` é ancorado em
+`ordens_servico`, com LEFT JOIN em `orcamentos` desde 02/09). O
+**"Excluir orçamento"** do modal apaga o **documento**. Com a flag ligada, a
+linha volta no próximo carregamento — agora como SOLICITADO, e sem o orçamento
+que existia. E clicar nela de novo chama `_orcMaterializarEAbrir`, que **cria**
+um rascunho: a tela em que ele tentava limpar a fila era a mesma que a
+realimentava.
+
+O único lugar do sistema que desligava a flag era um checkbox dentro do editor
+da O.S. — que ninguém adivinha ser o botão de "tirar isto da fila de
+orçamentos".
+
+**`DELETE /admin/orcamentos/:os_id`** (novo) apaga o **pedido**: desliga
+`orcamento_necessario` e apaga o orçamento vinculado àquela O.S., numa
+statement só (CTE) porque as duas metades não podem se separar — pedido
+desligado com orçamento vivo some da aba e sobra na lista de avulsos; orçamento
+apagado com pedido ligado é exatamente o bug. Na tela, uma lixeira em cada
+linha de pedido, **sempre visível**: a saída não existia, e escondê-la atrás do
+hover seria repetir o problema de outro jeito.
+
+⚠️ **O avulso enviado por fora não é tocado.** Ele não tem `os_id` — foi o que
+o Pedro pediu, e é o que impede que limpar uma fila destrua um documento que o
+cliente já recebeu. O confirm diz qual dos dois casos está na frente: pedido
+sem orçamento e pedido com orçamento ENVIADO não podem fazer a mesma pergunta.
+
+A observação do técnico **fica** na O.S. Ela não aparece em lugar nenhum com a
+flag desligada, e sobrevive para quem religar o pedido na ficha.
+
+#### E o botão de excluir mentia — a outra metade do "nem a pau"
+
+`_avAcaoModal("deletar")` **não olhava `r.ok`**. Desse 500 ou não, a lista local
+era filtrada, o modal fechava e a tela redesenhava: o orçamento sumia na hora e
+voltava no F5, sem nada no caminho que dissesse o motivo. Agora ele para na
+`.orc-form-msg` do trilho com o erro do servidor.
+
+Sem migration. Testes: `scripts/testes/excluir-pedido-orcamento.test.js` sobe o
+router e bate na rota contra o banco de teste (12 asserções — o `$1` aparece
+**três vezes** na query, e o CLAUDE.md registra que isso só se prova
+exercitando o endpoint); `scripts/testes/orc-linha-excluir.test.js` roda o
+render em `vm` (7 asserções: a lixeira sai no pedido de O.S., não sai no da
+bancada, e o clique nela não abre o documento).
+`?v=N`: `admin.css` 248 → 249, `admin.js` 332 → 333.
+
+### 2026-09-03 (4ª rodada) · O orçamento não sabia que o serviço tinha sido feito
+
+Relato do Pedro: *"um técnico foi ao condomínio fez o serviço, tínhamos a O.S.
+no sistema porém estava lá em aprovados como se o serviço ainda estivesse em
+aberto"*. E, sobre a tela inteira: *"hoje acho que está tudo mundo largado"*.
+
+**Eram dois defeitos empilhados, e o primeiro é o que fazia o segundo passar
+despercebido.**
+
+#### 1. O chamado aberto pelo admin nascia sem vínculo com o orçamento
+
+`chamados.orcamento_id` existe desde a [migration 079](changelog.md), mas quem
+escrevia nela era **só** `POST /operador/orcamentos/:id/chamado` — o botão
+dentro da placa, na tela de Aprovados. O `POST /chamados`, que é o que o modal
+do admin usa e o caminho normal de despacho, não aceitava o campo.
+
+Então o ciclo inteiro acontecia e não deixava rastro: chamado aberto pelo
+admin → técnico vai, faz, fecha a O.S. → e o orçamento seguia em "Aprovados"
+dizendo **"Pode executar"**, para sempre, porque não havia uma linha no banco
+ligando o serviço ao documento. Não era desfecho perdido — **era vínculo que
+nunca existiu**.
+
+Hoje o modal tem o bloco **"Serviço já autorizado"**: escolhido o prédio, se
+houver orçamento aprovado esperando, ele aparece e um clique amarra o chamado.
+Alimentado por `GET /admin/condominios/:id/orcamentos-pendentes`.
+
+⚠️ **"Pendente" ali é NÃO TER CHAMADO NENHUM**, não o `status`. Com chamado
+aberto o serviço está andando; com chamado fechado já foi feito. Oferecer os
+dois convidaria a abrir um segundo chamado para o mesmo serviço — o defeito
+que a rota do operador já evita com o `ja_existia`.
+
+⚠️ **O bloco só existe quando há o que escolher.** A maioria dos chamados não
+tem orçamento por trás; bloco vazio permanente ensina a ignorar o bloco.
+
+⚠️ **A escolha desmarca no clique.** Sem isso, escolher por engano só se
+desfaz fechando o modal e perdendo o que já foi digitado.
+
+⚠️ **Selecionado é fio de tinta, não âmbar cheio.** O amarelo desta tela
+pertence ao "Criar chamado" — é o mesmo motivo que tirou o `btnAccent` do
+seletor de modo no envio de orçamento (27/08).
+
+⚠️ **O prédio tem de bater** (409). Sem a checagem, um clique errado amarra o
+serviço de um condomínio ao orçamento de outro, e o erro não aparece em lugar
+nenhum até alguém cobrar a nota.
+
+#### 2. E "feito" era só o clique manual
+
+`render()` separava a lista assim:
+
+```js
+const feitos  = DADOS.filter((o) =>  o.executado_em);
+const abertos = DADOS.filter((o) => !o.executado_em);
+```
+
+Só a marcação à mão tirava um orçamento da fila. Um cujo chamado já tinha
+fechado continuava na lista principal e **contado na manchete**, com a própria
+placa dizendo "Chamado #73 fechado" ao lado. A tela sabia e a conta não usava.
+
+São **três** formas de estar feito, e nenhuma vale mais que a outra: alguém
+marcou à mão, a O.S. foi finalizada, ou o chamado que executava fechou.
+`estaFeito()` passa a decidir por `execucao()`, que é quem já conhecia os
+estados. Chamado só tem três status — `aberto`, `em_atendimento`, `fechado` —,
+**não existe "cancelado"**: fechado é serviço encerrado, não desistido.
+
+#### 3. E a tela passou a falar da O.S., não do chamado
+
+O vínculo sempre teve duas pernas — `chamados.orcamento_id` e
+`ordens_servico.chamado_id` — e ninguém percorria a segunda. `GET
+/operador/orcamentos` ganhou um segundo `LEFT JOIN LATERAL` (depois do
+primeiro, porque depende dele) trazendo `exec_os_id` / `exec_os_numero` /
+`exec_os_finalizada_em`. O selo agora diz **"Executado · O.S. OS-2026-0051 ·
+02/09"** no lugar de "Chamado #73 fechado", que é detalhe interno.
+
+⚠️ **O rodapé passou a dizer "pedido na O.S. XXX"** para a O.S. de origem. Com
+duas O.S. possíveis na mesma placa, o rótulo seco viraria adivinhação.
+
+⚠️ **Não há link para abrir a O.S. ainda**, e a trava é de permissão: toda
+leitura de O.S. é `gestaoOnly` ou `osDonoOuAdmin` — o operador toma 403 (RBAC
+de 27/08). Decisão em aberto, registrada em
+[`../memory-bank/active-work.md`](../memory-bank/active-work.md).
+
+#### 4. E o operador passou a poder ABRIR a O.S.
+
+O selo nomeia o documento; faltava chegar nele. A trava era o RBAC de 27/08 —
+`osDonoOuAdmin` deixava passar admin, gerente e o técnico dono, e o operador
+tomava 403 em qualquer leitura de O.S. A tela nomeava um documento que ela
+mesma não abria.
+
+`osDonoOuAdmin` passou a deixar o operador entrar **quando não é escrita**, e a
+linha é o `forWrite`: editar O.S. é do técnico que esteve no prédio — quem não
+foi lá não corrige o que foi medido lá.
+
+⚠️ **O botão busca o PDF com `fetch` + blob, não com `<a href>`.** A rota exige
+`Authorization: Bearer`; href não carrega header nenhum e o operador receberia
+o JSON de "Token ausente" numa aba em branco. Mesmo caminho do PDF do orçamento
+no `admin.js`.
+
+⚠️ **Ele se desabilita enquanto busca.** O PDF é gerado sob demanda quando não
+existe em disco, e isso demora o suficiente para três cliques abrirem três abas.
+
+⚠️ **"Ver O.S." só aparece no estado `executado`.** No chamado fechado sem O.S.
+não há documento para abrir.
+
+#### E entrou uma prévia: `/dev/_aprovados-preview.html`
+
+A tela de Aprovados só se olhava com sessão de operador, e o login é handoff —
+mudança de placa ia para produção sem ninguém ter visto a placa. A prévia
+carrega o `operador.css` e o `operador-orcamentos.js` de produção e dubla só a
+rede, com fixture dos **cinco** estados, um por linha. O "Ver O.S." responde
+403 de propósito: ali se olha a placa, não se prova o download.
+
+⚠️ **O `<head>` e a barra são cópia do `operador-orcamentos.html`** — a única
+duplicação, e ela pede que o `?v=N` dos dois ande junto.
+
+#### E aí a tela foi olhada, e pagou por si: TRÊS defeitos
+
+A extensão do Chrome não estava conectada nesta máquina, então a prévia foi
+aberta pelo **puppeteer que o projeto já usa para o PDF da O.S.** — screenshot
+mais medidas de largura, contraste e folga, que é o que o olho não dá. Achou
+três coisas, e duas eram do produto:
+
+1. **Rótulos de tipo inventados no modal do admin.** `_ncOrcServico` tinha
+   `desinfeccao` e `manutencao`, que **não existem** no CHECK da migration 060,
+   e não tinha `dedetizacao` e `limpeza_dedetizacao`, que existem. Como o
+   fallback é a própria chave, um orçamento de dedetização apareceria no modal
+   escrito **"dedetizacao"**, cru. Agora é a mesma tabela do `TIPO_ROT` do
+   `operador-orcamentos.js` — os quatro do CHECK, e só eles.
+
+2. **O selo novo media 379px** contra 175–184 dos quatro irmãos: mais de um
+   terço da largura da placa, em mono e caixa alta, roubando a linha do número
+   do orçamento. Ele carregava estado + O.S. + data. Hoje carrega **estado +
+   data** (209px, na faixa dos irmãos) e o número desceu para o rodapé, ao lado
+   do botão que o abre — que é onde ele é acionável.
+
+   ⚠️ **E o rodapé passou a mostrar UMA O.S. por placa.** Com as duas juntas
+   ele quebrava em duas linhas e pedia que o operador distinguisse "pedido na
+   OS-2026-0031" de "executado na OS-2026-0051" numa frase corrida. Quando
+   existem as duas, fica a que **executou**: a de origem responde "de onde veio
+   este orçamento", pergunta que já não se faz depois do serviço pronto.
+
+3. **O "Ver O.S." encostava na borda direita no celular.** Ele nasceu copiando
+   as regras de mesa do `.orc-jafoi` e não a de celular (`@media`, linha 2851),
+   onde o `margin-left:auto` é zerado — os irmãos ficavam centrados e ele não.
+   Medido a 390px: hoje os três dão 16px de folga dos dois lados.
+
+⚠️ **A barra fixa da própria prévia cobria o "N já feitos · mostrar"**, que é o
+último elemento da página — clicar nele batia na barra. `padding-bottom` no
+body da prévia. Defeito do andaime, não do produto, mas do tipo que faz
+concluir que o produto está quebrado.
+
+Sem migration — as três colunas envolvidas já existiam. Testes:
+`chamado-executa-orcamento.test.js` percorre o ciclo inteiro contra o banco de
+teste (21 asserções, incluindo as quatro recusas e o `$7::int` repetido do
+INSERT, que ganhou uma coluna); `orc-aprovados-feitos.test.js` roda `execucao`
+e `estaFeito` em `vm` (16 — a última mede a conta antiga e confirma que ela
+daria 4 em aberto onde há 2).
+`operador-le-os.test.js` prova o RBAC nos dois sentidos (9 — o operador lê a
+ficha e o PDF, e toma 403 em editar, lançar peça e finalizar; gerente e admin
+seguem podendo, cliente segue de fora).
+`?v=N`: `admin.css` 249 → 250, `admin.js` 333 → 334,
+`operador-orcamentos.js` 19 → 20, `operador.css` 85 → 86 (nas três páginas que
+a carregam).
+
+### 2026-09-03 (3ª rodada) · O orçamento não vinculava à O.S. — e o banco estava certo o tempo todo
+
+Relato do Pedro: *"fiz um orçamento e estou tentando vincular ele a uma os e
+nao estou conseguindo, qnd eu salvo o orçamento volta para 'nenhuma'"*.
+
+**Não era bug de escrita.** O `UPDATE` do `PATCH /admin/orcamentos/avulsos/:id`
+sempre incluiu `os_id`, e o banco sempre ficou certo — um `SELECT` provava. O
+que faltava era `os_id` **no `RETURNING`**.
+
+O `_avSalvar()` faz `Object.assign(_avData[idx], j)` e redesenha o modal a
+partir do estado local. ⚠️ **`Object.assign` não toca em chave ausente**: sem
+`os_id` na resposta, o front seguia com o valor anterior (`null`) e o
+`<select>` voltava para "Nenhuma". Um F5 mostrava o vínculo correto — o `GET`
+da lista sempre trouxe `o.os_id`.
+
+**A lição vale para toda rota `PATCH` deste painel:** quando o front
+reconstrói a tela com o que a rota devolve, **o `RETURNING` é contrato de
+interface**. Campo que o formulário edita e não volta na resposta vira "não
+salvou" aos olhos de quem usa.
+
+O que mudou em `src/routes/admin.routes.js`:
+
+- `os_id` entrou no `RETURNING`.
+- Os campos derivados da O.S. (`os_numero`, `os_tecnico_nome`, `os_chamado_id`,
+  `os_finalizada_em`, `orcamento_observacoes`) passam a viajar na resposta —
+  é o que faz o trilho "O que o técnico pediu" aparecer no mesmo salvamento em
+  vez de só no recarregamento. ⚠️ **Vêm sempre, com `null` quando não há
+  O.S.**: devolvidos só quando há vínculo, o `Object.assign` deixaria os
+  antigos e o trilho mostraria o técnico de uma O.S. já desvinculada.
+- `os_id` saiu do ramo genérico do `PATCH`, onde caía em
+  `String(v).slice(0, 255)` — o vínculo chegava como a **string** `"102"` numa
+  coluna `integer`. O cast implícito salvava o caso comum, mas string vazia
+  estoura `22P02` (`pg_strtoint32_safe`) e derruba o salvamento em 500. Agora
+  anda com `condominio_id`, como inteiro.
+
+**Teste novo:** `scripts/testes/orcamento-vincula-os.test.js` — rota de
+verdade contra o banco de teste, 15 checagens (vincular, desvincular, string
+vazia, e a lista concordando com o `PATCH`). ⚠️ **Ele simula o `Object.assign`
+do front**, porque um teste que só conferisse a tabela passaria verde com o bug
+de pé — que é exatamente o que a tela fez. Rodado contra o código anterior:
+**6/15**.
+
+Sem migration. Sem mudança de front — o `admin.js` já mandava `os_id` certo.
+
+### 2026-09-03 (4ª rodada) · Vínculo não é pedido: o trilho mandava ligar para quem não pediu nada
+
+Relato do Pedro, logo depois de o vínculo passar a funcionar: *"em um orçamento
+dps q eu vinculei a OS tinha isso 'O que o técnico pediu / Marcou que precisa
+de orçamento e não escreveu o quê. Vale ligar para José Glebson.' MAS ELE N
+TAVA NA TELA DE 'SOLICITADOS PELOS TECNICOS' PQ?"*
+
+**Dois campos diferentes, tratados como um:** a aba lista O.S. com
+`orcamento_necessario = TRUE` (o **pedido**); o trilho aparecia com `os_id` (o
+**vínculo**) e daí afirmava o pedido. O nome do técnico era só quem assinou a
+O.S., pelo `LEFT JOIN tecnicos`.
+
+⚠️ **A premissa valia até a rodada anterior.** Enquanto a única forma de existir
+`os_id` era o backend criar o orçamento a partir de um pedido
+(`_garantirOrcamentoDaOs`), "tem vínculo ⇒ houve pedido" era verdade. Consertar
+o `<select>` fez o vínculo manual funcionar, e a premissa quebrou no mesmo dia:
+**um conserto tornou visível um bug latente**. Vale também para a O.S. cujo
+pedido foi resolvido pela lixeira — o vínculo fica, e o texto no presente
+mentiria igual.
+
+O trilho passou a depender de `orcamento_necessario`:
+
+- **com pedido** → "O que o técnico pediu", como antes;
+- **sem pedido** → "O.S. vinculada" + *"Vinculada aqui pelo escritório. O
+  técnico não pediu orçamento nesta O.S."*
+
+⚠️ **O bloco não some sem pedido** — número da O.S., técnico e chamado seguem
+visíveis, é informação útil. Ele só para de alegar que alguém pediu. E **flag
+ausente não vira pedido**: a alegação é que precisa de prova.
+
+`os_orcamento_necessario` viaja nas **duas** rotas que montam o modal
+(`GET /admin/orcamentos/avulsos` e `PATCH …/avulsos/:id`).
+
+⚠️ **Errei a crase do template literal** ao escrever o comentário SQL da rota, e
+`node --check` pegou na hora (`missing ) after argument list`). É a armadilha do
+CLAUDE.md, e o próprio arquivo já avisava dela duas linhas acima.
+
+Testes: `scripts/testes/trilho-os-vinculada.test.js` (13 checagens, renderiza o
+bloco direto do `admin.js`) e `orcamento-vincula-os.test.js` foi de 15 para 22.
+A prévia `/dev/_orcamentos-preview.html` ganhou o orçamento **605** neste
+estado. Sem migration. `?v=N`: `admin.js` 334 → 335 (`admin.html` e
+`_orcamentos-preview.html`); `_orcamentos-preview.js` 8 → 9.
+
+⏳ **Falta a conferência visual na prévia** — a extensão do Chrome caiu no meio
+da sessão e o render foi verificado por Node, não com os olhos.
+
+### 2026-09-03 (6ª rodada) · A prioridade do chamado passa a vir do contrato
+
+O Pedro mandou a minuta do Saint Antoine e perguntou: *"com o que tem nela dá
+para setar um padrão para o sistema? e na abertura de chamados, em vez de ficar
+100% pro usuário escolher, ele ir trocando sozinho dependendo do serviço?"*.
+
+#### O SLA já batia. A tela é que mentia
+
+Cláusula 7 contra `sla_definicoes`, lidos do banco:
+
+| | Minuta | Banco (migration 028) |
+|---|---|---|
+| P1 | até 3 horas | 180 min ✅ |
+| P2 | até 48 horas | 2880 min ✅ |
+| P3 | até 72 horas | 4320 min ✅ |
+| P4 | agendamento | nulo ✅ |
+
+O padrão estava setado desde julho. O que divergia eram os **rótulos escritos à
+mão** nos quatro botões do modal: "P2 · Alta · **24–48h**" onde a cláusula diz
+"até 48 horas" — uma janela que o contrato não dá —, "Controlado" onde a minuta
+diz "Programável", "Agendado" onde ela diz "Baixa criticidade / melhoria". E o
+`_operador-preview.js` tinha P2 com 1440 min (24h), divergindo do próprio banco.
+
+⚠️ **Pior que errado, era intocável**: editar o SLA em Configurações não mudava
+uma vírgula da tela. Agora os quatro botões são desenhados pelo JS a partir de
+**`GET /chamados/prioridades`**, que lê `sla_definicoes`. Uma fonte só.
+
+⚠️ **E o ENQUADRAMENTO não existia em lugar nenhum.** A minuta define *quando*
+cada prioridade se aplica — "risco imediato de desabastecimento relevante",
+"falha relevante mas com condição provisória" — e era justamente esse texto que
+faria alguém classificar certo. Ele entrou no `title` de cada botão e na nota
+abaixo do seletor.
+
+#### A categoria sugere — e é a minuta que autoriza
+
+Cláusula **7.1.c**: *"A prioridade poderá ser reclassificada tecnicamente após a
+triagem ou chegada ao local, com justificativa"*. O contrato já trata a
+classificação inicial como provisória, e é exatamente a diferença entre
+**sugerir** e **travar**.
+
+Escolher a categoria move o seletor e escreve por quê, com as palavras da
+cláusula. **Mexeu na prioridade à mão, a sugestão para de mexer** — quem atende
+o telefone sabe coisas que a categoria não carrega (se há redundância, se o poço
+está alagando), e é dele a última palavra.
+
+⚠️ **O mapa já existia, no painel do cliente**, desde que ele nasceu — o cliente
+nunca escolheu prioridade, porque cliente marca tudo como emergência. Ele saiu
+de `cliente.routes.js` para `src/services/prioridade.service.js` com a cláusula
+que sustenta cada linha, e virou a régua de todo o sistema.
+
+⚠️ **`manutencao` continua em P4, agora por decisão expressa** (perguntei; ele
+respondeu "pode ser p4"). A cláusula daria margem para P3 ("ajuste ou corretiva
+não crítica"), mas subir encurtaria de "agendamento" para **72 horas de
+comparecimento** em todo chamado de manutenção. É obrigação contratual, não
+preferência de tela.
+
+⚠️ **Categoria nova: `melhoria`** (migration 081, aplicada em teste **e em
+produção**). Sem ela o P4 era inalcançável pela tela: "levantamento",
+"adequação" e "melhoria estética" caíam em `outro` e viravam P3 — 72 horas de
+comparecimento para o que a minuta manda agendar.
+
+⚠️ **A lista de categorias tinha QUATRO cópias** — `chamados.routes.js`,
+`cliente.routes.js`, `operador.routes.js` e o `enum` da função da IA. Quatro
+lugares para acrescentar uma categoria, e o quinto calado quando alguém
+esquecesse: a IA classificaria com um valor que o `INSERT` recusa, e o chamado
+morreria no meio da conversa. Uma cópia só agora.
+
+#### A recorrência deixou de ser muda
+
+Ela sobe um nível quando há chamado da mesma categoria no prédio em 30 dias — e
+fazia isso **calada**. O operador escolhia P2, o banco gravava P1, e quem visse
+a fila depois concluiria que alguém errou a classificação. A resposta de
+`POST /chamados` passou a trazer `prioridade_ajustada` e o modal segura aberto
+para contar antes de fechar.
+
+#### E o modal foi medido, no navegador
+
+Os quatro números P1–P4 nasceram com o hex cru dos botões antigos (`#ef4444`,
+`#f97316`, `#eab308`), que são cores de **campo escuro** — e este modal é placa
+clara. Medido: P1 **2,69:1**, P2 **2,00:1**, e o P3 selecionado **1:1** —
+amarelo sobre o próprio amarelo da seleção, invisível. É a Regra do Amarelo Cego
+do [`DESIGN.md`](../DESIGN.md), a mesma que já tinha pegado o "Gerar PDF" em
+02/09.
+
+Trocados pelos tokens que o `.modalBox` remapeia para a família `-t`. E o fundo
+da seleção deixou de tingir de âmbar: `rgba(240,176,20,.08)` sobre a caixa
+rebaixada compunha um cinza-amarelado que derrubava **três** medidas de uma vez.
+O acento foi para a borda, que não passa por baixo de texto nenhum. Zero peças
+abaixo de 4,5:1.
+
+Testes: `prioridade-minuta.test.js` (38) é a cópia executável da cláusula 7 —
+prazo, rótulo, cobertura de plantão e o mapa inteiro, contra o banco de teste.
+Se alguém editar um prazo, ele falha nomeando a cláusula.
+`?v=N`: `admin.css` 250 → 251. O `admin.js` já foi a 335 na rodada do vínculo
+(acima), e nada foi ao ar entre as duas — um bump cobre as duas mudanças.
+
+### 2026-09-03 (7ª rodada) · As preventivas do mês ganham tela no operador
+
+Pedido do Pedro: *"preciso que em operador fique todas as preventivas do mês,
+separada bonitinho as que já foram feitas e as que faltam fazer, tem que dar
+para enviar esses chamados para o técnico por região [...] ou escolher
+condomínio por condomínio qual vai para cada técnico"*.
+
+#### O que faltava no banco: quem faz ESTE mês
+
+A única forma de dizer quem executa uma preventiva era a **zona**
+(`planos_zona_responsavel`) — permanente e por região. Não havia como dizer
+"este mês o Cleber pega o Saint Antoine".
+
+Em produção isso pesa: **11 técnicos ativos e uma única zona com responsável**.
+Na prática o despacho acontecia por fora do sistema.
+
+`planos_atribuicoes` (migration 082) é a atribuição do **ciclo**, por
+competência — o dia 1 do mês, com CHECK. PK `(plano_id, competencia)`: um
+responsável por plano por mês.
+
+⚠️ **Por competência e não um `tecnico_id` no plano:** a preventiva é mensal e
+quem vai muda (férias, carga). No plano, a escala de setembro apagaria a de
+agosto.
+
+#### ⚠️ Escalar é DESVIAR, não acrescentar
+
+| Situação | Quem vê no app |
+|---|---|
+| escalado para mim | eu, mesmo que a zona não seja minha |
+| escalado para outro | **só ele** — sai do meu roteiro, mesmo sendo minha zona |
+| sem escala | o responsável da zona, como sempre |
+
+A segunda linha é a que importa: somar as origens colocaria o mesmo prédio no
+app de dois técnicos, os dois iriam, e um perderia a manhã.
+
+#### "Feita" é o chamado FECHADO, não `ultima_em`
+
+Parecem a mesma coisa e não são: `executarPlano` grava `ultima_em` no instante
+em que **abre** o chamado — quando o técnico toca "Iniciar" no prédio. Uma
+preventiva iniciada às 9h e abandonada às 9h05 tem `ultima_em` de hoje e não foi
+feita. (Mas `ultima_em` no mês conta quando não há chamado nenhum — a execução
+anterior a este módulo.)
+
+#### E aí o Pedro duvidou do nível da tela, com razão
+
+*"tenho minhas dúvidas se essa tela está com o nível das outras"*. Medidas as
+duas lado a lado: manchete **40 contra 51,2px**, maior tipo da placa **16,3/700
+contra 21,6/800**, padding **14/20 contra 28/30**, medida **136 contra 88ch**, e
+âmbar em **uma** peça contra três.
+
+**É o mesmo diagnóstico que Aprovados recebeu em 31/08** — e eu tinha repetido o
+defeito daquela rodada. O passe (Impeccable `polish`): o prédio virou a leitura
+grande (21,1/800), o rodapé virou uma frase, a manchete recebeu os tokens da
+irmã, e a placa foi para 17/24 — não os 28/30 de Aprovados, porque são até 72
+prédios num mês contra 7 orçamentos.
+
+⚠️ **O âmbar foi para o contador da ZONA, não para o selo de cada item.** Selo
+por item viraria textura: no dia 1 do mês tudo está a fazer, e 72 selos acesos
+não sinalizam nada. Na zona ele acende uma vez por região — onde a decisão se
+toma — e apaga conforme o mês é resolvido.
+
+Defeitos que a medição pegou e o olho não: **`opacity:.86` na lista de feitas**
+(violação direta da regra de 31/08 — "recua por material, nunca por opacity"),
+a **régua vermelha de 3px** repetindo o que o selo já dizia, o **checkbox
+nativo** (única peça da tela que não era da casa), a caixa **desalinhada 10px**
+do nome, "tudo despachado · 2 atrasadas" **se contradizendo**, e alvos de 40 e
+36px no celular abaixo do piso de 44 desta folha.
+
+⚠️ **O terceiro link reabriu a barra do celular.** Com Preventivas a nav ficou
+com três itens e o wordmark voltou a pintar 84px por cima deles a 390px — o
+defeito que a gaveta de conta fechara em 02/09. "A fila do turno" vira "Turno"
+no celular e o nome de quem está logado sai da barra abaixo de 760px. Zero
+sobreposição de 360px para cima nas três telas.
+
+Migration 082 aplicada em **teste**; falta produção. Testes:
+`preventivas-mes.test.js` (31) — a asserção que mais importa é o prédio escalado
+para outro saindo do roteiro de quem responde pela zona, e ela pegou um **falso
+positivo do próprio teste**: as datas espalhadas pelo mês deixavam o plano fora
+da janela de 7 dias do roteiro, então ele "saía" por ausência, não por regra.
+Prévia nova: `/dev/_preventivas-preview.html`.
+`?v=N`: `operador.css` 86 → 87.
+
+### 2026-09-03 (8ª rodada) · A régua de prioridade faltava no OPERADOR
+
+*"estou mudando a categoria no novo chamado em operador e a prioridade não está
+mudando junto"*. Estava certo: a régua da 6ª rodada entrou no modal do **admin**
+e eu não levei ao diálogo do operador — que é o caminho **mais** usado, porque
+quem abre chamado por telefone é ele.
+
+Três defeitos num só lugar:
+
+- **A categoria não movia a prioridade.** P2 era o padrão fixo, sempre.
+- **"Melhoria" não existia na lista**, escrita à mão no HTML desde antes da
+  migration 081. O serviço que a cláusula 7 manda AGENDAR só podia ser aberto
+  como "Outro" — e virava P3, 72 horas de comparecimento.
+- **Sete categorias fixas** que envelheciam em silêncio a cada mudança do
+  backend.
+
+Agora o diálogo lê `GET /chamados/prioridades`, a mesma fonte do admin, do
+painel do cliente e da IA. A nota abaixo dos botões diz de onde veio a
+prioridade marcada, e tocar num botão desliga a sugestão (cláusula 7.1.c).
+
+⚠️ **SEM PRAZO ESCRITO NOS BOTÕES aqui**, ao contrário do admin — e é decisão
+registrada em 31/08: os números saíram da dica deste mesmo diálogo porque
+`sla_definicoes` é editável e qualquer número fixo volta a mentir. O que entra é
+o ENQUADRAMENTO, que não tem número. A tabela de prazos vive na Ajuda.
+
+⚠️ **Errei a crase dentro do template literal outra vez** — a pegadinha do
+CLAUDE.md. `node --check` acusou na hora; o comentário HTML novo ganhou a nota.
+
+`?v=N`: `operador.css` 87 → 88, `operador.js` acompanha.
+
+### 2026-09-04 · A barra de Preventivas nunca endurecia
+
+*"olha o cabeçalho, esta transparente e n é o padrao do painel de operador"*.
+Estava certo, e é a **mesma omissão que Aprovados teve em 31/08**: o
+`operador.css` define `.barra` translúcida (`--mar-900` a 88% + `blur(14px)`) e
+`.barra.is-rolada` sólida com fio inferior, mas quem troca a classe é um
+listener de `scroll` no JS de cada tela — e ele nunca foi copiado para o
+`operador-preventivas.js`.
+
+O efeito é pior aqui do que foi lá: esta tela é registro de leitura, com placas
+claras que passam **por baixo** da barra. Sem o estado sólido, o cabeçalho fica
+sobre um borrão claro e o topo da placa atravessa o wordmark. Medido rolando a
+tela em produção antes do conserto.
+
+Entrou o par completo das irmãs — listener com limiar de 12px **e a chamada
+inicial**, porque o navegador restaura a rolagem no F5 e a barra nasceria
+translúcida com a página já rolada.
+
+⚠️ **Tela nova nesta folha herda a barra translúcida e não herda o listener.**
+São três telas e três cópias do mesmo `_barraRolada`; a quarta esquece de novo
+se ninguém olhar.
+
+`?v=N`: `operador-preventivas.js` 1 → 2 (a folha não mudou).
+
+
+### 2026-09-04 (2ª rodada) · Refino de Preventivas, e a barra de despacho no lugar certo
+
+*"um refino a essa tela toda, levando as outras como padrão"* e *"melhore o
+posicionamento [d]a aba q abre para selecionar o tecnico"*. Medido com a
+extensão do Chrome contra a **produção logada** — os 69 planos de setembro.
+
+**O pedido explícito, em um número.** A barra de despacho é fixa de borda a
+borda **com o conteúdo dentro dela**, enquanto o resto da tela centra em
+`--area-max` + `--gut`. A 1920px: a placa do prédio ia de x=455 a x=1455, o
+"N escolhidas" começava em **x=32** e o "Enviar" terminava em **x=563**.
+423px de degrau, e a ação primária 892px antes da placa que ela despacha.
+
+É o mesmo defeito que fez a barra do TOPO ser reescrita, e levou a mesma
+correção: `left/right:0` na peça (o fundo e o fio seguem sangrando), e
+`max-width:var(--area-max)` num `.pv-barra-in`. Depois: degrau **zero** nas duas
+pontas a 1920, 1340, 1090 e 900.
+
+**O que mais o passe achou na barra:**
+
+- **`.sr-only` não existia no `operador.css`** — `cliente.css` e `admin.css` a
+  têm desde sempre. A palavra "Técnico" aparecia **crua a 15px** em cima do
+  campo, em produção. Classe que não existe numa folha renderiza sem estilo
+  nenhum, que é a armadilha que o próprio `operador-preventivas.js` registra.
+- **O `<select>` era nativo** — `appearance:auto`, canto reto, seta do Windows.
+  Era o último controle do sistema operacional na tela, exatamente o que o
+  checkbox tinha sido antes de 03/09. Agora `appearance:none`, chanfro da casa e
+  seta desenhada; o fio é **chapa de duas camadas com o rótulo como anel**,
+  porque `<select>` não tem `::before` e tanto `border` quanto `box-shadow:inset`
+  são recortados pelo `clip-path`.
+- **A faixa de erro caía DENTRO da barra.** `.aviso` em `bottom:22px` ocupa
+  y 833-875 numa janela de 889; a barra ocupa 797-889, e o `z-index:110` a
+  desenhava por cima. "Escolha para qual técnico enviar" cobria o select que ela
+  manda usar.
+- **"Limpar" era vizinho de 76px do "Enviar".** Virou o par da irmã ("Já foi
+  feito" · "Abrir chamado"), encostado na direita: o âmbar agora termina no
+  mesmo x da placa.
+- `env(safe-area-inset-bottom)` **sem o fallback `, 0px`**, contra a regra já
+  registrada para `.barra`. E a barra era `--mar-800`, um degrau mais clara que
+  o campo, enquanto a de cima endurece em `--mar-900`.
+
+**O nivelamento com as irmãs** (o passe de 03/09 nivelou manchete e placa, e
+parou aí):
+
+| | Aprovados | Preventivas antes | Agora |
+|---|---|---|---|
+| título do grupo | 20px/800 branco | 17px/700 `--text` | os tokens da irmã |
+| legenda do grupo | — | 13,8px | 15,2px |
+| selo mono | 10,5px | **10px** | **12px**, o `.selo` da fila |
+| etiqueta menor | 11px | **9,5px** | 11px |
+| alvos < 44px | 0 | 2 | **0** |
+
+⚠️ Os 12px do selo são a **calibragem de 28/08 sendo aplicada**, não gosto:
+aquela rodada levou a etiqueta mono desta folha para 12px porque o público tem
+pouca familiaridade com computador, e esta tela nasceu depois dela, abaixo dela.
+Havia 86 blocos sob 12px, 69 no mesmo selo.
+
+⚠️ **A extensão do Chrome conecta nesta máquina** — a nota de 03/09 dizia que
+não. O que ela não faz é obedecer `resize`: largura se mede pondo a página num
+`<iframe>`.
+
+`?v=N`: `operador.css` 88 → 89 (nas **três** páginas do operador),
+`operador-preventivas.js` 2 → 3.
+
+
+### 2026-09-04 (3ª rodada) · A O.S. de origem aparecia na placa e não abria
+
+*"o OR 204 tem O.S. vinculada, acredito q era pra dar para ver a O.S., pq n
+está aparecendo"*. Levantado em produção:
+
+| | OR-000204 (id 215) |
+|---|---|
+| `os_id` | **21** → OS-2026-0023, finalizada 03/09, com PDF em disco |
+| chamados vinculados | **nenhum** |
+| `executado_em` | 04/09 13:36 (alguém clicou "Já foi feito") |
+
+O número **aparecia** — o rodapé lido na tela dizia *"1 item · aprovado em
+03/09/2026 · **pedido na O.S. OS-2026-0023** · marcado como feito por José
+Ricardo Martins Lima"*. O que não existia era como **abrir** o documento: os
+botões da placa eram só `["Desfazer"]`.
+
+**A causa.** O botão "Ver O.S." só existia no estado `executado`, e esse estado
+depende da O.S. achada **pelo chamado** (`ordens_servico.chamado_id` →
+`chamados.orcamento_id`, a segunda perna que entrou em 03/09). Sem chamado não
+há O.S. de execução — e **esse é o caso mais comum no mundo real**, o mesmo que
+a migration 080 reconheceu: o técnico já estava no prédio, abriu a O.S., pediu o
+orçamento ali, e depois alguém marcou "Já foi feito". A O.S. de ORIGEM (`os_id`)
+sempre esteve na resposta do endpoint e nunca foi alvo de nada.
+
+Agora a O.S. de origem abre nos estados **`livre`, `marcado` e `feito`** —
+sempre que não há a de execução para oferecer.
+
+⚠️ **A regra de UMA O.S. POR PLACA continua valendo** (03/09): quando existem as
+duas, quem aparece no rodapé e no botão é a que EXECUTOU. A de origem só entra
+quando é a única — a condição olha `ex.osId` primeiro. Isto não põe dois números
+de O.S. na mesma placa.
+
+⚠️ **O `andando` segue sem ação nenhuma**, por decisão registrada.
+
+⚠️ **Um `margin-left:auto` só por rodapé.** `.orc-veros`, `.orc-jafoi` e
+`.orc-desfaz` têm todos o `auto` de empurrar para a direita; com dois na mesma
+fila o espaço livre é **dividido** e o "Ver O.S." ia parar no meio do rodapé,
+solto entre a frase e o par de ações. Regra nova: quem empurra é o primeiro
+(`.orc-veros ~ .orc-jafoi, .orc-veros ~ .orc-desfaz { margin-left:0 }`).
+
+Medido depois, a 1920: "Ver O.S." em 1277-1338 e "Desfazer" em 1358-1425,
+juntos na borda da placa, rodapé em **uma linha** (60px). `GET
+/ordens-servico/21/pdf` com sessão de admin: **200, application/pdf, 318 KB** —
+o guard `osDonoOuAdmin` já liberava admin, gerente e operador para leitura.
+
+⚠️ **A placa está na seção recolhida "já feitos"**, porque `executado_em` conta
+como feito (regra de 03/09). Para achá-la é preciso clicar em "mostrar" — é
+desenho, não defeito.
+
+`?v=N`: `operador.css` 89 → 90 (nas três páginas), `operador-orcamentos.js`
+21 → 22.
+
+
+### 2026-09-04 (4ª rodada) · O chamado aberto por engano só tinha uma saída: mentir
+
+Pergunta do Pedro: *"tem como cancelar um chamado hj?"*. Não tinha. O
+`chamados.status` aceitava três valores — `aberto`, `em_atendimento`,
+`fechado` — e a única forma de tirar da fila um chamado duplicado, aberto por
+engano ou cujo cliente desistiu era **fechar**.
+
+⚠️ **E FECHAR NÃO É NEUTRO.** `PATCH /chamados/:id` com `status: "fechado"`
+grava `fechado_em` e `tempo_resolucao_seg`, marca `primeira_resposta_em` (TTFR)
+e joga o chamado no numerador da taxa de resolução e na média de tempo do
+painel. Cada engano entrava nas quatro contas como **atendimento cumprido** —
+e `primeira_resposta_em` sai cru no CSV de `GET /relatorios/chamados`.
+
+⚠️ **A PISTA ESTAVA NO CÓDIGO E NINGUÉM TINHA LIDO ASSIM.**
+`planos-manutencao.routes.js` e `planos-manutencao.job.js` já filtravam
+`status NOT IN ('fechado', 'cancelado')`, e o
+[app-mobile.md](modulos/app-mobile.md) documentava o anti-duplicidade
+"enquanto ele não estiver `fechado`/`cancelado`". Três lugares descreviam um
+status que o CHECK do banco recusava. Ninguém percebia porque `NOT IN` com um
+valor impossível funciona igual.
+
+**Migration 083** — CHECK recriado (DROP + ADD na mesma transação, como a 081
+de `categoria`: o Postgres não tem "ADD VALUE" para CHECK), mais
+`cancelado_em TIMESTAMPTZ` e `cancelado_motivo TEXT`.
+
+⚠️ **`cancelado_em` é coluna própria, não reuso de `fechado_em`** — `fechado_em`
+é lido pelo CSV e pelos KPIs como "quando o serviço terminou"; escrever
+cancelamento nele faria a métrica mentir exatamente onde a migration existe para
+parar de mentir.
+
+**Na rota** (`PATCH /chamados/:id`): `cancelado` é `GESTAO_ROLES` (admin e
+gerente; o operador leva **403** — fechar é o dia dele, apagar da métrica um
+chamado que existiu é decisão de negócio) e **exige `motivo`** com 5 caracteres
+no mínimo. Cancelar chamado **já fechado** é **409**: fechado tem O.S. e talvez
+avaliação do cliente penduradas, e cancelar apagaria da métrica um atendimento
+que aconteceu — o caminho é reabrir, depois cancelar. Reabrir um cancelado não
+limpa o motivo; ele fica como memória, igual ao `fechado_em`.
+
+⚠️ **"EM ABERTO" VIROU O CONTRÁRIO DE DUAS COISAS, e esse foi o grosso do
+trabalho.** Existiam **oito** `status != 'fechado'` no backend e **doze**
+`ch.status !== "fechado"` no `admin.js` que passariam a contar chamado
+cancelado como fila viva: a fila do técnico (`?abertos=1`), o dedup de
+`abrirChamadoAuto` (que deixaria de reabrir o chamado automático), o guard
+anti-duplicata da IA, `chamados_abertos` por técnico, o badge do menu, o
+contador por condomínio, o KPI de críticos. Backend virou
+`NOT IN ('fechado','cancelado')`; cada front ganhou **um** helper —
+`_chEmAberto` no `admin.js`, `chEmAberto` no `app.js` (serve as duas telas do
+app).
+
+⚠️ **O ORÇAMENTO SUMIA COMO EXECUTADO PORQUE O SERVIÇO DEIXOU DE SER FEITO.**
+`execucao()` no `operador-orcamentos.js` lia qualquer chamado não-aberto como
+`feito`, e `estaFeito()` tira o orçamento da lista de Aprovados. Cancelado
+devolve `livre`, com selo "Chamado #N cancelado" — o orçamento **volta** a
+pedir execução. Mesma correção no `_avExecBadge` do admin, que dizia "já foi
+fechado": as duas telas mostram o mesmo selo e têm de escolher pelo mesmo
+critério. O comentário do `operador-orcamentos.js` afirmando que "não existe
+cancelado" era de 03/09 e virou a documentação do próprio conserto.
+
+**Na tela (admin):** botão "✕ Cancelar" na ficha, ao lado de "✓ Fechar", **de
+fio e por último** — o verde preenchido continua sendo o do desfecho que a tela
+quer; cancelar é a saída de exceção. Nada de `btnDanger`: vermelho aqui é
+destruição irreversível (hard delete de condomínio), e isto vira "↺ Reabrir" na
+hora. Escondido para o perfil `operador`, que levaria 403. Modal próprio
+(`#cancelarChamadoOverlay`, esqueleto do `#hardDeleteOverlay`) porque o motivo é
+obrigatório. Aba "Cancelados" na lista, selo `ch-st-cancelado` o mais apagado
+dos quatro.
+
+⚠️ **O KPI "% resolvido" perdeu o cancelado do DENOMINADOR** — ele mede quanto
+do que a equipe pegou ela entregou, e contar como não-entregue algo que nunca
+foi trabalho derrubaria a taxa por causa de erro de digitação.
+
+**Cliente vê o motivo**, no painel e no app: "Cancelado pela equipe" + o texto,
+na linha do tempo e no lugar do campo de resposta. Quem abriu o pedido é quem
+mais precisa saber por que ele saiu da fila; sumir calado é o começo de um
+telefonema.
+
+⚠️ **A MIGRATION NASCEU 082 E FOI RENUMERADA PARA 083** — já existiam
+`082_planos_atribuicoes.sql` e um par duplicado em 081. Conferir `ls
+migrations/` antes de escolher o número, não só a última que o changelog cita.
+
+Migration 083 aplicada nos **dois bancos** (teste e produção) em 04/09; o
+CHECK de prod foi conferido em `pg_constraint` depois de rodar. Teste:
+`scripts/testes/cancelar-chamado.test.js` — 23 checagens, rota de verdade
+(regra do CLAUDE.md: rota que grava só se prova exercitando o endpoint).
+⚠️ A primeira versão dele bateu em `GET /chamados?abertos=1` e passou por
+engano: o atalho é do `/chamados/meus`, e o `/chamados` do painel ignora o
+parâmetro calado. Rodados também os 12 testes existentes — todos verdes.
+
+`?v=N`: `admin.css` 251 → 252, `admin.js` 335 → 336, `cliente.js` 41 → 42.
+`sw.js` intocado — `/chamados` e `/cliente` já são network first e nenhum
+endpoint novo nasceu.
+
+⚠️ **ESTA RODADA CORREU EM PARALELO COM A 2ª/3ª e o `operador-orcamentos.js` é
+de ambas.** O `execucao()` daqui foi commitado junto com o refino de Preventivas
+(093531f), que levou o arquivo para `?v=22` — por isso o bump 20 → 21 desta
+rodada não aparece em lugar nenhum: ele foi absorvido. **`_aprovados-preview.html`
+tem de andar junto**, senão a prévia serve uma versão do script e a página real
+serve outra.
+
+
+### 2026-09-04 (4ª rodada) · A escala da preventiva oferecia o escritório inteiro
+
+*"na hora de escolher técnico para preventiva nessa tela de operador está
+aparecendo todos os colaboradores, não apenas os técnicos"*. Levantado em
+produção, na tabela `tecnicos`:
+
+| cargo | ativos |
+|---|---|
+| `tecnico` | **6** |
+| `gestor` | 3 |
+| `adm` | 2 |
+
+A barra de despacho oferecia os **11**. Dava para escalar a preventiva de um
+prédio para o administrativo.
+
+**A tabela `tecnicos` é o QUADRO INTEIRO**, não só quem vai a campo — e o
+`operador.routes.js` já sabia disso: o `SQL_EQUIPE` no topo do arquivo filtra
+por `COALESCE(cargo,'tecnico') = 'tecnico'` e carrega o aviso de que *"as duas
+precisam responder igual, senão a tela oferece quem a gravação recusa"*. A query
+que monta a equipe de Preventivas nasceu depois e **copiou só metade**: ficou com
+`ativo = TRUE` e sem o cargo. É exatamente a divergência que aquele aviso existe
+para impedir.
+
+**Eram dois furos, não um.** O `POST /operador/preventivas/atribuir` tinha
+validação PRÓPRIA — `SELECT id FROM tecnicos WHERE id = $1 AND ativo = TRUE` —,
+também sem o cargo. Ou seja: mesmo com a lista corrigida, um POST à mão ainda
+escalaria uma preventiva para um gestor.
+
+⚠️ **Quem valida passou a ser o `resolverTecnico`**, o serviço que já responde
+por "Novo chamado" e por Aprovados. A checagem local saiu. O
+`chamado-atribuicao.service.js` foi criado justamente com esse argumento —
+*"a regra é de NEGÓCIO, não de rota"* — e esta rota estava fora dele.
+
+⚠️ **A recusa virou 400, era 404.** É a resposta do serviço, a mesma das telas
+irmãs, e é a certa: `tecnico_id` é campo do CORPO, então id inválido é pedido
+malformado, não recurso ausente. O teste foi ajustado.
+
+Duas asserções novas em `scripts/testes/preventivas-mes.test.js`, com um
+colaborador `cargo='gestor'` no seed: *"e quem não é técnico fica de fora dela"*
+e *"escalar para quem não é técnico → 400"*. **33/33 passam.**
+
+Sem `?v=N`: a mudança é de backend, e o front só desenha o que a API manda.
+
+
+### 2026-09-04 (5ª rodada) · A preventiva vence no MÊS, não no dia
+
+*"normalmente fazemos as preventivas dos condomínios até o dia 10 de cada mês,
+então dia 4 ter no sistema que venceu hoje passa a impressão errada"*. Regra de
+negócio que não estava em lugar nenhum do sistema, agora registrada em
+[`../memory-bank/decisions.md`](../memory-bank/decisions.md).
+
+**O tamanho do defeito, medido na produção antes de mexer:** 73 planos, todos
+mensais, **69 ativos com `proxima_em` no dia 4**.
+
+| | hoje (dia 4) | amanhã (dia 5) |
+|---|---|---|
+| régua antiga | 69 "vence hoje" | **69 VENCIDOS, em vermelho** |
+| régua nova | 69 "vence este mês" | 69 "vence este mês" |
+
+Ou seja: hoje à meia-noite o painel inteiro ficaria vermelho — aba Vencidos, KPI
+e badge da nav —, com a equipe dentro da janela normal e seis dias de folga.
+
+**A regra certa já existia na casa, e numa tela só.** O `GET
+/operador/preventivas` calcula `atrasada` como `proxima_em < (dia 1 da
+competência)`: **o mês é a unidade**, e só preventiva de mês anterior é dívida.
+Por isso a tela de Preventivas do operador mostrava "VENCE 04/09" e não
+"ATRASADA". Quem media por dia era o painel de planos (`_pmStatus`, `admin.js`)
+e o roteiro do app do técnico (`rtPrazoLabel`) — duas telas discordando da
+terceira sobre o mesmo fato. O Pedro: *"pode alinhar com o que o operador faz,
+que é o certo"*.
+
+**O que mudou:**
+
+- `vencido há N dias` → **`vencido desde agosto`** (mês anterior, e só ele)
+- `vence hoje` / `vence em N dias` → **`vence este mês`**
+- `em N dias` → **`em outubro`** (com o ano quando não é o corrente: um plano
+  anual vencido em setembro passado lia igual ao que vence agora)
+- No app do técnico: `atrasado 1 dia` → `atrasado desde agosto`, `vence hoje` →
+  `este mês`
+
+⚠️ **Não foi troca de rótulo.** O `kind` alimenta abas, KPIs e badge: o balde
+`vencendo` deixou de ser "próximos 7 dias" e virou "este mês", então a aba e o
+KPI **"Próximos 7d" foram renomeados para "Este mês"**. Rótulo que sobrevive a
+uma mudança de balde vira mentira silenciosa.
+
+⚠️ **Mês que vem é "em dia", não mais âmbar.** A régua antiga acendia 7 dias
+antes; com o mês como unidade isso ficaria absurdo, porque o job rola a
+`proxima_em` para o ciclo seguinte no instante em que abre o chamado — o plano
+recém-executado nasceria em aviso.
+
+⚠️ **A ordenação do roteiro continua por DIA** (`piorDias`), de propósito: em
+meses os 69 prédios do mesmo mês empatariam e a ordem viraria a de chegada.
+Rótulo é mês; ordenação é dia.
+
+⚠️ **O DIA 10 NÃO APARECE NA TELA**, e é decisão registrada. Ele descreve a
+prática — *"não é como se a gente ficasse proibido de fazer após isso"* —, não
+uma cláusula. Escrever "prazo até dia 10" faria o sistema afirmar uma regra que
+o contrato não tem.
+
+⚠️ **Vale para 90/180/365 dias também.** Hoje todo plano de produção é mensal,
+mas o schema tem os outros: para um semestral que vence em setembro, a
+competência continua sendo setembro.
+
+⚠️ **A lição, e é minha:** esta regra foi dita pelo Pedro em 03/09 e eu **não
+registrei**; ele teve de repetir em 04/09. Regra de negócio dita em conversa e
+não escrita desaparece. Ao ouvir "normalmente a gente faz assim", escrever em
+`decisions.md` na hora, mesmo sem implementar nada.
+
+`?v=N`: `admin.js` 336 → 337. O `app/public/app.js` não tem cache-bust (vai por
+`npx cap sync`).
+
+
+### 2026-09-04 (6ª rodada) · A tela de Preventivas esvaziava quando o mês começava
+
+*"na página do operador está tudo no mês de outubro, investiga pra mim"*.
+Levantado em produção:
+
+| competência | planos listados |
+|---|---|
+| setembro/2026 | **0** |
+| outubro/2026 | 73 |
+
+E havia **69 chamados de preventiva abertos de setembro** no mesmo instante. A
+tela que existe para responder *"o que falta fazer neste mês"* mostrava o estado
+vazio no dia em que o mês inteiro entrou em execução.
+
+**A causa, em uma linha:** o filtro de competência olhava **só `proxima_em`** —
+a data da PRÓXIMA visita —, e o job **rola essa data para o ciclo seguinte no
+instante em que abre o chamado** (`executarPlano`). Às 15h24 de hoje o job gerou
+os 69 chamados e empurrou os 73 planos para 04/10; a partir daí nenhum deles
+casava com `proxima_em < 01/10`.
+
+> A preventiva saía da tela exatamente quando o trabalho dela começava.
+
+**O conserto: duas portas para o mês.** Um plano pertence à competência de dois
+jeitos — ou ele **vence** nela (ou antes, que é dívida: por isso não há limite
+inferior), ou ele **já rodou** nela. A segunda porta é `ultima_em`, que
+`executarPlano` grava na mesma transação em que abre o chamado:
+
+```sql
+AND (pm.proxima_em < ($1::date + INTERVAL '1 month')
+     OR (pm.ultima_em >= $1::date
+         AND pm.ultima_em <  ($1::date + INTERVAL '1 month')))
+```
+
+Medido depois, contra a produção: setembro volta a listar **69**, todos em
+"em campo"; outubro segue com 73; agosto continua 0. Nenhuma linha nova aparece
+onde não devia.
+
+⚠️ **Não é a mesma coisa que `feita_no_mes`**, e a confusão é fácil: aquele
+decide o **estado** da linha, este decide se a linha **existe**.
+
+⚠️ **O `cha` (chamado aberto) continua SEM recorte de mês, de propósito.**
+Recortá-lo faria a tela mostrar "a fazer" para um plano com chamado aberto de
+outro mês — e dois despachos para o mesmo prédio é o defeito que esta tela
+existe para evitar. O preço é outubro exibir "em campo" enquanto o chamado de
+setembro não fechar, e ele é o menor dos dois.
+
+⚠️ **Errei a crase dentro do template literal de novo** — escrevendo justamente
+o comentário deste conserto. `node --check` pegou na hora. Todo comentário
+naquela query vai sem crase, e agora está escrito lá.
+
+Quatro asserções novas em `scripts/testes/preventivas-mes.test.js`, que rolam o
+plano para o mês seguinte e conferem que ele não some da competência em que
+rodou. **37/37 passam.**
+
+Sem `?v=N`: a mudança é de backend.
+
+
+### 2026-09-04 (7ª rodada) · A preventiva sai da fila do turno até alguém começar
+
+*"não é pra as preventivas ficar na tela do turno igual está agora, quero que
+apareça só no momento que o técnico começar a rota para atender, até lá tem que
+ficar só na página de preventivas mesmo"*.
+
+**O número que dá razão ao pedido**, medido em produção logo depois de o job
+rodar:
+
+| | itens na fila |
+|---|---|
+| antes | **73** — sendo **69** preventiva recém-gerada |
+| depois | **4** |
+
+Os 4 chamados que pediam alguém de verdade ficavam enterrados sob **95% de
+ruído**, e a tese desta tela é *"o que estoura primeiro"*. Preventiva do mês não
+estoura: ela tem o mês inteiro, e desde 03/09 tem tela própria
+(`/operador/painel/preventivas`) que existe exatamente para acompanhá-la.
+
+⚠️ **O sinal de "começou" é o `em_atendimento`, e ele é o ÚNICO que existe.**
+Quem o põe é o `POST /chamados/:id/iniciar-atendimento` — o "Iniciar" do app do
+técnico, que grava a chegada e abre a O.S. rascunho. **Não há evento de "saiu
+para a rota"** no sistema; procurei. Se um dia houver, o lugar de trocar é esta
+mesma linha do `WHERE`.
+
+⚠️ **O corte é pela ORIGEM, não pela prioridade.** Preventiva é P4, mas nem todo
+P4 é preventiva — e a prova está nos 4 que sobraram na fila: **os quatro são
+P4** e nenhum vem de plano. Filtrar por prioridade esconderia serviço avulso de
+baixa urgência, que o operador precisa ver.
+
+⚠️ **O mapa e os contadores acompanham sozinhos**, porque leem a mesma `fila`.
+
+Três asserções novas: a preventiva aberta fica fora, entra ao virar
+`em_atendimento`, e o avulso P4 continua. **40/40 passam.**
+
+⚠️ **Duas armadilhas nesta rodada, as duas registradas:**
+
+1. **A crase dentro do template literal, de novo** — segunda vez no mesmo dia, e
+   outra vez escrevendo o comentário do próprio conserto.
+2. **O teste passou verde olhando a chave errada.** O payload do `/operador/fila`
+   traz `fila`, não `chamados`; `(d.chamados || []).some(...)` devolve `false`
+   silenciosamente e a asserção "não está na fila" **passa com o payload inteiro
+   fora do lugar**. Hoje o helper estoura se o `fila` não vier. Asserção de
+   AUSÊNCIA precisa provar que estava olhando o lugar certo.
+
+Sem `?v=N`: a mudança é de backend.
+
+
+### 2026-09-04 (8ª rodada) · "Em campo" com ninguém em campo travava o despacho
+
+*"por que não está aparecendo para atribuir técnico?"*. Medido na produção:
+
+| | |
+|---|---|
+| planos de setembro | 69 |
+| estado deles | **`em_campo`, todos** |
+| técnicos em campo | **zero** |
+| caixas de marcar na tela | **0** · botões de zona **0** · barra de despacho **ausente** |
+
+A tela esconde a caixa de marcar, o botão da zona e a barra de despacho no
+estado `em_campo` — e com razão: despachar por cima de quem já está no prédio
+manda duas pessoas. Só que **ninguém estava no prédio**. O job cria o chamado P4
+do mês sozinho, sem responsável, e o `estadoDa` lia **qualquer** chamado aberto
+como "em campo". O operador ficou sem a única ação da tela, no dia em que ela
+mais importa — e isso ia se repetir todo mês.
+
+**Duas partes, e a segunda é a que faltava de verdade.**
+
+**1. "Em campo" é chamado aberto COM técnico.** Chamado órfão não é serviço
+andando, é serviço esperando alguém — que é o que "a fazer" já diz. A query
+passou a trazer `cha.tecnico_id`, e o `estadoDa` a exigi-lo. Conferido contra a
+produção: os 69 voltam a `a_fazer`, **69 despacháveis**.
+
+**2. O despacho ADOTA o chamado que já existe.** Até aqui escalar gravava só em
+`planos_atribuicoes` — o chamado seguia órfão, fora do app do técnico e, desde a
+7ª rodada de hoje, fora também da fila do turno. **O operador despachava e o
+serviço não chegava a ninguém.** Agora o `POST /operador/preventivas/atribuir`
+põe o técnico no chamado aberto do plano, na **mesma transação** da escala, e
+devolve `chamados_atualizados`.
+
+⚠️ **Só o chamado ABERTO.** Fechado e cancelado ficam como estão: são passado, e
+reescrever o técnico neles reescreveria a história de quem fez o serviço.
+
+⚠️ **Desescalar limpa junto** — o chamado volta a esperar alguém, que é o que a
+tela passa a mostrar.
+
+⚠️ **O histórico do chamado registra a troca** (`registrarMudancas`), com o id de
+quem despachou. Despacho que não passa pela tela do chamado sumiria dele.
+
+**Duas asserções antigas mudaram de texto, e é o certo:** a fixture criava o
+chamado sem técnico e afirmava "chamado aberto → em campo". Sob a regra nova
+isso é falso — o chamado ganhou `tecnico_id` no seed, e o caso sem técnico virou
+bloco próprio. Sete asserções novas ao todo. **47/47 passam.**
+
+Sem `?v=N`: a mudança é de backend. A frase de sucesso da tela ("N preventivas
+enviadas para X") continua verdadeira e não foi tocada — mexer em copy é decisão
+do Pedro.
+
+
+### 2026-09-04 (9ª rodada) · A tela de Planos do admin, reformulada
+
+*"a gente tem que pensar em reformular a tela de plano do admin, hoje está
+difícil de entender"*. Medido antes de tocar em nada, na produção:
+
+| defeito | medida |
+|---|---|
+| hierarquia invertida | "Preventiva" a **12px/600 branco**; nome do prédio a **10,5px/400 cinza** |
+| a palavra em destaque | igual em **75 dos 76** planos |
+| coluna Periodicidade | "Mensal" **76 vezes em 76** |
+| largura da coluna "Plano" | **1135 de 1582px** (72%) para repetir "Preventiva" |
+| ações | 3 glifos sem rótulo (`▶ ✎ ×`), **invisíveis até o hover** (`opacity: 0`) |
+| abas | "Este mês **0**" ao lado de "Em andamento **69**" |
+| prédios sem plano | **16 de 88 ativos (18%)** — invisíveis, porque a tela lista planos |
+
+**O contrato, fechado com o Pedro antes do desenho.** Perguntei se o
+acompanhamento do mês saía daqui (já que o operador tem tela própria desde
+03/09) e se ele queria a tela como cadastro. A resposta foi o contrário do que
+eu tinha proposto: *"acho que é bom ter o acompanhamento do mês, o que eu quero
+fazer nessa tela é tudo que for possível"*. Então **a tela é as duas coisas** — e
+o problema nunca foi ter duas perguntas, era não responder nenhuma.
+
+**O sujeito da linha passou a ser o PRÉDIO.** É o dado que varia; "Preventiva"
+não. Título e periodicidade viraram etiquetas que só aparecem na **exceção** (o
+único plano "ESGOTO", e qualquer periodicidade ≠ 30 dias).
+
+**A coluna "Este mês" é nova, e é a metade que não existia:** selo de estado
+(Sem dono · Com dono · Em campo · Feita) e, abaixo, **quem** — com a etiqueta de
+origem "escalado" (decisão de alguém neste mês) contra "pela zona" (o padrão da
+região). É a gramática do `.pv-selo` da tela do operador, de propósito: as duas
+falam do mesmo mês e não podem parecer produtos diferentes.
+
+**As abas passaram a seguir o ciclo do serviço**, não a data do plano:
+Todos · Sem dono · Com dono · Em campo · Feitas · **Sem plano** · Inativos. E os
+KPIs viraram Ativos · Falta fazer · Atrasadas · **Prédios sem plano**.
+
+⚠️ **"Sem plano" não lista planos, e é a única aba assim.** São os condomínios
+ativos sem preventiva nenhuma — a pergunta que a tela nunca respondeu, porque
+quem está de fora não tem plano para aparecer numa lista de planos. A linha
+oferece **Criar plano**, e o modal abre com o prédio já escolhido.
+
+⚠️ **As ações deixaram de ser invisíveis.** Eram `opacity: 0` até o mouse
+chegar — a mesma regra que a tela de Aprovados já tinha registrado em 31/08
+("quem não sabe que devia passar o mouse não descobre um alvo que só aparece
+quando ele chega") valia aqui e não tinha sido aplicada. Hoje: **Editar** com
+rótulo, e um menu `⋯` para o resto.
+
+⚠️ **O `▶` "gerar chamado agora" saiu da linha.** Ele cria trabalho real para um
+técnico, o job já faz isso sozinho todo mês — é exceção, não rotina —, e estava
+colado no `×` de desativar. Foi para dentro do menu. **Decisão minha, declarada:**
+perguntei a frequência de uso e não tive resposta; se estiver errado, é barato
+voltar.
+
+**Escalar o técnico do mês agora dá para fazer daqui** ("tudo que for
+possível"), e **reusa o `POST /operador/preventivas/atribuir`** em vez de uma
+rota nova: aquele endpoint grava a escala do ciclo E adota o chamado aberto na
+mesma transação, e a segunda cópia é sempre a que esquece a segunda metade.
+
+**No backend**, o `GET /planos-manutencao` passou a devolver
+`{ planos, sem_plano }` e a trazer o estado do mês — calculado pelo
+`preventivas.service`, o mesmo do operador, para não haver duas leituras do
+mesmo mês.
+
+⚠️ **O array virou objeto.** O front tem o `Array.isArray()` como ponte para o
+navegador que ainda serve a resposta antiga do cache do service worker.
+
+`?v=N`: `admin.css` 252 → 253, `admin.js` 337 → 338.
+
+
+### 2026-09-04 (10ª rodada) · A aba "Sem plano" não fazia nada, e o teste que faltava
+
+*"tem um filtro 'sem plano', eu clico e nada acontece"*. Relatado minutos depois
+do deploy da 9ª rodada — e a culpa é de eu ter subido sem ver a tela renderizada.
+
+**A causa: temporal dead zone.** O bloco que desenha a aba estava ANTES da
+declaração de `linhaSemPlano`, e `const` dentro de um bloco vive em TDZ até a
+linha em que é declarado. O clique lançava
+`ReferenceError: Cannot access 'linhaSemPlano' before initialization`, o
+`_pmRenderTudo` morria no meio, e a tabela ficava exatamente como estava.
+
+⚠️ **O erro é SILENCIOSO.** O handler da aba não tem try/catch: nada na tela,
+nada no aviso — só no console, que ninguém abre. Uma aba que não faz nada parece
+uma aba vazia, e foi assim que passou.
+
+⚠️ **`node --check` passa. O detector da skill passa.** É a mesma família do
+`42P08` do CLAUDE.md: só se pega EXERCITANDO.
+
+**O conserto:** o bloco desceu para junto das outras linhas, depois das
+definições. O `if (!lista.length)` ganhou a exceção da aba, senão ela cairia no
+estado vazio antes de chegar lá.
+
+### O teste que faltava: `scripts/testes/planos-tela.test.js`
+
+Monta um DOM de mentira (só o que o render toca), recorta as funções REAIS do
+`public/admin.js` e chama `_pmRenderTudo()` **uma vez por aba**, contra o banco
+de teste pelo mesmo endpoint que o front usa. **17 asserções.**
+
+⚠️ **"Renderizou sem estourar" não bastaria.** Com um `return` cedo demais a aba
+desenharia zero linha e passaria verde — por isso o teste confere que ela
+desenha **uma linha por prédio** e que a linha oferece criar o plano.
+
+**Provado que ele pega o bug:** reintroduzi a ordem antiga e o teste acusou
+`✗ aba "sem-plano" renderiza sem estourar`; restaurado, 17/17.
+
+⚠️ **A lição, e é minha:** subi uma reformulação inteira de tela verificando só
+sintaxe, ids batendo e o detector. Nada disso vê a tela funcionar. Quando não dá
+para abrir o navegador (a sessão tinha caído), o caminho é montar o harness —
+não é caro, e teria custado cinco minutos contra um clique morto em produção.
+
+`?v=N`: `admin.js` 338 → 339.
+
+
+### 2026-09-04 (11ª rodada) · A tela de Planos ganha o mês
+
+Primeiro dos cinco achados da simulação, e o pior deles: **você escala uma
+preventiva para outubro, o banco grava certo, e a tela continua dizendo "Sem
+dono"**. A pessoa faz a ação, ela funciona, e a tela diz que não aconteceu nada.
+
+**A causa era uma constante.** Os `LEFT JOIN` do acompanhamento usavam
+`date_trunc('month', CURRENT_DATE)` fixo: a escala de outubro existia em
+`planos_atribuicoes` e a tela só sabia perguntar pelo mês de hoje.
+
+**O mês virou parâmetro.** `GET /planos-manutencao?mes=YYYY-MM`, validado pelo
+mesmo `competenciaValida` do operador, e a resposta devolve `mes` para a tela
+nunca desenhar um mês enquanto conta outro.
+
+⚠️ **A competência é o ÚLTIMO parâmetro do SQL**, e o índice sai de
+`vals.length` depois do `push` — os filtros opcionais (`condominio_id`, `ativo`)
+já podem ter ocupado `$1` e `$2`. Número fixo quebraria no primeiro filtro.
+
+**E o quarto achado saiu junto**, porque é a mesma raiz: cada plano passou a
+dizer `do_mes` — se é trabalho daquela competência —, pelas **mesmas duas portas
+do operador** (vence nela, ou já rodou nela). Um plano que só vence em outubro
+deixou de aparecer no balde "Sem dono" ao lado do trabalho de setembro; ele
+continua em **Todos**, que é a visão de cadastro.
+
+**Na tela:** navegação `← setembro de 2026 →` na barra, com um "hoje" que só
+aparece quando há para onde voltar.
+
+⚠️ **Trocar o mês RECARREGA do servidor**, não redesenha: o estado do mês é
+calculado lá, contra a competência. Refazer isso no front seria a segunda
+leitura do mesmo mês que o `preventivas.service` existe para impedir.
+
+⚠️ **A seleção não sobrevive à troca de mês** — ids marcados em setembro
+despachados como se fossem de outubro é o erro que a competência existe para
+impedir. Mesma regra da tela de Preventivas.
+
+⚠️ **E o despacho passou a usar o mês DA TELA**, não o do relógio. Sem isso,
+navegar para outubro e escalar alguém gravaria a decisão em setembro.
+
+### Dois defeitos do próprio teste, corrigidos
+
+⚠️ **O harness dublava o `fetch` e depois precisava dele.** O render não pode
+fazer request — se fizer, é bug —, mas o TESTE fala com o endpoint. Hoje ele
+guarda a rede real antes de dublar.
+
+⚠️ **O `planos-tela.test.js` saía com 127 imprimindo 23/23.** `process.exit()`
+logo depois do teardown estourava a assertion do libuv
+(`UV_HANDLE_CLOSING`, `src/win/async.c`) e um CI leria falha num teste que
+passou. Agora é `process.exitCode`, e o `srv.close()` espera de verdade
+(`closeAllConnections` primeiro — o `fetch` do Node segura a conexão em
+keep-alive e o close esperaria por um socket que ninguém fecha).
+
+Três asserções novas no `planos-tela.test.js` (o `?mes`, o `do_mes`, e o plano
+fora da competência sumindo dos baldes mas ficando em "Todos"). **23/23**, e as
+outras duas suítes seguem verdes.
+
+`?v=N`: `admin.css` 253 → 254, `admin.js` 339 → 340.
+
+
+### 2026-09-04 (12ª rodada) · O técnico escalado não conseguia iniciar
+
+*"enviei uma preventiva teste para o técnico teste, atribuí manualmente no
+painel de operador, mas quando fui entrar nela pelo app deu: você não é o
+responsável pela zona deste plano"*.
+
+**O `POST /:id/executar-agora` só olhava `planos_zona_responsavel`.** O
+`/meu-roteiro` passou a considerar a escala do mês em 03/09 (migration 082) e
+**a rota de gravação não acompanhou** — a tela mostrava o serviço e a gravação o
+recusava. É a mesma divergência que o `SQL_EQUIPE` do operador avisa em outro
+canto do sistema: quem OFERECE e quem GRAVA têm de responder igual.
+
+Conferido nos dados de produção — plano 83, técnico Teste (9), zona **nula**:
+
+| | |
+|---|---|
+| regra antiga (só zona) | **recusado** ← o erro do Pedro |
+| regra nova (escala) | **permitido** |
+
+**As três linhas do roteiro passaram a valer na gravação também:**
+
+- escalado para MIM → entra, mesmo que a zona não seja minha;
+- escalado para OUTRO → **sai, mesmo sendo minha zona**;
+- sem escala no ciclo → vale a zona, como sempre valeu.
+
+⚠️ **A segunda linha ENDURECE a regra.** Antes, o responsável da zona conseguia
+disparar um prédio que tinha sido desviado para outra pessoa — os dois iriam, e
+um perderia a manhã. "Escalar é DESVIAR" agora vale na gravação, não só na
+listagem.
+
+### O segundo defeito, que o teste achou: DUAS competências valem
+
+O guard (e o roteiro) procuravam a escala por
+`date_trunc('month', pm.proxima_em)`. Isso deixa de fora o caso da **preventiva
+atrasada**: ela aparece na lista do mês corrente (a query do operador não tem
+limite inferior), é escalada com a competência de **hoje**, e o plano tem
+`proxima_em` do mês **passado** — as duas nunca se encontram.
+
+Hoje ambas valem: `pa.competencia IN (mês da proxima_em, mês corrente)`. Só o
+mês de hoje quebraria o caso oposto — no fim do mês o roteiro já mostra
+preventiva do mês seguinte, cuja escala é da competência seguinte.
+
+⚠️ **O `/meu-roteiro` tinha o mesmo furo** e foi corrigido junto: sem isso a
+preventiva atrasada escalada some do app de quem a recebeu.
+
+### Um terceiro, de passagem: o gerente não podia disparar
+
+A checagem era `role !== "admin"`, e o botão que dispara isto vive no painel de
+Planos, que é `gestaoOnly` — **a tela oferecia a ação a quem a rota recusava**
+com "Acesso restrito".
+
+⚠️ **A frase de recusa mentia** quando o prédio tinha sido escalado para outra
+pessoa: dizia "zona" para um caso que não é de zona. Virou *"Esta preventiva não
+está no seu roteiro deste mês. Fale com o operador."*
+
+Duas asserções novas em `preventivas-mes.test.js`, com um segundo técnico que
+**não responde por zona nenhuma** — só a escala pode autorizá-lo — e usando de
+propósito o plano **atrasado**, que é onde as duas competências divergem.
+**49/49.**
+
+⚠️ **Errei a crase no template literal pela terceira vez hoje**, escrevendo a
+nota que explica o conserto. `node --check` pegou.
+
+Sem `?v=N`: a mudança é de backend.
+
+
+### 2026-09-04 (13ª rodada) · Um comentário HTML virou texto na tela
+
+O Pedro viu antes de mim, e colou o que estava lendo no painel: *", NÃO DA DATA
+DO PLANO (04/09/2026). Antes eram Vencidos · Em andamento… — por que isso está
+na tela de planos?"*.
+
+**Era um comentário meu, desenhado como texto no meio da barra de abas.** Ao
+inserir a navegação de mês, ancorei o patch em
+`<!-- ⚠️ AS ABAS FALAM DO MÊS` e **consumi o `<!--` sem reemiti-lo**: o corpo
+inteiro do comentário deixou de ser comentário.
+
+⚠️ **Nada acusa isso.** O navegador não reclama de `-->` solto, `node --check`
+não olha HTML, o detector da skill não pega, e o teste de render passava — ele
+exercita o `_pmRenderTudo`, e a barra de abas é HTML estático. Só se vê olhando
+a tela.
+
+⚠️ **É a segunda vez no mesmo dia que ancorar um patch quebra em silêncio.** A
+primeira foi a aba "Sem plano" em temporal dead zone. O padrão é o mesmo:
+**usar como âncora um trecho que precisa continuar existindo**, e não devolvê-lo.
+
+**Guarda nova em `planos-tela.test.js`:** todo `-->` precisa de um `<!--` aberto
+antes dele. Provado que pega — removendo o `<!--` daquela linha, o teste acusa
+`✗` e aponta a **linha 1363**; restaurado, **24/24**.
+
+Varri as sete páginas HTML do projeto: nenhuma outra tem comentário órfão.
+
+Sem `?v=N`: só o `admin.html` mudou, e ele é servido com `Cache-Control:
+no-cache` pelo `_htmlNoCache`.
+
+
+### 2026-09-04 (14ª rodada) · A zona passa a ser derivada no cadastro
+
+*"solução não é você preencher por mim, solução é consertar para que nos
+próximos cadastros a zona seja cadastrada"*. Correção de rumo do Pedro, e ela
+está certa: preencher os 14 à mão é remendo; o defeito é o cadastro **aceitar
+prédio sem zona**.
+
+**O estado, medido em produção:** 14 de 90 condomínios ativos sem zona — **todos
+com bairro E coordenada preenchidos**. O dado para derivar sempre esteve lá e
+ninguém o usava. Um deles é a própria General.
+
+⚠️ **E não é cosmético: sem zona o prédio não cai no roteiro de ninguém**, porque
+a régua de `planos_zona_responsavel` é por zona. Ele só chega a um técnico se
+alguém escalar à mão — e 6 dos 14 nem plano tinham.
+
+**`src/services/zona.service.js` é a fonte única.** A tabela vivia duplicada em
+`scripts/auto-zona-condominios.js` e em `public/admin.js` (`_MP_BAIRROS_ZONA`),
+e **as duas já divergiam da realidade**: nenhuma conhecia Anália Franco,
+Higienópolis, Indianópolis, Alto da Mooca, Vila Ipojuca — bairros que existem na
+carteira hoje. Levantei os 65 bairros distintos do banco e completei a partir
+deles, não de memória.
+
+**O cadastro deriva sozinho.** `POST /condominios` e `PATCH /condominios/:id`
+preenchem a zona quando ela não vem. Conferido contra os dados reais: os **14
+resolveriam, 14 de 14**.
+
+⚠️ **Quem digitou ganha sempre.** A derivação preenche o vazio; não corrige
+ninguém. Um prédio na divisa que a equipe atende como Zona Sul continua Zona Sul
+mesmo que o bairro diga outra coisa.
+
+⚠️ **A edição fecha o caminho de volta.** Sem ela, o `PATCH` seria a porta que
+recriaria o órfão que o `POST` acabou de fechar. Mandar `zona: ""` é pedir
+"descubra por mim", não "deixe sem"; e mudar o **bairro** de um prédio sem zona é
+exatamente quando a derivação passa a ser possível. Mas **não reescreve zona
+existente**.
+
+### O teste achou um defeito latente que eu ia repetir
+
+⚠️ **A tabela é de bairros DA CAPITAL, e a cidade tem de vir antes dela.** O
+script original trazia o comentário *"1) Bairro no mapa (só aplica se for SP)"* e
+**a linha de código não verificava nada** — um prédio no "Centro" de Barueri
+viraria zona "Centro" de São Paulo. O defeito nunca apareceu porque nenhum dos
+prédios de fora tinha bairro que colidisse; colidiria no primeiro "Centro",
+"Jardim América" ou "Vila Nova" cadastrado fora da capital. Só apareceu porque a
+asserção existia.
+
+`scripts/testes/zona-cadastro.test.js`, **17/17**: a regra pura, os quatro
+bairros que faltavam, o parêntese do cadastro (*"CHACARA SANTO ANTONIO (ZONA
+LESTE)"* — anotação de quem digitou, e ainda por cima errada), a criação sem
+zona, a mão que ganha da derivação, a edição, e uma varredura que falha se
+qualquer bairro da carteira parar de resolver.
+
+⚠️ **Os 14 continuam sem zona, de propósito** — o Pedro pediu o conserto, não o
+preenchimento. Quando quiser, `node scripts/auto-zona-condominios.js` agora usa
+a mesma regra (ele importa o serviço; a cópia dele morreu).
+
+### E a copy: "dono" virou "responsável"
+
+*"essa frase está me incomodando"*, sobre o **"tudo com dono"** que eu tinha
+escrito hoje de manhã. Ele está certo: "dono" soa como posse, e ninguém fala
+assim na operação. A palavra que o sistema já usa é **responsável** —
+`planos_zona_responsavel`, e o "sem responsável" do cabeçalho de zona.
+
+- Preventivas do operador: *"tudo com dono"* → **"todas com responsável"**
+- Abas do admin: *"Sem dono / Com dono"* → **"Sem responsável / Com responsável"**
+
+Os slugs internos (`sem-dono`, `com-dono`) ficam: são identificadores, não texto.
+
+`?v=N`: `admin.css` 254 → 255, `admin.js` 340 → 341,
+`operador-preventivas.js` 3 → 4.
+
+
+### 2026-09-04 (15ª rodada) · A branch `fix/preventivas-acabamento` entra na main
+
+*"na outra sessão eu tinha falado que se um técnico tem uma preventiva atribuída
+e também tem outro chamado, no atendimento do outro chamado ele marcar na O.S. a
+opção de preventiva mensal o sistema tinha que entender e dar a preventiva como
+fechada; fiz esse teste aqui e não foi"*.
+
+**O conserto existia e nunca chegou na `main`.** Estava na branch
+`fix/preventivas-acabamento` (commits `eeb59de` e `cd06eeb`), escrita hoje em
+outra sessão. O teste do Pedro está no banco e prova o diagnóstico:
+**OS-2026-0031**, finalizada às 17:58 com a caixa marcada, prédio GENERAL
+ENGENHARIA — e o plano 86 com `ultima_em` **null**.
+
+⚠️ **Três armadilhas antes do porte:**
+
+1. **A migration já estava aplicada em produção e o código não.** A coluna
+   `planos_manutencao.ultima_os_id` existe no banco desde a branch. O banco
+   estava à frente do código no ar — o inverso do "bug silencioso" que o
+   CLAUDE.md registra, e igualmente perigoso.
+2. **Colisão de número: duas `083`.** `083_chamado_cancelado.sql` na main,
+   `083_plano_ultima_os.sql` na branch, **ambas aplicadas em produção**. A da
+   branch foi renumerada para **084**; renumerar o arquivo não desfaz nem
+   reaplica nada, e o `IF NOT EXISTS` torna a re-execução inofensiva.
+3. **A branch saiu do `e6bcf42` e a main andou 14 commits** nos mesmos arquivos.
+   Merge cego desfaria trabalho do dia; o porte foi item a item.
+
+### O que entrou
+
+| | |
+|---|---|
+| `preventivas.service.js` | `darBaixaPorOS` — a ligação que faltava |
+| `ordens-servico.routes.js` | a chamada dentro da transação de finalizar |
+| `migrations/084_plano_ultima_os.sql` | renumerada |
+| `planos-manutencao.job.js` | reagendamento em **meses de calendário** |
+| `config.service.js` | `preventivas.dia_meta` |
+| `operador-conta.js` + as duas telas | "Trocar senha" era **inalcançável** em Preventivas e Aprovados |
+| `preventivas-mes.test.js` | 10 asserções da baixa |
+
+⚠️ **A baixa tem duas guardas, e as duas importam.** Só com **um** plano devendo
+o mês (com dois, marcaria como feito um serviço que talvez não tenha sido) e só
+quando o plano **ainda deve** a competência (sem isso, marcar a caixa numa O.S.
+cujo chamado JÁ É o da preventiva adiantaria o ciclo duas vezes e o prédio
+pularia um mês).
+
+⚠️ **Usa a data da O.S., não `NOW()`:** serviço feito em 30/09 e sincronizado em
+01/10 fecha **setembro**.
+
+⚠️ **O job em meses conserta uma deriva real:** 30 dias andam ~5 dias para trás
+por ano no calendário, e sobre 69 planos isso dá duas rodadas em julho/2027 —
+138 chamados num mês.
+
+### O que NÃO entrou, e por quê
+
+- **`cd06eeb` inteiro** — a barra translúcida e o cargo no seletor de técnico já
+  estavam resolvidos na main (`093531f` e `78a65c0`), de outro jeito.
+- **`docs/api.md` (852 linhas regeneradas)** e as mudanças de
+  `operador-preventivas.js`/`.css` que colidem com o refino de hoje.
+- ⚠️ **O `planos.geracao_enabled = false`.** A branch **desligava a geração
+  automática**, com o argumento de que o job "despejaria 69 P4 numa fila
+  ordenada por prazo". **Esse motivo deixou de existir na main**: a fila do turno
+  passou a excluir preventiva enquanto ninguém começou. Desligar seria mudar
+  comportamento sem pedido — o Pedro viu o job rodar hoje e tratou como normal.
+  Ficou em `true`, e o interruptor existe em `PATCH /admin/configuracoes`.
+
+**59/59** no `preventivas-mes`, e as outras quatro suítes verdes. Reproduzido o
+caso do Pedro no banco de teste: `ultima_em` e `ultima_os_id` gravados,
+`proxima_em` para 01/10.
+
+A branch foi apagada, local e no remoto.
+
+`?v=N`: `operador-preventivas.js` 4 → 5, `operador-orcamentos.js` 22 → 23,
+`operador-conta.js` novo em 1.
+
+
+### 2026-09-04 (16ª rodada) · Preventiva sai da lista de chamados do admin
+
+*"na tela de chamados do admin separe preventiva do restante, porque hoje está
+poluindo"*.
+
+**O mesmo diagnóstico da fila do turno, na outra tela.** O job gera uma
+preventiva por prédio por mês — **69 de uma vez em 04/09** —, e elas afogavam os
+chamados que alguém abriu de fato. O painel mostrava **82 abertos** quando
+**4** pediam alguém.
+
+⚠️ **O campo não chegava na LISTAGEM.** `plano_manutencao_id` existe na tabela e
+no `GET /chamados/:id` desde sempre; era o `SELECT` da lista que não o trazia,
+então o front não tinha como distinguir nem se quisesse. Foi a primeira coisa a
+consertar.
+
+**Aba própria, e as outras param de mostrá-las.** "Todos", "Abertos",
+"Resolvidos" e as demais passaram a ser *tudo menos preventiva*; a aba
+**Preventivas** mostra só elas.
+
+⚠️ **Separar pela metade não resolveria nada:** deixá-las em "Abertos" daria a
+lista limpa em "Todos" e a poluição de volta no primeiro clique.
+
+⚠️ **O corte é pela ORIGEM, nunca pela prioridade.** Preventiva é P4, mas nem
+todo P4 é preventiva — filtrar por peso esconderia serviço avulso de baixa
+urgência, que o admin precisa ver. O teste tem um avulso P4 justamente para
+travar isso: se alguém trocar o filtro por prioridade, a asserção cai.
+
+⚠️ **Os contadores acompanham.** Se "Abertos" contasse as 69 e a lista mostrasse
+4, a aba mentiria — e número que não bate com o que está embaixo dele é pior que
+número nenhum. O contador da aba nova conta só as que **ainda pedem alguém**: as
+feitas do mês somariam para sempre e ele pararia de responder "quanto falta".
+
+⚠️ **O BADGE DO MENU TAMBÉM PAROU DE CONTÁ-LAS**, e isso vai além do pedido —
+está declarado aqui para poder ser revertido. Ele é alarme, e saltou para 82 no
+dia 4 quando 4 chamados esperavam alguém. Alarme que dispara sozinho todo mês é
+alarme que a pessoa aprende a ignorar, e aí ele deixa de servir para o P1 que
+chega às 18h.
+
+O estado vazio da aba diz "Nenhuma preventiva aberta neste período" — "nenhum
+chamado" ali soaria como defeito quando o certo é "o mês está em dia".
+
+`scripts/testes/chamados-preventiva-separada.test.js`, **14/14**.
+
+`?v=N`: `admin.js` 341 → 342.
+
+
+### 2026-09-04 (17ª rodada) · O prédio volta a se chamar pelo nome que a operação usa
+
+*"a O.S. do Auri Faria Lima está vindo como Elvira Ferraz etc"*.
+
+O condomínio tem os dois campos preenchidos e diferentes:
+
+| | |
+|---|---|
+| `nome` (razão social) | ELVIRA FERRAZ EMPREENDIMENTOS IMOBILIARIOS LTDA |
+| `nome_fantasia` | **AURI FARIA LIMA** |
+
+O PDF selecionava `c.nome` cru — a razão social — **num documento que o síndico
+assina**.
+
+⚠️ **E não era um caso isolado: 73 dos 89 condomínios ativos** têm os dois campos
+diferentes. O documento saía com a razão social em praticamente toda a carteira:
+"CONDOMINIO 360JK" no lugar de "360JK", "RESIDENCIAL AMARAL FURLAN" no lugar de
+"AMARAL FURLAN".
+
+**Eram 20 lugares, não um.** A lista de chamados, os alertas, os relatórios, o
+WhatsApp, a lista de O.S., o job de offline. O projeto **já tinha decidido isso**
+— `COALESCE(NULLIF(nome_fantasia,''), nome)` em 12 outros pontos; os 20 eram a
+deriva, e o PDF era o pior deles porque é papel que vai para a mão do cliente.
+
+⚠️ **CONTRATO E ASSINATURA FICAM COM A RAZÃO SOCIAL, e é deliberado.** Ali o nome
+que vale é quem assina e quem responde juridicamente: "AURI FARIA LIMA" não
+assina nada. A regra do projeto é sobre o nome de **exibição**, não sobre o
+instrumento jurídico. O teste protege a exceção nos dois sentidos — falha se
+alguém "consertar" o contrato com o COALESCE.
+
+⚠️ **O PDF passou a devolver `condominio_razao_social` também**, para o dia em
+que fizer sentido imprimi-la num documento fiscal.
+
+⚠️ **O defeito é invisível em teste com dado inventado:** fixture cujo `nome` e
+`nome_fantasia` são iguais passa dos dois jeitos. Por isso o teste novo cria um
+prédio em que eles **diferem** — é a única forma de a asserção significar algo. E
+a varredura sobre o `src/` é o que impede a regressão: um `c.nome AS
+condominio_nome` novo não quebra nada, não aparece no console, e volta a
+imprimir a razão social no papel.
+
+`scripts/testes/nome-fantasia.test.js`, **7/7**. As outras seis suítes verdes.
+
+⚠️ **Errei a crase no template literal pela quarta vez hoje**, no comentário SQL
+deste mesmo conserto.
+
+Sem `?v=N`: a mudança é de backend.
+
+
+### 2026-09-04 (18ª rodada) · O roteiro do técnico, e o mês futuro que inventava atraso
+
+Dois consertos de competência, e o segundo saiu de uma ideia do Pedro melhor que
+a minha.
+
+### 1. O roteiro do técnico só via a janela de dias
+
+⚠️ **E EU AFIRMEI ISSO ERRADO ANTES DE MEDIR.** Disse que a janela de 7 dias era
+a causa do roteiro vazio; o Pedro perguntou *"você tem certeza disso?"* e a query
+real mostrou outra coisa: `planos_zona_responsavel` e `planos_atribuicoes`
+estavam **ambas vazias** em produção. Sem dono, o roteiro devolve zero com
+qualquer janela — testei com 40 dias e continuou zero. A janela é defeito real,
+mas só aparece depois que alguém é designado. Apresentei consequência como causa.
+
+O defeito, medido: **77 planos ativos, 76 com `proxima_em` em 04/10, 77 chamados
+de preventiva abertos** — a janela de 7 dias alcançava **um**. O job rola
+`proxima_em` no instante em que abre o chamado, então o trabalho do mês fica
+todo lá com a data já apontando para o mês seguinte.
+
+Mesmo conserto do operador: **duas portas** — ou vence na janela, ou já rodou
+neste mês.
+
+⚠️ **E só enquanto o serviço não fechou.** Sem essa condição a preventiva já
+feita voltaria ao roteiro pelo resto do mês, e o técnico veria de novo o prédio
+de onde acabou de sair.
+
+`scripts/testes/roteiro-competencia.test.js`, **6/6**. Provado que pega: com a
+janela sozinha, **exatamente a asserção do defeito falha** e as outras cinco
+passam.
+
+### 2. O mês futuro marcava tudo como atrasado
+
+*"tem uma coisa muito errada na tela de preventiva do operador: quando você vai
+avançando os meses aparece tudo vencido e atrasado — como algo no mês de
+dezembro pode estar vencido em setembro?"*
+
+Medido: olhando novembro ou dezembro, a tela marcava **77 de 77** como
+atrasadas.
+
+**Eram dois defeitos, não um:**
+
+**a) `atrasada` comparava com a competência OLHADA**, não com o mês corrente.
+Atraso é pergunta sobre o **relógio**, não sobre a página que se está lendo.
+
+**b) A ausência de limite inferior não vale para o futuro.** E aqui a ideia foi
+do Pedro: *"talvez o que faça sentido é que nos meses seguintes não apareça nada
+até o plano do mês em questão entrar em vigor"*. Está certo, e é melhor que o
+meu primeiro conserto — que arrumava a etiqueta e deixava 77 prédios numa página
+onde eles não são trabalho.
+
+A falta de limite inferior existe para a **dívida**: preventiva que passou do mês
+não vira passado, vira cobrança. Mas **dívida só existe para trás**. Num mês
+futuro, entra só o que vence nele.
+
+| mês (hoje é setembro) | antes | agora |
+|---|---|---|
+| setembro | 77 | **77**, 0 atrasados |
+| outubro | 77, 1 atrasado | **76**, 0 atrasados |
+| novembro | 77, **77 atrasados** | **vazio** |
+| dezembro | 77, **77 atrasados** | **vazio** |
+
+⚠️ **A dívida real continua visível no mês corrente**, e não vaza para o futuro —
+as duas asserções estão no teste.
+
+**63/63** no `preventivas-mes`; as outras seis suítes verdes.
+
+⚠️ **Errei a crase no template literal pela quinta vez hoje.**
+
+Sem `?v=N`: as duas mudanças são de backend.
+
+
+### 2026-09-04 (19ª rodada) · Lote na tela de Planos, e o "vence" que eu deixei passar duas vezes
+
+### 1. Escalar e gerar chamado em lote
+
+Dois dos cinco achados da simulação. **O backend de escalar já aceitava lote**
+desde a migration 082 (`plano_ids` é array) — era a tela que não usava, e cinco
+prédios eram cinco diálogos.
+
+⚠️ **As duas ações são diferentes por dentro**, e isso decide o que cada uma
+mostra: escalar é **uma** request resolvida numa transação; gerar chamado é um
+POST por plano (`executar-agora` é por id). A segunda pode falhar no meio — por
+isso mostra progresso, conta os que deram certo e **nomeia os que não deram**.
+"18 de 20" sem dizer quais deixa a pessoa conferir 20 linhas à mão.
+
+⚠️ **O lote filtra o que não pode receber a ação** e diz o que ficou de fora.
+Mandar o selecionado inteiro faria o backend recusar em silêncio, ou escalar por
+cima de quem já está em campo.
+
+### 2. O aviso de antecipação
+
+O outro achado: "gerar chamado agora" abria sem dizer nada num plano que só vence
+mês que vem — e isso **adianta o ciclo** (o `executarPlano` grava `ultima_em` e
+rola `proxima_em`). Provado no teste: `ultima_em` null → hoje, e `proxima_em`
+15/10 → 01/10.
+
+⚠️ **O texto diz a consequência, não faz pergunta retórica.** "Tem certeza?" não
+informa nada; *"a próxima visita passa a contar a partir de hoje"* é o que a
+pessoa precisa para decidir.
+
+`scripts/testes/planos-lote.test.js`, **10/10**.
+
+### 3. "Vence" — a mesma palavra, apontada duas vezes
+
+*"tenho a impressão que já falei isso aqui algumas vezes: o 'vence em 4/10' na
+preventiva não faz sentido esse vence, a pessoa que lê isso pensa que tem até o
+dia 4 para fazer"*.
+
+⚠️ **Ele tinha razão nas duas coisas — no defeito e em já ter falado.** De manhã
+a queixa foi a mesma (*"dia 4 ter no sistema que venceu hoje passa a impressão
+errada"*), eu consertei **no painel do admin** e deixei a palavra intacta na tela
+do operador. Uma correção pela metade fez a segunda queixa ser necessária.
+
+**O defeito é de significado, não de redação.** "Vence" é palavra de PRAZO, e a
+preventiva não tem prazo no dia: o contrato pede uma visita por MÊS, a equipe faz
+entre o dia 1 e o 10, e o mês inteiro está disponível. O dia que aparecia é só
+onde o ciclo caiu.
+
+⚠️ **E a data saiu do selo.** A manchete já diz de que mês é a lista ("69
+preventivas a fazer em setembro de 2026"); repetir a data em cada uma das 69
+linhas é ruído que ainda por cima mente.
+
+| antes | agora |
+|---|---|
+| `VENCE 04/09` | **`A FAZER`** |
+| `ATRASADA · VENCEU 04/08` | **`ATRASADA DESDE AGOSTO`** |
+| admin: `vence este mês` | **`a fazer este mês`** |
+| admin: `vencido desde agosto` | **`atrasada desde agosto`** |
+
+O atraso passou a falar em **mês**, não em dia: a dívida é de uma competência
+inteira que passou, não de uma data.
+
+`?v=N`: `admin.js` 342 → 344, `operador-preventivas.js` 6 → 7.
+
+
+### 2026-09-08 · O diálogo de despacho do operador passa pelo corte
+
+*"precisa melhorar esse modal"*, com o print do despacho aberto em produção.
+É o **item 4** da simplificação do operador, o único da lista ainda inteiro — o
+`operador.css` já dizia, em comentário, que o selo de iniciais "vale hoje só
+para o `.tec-av` do diálogo de despacho, que ainda não passou pelo corte".
+
+**Medido em produção, a 987×765, com 6 técnicos:**
+
+| | Antes | Agora |
+|---|---|---|
+| Chapa vazia sob o mapa | **197px** (38% do corpo) | **0** |
+| Nomes de técnico truncados | **4 de 6** | 0 |
+| Linhas apagadas com `opacity:.5` | **3 de 6** | 0 |
+| Blocos de texto na peça | 39 | **28** |
+| Texto do diálogo abaixo de 12px | 4 | **0** |
+| Contraste mínimo | — | **7,5:1** |
+| Alvos abaixo de 44px | — | **0** |
+
+**1. A lista virou uma chapa, como o trilho.** Seis cartões brancos com fio de
+1px sobre `--chapa-cl` — a "parede de cartõezinhos" que o trilho já não tem
+desde 31/08 — viraram **uma peça só**, com as linhas separadas por corte gravado
+(a versão de campo claro: sulco em `--fio-esc` com a aresta branca embaixo).
+
+**2. E passou a falar as palavras do trilho.** O trilho escrevia "1 chamado"; o
+diálogo escrevia "Livre agora · no mapa" **mais** uma placa mono com "1 /
+CHAMADOS" ao lado. Duas renderizações do mesmo fato, sobre a mesma pessoa, na
+mesma tela. ⚠️ **Nada saiu:** a contagem que morava na placa mono está na frase.
+"no mapa" não voltou — ele se repetia em quase toda linha ao lado do mapa que
+mostra o pino; ficou só a exceção "· sem posição".
+
+**3. Nome de gente não trunca — quebra.** "Carlos Eduardo Basilio da Silva
+Junior" saía como "Carlos Eduardo …". Despacha-se **ligando para uma pessoa**, e
+o nome é a única coisa da linha que não dá para adivinhar. O argumento antigo
+("a lista dançava") morreu com a coluna da direita.
+
+**4. ⚠️ `opacity:.5` apagava justamente quem o mapa podia responder.**
+`data-liv` era `disponivel && !abertos`: quem estava **livre carregando um
+chamado** saía a 50%, e os três apagados eram os três **com posição no mapa**. A
+linha dizia "Livre agora" enquanto o material dizia "indisponível". É a regra já
+registrada duas vezes — *recuo por material ou tinta, nunca por `opacity`*
+(31/08 em Aprovados, 03/09 em Preventivas). Hoje quem recua é a tinta:
+`--normal-t` em "Livre agora", `--tinta` na carga, `--tinta-2` em "Ocupado".
+
+**5. O mapa deixou de ser espremido por uma constante.** Era `height:326px` fixo
+ao lado de uma coluna que crescia com a equipe, e o que sobrava eram **197px de
+chapa vazia** — a maior região contínua do diálogo, embaixo da única peça que
+responde "quem pode ir". Hoje ele estica, e quem limita a altura é a coluna, que
+**rola por dentro**. ⚠️ Essa segunda metade é a regra que o `.trilho` já seguia
+desde 28/08 e que aqui faltava: com 11 técnicos ativos em produção, rolar a
+equipe levava o mapa para fora da tela.
+
+**6. A ação primária passou a existir.** O único elemento com cara de botão era
+**"Cancelar"**; despachar era clicar numa área que só reagia ao hover, numa tela
+calibrada para pouca familiaridade com computador. Cada linha ganhou o chip
+"Despachar", **sempre visível e de fio em repouso** — as duas metades da regra
+de Aprovados (sempre visível porque quem não sabe do hover não descobre o alvo;
+de fio porque seis chips âmbar acesos viram uma coluna que não aponta). Enche de
+âmbar no hover e no foco. É `<span>`, não `<button>`: a linha inteira já é o
+botão.
+
+**7. Saiu o último `border` + `clip-path` da folha.** Proibido desde 27/08 — o
+fio some justo nos dois cantos cortados e lê como defeito. O `.cand` era a
+última peça assim, seis vezes por diálogo.
+
+**8. `.tec-av` virou CSS morto e foi removido** (12 linhas). O selo de iniciais
+tinha deixado o trilho em 31/08; era a única chamada que restava.
+
+**9. O rodapé saiu de 12px.** Era o **menor tipo do diálogo** e é uma frase de
+duas linhas — o pior lugar possível para o piso da folha. Vale para os quatro
+diálogos: é a mesma nota nos quatro.
+
+#### ⚠️ Dois defeitos que só a verificação pegou
+
+**O anel de foco de teclado sumiu, e a folha já tinha avisado.** *"O anel de foco
+`inset` é engolido por qualquer peça que já tenha um `inset` próprio"* — a aresta
+de luz do corte gravado (`box-shadow:inset 0 1px 0 #fff`) tem a **mesma
+especificidade** do `.ficha :focus-visible` e vem depois no arquivo. Corrigido
+com `.ficha .cand:focus-visible`.
+⚠️ **E a primeira medição passou limpa:** `el.focus()` por script **não casa
+`:focus-visible`**. Só tabulando de verdade o defeito apareceu.
+
+**No celular o `min-height:0` da mesa apagava o fim da lista.** Empilhada, a
+`.ficha` é coluna flex de altura 100%; com `min-height:0` o corpo encolhe abaixo
+do conteúdo, a lista transborda e o `clip-path` do grupo **apaga o resto — sem
+barra de rolagem e sem aviso**. Medido a 390px: o grupo pedia 424px e recebia
+354. Desfeito com `min-height:auto` no bloco `max-width:760px`.
+
+#### Copy
+
+⚠️ **Uma palavra nova, e é decisão do Pedro se fica:** o chip vira
+**"Despachando…"** enquanto o PATCH corre. Antes a listra âmbar de "indo" ficava
+ao lado de um rótulo no imperativo, pedindo o que já estava fazendo.
+
+#### Verificação
+
+Prévia `/dev/_operador-preview.html` com a fixture **ampliada para 6 técnicos e
+nomes do tamanho dos de produção** (a de 4 nomes curtos não exercitava o
+defeito). Medido a **390 / 430 / 900 / 1440 / 1920**: vão zero, nenhum nome
+truncado, nenhum alvo abaixo de 44px, nenhum transbordo horizontal, foco de
+teclado visível, nada clipado no celular. Detector do Impeccable: só as
+advertências de `font-size` já conhecidas das cinco folhas.
+
+`?v=N`: `operador.css` 91 → 92 (nas quatro páginas que a carregam),
+`operador.js` 77 → 78.
+
+
+### 2026-09-08 (2ª rodada) · Confirmação no que não volta, e o passe de celular
+
+*"queria implementar algumas confirmações... está acontecendo mt do operador
+clicar em coisas sem querer"*, mais um pedido de conferir o visual no celular.
+
+#### A regra, que saiu do backend e não do gosto
+
+> **Confirma o que não volta; desfaz o que volta.**
+
+⚠️ **Despachar não tem desfazer honesto.** O `PATCH /chamados/:id` grava
+`primeira_resposta_em = COALESCE(primeira_resposta_em, NOW())` — o carimbo
+**nunca é limpo**. Tirar o técnico depois devolve o chamado para a fila, mas o
+relógio do TTFR fica parado para sempre e o histórico guarda as duas entradas.
+Por isso este pergunta antes.
+⚠️ **E é por isso que "Já foi feito" de Aprovados NÃO ganhou confirmação.**
+Aquilo é `POST`/`DELETE` numa coluna só, e já tem **Desfazer na faixa** desde
+31/08 — que é mais rápido e não cobra pedágio de quem acertou. Pôr confirmação
+sobre uma ação com desfazer que funciona é atrito sem segurança.
+
+#### O que ganhou confirmação
+
+| Onde | Pergunta | Por quê |
+|---|---|---|
+| Despachar técnico (turno) | "Despachar **[nome]**?" | 1 clique numa lista de 6–11 linhas encostadas, e o carimbo do TTFR é permanente |
+| Descartar "Novo chamado" | "Descartar este chamado?" | Um clique de raspão no fundo (ou o Esc) apagava prédio, título e o relato de quem ligou |
+| Preventivas em lote | "Enviar **N preventivas** para **[nome]**?" | "Marcar zona" pega uma região inteira; o `POST` escreve atribuição, reescreve o técnico dos chamados do mês e grava histórico em cada um |
+
+⚠️ **É UMA BARRA NO PÉ, NÃO UM SEGUNDO DIÁLOGO.** Modal sobre modal empilha dois
+`showModal()` no top layer e rouba o mapa da vista — e o mapa é o que diz se a
+pessoa certa está perto. A barra troca o `.ficha-pe` que já existe, no mesmo x,
+e no celular herda o `margin-top:auto` que a cola na altura do polegar.
+
+⚠️ **A LINHA ESCOLHIDA FICA MARCADA**, e é metade do valor da coisa: o erro que
+isto existe para pegar é ter acertado o **vizinho**, então a pergunta no pé e a
+linha lá em cima têm de se apontar. Marca por material (`--chapa`) e pelo chip
+preenchido — os dois canais do vocabulário da casa, nada de `opacity`.
+
+⚠️ **O foco vai para "Voltar"**, a opção segura. Numa barra que existe porque
+alguém clicou sem querer, deixar o Enter armado no botão que grava seria
+devolver o problema pelo teclado.
+
+**Verificado com espião no `fetch`:** clicar na linha dispara **0** requisições;
+o `PATCH` sai **só** depois do "Despachar". Idem no lote: 0 `POST` antes do
+"Enviar". Oito fluxos conferidos — Voltar restaura o rodapé e desmarca, Esc
+cancela a pergunta e só o segundo Esc fecha o diálogo, clique no fundo idem,
+"Novo chamado" vazio fecha direto e com texto pergunta, "Voltar" preserva o que
+foi escrito, e no lote o "Voltar" preserva o técnico já escolhido.
+
+⚠️ **`display:flex` GANHA DO `[hidden]`.** O rodapé e a barra de confirmação
+apareceram os DOIS, um sobre o outro, com o rodapé ainda oferecendo "Cancelar".
+`[hidden]{display:none}` é seletor de atributo e perde para qualquer classe que
+declare `display`. Precisou de `.ficha-pe[hidden]{display:none}`.
+
+⚠️ **Marcar outro prédio cancela a pergunta do lote.** Ela diz "Enviar 24 para
+X?"; deixá-la de pé enquanto o 25º entra na seleção confirmaria um número que já
+não é o da tela.
+
+#### O passe de celular — e o defeito que a prévia escondia
+
+Medido a **320 / 360 / 390 / 430** nas três telas do operador.
+
+**✅ O que está bom:** zero transbordo horizontal, zero alvo abaixo de 44px
+(depois da correção abaixo), zero texto do diálogo abaixo de 12px, e as duas
+barras de confirmação empilham certo, sem alvo pequeno e sem transbordo.
+
+**⚠️ P1 — A BARRA DA TELA DO TURNO ESTÁ QUEBRADA NO CELULAR, EM PRODUÇÃO.** O
+wordmark pinta por cima de "Aprovados":
+
+| largura | antes de 03/09 | depois (2 links) | **hoje (3 links)** |
+|---|---|---|---|
+| 320px | 128 | 107 | **101** |
+| 360px | 113 | 67 | **84** |
+| 390px | 83 | 37 | **77** |
+| 430px | 65 | 21 | **64** |
+
+O link "Preventivas" entrou na nav **desta** tela em 03/09 e a conta não foi
+refeita. As telas de Preventivas e Aprovados estão em **zero** — elas receberam
+o rótulo curto ("A fila do turno" → "Turno"); a do turno não tem rótulo para
+encurtar.
+⚠️ **É decisão de direção, não de implementação**, e o `operador.css` já dizia
+isso desde 03/09: *"a conta só fecha se ALGUMA COISA SAIR da barra no celular (a
+marca, ou os dois links de texto virando ícone)"*. Fica para o Pedro; os números
+novos foram gravados no comentário.
+
+⚠️ **E o defeito sobreviveu porque a PRÉVIA NÃO TINHA O LINK.** O
+`_operador-preview.html` ficou com dois itens de nav enquanto o `operador.html`
+já tinha três — então toda medição de barra feita ali testava o caso fácil e
+passava verde. Sincronizado. **Ao mexer na nav do `operador.html`, sincronize a
+prévia no mesmo commit.**
+
+**✅ P2 corrigido — "Ajuda" media 38px de largura** (piso desta folha: 44), nas
+três telas. `padding-inline` seria a saída errada: empurraria a nav mais 24px
+para a direita, numa barra que já está sobrepondo. Um `::before` absoluto alarga
+a área de clique 4px de cada lado **sem ocupar um pixel de layout** — sobram 3px
+dos 11 de `gap`. De 38 para **46px**.
+
+#### Duas medições minhas que estavam erradas, e ficam registradas
+
+- **Contraste não se mede assim nesta folha.** Meu medidor lia
+  `backgroundColor` subindo a árvore e devolvia 45 reprovações — todas falsas: a
+  placa desta folha mora num **`::before` com gradiente**, então ele comparava
+  texto branco contra o fundo de trás. Contraste aqui se confere na superfície
+  de cor sólida (o diálogo claro, medido em 7,5:1) ou no olho.
+- **Alvo com `::before` embutido mede menor do que é.** O `.conta` apareceu como
+  42×44 porque eu subtraía o `inset:1px` da chapa de duas camadas. Ele sempre
+  teve 44.
+
+`?v=N`: `operador.css` 92 → 94, `operador.js` 78 → 79,
+`operador-preventivas.js` 7 → 8.
+
+### 2026-09-08 (3ª rodada) · A barra do operador cabe no celular — sai a marca, não as palavras
+
+*"consegue arrumar isso?"*, sobre a sobreposição achada na rodada anterior.
+
+**A decisão.** O `operador.css` já tinha nomeado as duas saídas em 03/09 — *"a
+conta só fecha se ALGUMA COISA SAIR da barra no celular (a marca, ou os dois
+links de texto virando ícone)"*. Escolhida a primeira, e o motivo é a
+calibragem de 28/08: esta tela foi refeita para **quem tem pouca familiaridade
+com computador**, e trocar "Aprovados" e "Preventivas" por ícones mudos seria
+pagar a conta exatamente com aquilo que a calibragem existe para proteger. A
+marca é a única peça da barra que não responde por nada aqui — quem está logado
+no próprio turno não precisa que a tela se apresente, e **o admin nunca teve
+logo na topbar**.
+
+**Duas etapas, porque uma não bastou.**
+
+| largura | antes | só com a marca curta | + marca fora abaixo de 420 |
+|---|---|---|---|
+| 320px | 101 | 53 | **0** |
+| 360px | 84 | 36 | **0** |
+| 390px | 77 | 6 | **0** |
+| 412px | ~70 | 0 | **0** |
+| 430px | 64 | **0** | 0 |
+
+⚠️ **A troca do wordmark pela marca sozinha NÃO resolveu**, e é o tipo de coisa
+que passa se a gente parar de medir na primeira melhora: 138px viraram 53,
+devolveram 85 à barra, e ainda sobravam 36px de sobreposição a 360. Três links
+de texto (71 + 76 + 38), dois alvos de 44 e a marca simplesmente não cabem em
+360px. Abaixo de 420 a marca sai inteira.
+
+#### `public/logo-marca.png` — asset novo, gerado por script
+
+`scripts/gerar-logo-marca.js` produz **160×102, 11 KB** a partir do
+`logo-menu.png` (o mesmo desenho que a sidebar recolhida do admin usa).
+
+⚠️ **Não dá para usar o `logo-menu.png` direto: ele tem 1024×1024 e 1,15 MB.**
+O admin o serve assim (dívida conhecida), mas ali é desktop; aqui o alvo é
+justamente o celular. É a mesma lição do `gerar-logo-email.js` e do
+`_avPrepararAssinatura` — **reduzir a imagem antes de embutir, não aumentar o
+limite do outro lado**.
+⚠️ **E o script apara as bordas medindo pixel a pixel**, não por um número
+escrito à mão: o original traz um halo difuso e margem transparente larga, e
+numa barra de 60px o halo viraria uma mancha clara sobre o marinho — este
+sistema não tem sombra projetada em lugar nenhum.
+⚠️ **Sized pela ALTURA, não num quadrado.** O desenho é 886×566 (razão 1,57);
+forçá-lo num quadrado desperdiçaria justamente a largura que o arquivo existe
+para economizar.
+
+⚠️ **O Chrome empacotado do puppeteer não sobe nesta máquina** ("Timed out
+after 30000 ms while waiting for the WS endpoint URL"); o Chrome do sistema
+sobe na hora. O script aceita `CHROME_PATH` / `PUPPETEER_EXECUTABLE_PATH` e, sem
+a variável, mantém o comportamento padrão — que é o que funciona no servidor.
+
+#### O mecanismo
+
+É `<picture>` com `<source media="(max-width:760px)">`, **não duas imagens com
+`display:none`**: assim o navegador baixa só a que vai usar. Saíram as duas
+quebras que baixavam o wordmark de 32 para 27 e depois 22px — elas existiam só
+para espremer o wordmark, e foram embora com ele.
+
+⚠️ **Nem `overflow:hidden` nem `opacity`** para tirar a marca: o wordmark
+cortado ao meio lê como defeito de carregamento (a nota de 03/09 já avisava), e
+apagado por opacidade continua ocupando a largura, que é o problema inteiro.
+
+**Verificado** a 320 / 360 / 390 / 412 / 430 / 600 nas três telas do operador,
+medindo a sobreposição real entre **todos os pares** de peças da barra (não só
+marca × ações): **zero em todas**, zero alvo abaixo de 44px, zero transbordo
+horizontal. As confirmações da rodada anterior seguem passando no celular — 0
+`PATCH` no clique da linha, 1 depois do "Despachar", console limpo.
+
+⚠️ **Falso positivo registrado:** o detector acusou `broken-image` no
+`operador.html` — ele casou o literal `<img>` escrito **dentro de um comentário
+HTML** meu. Reescrito para não deixar ruído permanente.
+
+`?v=N`: `operador.css` 94 → 96.
+
+### 2026-09-08 (4ª rodada) · O pé do diálogo empilha no celular
+
+*"os botões desalinhados"*, com print do "Novo chamado" aberto num telefone.
+
+**Medido a 390 e 430px:** "Cancelar" numa linha encostado à direita, "Abrir
+chamado" na linha de baixo encostado à esquerda — **três alturas distintas** num
+rodapé de três peças.
+
+⚠️ **A culpa é do `<p>` de mensagem, e ele estava VAZIO.** O `#nvMsg` é
+`flex:1 1 auto` com `min-width:180px`, e reserva os 180px mesmo sem texto — ele
+só tem conteúdo quando há erro de validação. Sobrava largura para um botão, não
+para dois, e o `flex-wrap` separou o par.
+
+⚠️ **Em flexbox não há como manter dois irmãos na mesma linha sem um
+invólucro** — então a saída não foi impedir a quebra, foi a regra que esta folha
+já tinha registrado em 31/08 para o pé de Aprovados: **abaixo de 560px o botão
+ocupa a linha.** Alvo maior, ordem preservada (secundário em cima, primário
+embaixo, na altura do polegar), e nenhum par para desalinhar.
+
+`.ficha-pe p:empty{display:none}` entrou junto: sem isso o `#nvMsg` vazio virava
+uma faixa de respiro no meio da pilha.
+
+**Verificado** a 360 / 390 / 430 / 560: os dois botões com o **mesmo x, a mesma
+largura e 44px de altura** (`x=22→368` a 390px), nenhum fora da caixa. A 620 e
+900 o arranjo em linha continua intacto — a mudança é só do celular.
+
+⚠️ **A barra de confirmação NÃO foi empilhada junto**, e é decisão, não
+esquecimento: ali são duas palavras curtas ("Voltar" / "Despachar") que cabem
+lado a lado com folga a 390px, os dois alvos já passam de 44px, e par lado a
+lado **lê como escolha binária** — empilhado leria como duas ações
+independentes. Além disso ela mora colada no pé da tela, e crescer 55px comeria
+o mapa.
+
+`?v=N`: `operador.css` 96 → 97.
+
+### 2026-09-08 (5ª rodada) · A folha A4263 entra na impressão de etiquetas
+
+O papel que a operação tem em mãos é **A4263 / Avery L7163** — 99 × 38,1 mm, 14
+por folha (2 × 7). Entrou como formato `pimacoA4263` no seletor de "Imprimir
+folha de etiquetas", ao lado de `corte` e `pimaco6180`.
+
+A grade sai das sobras da folha: 2 × 99 mm + 2,6 de medianiz deixa **4,7 mm** de
+cada lado; 7 × 38,1 mm deixa **15,15 mm** em cima e embaixo.
+
+⚠️ **Etiqueta menor não é a mesma arte reduzida.** Com 38,1 mm de altura (contra
+50,8 da A4260), a faixa marinho de 13 mm mais o QR de 26 mm já estouram sozinhos
+— e o que estoura empurra o pé pra **fora do adesivo**, que é onde a folha
+picotada não perdoa. Por isso `FORMATOS` ganhou um bloco opcional `medidas`
+(altura e folga da faixa, chanfro, logo, lado do QR, corpos de letra) que
+sobrepõe `MEDIDAS_PADRAO`. Os dois formatos antigos não declaram `medidas` e
+saem **pixel a pixel idênticos** ao que já saíam.
+
+Na A4263: faixa de 8,6 mm, chanfro de 6, logo 44 × 6,4, QR de 20 mm. O QR
+encolheu até o que a altura permite, e a largura que sobrou foi pro **código
+humano em 19pt** — numa etiqueta de 99 mm o desenho antigo deixava um terço
+vazio, e o código grande é justamente o plano B pra quando o QR sujar.
+
+Conferido renderizando as três folhas (`renderHTML` é exportado pra isso) e
+lendo a imagem: 14 etiquetas dentro da caixa, nada transbordando, e os formatos
+antigos intactos.
+
+### 2026-09-08 (6ª rodada) · A página de Alertas só mostra o que é alerta
+
+*"agr na tela de admin, precisa arrumar os alertas, hj qlqr tipo de chamado
+está gerando alerta e não está certo"*.
+
+**Ele estava certo, e o defeito não era do backend.** Nada no servidor cria
+linha de `alertas` a partir de chamado — só o `alertas.service.js`, chamado
+pela telemetria e pelo job de offline. Era a tela.
+
+⚠️ **E a regra já existia, escrita e nomeada.** Três lugares aplicavam "conta
+como alerta quem é P1/P2, ou estourou o prazo, ou absorveu telemetria": o badge
+do menu, o KPI do dashboard e `_chamadosAlertaAbertos()`. **A lista que a página
+desenha era o único lugar que NÃO aplicava** — `renderAlertas()` passava o
+`_alUnificar()` cru, que empurra TODO chamado para dentro, e o
+`_alAplicarFiltros()` só filtra por aba, tipo, busca e data. Um P4 agendado
+virava card de alerta, e os contadores das abas o contavam.
+
+⚠️ **O sintoma era composto, e reabria uma contradição que o arquivo dava por
+fechada:** a tela mostrava **mais itens do que o número que a anunciava**. O
+comentário do KPI no `admin.js` registra o "8 aqui e 7 em Alertas" como bug
+conhecido — aquela rodada acertou o KPI e o badge e não voltou na tabela.
+
+**A correção é a pergunta ter um dono.** `_alContaComoAlerta(it)` é a única
+definição, e tanto `renderAlertas()` quanto `_alertasAtivosUnificados()` saem
+dela. Duas medidas para a mesma pergunta era o defeito; uma função é a cura.
+
+| | Conta como alerta? |
+|---|---|
+| Telemetria (`nivel_baixo`, `nivel_muito_baixo`, `dispositivo_offline`) | **sempre** |
+| Chamado P1 ou P2 | **sim** |
+| Chamado de qualquer prioridade com **prazo estourado** | **sim** — um P4 atrasado é alerta |
+| Chamado que **absorveu** um alerta de telemetria | **sim**, senão o evento sumiria ao ser agrupado |
+| Chamado que **nasceu** da telemetria (`[AUTO]`) | **sim**, mesmo fechado |
+| **Preventiva** (`plano_manutencao_id`) | **não**, nem com prazo estourado |
+| Chamado P3/P4 comum | **não** ← era o que poluía |
+
+⚠️ **`[AUTO]` É O QUE SALVA O PASSADO**, e fecha o buraco que a primeira versão
+desta correção deixava. `telemetriaAbsorvida` se calcula sobre os alertas
+**abertos**: assim que o nível normaliza, o chamado P3 que só era alerta por
+causa dele sumiria da aba "Resolvidos" — a tela perderia o histórico do próprio
+evento que a fez existir. O prefixo é gravado por `abrirChamadoAuto` e
+**sobrevive ao fechamento**, então é ele quem responde "nasceu de telemetria?"
+quando o alerta já não está lá.
+
+⚠️ **PREVENTIVA NUNCA É ALERTA, E O CORTE É PELA ORIGEM** — a mesma decisão que
+a tirou da lista de chamados do admin em 04/09. Elas são P4 e já cairiam pela
+prioridade, mas o job gera **uma por prédio por mês** (69 de uma vez em
+setembro) e no fim do mês um lote inteiro estoura prazo junto: voltariam como
+"alerta crítico" em bloco, pela porta do SLA. É provável que fossem a maior
+parte do que o Pedro estava vendo.
+
+⚠️ A aba "Resolvidos" segue a mesma regra, então um P4 comum fechado não
+aparece mais lá.
+
+#### O teste
+
+`scripts/testes/alertas-so-o-que-e-alerta.test.js` — sem banco e sem navegador,
+extrai as funções puras do `admin.js` e roda contra fixtures. **17/17.** Além
+dos casos da tabela acima, ele trava o contrato que o bug quebrava: **a lista
+desenhada e a lista contada têm de ser a mesma**. Verificado que ele cai
+(14/15) ao devolver o `_alUnificar()` cru para o render.
+
+⚠️ **Uma pegadinha na fixture, que vale para qualquer teste desta família:**
+`_alCondoIdDoDevice` lê `g.condominio?.id`, não `g.condominio_id`. Com a chave
+errada ele devolve `null`, o alerta não acha chamado nenhum, o agrupamento não
+acontece — e o teste "passa" medindo outra coisa.
+
+`?v=N`: `admin.js` 344 → 345.
+
+### 2026-09-08 (6ª rodada) · A grade da A4263 vem da tabela da Pimaco, e a arte sai de cima do corte
+
+A folha impressa não bateu com o adesivo. Fui atrás da fonte primária: a Pimaco
+publica os parâmetros de cada folha num `.doc` de "Parâmetros de Impressão"
+(`editor.pimaco.com.br/documents/parametros/inkjet_a4/`). Para
+`A4063/A4263/A4363/A4063R`: margem superior **1,52 cm**, margem lateral
+**0,47 cm**, densidade vertical **3,81**, densidade horizontal **10,16**,
+etiqueta **3,81 × 9,90 cm**, 2 × 7.
+
+⚠️ **A grade que eu já tinha estava certa** — medi o HTML renderizado: célula em
+(4,70 / 15,15), passo 101,60 × 38,10, etiqueta 99,00 × 38,10. Bate com a tabela
+em tudo menos 0,05 mm na margem superior (corrigida para 15,2). Ou seja, o
+desalinhamento **não vinha da grade**, e mexer nela teria sido conserto às
+cegas. Deduzi por centralização e deu certo por coincidência nesta folha; agora
+os valores vêm do fabricante, que é o que vale para a próxima.
+
+O que estava errado de verdade eram outras três coisas:
+
+**1. A arte encostava no corte.** Sangria total, `gapY` zero: o registro de papel
+de impressora doméstica varia ~1 mm entre folhas, e esse milímetro faz a faixa
+marinho aparecer mordida ou invadindo a vizinha. `.et` agora é a célula da grade
+e `.arte` é o desenho, recuado por `medidas.safe` (1,5 mm na A4263). Os formatos
+antigos têm `safe: 0` e continuam ocupando a célula inteira.
+
+**2. `preferCSSPageSize` faltava no `page.pdf`.** Sem ele o Chrome usa o A4 dele
+(8,27 × 11,69 pol arredondadas) em vez do `@page` do CSS, e a grade adesiva
+perde as frações de milímetro que a picotagem cobra.
+
+**3. Não havia como calibrar.** `&dx=`/`&dy=` (mm, ±5) deslocam a grade inteira.
+O desvio que sobra depois disso é da **máquina**, não do arquivo: imprime, mede
+contra o adesivo, repete com o desvio invertido (saiu 1 mm para baixo →
+`&dy=-1`). `justify-content` da folha virou `start` junto — com `center` o
+offset seria anulado, e centralizar não faz sentido quando os valores já são
+absolutos a partir do canto da folha.
+
+⚠️ A crase em comentário dentro do template literal derrubou o arquivo de novo,
+exatamente como o [`../CLAUDE.md`](../CLAUDE.md) avisa. Dessa vez o `node
+--check` pegou, porque a crase caiu no meio de uma linha de CSS e quebrou a
+sintaxe — não é o caso silencioso.
+
+**Verificado** medindo o DOM renderizado dos três formatos: A4263 com célula em
+(4,70 / 15,20), passo 101,60 × 38,10, arte recuada 1,49 e última linha
+terminando em 281,91 mm (15,1 de sobra); `&dx=1&dy=-2` desloca a grade inteira
+sem transbordo; `corte` e `pimaco6180` com arte igual à célula e passos
+idênticos aos de antes.
+
+### 2026-09-08 (7ª rodada) · O desalinhamento que acerta no meio da folha é escala, não grade
+
+Relato do teste em papel: a linha da grade começa alguns mm abaixo do corte do
+adesivo, os lados também erram, **no meio da folha vai encaixando**, e no fim
+desencontra de novo com sobra maior embaixo.
+
+⚠️ **Esse padrão é assinatura de escala centrada, e descarta a grade como
+suspeita.** Se a grade estivesse errada — margem ou passo — o erro seria
+constante (margem) ou cresceria sempre no mesmo sentido (passo). Erro que é
+máximo nas duas pontas e **zero no meio** só sai de um redimensionamento em
+torno do centro: o driver reduziu a página inteira para caber na área
+imprimível, que muita jato de tinta não alcança até a borda. É o "Ajustar à
+página" do diálogo de impressão.
+
+O que entrou:
+
+- **`&escala=`** (%, 90–110) amplia o conteúdo para sobreviver ao driver que
+  reduz e não deixa desligar — `transform: scale()` com origem no centro,
+  porque a redução do driver também é centrada. Medindo uma distância conhecida
+  no papel sai o número: entre o topo da 1ª e o da 7ª linha há **228,6 mm**
+  (conferido no DOM: 228,61); saíram 220 → `&escala=103.9`.
+- **Folha de conferência com réguas**, gerada na Área de Trabalho: só o contorno
+  vermelho da grade, uma cruz por célula, e réguas verdes de 200 e 250 mm para
+  medir com régua de verdade. É o que separa "PDF errado" de "impressora
+  encolhendo" sem mais uma rodada de chute.
+- **`normalizarCalibragem` unificada.** Os limites viviam só em
+  `gerarPdfEtiquetas`, mas `renderHTML` é exportado e chamado direto para
+  conferir layout — sem calibração ele montava `scale(NaN)` e `calc(NaNmm)`,
+  que o browser **descarta em silêncio**. A folha saía visualmente correta e não
+  correspondia ao que a rota gera: exatamente o tipo de divergência que faz
+  perder uma rodada inteira de teste em papel.
+
+⚠️ **`&escala=` e imprimir em 100% são alternativas, nunca as duas juntas** — a
+compensação em cima da impressão fiel vira o mesmo erro ao contrário.
+
+**Verificado** no DOM: sem calibração a célula fica em (4,70 / 15,20) com passo
+101,60 × 38,10 e 228,61 mm entre a 1ª e a 7ª linha; `escala=104` leva a célula a
+102,96 mm de largura e a distância a 237,75; `escala=999` é presa em 110.
+
+### 2026-09-08 (8ª rodada) · A calibração ganha UI, porque pela URL ela era inalcançável
+
+As medidas da folha adesiva vieram da régua: topo/base 15 mm, lateral 5, entre
+colunas 3, etiqueta 38 × 99. Batem com a tabela da Pimaco dentro do
+arredondamento — e a prova é a soma: os valores medidos dão 211 mm na horizontal
+e 296 na vertical, enquanto as frações oficiais fecham em **210,0** e **297,0**
+exatos. **A folha física corresponde ao PDF**, o que fecha a grade como suspeita
+e deixa só a impressão.
+
+⚠️ **O `&escala=` da rodada anterior era código morto na prática.** O PDF é
+buscado com header `Authorization` e aberto como object URL — colar a URL com
+query string no navegador devolve 401. Sem UI, o parâmetro não alcançava quem
+precisa dele. Entrou um bloco recolhido "Calibrar impressora" no card de
+impressão, com os três campos e o roteiro de qual usar: escala quando o erro
+some no meio da folha, deslocamento quando é igual na folha inteira, e
+"Tamanho real / 100%" antes de qualquer um dos dois.
+
+Vale como regra para a rota: **parâmetro novo em `/etiquetas.pdf` precisa de UI
+junto**, porque esse endpoint não é alcançável pela barra de endereços.
+
+`?v=N`: `admin.js` 345 → 346, `admin.css` 255 → 256.
+
+**Verificado** a montagem da query contra um DOM falso: campos vazios, zeros e
+escala 100 não entram na URL; `abc` vira nada; `-0.5` + `104` viram
+`&dx=-0.5&escala=104`.
+
+### 2026-09-08 (9ª rodada) · Apagar lote de etiquetas, com o histórico protegido de quem pede
+
+`DELETE /equipamentos/lote/:lote` + botão **Apagar lote** no card de impressão.
+Nasceu do lote de teste de alinhamento, que não tinha como sair do banco a não
+ser por SQL na mão.
+
+**`masterAdminOnly`, não `gestaoOnly`.** O resto do módulo é gestão (admin +
+gerente), mas apagar linha em lote é irreversível, e é a régua que o projeto já
+usa nesse nível — apagar cliente, mexer em reservatório. Gerente imprime
+etiqueta; só o admin master descarta o que foi impresso. O botão some para quem
+não é master, e ⚠️ **isso é conforto de UI, não a trava**: o botão escondido não
+impede ninguém de chamar o endpoint na mão.
+
+⚠️ **A regra que precisava de teste não é sintaxe, é a exceção.** A rota apaga
+só etiqueta virgem (`etiqueta_livre` sem movimentação); equipamento com
+histórico no meio do lote é deixado quieto e volta em `preservados` — **nunca
+inativado em silêncio**. Quem pede "apaga o lote de teste" precisa descobrir na
+resposta que o lote não era só teste, porque a linha do tempo é o ativo do
+módulo e não volta. O alert do front lista os preservados por código pelo mesmo
+motivo.
+
+A confirmação exige **digitar o nome do lote**, não um "tem certeza": o seletor
+é o mesmo que a pessoa acabou de usar para imprimir, e o `.env` aponta para
+produção.
+
+⚠️ Sem conflito de rota com `DELETE /:id`: `/lote/:lote` tem dois segmentos.
+
+`scripts/testes/apagar-lote-etiquetas.test.js` — **12/12 no banco de teste**:
+401 sem token, 403 para gerente e técnico, 404 em lote inexistente, e o caso que
+importa — duas virgens apagadas, a terceira preservada com o histórico intacto,
+e repetir a chamada não apaga a que sobrou.
+
+`?v=N`: `admin.js` 346 → 347, `admin.css` 256 → 257.
+
+### 2026-09-08 (7ª rodada) · A etiqueta grande, pra recortar e plastificar
+
+Nem toda bomba mora ao alcance da mão. Quando o QR precisa ser lido de longe —
+ou quando não há folha adesiva por perto — o caminho é imprimir em sulfite
+comum, recortar e plastificar. Entrou o formato `grande`: **130 × 80 mm, 3 por
+folha** (1 × 3), com marcas de corte.
+
+⚠️ **Ele tomou o lugar do `pimaco6180`** no seletor, a pedido: a A4260 não é
+papel que a operação use. Os três formatos hoje são `corte`, `grande` e
+`pimacoA4263`.
+
+**Só cabe uma por linha** — 2 × 130 mm estouraria os 210 da folha. Sobram 40 mm
+de cada lado e a grade fica centralizada (aqui pode: papel comum não tem
+picotagem pra respeitar). Três linhas de 80 mm com 5 de medianiz ocupam 250 dos
+297, deixando 23,5 mm em cima.
+
+Aqui a **borda tracejada é recurso, não sujeira**: nas folhas adesivas ela é
+omitida pra não imprimir traço em cima do picote; no papel comum ela é a linha
+da tesoura.
+
+⚠️ **Aumentar só o QR deixaria a faixa marinho parecendo tarja perdida no topo.**
+Como na A4263, o formato declara `medidas` próprias e tudo cresce junto: faixa
+de 20 mm, chanfro de 14, logo 82 × 14, **QR de 45 mm** (mais que o dobro da área
+do da A4263) e o código humano a 30pt — porque é ele que salva quando a
+plastificação amarelar ou riscar.
+
+Conferido renderizando a folha e olhando: os 80 mm comportam faixa + QR + pé sem
+transbordo, e o código de 9 caracteres cabe na largura que sobra ao lado do QR.
+
+`?v=N`: nada a bumpar — a mudança no front foi só uma `<option>` do
+`admin.html`, que já sai com `Cache-Control: no-cache`.
+
+### 2026-09-10 · O chanfro da etiqueta não era 45°, e por isso a faixa parecia torta
+
+A queixa foi na etiqueta de **papel comum** (`corte`, quadrada de 65 × 65 mm):
+a faixa marinho do topo dava impressão de estar **impressa torta**.
+
+Não era a faixa: era o corte do canto. O `clip-path` da `.cabeca` era
+`polygon(0 0, 100% 0, 100% 30%, calc(100% - Nmm) 100%, 0 100%)` — o vértice de
+cima em **porcentagem da altura** e o de baixo em **milímetros**. Os dois eixos
+andando em unidades diferentes nunca dão 45°: na quadrada a diagonal saía com
+~58°, subindo 11 dos 16 mm da faixa num recuo de 7 mm. Numa faixa de 65 mm de
+largura, uma ponta direita comprida e inclinada assim o olho lê como registro de
+papel errado, não como assinatura de marca.
+
+Agora os dois vértices usam o **mesmo recuo em mm**:
+`polygon(0 0, 100% 0, 100% calc(100% - Nmm), calc(100% - Nmm) 100%, 0 100%)`.
+O corte é 45° de verdade, sobra aresta vertical à direita e o rodapé da faixa
+fica reto na maior parte da largura.
+
+Como o recuo agora vale nos dois eixos, ele passou a ser **~metade da altura da
+faixa** em cada formato — senão o corte comeria a faixa inteira:
+
+| Formato | `cabecaH` | chanfro antes | chanfro agora |
+|---|---|---|---|
+| `corte` (papel comum) | 16 mm | 7 mm | **8 mm** |
+| `grande` | 20 mm | 14 mm | **10 mm** |
+| `pimacoA4263` | 8,6 mm | 6 mm | **4,3 mm** |
+| padrão (`MEDIDAS_PADRAO`) | 13 mm | 9 mm | **6,5 mm** |
+
+A engrenagem do wordmark continua livre do corte na quadrada: o logo termina em
+49 mm (3 de folga + 46 de largura) e a diagonal só começa em 57.
+
+Conferido renderizando a folha do `corte` pelo `renderHTML` e olhando a arte.
+
+⚠️ A `.ficha-cabeca` do `public/equipamento.css` copia essa forma na tela
+(`100% 44%, calc(100% - 20px)`) e **não** foi mexida — se a ficha tiver que
+casar com a etiqueta nova, é lá.
+
+`?v=N`: nada a bumpar — a mudança é toda no serviço de PDF, no servidor.
+
+
+### 2026-09-10 (2ª rodada) · A faixa da etiqueta vai inteira, e o wordmark ao centro
+
+Veredito no papel depois da rodada anterior: **continuou sem agradar**. O
+chanfro de 45° saiu da etiqueta impressa. A barra marinho agora vai inteira, de
+corte a corte, com o wordmark **centrado** (`justify-content: center` na
+`.cabeca` e `background-position: center` no `.logo`).
+
+O que se aprendeu: tela e papel não são a mesma coisa. No monitor o corte do
+canto inferior direito é a assinatura da marca; impresso e recortado à tesoura
+ele para de ler como intenção — de perto vira ponta amassada, de longe a faixa
+inteira parece entrar torta na impressora. Duas geometrias foram tentadas antes
+de desistir (a que subia até 30% da altura da cabeça e a de 45° exato) e as duas
+leram torto. **Não recoloque o `clip-path` na `.cabeca` do gerador.**
+
+Vale pros três formatos — `corte`, `grande` e `pimacoA4263` — porque a `.cabeca`
+é a mesma regra pros três.
+
+O campo `medidas.chanfro` continua declarado nos formatos: quem ainda desenha o
+corte é a `.ficha-cabeca` do `public/equipamento.css`, que é tela.
+
+`?v=N`: nada a bumpar — a mudança é toda no serviço de PDF, no servidor.
+
+
+### 2026-09-10 (3ª rodada) · Etiqueta cadastrada por engano volta a ficar em branco
+
+Cadastro feito na etiqueta errada, com a bomba na mão. Até aqui o código ficava
+**queimado para sempre**: o `DELETE /equipamentos/:id` não apaga quem tem
+movimentação, ele dá baixa — o equipamento sai da operação, mas o código
+continua ocupado e a etiqueta colada na bomba vira papel morto.
+
+Nova rota `POST /equipamentos/:id/desfazer-cadastro` e o card **Reaproveitar
+etiqueta** na tela de Equipamentos. Devolve a etiqueta a `etiqueta_livre`:
+zera condomínio, dados cadastrais, `vinculado_em` e a linha do tempo, mantendo
+`codigo`, `lote`, `criado_em` e `criado_por`.
+
+**`masterAdminOnly`**, a pedido do Pedro — isto apaga linha do tempo, que é o
+ativo do módulo. Mesma régua do descarte de lote.
+
+⚠️ **Só desfaz o vínculo inicial.** Foto, chamado, orçamento, O.S. ou qualquer
+movimentação além do `cadastro`/`retirada` de abertura → **409 com
+`impedimentos`**, e nada é tocado. A resposta diz o que impede de propósito: um
+"não pode" seco empurra a pessoa a mexer no banco na mão.
+
+⚠️ **O código vai no body e é conferido contra o do `:id`** — a mesma trava do
+"digite o nome do lote", só que no servidor. Id errado zeraria a ficha da bomba
+errada, e o `.env` aponta para produção.
+
+⚠️ **Não fica rastro no banco, de propósito**: a etiqueta precisa ficar
+indistinguível de uma recém-impressa, senão a próxima ficha nasce com uma nota
+de erro que não é dela. O rastro fica no log do servidor.
+
+Teste: `node scripts/testes/desfazer-cadastro-etiqueta.test.js` — 23 asserções,
+banco de teste, incluindo permissão, código trocado, o caso feliz limpo e as
+duas recusas por histórico. Passou inteiro.
+
+`?v=N`: `admin.js` 347 → **348** e `admin.css` 257 → **258** (o par anda junto).
+`sw.js` não muda — `/equipamentos` já está na lista network-first, e o SW não
+intercepta `POST`.
+
+
+### 2026-09-10 (4ª rodada) · O primeiro uso real mostrou o limite da regra
+
+O 990H-3TJP, a etiqueta que motivou a rodada anterior, foi recusado: "2
+movimentações além do cadastro". Olhando o banco de produção (só leitura), as
+três movimentações eram da **mesma pessoa, dentro de um minuto e meio** —
+cadastro às 13:13:59, entrada na oficina 21 segundos depois, aguardando peça
+mais 24 depois. Sem foto, chamado, orçamento ou O.S. Não era histórico: era
+alguém andando pelo fluxo na etiqueta errada, que é exatamente o caso que a
+rota nasceu para resolver.
+
+Entra o `forcar: true` — **exceção estreita, não afrouxamento**. O admin master
+passa por cima das **movimentações e só delas**. Foto, chamado, orçamento e O.S.
+recusam mesmo com a flag: ali existe trabalho de outra pessoa pendurado, e
+apagar isso não é desfazer um engano, é sumir com o serviço de alguém.
+
+O 409 passou a devolver **`pode_forcar`**. Sem esse campo o front teria que
+deduzir a regra do servidor pela contagem de `impedimentos`, e as duas leituras
+divergiriam no primeiro ajuste. Com ele, o painel faz a segunda pergunta só
+quando existe saída — e a pergunta diz o número de movimentações e avisa que a
+linha do tempo não volta, porque "3 movimentações" tanto pode ser uma bomba que
+rodou a bancada quanto três cliques errados, e quem sabe qual é das duas é a
+pessoa na frente da tela.
+
+Teste: `desfazer-cadastro-etiqueta.test.js` foi de 23 para **29 asserções**,
+incluindo a que garante que **forçar com foto continua 409** e a foto continua
+lá. Sem ela o `forcar` viraria "apaga tudo" no primeiro refactor.
+
+`?v=N`: `admin.js` 348 → **349**, `admin.css` 258 → **259**.
+
+
+### 2026-09-10 (5ª rodada) · A logo volta à barra do operador
+
+Relato do Pedro, no PWA instalado do operador: *"não está aparecendo a logo"*,
+*"aprovados, preventiva e ajuda grudados a esquerda"*. Não era cache — era a
+regra de 08/09, que escondia a `.barra-in` inteira abaixo de 420px, e o
+`space-between` que vinha junto empurrando a nav para a borda.
+
+**A conta anotada no `operador.css` estava errada em 21px.** O comentário dizia
+"6px de sobreposição a 390"; remedido com a folha de verdade, a barra pede
+**417,1px numa linha só** (nav 204,8 + duas ações de 44 + marca 53,3 + recuos e
+gaps). Não existe telefone com essa largura — encolher o logo nunca ia resolver.
+
+A largura acabou, então cede a altura: **duas linhas abaixo de 420px**, marca ·
+"+ Novo chamado" · conta em cima, as três telas embaixo. Barato porque no
+celular esta barra é `position:relative`, não `sticky` — os ~46px são pagos uma
+vez na entrada e rolam para fora. `display:contents` no `.barra-acoes` faz a
+nav virar filha do grid sem tocar em HTML nenhum. A tela do técnico perdeu os
+**três remendos** que existiam só para sobreviver ao `display:none` e recuperou
+a marca, em uma linha só.
+
+Novo: **`scripts/medir-barra.js`** — monta o header real das quatro telas com o
+`operador.css` real num Chrome e afere estouro, altura, logo e alvos de 44px em
+sete larguras, sem servidor nem login. É a resposta ao "MEÇA, não deduza" que a
+folha manda: medir tem de ser mais barato do que estimar, senão ninguém mede. Detalhe em
+[`modulos/painel-operador.md`](modulos/painel-operador.md).
+
+**E a logo cresceu, paga pelo símbolo.** *"da para deixar a logo um pouco
+maior?"* — com a palavra "Ajuda" na barra, o teto a 390px era 30px (em 34 já
+sobravam 9,9px de respiro, em 40 sobravam 0,5). Trocando "Ajuda" pela
+interrogação em círculo — autorizado na mesma conversa —, o respiro vai de 16,2
+para 33,9 e a marca aguenta até 40. Escolhido **36**, que é a proporção do
+desktop transposta (40 numa barra de 74 = 0,54; 0,54 × 64 = 34,6): 40 numa barra
+de 64 daria 0,63 e a marca pesaria mais no celular do que na mesa. Não revoga a
+calibragem de 28/08 — ela protege "Aprovados"/"Preventivas", que são navegação;
+Ajuda abre uma leitura. O `aria-label` fica no `<button>` para o leitor de tela
+ler "Ajuda" nas duas larguras, e o `::before` do alvo vai a 12px de cada lado
+para fechar os 44 (o desenho tem 20px; a palavra tinha 38).
+
+`?v=N`: `operador.css` 106 → **108** nas quatro telas que a servem
+(`operador.html`, `operador-orcamentos.html`, `operador-preventivas.html`,
+`tecnico.html`). `sw.js` não muda — não há endpoint novo.
+
+
+### 2026-09-11 · Aceitar o chamado deixa de ser porta de mão única
+
+Relato do Pedro: *"em alguns casos, quando o técnico está no condomínio para
+fazer o serviço, ele não consegue finalizar, mas hoje, depois que você aceita o
+chamado no app, não dá para cancelar — então o chamado fica em atendimento até o
+técnico conseguir voltar no condomínio, e acho que isso não está certo"*.
+
+Ele está certo, e o buraco era mais fundo do que o status: **a única saída do
+`em_atendimento` era finalizar a O.S.** — ou seja, AFIRMAR que o serviço foi
+feito. Quem não podia afirmar isso não tinha porta nenhuma. O chamado ficava
+mentindo "em atendimento" por dias, segurando o técnico no workload do painel ao
+vivo e o prédio fora da fila de despacho.
+
+**`POST /chamados/:id/devolver`** (`{motivo}`, mín. 5 caracteres), só para o
+técnico dono, válido em qualquer ponto — a caminho ou já em atendimento. O
+chamado volta a `aberto` sem técnico e outro pega.
+
+O que **não** é óbvio, e por isso está no código e em
+[`modulos/chamados-sla.md`](modulos/chamados-sla.md):
+
+- **`tecnico_a_caminho_em` é limpo, `tecnico_chegou_em` NÃO.** O primeiro é o
+  campo que decide o botão do app (`configurarCTA`): mantê-lo faria o próximo
+  técnico abrir o chamado já vendo "Iniciar atendimento" sem ter saído de casa.
+  O segundo é um fato — se um técnico chegou dentro do prazo da cláusula 7, o
+  SLA de chegada foi cumprido, e zerar isso seria reescrever a história a favor
+  da empresa. `primeira_resposta_em` fica pela mesma régua.
+- **A O.S. rascunho morre junto** (decisão do Pedro na mesma conversa: *"pode
+  apagar"*). Ela tem `UNIQUE` em `chamado_id`: deixá-la colada travaria o
+  `/iniciar-atendimento` do próximo técnico, e mantê-la faria ele herdar chegada
+  e GPS de outra pessoa. Filhas saem por CASCADE; quem aponta vira NULL. O app
+  avisa antes de confirmar quando há O.S. aberta — foto tirada no subsolo sem
+  sinal é trabalho que não volta. A O.S. **finalizada** não: 409.
+- **O cliente não é avisado** (*"não quero que a informação vá para o cliente"*,
+  e sobre ver o chamado voltar a "Aberto": *"não tem problema"*). É o **oposto
+  do cancelamento**, onde o motivo vai para o cliente de propósito: devolver é
+  rodízio interno de equipe, não uma decisão sobre o pedido dele.
+- **O motivo mora no histórico**, em `historico_chamados` com
+  `campo_alterado = 'devolvido'` — `valor_novo` é o motivo, `valor_anterior` o
+  número da O.S. descartada. Sem essa linha, a devolução apareceria no painel
+  como uma desatribuição qualquer. Com ela, dá para ler depois *por que* os
+  serviços não fecham na primeira visita.
+
+No app, botão **secundário** da barra de ação (nunca competindo com "Iniciar
+atendimento"/"Preencher O.S."), visível só depois que ele aceitou, abrindo o
+mesmo bottom sheet do chooser de foto com o campo de motivo.
+
+Teste: **`scripts/testes/devolver-chamado.test.js`** — 24 checagens contra o
+banco de teste, exercitando a sequência real do app (`/a-caminho` → `/chegou` →
+`/iniciar-atendimento` → `/devolver`). A primeira versão errou justamente aí:
+ela pulava o `/chegou` e "provava" que `tecnico_chegou_em` sobrevivia a uma
+devolução em que ele nunca tinha sido gravado.
+
+**Sem migration** — nenhuma coluna nova; `historico_chamados` já aceita
+`campo_alterado` livre.
+
+`?v=N`: `admin.js` 351 → **352**, `admin.css` 261 → **262**. `sw.js` não muda —
+o endpoint novo é `POST` (a lista network-first só vale para `GET`).
+
 ## Tiles do mapa saem do OSM e voltam para o Carto (2026-09-11)
 
 O mapa do painel do operador amanheceu como um mosaico de cartazes:

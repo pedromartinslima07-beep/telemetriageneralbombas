@@ -667,20 +667,41 @@ function _mcPinIcon(kind) {
 // servidores do OSM são mantidos por voluntários e a política deles não cobre
 // app em produção; o bloqueio é por aplicação, não por erro de URL — a mesma
 // URL responde 200 num curl qualquer, o que faz o diagnóstico parecer "é só
-// aqui". Provedor de tile para produção é o Carto, cujos basemaps públicos
-// existem para este uso.
+// aqui".
 //
-// `dark_all` é a versão escura de origem: por isso NÃO leva a className
-// `map-tiles-dark` (o `invert()` daquela regra sobre uma tile já escura a
-// deixa clara de novo).
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTR = "© OpenStreetMap contributors © CARTO";
+// O Carto foi a primeira troca e durou algumas horas: os basemaps dele hoje
+// exigem chave, e sem chave ele não recusa — ele SERVE o mapa com "API KEY
+// REQUIRED" carimbado na diagonal, repetido por cima da cidade. Pior de achar
+// que um 403, porque o mapa "funciona".
+//
+// Hoje é o Esri World Topo Map, escolhido olhando as opções lado a lado
+// (11/09/2026): claro, cinza-suave, e os pinos de status continuam legíveis
+// por cima — num painel onde a cor do pino é o alarme, basemap colorido
+// (o Street Map, bege e laranja) briga com o vermelho do pino crítico.
+//
+// ⚠️ A ORDEM É `{z}/{y}/{x}`, com y ANTES de x — convenção da Esri, o
+// contrário de todo mundo. Trocar os dois não dá erro: devolve uma tile
+// válida do lugar errado, o mapa fica num pedaço aleatório do planeta e os
+// pinos parecem fora de lugar.
+//
+// ⚠️ MAXZOOM 19 É O TETO REAL, medido tile a tile. Dali em diante a Esri
+// devolve **200** com uma imagem cinza escrita "Map data not yet available"
+// (sempre 2521 bytes — é como se reconhece). Não é erro, então nada no
+// código percebe: quem aproxima demais no mini-mapa do cadastro veria a placa
+// no lugar da rua. O `maxZoom` é o que impede o Leaflet de chegar lá.
+// Os basemaps Canvas (cinza claro/escuro) foram descartados por isso: param
+// no 16, e o cadastro precisa da porta do prédio.
+//
+// Basemap CLARO: nenhuma camada leva className de inversão (a antiga
+// `.map-tiles-dark` saiu do CSS junto com a troca).
+const TILE_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+const TILE_ATTR = "© Esri · © OpenStreetMap";   // curto de propósito: quebra em 2 linhas tapa o mapa
+const TILE_MAX_ZOOM = 19;
 const TILE_MAX_TENTATIVAS = 3;
 
 function _criarTileLayer(map, onLoad) {
   const layer = L.tileLayer(TILE_URL, {
-    subdomains: "abcd",
-    maxZoom: 20,
+    maxZoom: TILE_MAX_ZOOM,
     attribution: TILE_ATTR,
     keepBuffer: 4,
     updateWhenIdle: false,
