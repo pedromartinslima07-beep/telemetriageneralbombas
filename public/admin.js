@@ -4454,7 +4454,11 @@ function _chFmtDataCurta(iso) {
 // idade dele é histórico.
 function _chIdade(iso, status) {
   if (!iso) return { texto: "—", cls: "is-off" };
-  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  // Dias de CALENDÁRIO, não de 24h. Diferença crua em ms chamava de "ontem"
+  // um chamado de anteontem à noite (38h ÷ 24 = 1). Zerar a hora dos dois
+  // lados faz "ontem" significar ontem, que é o que quem lê a lista entende.
+  const meiaNoite = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((meiaNoite(new Date()) - meiaNoite(new Date(iso))) / 86400000);
   const plural = d => `${d} ${d === 1 ? "dia" : "dias"}`;
 
   let texto;

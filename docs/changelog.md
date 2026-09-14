@@ -16896,6 +16896,31 @@ nenhum endpoint novo, e a rota alterada é `POST` (a lista network-first só val
 para `GET`).
 
 
+## "Ontem" passa a significar ontem (2026-09-14)
+
+Chamado aberto **dia 12** aparecia como **"ontem"** no dia 14. A idade era
+calculada com diferença crua de milissegundos — `(Date.now() - criado) / 86400000`
+com `Math.floor`. Aberto às 20h do dia 12, lido às 10h do dia 14, dá 38 horas;
+38 ÷ 24 truncado = 1 = "ontem". A conta estava certa em horas e errada na
+pergunta: quem lê a lista conta **datas no calendário**, não períodos de 24h.
+
+Correção: zerar a hora dos dois lados antes de subtrair, e `Math.round` no lugar
+de `Math.floor` (dias de 23h/25h em mudança de horário não podem virar um dia a
+menos).
+
+- `_chIdade` em `public/admin.js` — coluna de idade dos chamados ("hoje" ·
+  "ontem" · "há N dias").
+- `diasDesde` em `public/equipamento.js` — tinha o mesmo cálculo, alimentando a
+  régua de tempo no estado do equipamento. Corrigido junto.
+
+`rtDiasAte` no app mobile (`app/public/app.js`) já normalizava para meia-noite —
+ficou como estava.
+
+`?v=N`: `admin.js` 356 → **357**, `admin.css` 266 → **267**. `sw.js` não muda:
+nenhum endpoint novo, correção é só de front.
+
+---
+
 > Decisões, itens descartados e backlog futuro:
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em

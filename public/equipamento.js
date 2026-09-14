@@ -91,9 +91,13 @@
       + " · " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
 
+  // Dias de CALENDÁRIO: diferença crua em ms conta 38h como 1 dia e chama de
+  // "ontem" o que é de anteontem à noite. Zerar a hora dos dois lados alinha
+  // a contagem com a data que o usuário lê na tela.
   function diasDesde(iso) {
     if (!iso) return null;
-    return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    const meiaNoite = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return Math.round((meiaNoite(new Date()) - meiaNoite(new Date(iso))) / 86400000);
   }
 
   /** "hoje" · "há 1 dia" · "há 12 dias" · "há 3 meses" */
