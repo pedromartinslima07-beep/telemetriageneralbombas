@@ -260,6 +260,23 @@ chamado à fila. Vale em **qualquer ponto** — a caminho ou já em atendimento.
 
   Não contam: mensagem do cliente, resposta da IA no WhatsApp e apenas abrir/ler
   o chamado no painel.
+- ⚠️ **O TTFR NÃO CORRE NA PREVENTIVA** (14/09/2026). Chamado com
+  `plano_manutencao_id` preenchido nunca acende `sla_ttfr_estourado`. TTFR mede
+  demanda reativa — alguém pede, o relógio começa; preventiva não tem pedido,
+  tem calendário, e foi o próprio job que a abriu na data já combinada. Com
+  `ttfr_min = 1440` no P4, 24h depois cada preventiva do mês acendia "⚠ SLA" na
+  tela de Chamados, e um selo que acende sistematicamente deixa de ser selo. A
+  cláusula 7 já dizia o mesmo do outro lado: o P4 tem `sla_chegada_min` **NULL**
+  porque é "agendamento" — o TTFR era o único dos três relógios que ficou com
+  número.
+  - **O corte é pela ORIGEM, não pela prioridade**: preventiva é P4, mas
+    `melhoria` e `manutencao` pedidas por gente também são, e essas merecem
+    retorno. Mesma régua da fila do [painel do operador](painel-operador.md).
+  - **`sla_ttr_risco` continua valendo para a preventiva**: "ninguém respondeu"
+    não existe ali, mas **"ninguém foi"** existe — é a preventiva virando
+    corretiva, e é alerta de verdade.
+  - **Teste:** `scripts/testes/ttfr-preventiva.test.js` (8 checagens, rota de
+    verdade contra o banco de teste).
 - **Painel ao vivo:** `GET /relatorios/painel-vivo` — chamados em risco
   (≥ 50% do TTR usado) + workload por técnico, estado atual sem filtro de
   período. Substituiu o antigo dashboard de gráficos por período — análise
@@ -269,7 +286,11 @@ chamado à fila. Vale em **qualquer ponto** — a caminho ou já em atendimento.
 - **SLA estourado vira alerta:** um chamado que estoura o SLA (TTFR sem primeira
   resposta / TTR além do prazo — flags `sla_ttfr_estourado`/`sla_ttr_risco`) é
   elevado a **alerta crítico** na página de Alertas (agregação frontend),
-  badge do menu e KPI do Dashboard. Não há e-mail automático de atraso (o antigo
+  badge do menu e KPI do Dashboard. ⚠️ **Preventiva fica de fora** — o
+  `_alContaComoAlerta` do `public/admin.js` já a cortava pela origem desde
+  08/09, e desde 14/09 o backend também não acende o TTFR dela. As duas defesas
+  ficam: a de lá vale para qualquer motivo de alerta, a de cá para qualquer
+  tela. Não há e-mail automático de atraso (o antigo
   `chamados-atraso.job.js` foi removido); a coluna `alerta_atraso_enviado_em`
   permanece no schema mas não é mais usada.
 

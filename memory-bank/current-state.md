@@ -300,6 +300,14 @@ contrato que o bug quebrava: **a lista desenhada e a contada são a mesma**.
 04/09. São P4 e já cairiam pela prioridade, mas no fim do mês um lote inteiro
 estoura prazo junto e voltaria como "crítico" em bloco (69 por mês em setembro).
 Detalhe em [telemetria.md](../docs/modulos/telemetria.md).
+⚠️ **E desde 14/09 o TTFR nem acende para ela** (`sla_ttfr_estourado` exige
+`plano_manutencao_id IS NULL` em `GET /chamados`). O filtro de alertas cortava a
+preventiva **depois** que a flag nascia verdadeira, então na tela de **Chamados**
+o selo "⚠ SLA" continuava aceso em todo o lote do mês. TTFR mede demanda
+reativa; preventiva não tem pedido, tem calendário. O `sla_ttr_risco` **fica**:
+"ninguém respondeu" não existe ali, mas "ninguém foi" existe. Travado em
+`scripts/testes/ttfr-preventiva.test.js` (8/8, rota de verdade). Detalhe em
+[chamados-sla.md](../docs/modulos/chamados-sla.md).
 
 ### ⚠️ O painel do operador é a tela de PLANTÃO (02/09/2026)
 

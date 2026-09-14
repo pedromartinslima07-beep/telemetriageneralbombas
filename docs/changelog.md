@@ -16919,6 +16919,45 @@ ficou como estava.
 `?v=N`: `admin.js` 356 → **357**, `admin.css` 266 → **267**. `sw.js` não muda:
 nenhum endpoint novo, correção é só de front.
 
+
+## O TTFR para de correr na preventiva (2026-09-14)
+
+Pergunta do Pedro: *"qual o sentido de ter isso na preventiva, levando em
+consideração que não tem o que responder, já que é um serviço que já está
+agendado mensalmente"*.
+
+Preventiva vencida vira **chamado P4** aberto pelo job (`plano_manutencao_id`
+preenchido). Ele entrava na tela de Chamados como qualquer outro, e o relógio de
+TTFR corria sobre ele a partir do `criado_em`. Com `ttfr_min = 1440` no P4, **24
+horas depois de o próprio sistema abrir o chamado**, o selo "⚠ SLA" acendia —
+cobrando uma resposta a um pedido que ninguém fez.
+
+TTFR mede **demanda reativa**: alguém pede, o relógio começa. Preventiva não tem
+pedido, tem calendário. A própria cláusula 7 já reconhecia isso do outro lado —
+o P4 tem `sla_chegada_min` **NULL** porque é "agendamento". O TTFR era o único
+dos três relógios que tinha ficado com número.
+
+Correção: uma condição a mais no `CASE` de `GET /chamados`
+(`src/routes/chamados.routes.js`) — `ch.plano_manutencao_id IS NULL`.
+
+- ⚠️ **O corte é pela ORIGEM, não pela prioridade.** Preventiva é P4, mas
+  `melhoria` e `manutencao` pedidas por gente também são: zerar o P4 inteiro
+  tiraria o retorno devido a quem abriu o pedido. É a mesma régua que a fila do
+  operador já usava (ver [`modulos/painel-operador.md`](modulos/painel-operador.md)).
+- **O `sla_ttr_risco` continua valendo para a preventiva.** "Ninguém respondeu"
+  não existe ali; **"ninguém foi"** existe, e é a preventiva virando corretiva.
+  Morreu só metade do alerta, de propósito.
+- A página de Alertas já cortava a preventiva desde 08/09, pela mesma regra da
+  origem (`_alContaComoAlerta`). O filtro de lá **fica**: duas telas, duas
+  defesas. O que faltava era a flag não nascer verdadeira no backend.
+- **Teste:** `scripts/testes/ttfr-preventiva.test.js` (8 checagens, rota de
+  verdade contra o banco de teste). Ele lê `ttfr_min`/`ttr_min` do
+  `sla_definicoes` em vez de fixar 1440 — o prazo é editável em `/admin/sla`, e
+  número escrito à mão mediria a minha lembrança, não a configuração.
+
+Sem migration (nenhuma mudança de schema) e sem bump de `?v=N`: a correção é só
+de backend, e `sw.js` não muda porque nenhum endpoint é novo.
+
 ---
 
 > Decisões, itens descartados e backlog futuro:

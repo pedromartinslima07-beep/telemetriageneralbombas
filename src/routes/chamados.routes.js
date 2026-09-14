@@ -282,7 +282,37 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          pm.titulo               AS plano_titulo,
          -- Fase 8B: SLA estourado em tempo real
          -- sla_ttfr_estourado: sem resposta + passou do ttfr_min da prioridade
+         --
+         -- ⚠️ PREVENTIVA NAO TEM O QUE RESPONDER (14/09/2026).
+         -- (Sem crase nos comentarios desta query: template literal. CLAUDE.md.)
+         --
+         -- TTFR mede demanda reativa: alguem pede, o relogio comeca. Chamado
+         -- nascido de plano de manutencao nao tem pedido — tem calendario, e o
+         -- job o abriu sozinho na data que ja estava combinada. Com ttfr_min de
+         -- 1440 no P4, 24h depois cada preventiva do mes acendia "⚠ SLA" na
+         -- tela de Chamados — por sistematico, o selo que devia gritar virava
+         -- papel de parede.
+         --
+         -- A pagina de Alertas ja cortava a preventiva desde 08/09, e pela
+         -- mesma regra da origem (_alContaComoAlerta no admin.js, coberto por
+         -- scripts/testes/alertas-so-o-que-e-alerta.test.js). O que faltava era
+         -- a flag nao nascer verdadeira aqui. O filtro de la fica: duas telas,
+         -- duas defesas.
+         --
+         -- A propria clausula 7 ja dizia isso do outro lado: o P4 tem
+         -- sla_chegada_min NULL porque e "agendamento". O TTFR foi o unico dos
+         -- tres relogios que ficou com numero.
+         --
+         -- ⚠️ O CORTE E POR ORIGEM, NAO POR PRIORIDADE — mesma regra da fila do
+         -- operador (ver operador.routes.js). Preventiva e P4, mas melhoria e
+         -- manutencao pedidas por gente tambem sao: zerar o P4 inteiro tiraria
+         -- o retorno devido a quem abriu o pedido.
+         --
+         -- O sla_ttr_risco abaixo CONTINUA valendo para a preventiva: "ninguem
+         -- foi" e alerta de verdade — e a preventiva virando corretiva. O que
+         -- morre aqui e so o "ninguem respondeu".
          CASE WHEN ch.status IN ('aberto', 'em_atendimento')
+                   AND ch.plano_manutencao_id IS NULL
                    AND ch.primeira_resposta_em IS NULL
                    AND sd.ttfr_min IS NOT NULL
                    AND ch.criado_em < NOW() - (sd.ttfr_min || ' minutes')::interval

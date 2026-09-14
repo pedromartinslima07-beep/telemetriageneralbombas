@@ -41,6 +41,23 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O TTFR para de correr na preventiva** (14/09/2026). *"qual o sentido de
+  ter isso na preventiva, levando em consideração que não tem o que responder,
+  já que é um serviço que já está agendado mensalmente"*. Preventiva vencida
+  vira chamado P4 aberto pelo job, e com `ttfr_min = 1440` o selo "⚠ SLA"
+  acendia 24h depois — o sistema cobrando resposta a um pedido que ninguém fez.
+  TTFR mede demanda reativa; preventiva tem calendário, não pedido (a cláusula 7
+  já dizia o mesmo pelo `sla_chegada_min` NULL do P4). Uma condição no `CASE` de
+  `GET /chamados`; **corte pela origem, não pela prioridade**, e o
+  `sla_ttr_risco` fica de pé. Sem migration; 8 checagens em
+  `scripts/testes/ttfr-preventiva.test.js`. Detalhe em
+  [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
+  - 📋 **O relógio certo da preventiva ainda não existe.** Hoje o TTR dela conta
+    de `criado_em` do chamado; o que mede atraso de verdade é a distância até o
+    `proxima_em` do plano, e o que vale como cumprimento é a **janela do mês**,
+    não um prazo em minutos (ver "a preventiva vence no MÊS, não no dia",
+    04/09). Enquanto isso, o TTR de 10 dias do P4 é a aproximação em uso.
+
 - ✅ **Iniciar atendimento sem GPS** (11/09/2026). *"hj só é possível iniciar
   atendimento se tiver a localização?"* Era: 400 no backend e um `throw` no app
   antes mesmo da requisição. A coordenada existia como prova de presença física,
