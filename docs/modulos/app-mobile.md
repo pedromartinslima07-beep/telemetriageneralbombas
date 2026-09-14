@@ -629,6 +629,43 @@ armazenamento leva o rascunho junto. É local, não é backup.
 PATCH e do rascunho, que é justamente o caminho a exercitar. O jeito é
 interceptar o `fetch` na página e derrubar/levantar a rede.
 
+## O roteiro voltou a ter ação (14/09/2026)
+
+⚠️ **TER CHAMADO NÃO É ESTAR EM ANDAMENTO.** `rtCardPredio` decidia tudo por
+`!!p.chamado_aberto_id`: carimbava a linha com `is-andamento`, trocava a ação
+pelo link "chamado #N" e tirava o plano dos pendentes, apagando o botão
+"Iniciar" do rodapé. Como o job abre o chamado de **toda** preventiva do mês,
+isso valia para todos — medido no roteiro em 14/09: os três prédios "em
+andamento", nenhum com botão. A tela de trabalho tinha virado tela de leitura.
+
+O caso que expôs foi o do Pedro: o técnico aceita a preventiva, devolve, o
+operador reescala — e no app aquilo aparece como serviço que outra pessoa está
+fazendo. Ele só chegava nela pela aba Chamados, por fora do roteiro.
+
+`GET /planos-manutencao/meu-roteiro` passou a devolver `chamado_meu` e `estado`
+(⚠️ **decididos no backend**: `chamado_aberto_tecnico_id` é id de **técnico**, e
+o app só conhece o usuário logado). Com eles, `rtSituacao` dá três leituras:
+
+| Situação | O que a linha mostra |
+|---|---|
+| `pendente` (sem chamado) | o prazo — e entra no "Iniciar" do rodapé |
+| `meu_parado` | **"ver #N"**, e o rodapé vira **"Ver chamado"** |
+| `andando` | "a caminho" / "em atendimento", sem ação |
+| `de_outro` | "com outro técnico", sem ação |
+
+⚠️ **UMA DEFINIÇÃO SÓ.** `rtSituacao` mora fora do card porque os números do
+topo e o badge da aba leem dela. Os dois estavam errados pelo mesmo motivo:
+"Em curso" contava chamado existente (marcava o roteiro inteiro como em curso no
+dia 1) e o badge contava só plano **sem** chamado — sumia justamente quando havia
+trabalho, porque o chamado já existia no nome dele. Hoje o topo mostra
+**"Esperando"** quando há o que fazer, e o badge conta a mesma coisa.
+
+A régua de "de quem é" e "em que estágio" é a mesma do painel do operador —
+`estadoDa` no `preventivas.service.js`. Ver
+[`painel-operador.md`](painel-operador.md).
+
+⚠️ **Exige APK novo.**
+
 ## Um atendimento por vez (14/09/2026)
 
 `configurarCTA()` decidia o botão olhando só **aquele** chamado, e a lista não
@@ -637,8 +674,10 @@ prédio estando dentro do primeiro. Como finalizar a O.S. exige a assinatura de
 quem recebeu, colhida no local, esse deslocamento nunca existiu de verdade — o
 app estava gravando ficção.
 
-Agora, com outro chamado `em_atendimento` na lista, o CTA de qualquer chamado
-`aberto` vira **"Termine o atendimento em `<prédio>`"**, desabilitado. O backend
+Agora, com outro chamado dele **em deslocamento** na lista — `em_atendimento`,
+ou `aberto` com `tecnico_a_caminho_em` —, o CTA de qualquer chamado `aberto`
+vira **"Termine o atendimento em `<prédio>`"** ou **"Você já está a caminho de
+`<prédio>`"**, desabilitado. O backend
 recusa igual (409); o botão só evita que o técnico descubra a regra por mensagem
 de erro — o que pareceria falha do app, e **sem sinal nem chegaria**, deixando
 ele diante de um botão que não faz nada.

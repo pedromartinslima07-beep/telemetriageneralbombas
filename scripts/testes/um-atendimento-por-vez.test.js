@@ -105,6 +105,26 @@ const ok = (nome, cond, extra) => {
     // Livre: aceita o primeiro normalmente.
     ok("livre, o técnico marca A caminho no primeiro",
        (await post(primeiro, "a-caminho")).status === 200);
+
+    // ⚠️ O BURACO QUE O PEDRO ACHOU TESTANDO À MÃO (14/09/2026): `a-caminho` não
+    // muda o status do chamado, então a primeira versão do guard (que só olhava
+    // `em_atendimento`) deixava sair para dois prédios ao mesmo tempo.
+    //
+    // ⚠️ E OS DOIS ERAM NO MESMO CONDOMÍNIO — um chamado e a preventiva do mês.
+    // Continua sendo 409 de propósito: a preventiva do prédio onde ele já está
+    // se resolve marcando `preventiva_mensal` na O.S. (04/09), que dá baixa no
+    // plano e fecha o chamado dela. Aceitar os dois seria o mesmo trabalho
+    // contado duas vezes. Por isso ESTE teste usa o mesmo `condoId` nos dois.
+    const cam2Antes = await post(segundo, "a-caminho");
+    const bodyAntes = await cam2Antes.json();
+    ok("a caminho de um NÃO deixa marcar A caminho de outro", cam2Antes.status === 409,
+       "status=" + cam2Antes.status);
+    ok("e a mensagem diz 'a caminho', não 'em atendimento'",
+       /a caminho de/i.test(bodyAntes.error || ""), bodyAntes.error);
+    ok("mesmo sendo o MESMO condomínio (chamado + preventiva)",
+       cam2Antes.status === 409);
+    ok("nem deixa iniciar atendimento no segundo",
+       (await post(segundo, "iniciar-atendimento")).status === 409);
     const ini1 = await post(primeiro, "iniciar-atendimento");
     ok("e inicia o atendimento nele", ini1.status === 200, "status=" + ini1.status);
 

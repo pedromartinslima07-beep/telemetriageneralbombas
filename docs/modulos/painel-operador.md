@@ -1794,3 +1794,122 @@ node scripts/auditar-rbac.js operador
 - 📋 Coluna `origem` em `chamados`, para a procedência deixar de ser dedução.
 - 📋 ETA de verdade no despacho: hoje o cartão do candidato mostra "no mapa"
   ou "—", não distância nem tempo.
+
+
+## "Em campo" passou a exigir campo, e a devolução virou visível (14/09/2026)
+
+Pedido do Pedro, depois de olhar a tela: *"no painel de operador, na tela da
+preventiva, não fica claro que o técnico devolveu; e se o operador mesmo assim
+escalar ele de novo, a forma que aparece no app não está boa"*.
+
+**Dois defeitos, e o segundo era pior.** O plano devolvido voltava para
+`a_fazer`, idêntico a um que ninguém tocou — e, assim que o operador
+reescalava, voltava a dizer **"Em campo"**: `estadoDa` lia "chamado aberto COM
+técnico" como em campo, então a reatribuição ressuscitava o estado sem ninguém
+ter saído de casa. Medido no banco de teste no dia: **10 dos 11 planos do mês**
+apareciam "Em campo".
+
+É a segunda vez que este estado incha. Em 04/09 ele lia qualquer chamado aberto
+(69 planos, zero técnico) e ganhou a exigência do técnico; faltava a outra
+metade — o técnico ter **saído**.
+
+### A régua, agora com três estágios
+
+Os carimbos já existiam no chamado e ninguém lia (`estadoDa` em
+[`../../src/services/preventivas.service.js`](../../src/services/preventivas.service.js)):
+
+| No chamado | Estado | O que significa |
+|---|---|---|
+| `status = em_atendimento` | **em campo** | está lá dentro (a O.S. pede assinatura no local) |
+| `tecnico_a_caminho_em` preenchido | **a caminho** | saiu, ainda não chegou |
+| tem dono e nenhum dos dois | **escalada** | é dele, não começou |
+
+⚠️ **AS GUARDAS PASSARAM A USAR "ANDANDO", NÃO "EM CAMPO".** Quatro lugares da
+tela escondiam o despacho e a caixa "Já foi feita" com `estado !== "em_campo"`.
+Com a régua nova, esse teste deixaria um plano com o técnico **já a caminho**
+voltar a ser despachável — a receita para dois técnicos no mesmo prédio. Hoje o
+corte é `andando()` (`a_caminho` ou `em_campo`) no front e `emMovimento()` no
+serviço. `escalada` fica de fora de propósito: tem dono, ninguém saiu, e
+remanejar aí é o trabalho do operador.
+
+⚠️ **E O GUARD DE `POST /operador/preventivas/:id/feita` FOI JUNTO.** Ele
+recusava por `tecnico_id` preenchido — a definição antiga. Mantê-lo assim
+abriria uma divergência com a tela: `escalada` mostra a caixa "Já foi feita" e a
+rota responderia 409 dizendo que a preventiva está em campo. **Caixa que
+aparece e recusa é pior que caixa que não aparece.**
+
+### A devolução, no selo e na linha
+
+`GET /operador/preventivas` passou a devolver
+`devolucao: {em, motivo, tecnico_nome}` — a última devolução do **chamado
+aberto**, lida de `historico_chamados` (`campo_alterado = 'devolvido'`, migration
+033). O dado sempre existiu; faltava alguém ler.
+
+- **Selo âmbar preenchido "Devolvida"**, e ele **ganha do atraso**: as duas
+  pedem ação, a Regra do Selo manda preencher uma, e ganha a que explica *por
+  que* o plano está parado. "Atrasada desde agosto" diz que ninguém foi;
+  "Devolvida" diz que alguém foi e não conseguiu — e é essa que muda o que o
+  operador faz agora. O atraso continua no rodapé e na ordenação.
+- ⚠️ **Âmbar, não vermelho:** o vermelho desta tela é do atraso (dívida de
+  competência). Devolução é obstáculo de hoje.
+- **O motivo vai em linha própria, entre aspas** — é texto de gente, escrito
+  pelo técnico no celular. Mesma decisão que a fila do turno tomou com o
+  `.fala`: relato de pessoa ganha bloco citado; frase de sistema, não.
+- **Sem repetir o nome** quando quem devolveu é quem continua escalado — em duas
+  linhas seguidas, leria como dois técnicos diferentes.
+
+### No app do técnico
+
+Ver [`app-mobile.md`](app-mobile.md) — o roteiro tratava qualquer chamado aberto
+como "em andamento" e ficava sem ação nenhuma.
+
+**Testes:** `preventivas-mes` (66), `planos-fluxo` (32), `planos-tela` (24) e
+`preventiva-feita-a-mao` — os três primeiros tiveram asserções atualizadas, com
+o porquê escrito no lugar.
+
+## O chamado órfão do mês deixou de ser um beco (14/09/2026)
+
+Pergunta do Pedro, olhando o roteiro: *"qual o motivo dos chamados que estão
+'com outro técnico' continuarem aparecendo lá?"*. A resposta tinha duas partes,
+e a segunda era um defeito antigo.
+
+**Primeiro, por que o plano aparece:** o roteiro lista **planos**, filtrados pela
+zona de que o técnico é responsável (ou por atribuição explícita em
+`planos_atribuicoes`). O dono do **chamado** não entra nesse filtro — são dois
+vínculos diferentes, de propósito.
+
+**Segundo, o beco.** O chamado do mês **nasce órfão**: `executarPlano` só
+atribui sozinho quando a zona tem **um** responsável (migration 066). E com ele
+órfão, o técnico não tinha caminho nenhum pelo app — medido rota a rota:
+
+| Rota | Antes |
+|---|---|
+| `POST /planos-manutencao/:id/executar-agora` ("Iniciar") | 200 `{duplicado:true}` — **não atribuía ninguém** |
+| `POST /chamados/:id/iniciar-atendimento` | 403 "não está atribuído a você" |
+| `GET /chamados/meus/:id` (a ficha) | **404** |
+| `GET /chamados/meus` | não listava |
+
+O prédio era da zona dele, o serviço era dele, e só um operador destravava.
+
+**Conserto:** o ramo anti-duplicidade de `executarPlano` passa a **adotar** o
+chamado quando ele está sem dono e quem chamou tem direito ao plano (a rota já
+valida zona/escala). Grava `tecnico_id`, registra em `historico_chamados` e
+devolve `adotado: true`.
+
+- ⚠️ **Chamado de OUTRO técnico não é adotado** — segue devolvendo `duplicado`
+  sem tocar em nada. Roubar serviço alheio pelo botão "Iniciar" seria pior que o
+  beco.
+- ⚠️ **O job não adota:** ele chama sem `tecnicoId`, então não há quem pôr.
+
+### E o `/a-caminho` ganhou a checagem de dono que faltava
+
+Medido no mesmo teste: `POST /chamados/:id/a-caminho` respondia **200** para um
+chamado sem dono — e para o de outro técnico —, carimbando
+`tecnico_a_caminho_em` nele. Era a **única rota da família sem a checagem**
+(`iniciar-atendimento`, `devolver` e a finalização da O.S. todas recusam quem não
+é o dono). O carimbo alimenta o SLA de chegada, o CTA do app e o estado "a
+caminho" desta tela: escrevê-lo em nome de outro suja as três. O `admin`
+continua passando — ele usa a rota para registro retroativo.
+
+**Teste:** `scripts/testes/preventiva-orfa.test.js` (11 checagens, rotas de
+verdade).

@@ -135,6 +135,10 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
               -- estadoDa, e ele mora no preventivas.service.
               -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
               cha.tecnico_id AS chamado_aberto_tecnico_id,
+              -- ⚠️ E O CARIMBO DE QUE ELE SAIU (14/09/2026). Ter dono nao e
+              -- estar no predio: o estadoDa le este campo para separar
+              -- "escalada" de "a caminho". Ver preventivas.service.
+              cha.tecnico_a_caminho_em AS chamado_aberto_a_caminho_em,
               -- O ACOMPANHAMENTO DO MES (04/09/2026, pedido do Pedro: "acho que
               -- e bom ter o acompanhamento do mes"). Ate aqui esta rota so
               -- sabia da DATA do plano; quem faz, se ja rodou e quem esta nele
@@ -169,7 +173,7 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
        FROM planos_manutencao pm
        LEFT JOIN condominios c ON c.id = pm.condominio_id
        LEFT JOIN LATERAL (
-         SELECT ch.id, ch.status, ch.tecnico_id
+         SELECT ch.id, ch.status, ch.tecnico_id, ch.tecnico_a_caminho_em
          FROM chamados ch
          WHERE ch.plano_manutencao_id = pm.id
            AND ch.status NOT IN ('fechado', 'cancelado')
@@ -303,6 +307,21 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
               COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
               c.endereco, c.bairro, c.cidade, c.lat, c.lng, c.zona,
               cha.id AS chamado_aberto_id,
+              -- ⚠️ DE QUEM E O CHAMADO, E SE JA COMECOU (14/09/2026). O roteiro
+              -- so sabia que EXISTIA um chamado aberto e carimbava o card
+              -- inteiro como "em andamento" — inclusive quando o chamado era do
+              -- proprio tecnico e estava parado, esperando ele. Como o job abre
+              -- chamado para toda preventiva do mes, isso valia para TODOS os
+              -- cards: medido no banco de teste em 14/09, os tres predios do
+              -- roteiro estavam "em andamento" e nenhum tinha botao de iniciar.
+              -- A tela de trabalho tinha virado tela de leitura.
+              --
+              -- Com estes tres o app separa o que e dele e esta parado (acao),
+              -- do que e dele e ja comecou, do que e de outro tecnico (aviso).
+              -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+              cha.tecnico_id           AS chamado_aberto_tecnico_id,
+              cha.status               AS chamado_aberto_status,
+              cha.tecnico_a_caminho_em AS chamado_aberto_a_caminho_em,
               -- Como este prédio chegou ao roteiro. O app mostra "escalado
               -- para você" no que veio da tela do operador: é serviço que
               -- alguém colocou no nome dele, e isso se lê diferente de
@@ -335,7 +354,7 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
                date_trunc('month', CURRENT_DATE)::date
              )
        LEFT JOIN LATERAL (
-         SELECT ch.id
+         SELECT ch.id, ch.status, ch.tecnico_id, ch.tecnico_a_caminho_em
          FROM chamados ch
          WHERE ch.plano_manutencao_id = pm.id
            AND ch.status NOT IN ('fechado', 'cancelado')
@@ -386,7 +405,23 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
     );
 
     const zonas = [...new Set(r.rows.map(p => p.zona).filter(Boolean))];
-    return res.json({ antecedencia_dias: antecedencia, zonas, planos: r.rows });
+    // ⚠️ "O CHAMADO É MEU?" SE DECIDE AQUI, NÃO NO APP (14/09/2026). O roteiro
+    // devolve o `chamado_aberto_tecnico_id`, que é id de TÉCNICO — e o app só
+    // conhece o usuário logado, nunca o técnico correspondente. Deixar a
+    // comparação para lá obrigaria uma segunda rota ou uma dedução pela lista
+    // de chamados, que nem sempre está carregada quando o roteiro abre.
+    //
+    // ⚠️ E O ESTADO VEM DO MESMO `estadoDa` das outras telas. É a regra do
+    // arquivo: "esta é a única definição de 'feita' e de 'de quem é'" — três
+    // leituras do mesmo mês é como o operador acha que sobrou serviço e o
+    // técnico acha que não.
+    const planosRoteiro = r.rows.map((p) => ({
+      ...p,
+      estado: estadoDa(p),
+      chamado_meu: p.chamado_aberto_tecnico_id != null
+        && p.chamado_aberto_tecnico_id === tecnicoId,
+    }));
+    return res.json({ antecedencia_dias: antecedencia, zonas, planos: planosRoteiro });
   } catch (err) {
     console.error("[planos-manutencao] GET /meu-roteiro:", err);
     return res.status(500).json({ error: "Erro ao montar roteiro" });

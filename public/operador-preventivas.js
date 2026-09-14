@@ -91,13 +91,27 @@ let VER_FEITAS = false;
 // dia 30, e é a linha "N já feitas · mostrar" que devolve.
 
 const ESTADO_ROT = {
-  a_fazer:  "A fazer",
-  escalada: "Escalada",
-  em_campo: "Em campo",
-  feita:    "Feita",
+  a_fazer:   "A fazer",
+  escalada:  "Escalada",
+  a_caminho: "A caminho",
+  em_campo:  "Em campo",
+  feita:     "Feita",
 };
 
 function feita(p) { return p.estado === "feita"; }
+
+// ⚠️ "ANDANDO" É O CORTE DAS GUARDAS, NÃO "EM CAMPO" (14/09/2026). Quatro
+// lugares desta tela escondiam o despacho e a caixa de marcar com
+// `estado !== "em_campo"` — e isso bastava enquanto "em campo" significava
+// "tem técnico". Agora que ele exige `em_atendimento`, o mesmo teste deixaria
+// um plano com o técnico JÁ A CAMINHO voltar a ser despachável, que é a
+// receita para dois técnicos no mesmo prédio — o pior resultado possível, e o
+// que o `origemDoTecnico` do serviço já existe para evitar.
+//
+// `escalada` continua fora daqui de propósito: tem dono, ninguém saiu, e
+// remanejar aí é o trabalho do operador, não um erro.
+// Espelha `emMovimento` do `src/services/preventivas.service.js`.
+function andando(p) { return p.estado === "a_caminho" || p.estado === "em_campo"; }
 
 async function carregar(mes) {
   const q = mes ? "?mes=" + encodeURIComponent(mes) : "";
@@ -143,6 +157,27 @@ function selo(p) {
   }
   if (p.estado === "em_campo") {
     return `<span class="pv-selo" data-e="campo">Em campo · chamado #${p.chamado_aberto_id}</span>`;
+  }
+  // ⚠️ "A CAMINHO" NASCEU DE "EM CAMPO" TER INCHADO (14/09/2026). Até aqui,
+  // chamado com técnico era "Em campo" — e ter dono não é estar no prédio.
+  // Medido no banco de teste: 10 dos 11 planos do mês diziam "Em campo", com
+  // ninguém em campo. Ver `estadoDa` no preventivas.service.
+  //
+  // ⚠️ MESMA GRAMÁTICA DO "EM CAMPO", DE FIO: os dois são movimento, e
+  // movimento não pede nada do operador — quem grita nesta tela é o que espera
+  // decisão. Quem distingue os dois é o rótulo, que é a Regra do Selo aplicada
+  // ("categoria não é estado; quem distingue é o rótulo").
+  if (p.estado === "a_caminho") {
+    return `<span class="pv-selo" data-e="caminho">A caminho · chamado #${p.chamado_aberto_id}</span>`;
+  }
+  // ⚠️ A DEVOLUÇÃO GANHA DO ATRASO NO SELO (14/09/2026). As duas pedem ação,
+  // e a Regra do Selo manda preencher UMA: ganha a que explica POR QUE o plano
+  // está parado. "Atrasada desde agosto" diz que ninguém foi; "Devolvida" diz
+  // que alguém foi e não conseguiu — e é essa que muda o que o operador faz
+  // agora (dar outro dono, ou ligar para a portaria antes de mandar de novo).
+  // O atraso não se perde: continua no rodapé e na ordenação da lista.
+  if (p.devolucao) {
+    return `<span class="pv-selo" data-e="devolvida">Devolvida</span>`;
   }
   // ⚠️ O ATRASO GANHA DO "A FAZER" NO SELO. Uma preventiva de agosto ainda
   // aberta em setembro não é "a fazer" — é dívida, e a tela tem de dizer isso
@@ -235,7 +270,29 @@ function rodape(p) {
     ? ` · <span class="pv-aproveitada">dada como feita${
         p.baixa_manual_por_nome ? " por " + escapar(p.baixa_manual_por_nome) : ""}</span>`
     : "";
-  return `<p class="pv-meta">${partes.join(" · ")} · ${quem}${aproveitada}${aMao}</p>`;
+  // ⚠️ O QUE JÁ FOI TENTADO (14/09/2026) — a terceira pergunta do brief desta
+  // tela, e a única que ela não respondia. Pedido do Pedro: *"no painel do
+  // operador, na tela da preventiva, não fica claro que o técnico devolveu"*.
+  //
+  // O motivo é TEXTO DE GENTE, escrito pelo técnico no celular com o chamado
+  // na mão — por isso vai entre aspas e em linha própria, como o relato de
+  // origem `manual` da fila do turno. Enfiá-lo na frase de metadados o faria
+  // passar por mais um campo do sistema.
+  //
+  // ⚠️ SEM O NOME NA FRASE QUANDO ELE JÁ ESTÁ NA LINHA DE CIMA. O técnico que
+  // devolveu quase sempre é o mesmo que continua escalado, e repetir o nome em
+  // duas linhas seguidas lê como dois técnicos diferentes.
+  const dev = p.devolucao;
+  const devolvida = dev
+    ? `<p class="pv-devolvida">
+         <span class="pv-devolvida-rot">Devolvida${
+           dev.tecnico_nome && dev.tecnico_nome !== p.tecnico_nome
+             ? " por " + escapar(dev.tecnico_nome) : ""}${
+           dev.em ? " · " + escapar(dia(dev.em)) : ""}</span>
+         ${dev.motivo ? `<span class="pv-devolvida-motivo">“${escapar(dev.motivo)}”</span>` : ""}
+       </p>`
+    : "";
+  return `<p class="pv-meta">${partes.join(" · ")} · ${quem}${aproveitada}${aMao}</p>${devolvida}`;
 }
 
 /* ── A ação da linha ─────────────────────────────────────────────────────
@@ -277,13 +334,13 @@ function acao(p) {
       data-id="${p.id}">Desfazer</button>`;
   }
   if (feita(p)) return verOs;
-  if (p.estado === "em_campo") return "";
+  if (andando(p)) return "";
   return `<button type="button" class="pv-jafoi" data-acao="feita" data-id="${p.id}"
     >Já foi feita</button>`;
 }
 
 function linha(p) {
-  const marcavel = !feita(p) && p.estado !== "em_campo";
+  const marcavel = !feita(p) && !andando(p);
   const marcado = SEL.has(p.id);
   return `
   <article class="pv-item${p.atrasada && !feita(p) ? " is-atrasada" : ""}${marcado ? " is-marcada" : ""}"
@@ -331,7 +388,7 @@ function grupo(g) {
   // numa zona já resolvida é um botão que não faz nada — e botão que não faz
   // nada é pior que nenhum botão (a mesma regra do estado "andando" em
   // Aprovados).
-  const despachaveis = abertas.filter((p) => p.estado !== "em_campo");
+  const despachaveis = abertas.filter((p) => !andando(p));
   return `
   <section class="pv-zona">
     <div class="pv-zona-cab">
@@ -756,7 +813,7 @@ document.addEventListener("click", (e) => {
     // isso, escolher a zona errada obriga a desmarcar prédio a prédio.
     const zona = b.dataset.zona;
     const daZona = DADOS.planos.filter(
-      (p) => (p.zona || "Sem zona") === zona && !feita(p) && p.estado !== "em_campo");
+      (p) => (p.zona || "Sem zona") === zona && !feita(p) && !andando(p));
     const todosMarcados = daZona.length > 0 && daZona.every((p) => SEL.has(p.id));
     for (const p of daZona) { if (todosMarcados) SEL.delete(p.id); else SEL.add(p.id); }
     return render();

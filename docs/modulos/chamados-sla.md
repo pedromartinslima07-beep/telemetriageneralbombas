@@ -188,9 +188,26 @@ gravava um deslocamento que não existia e punha dois prédios no workload de um
 pessoa só.
 
 Hoje `POST /chamados/:id/a-caminho` e `POST /chamados/:id/iniciar-atendimento`
-respondem **409** enquanto o técnico tiver outro chamado `em_atendimento`. A
-resposta carrega `chamado_em_atendimento: {id, condominio_nome}` — quem lê é o
-técnico no celular, e ele precisa saber **onde** ficou o chamado preso.
+respondem **409** enquanto o técnico tiver outro chamado com **deslocamento em
+aberto**: `em_atendimento`, ou ainda `aberto` mas com `tecnico_a_caminho_em`
+preenchido. A resposta carrega
+`chamado_em_atendimento: {id, condominio_nome, status}` — quem lê é o técnico no
+celular, e ele precisa saber **onde** ficou o chamado preso.
+
+⚠️ **O COMPROMISSO COMEÇA AO SAIR, NÃO AO CHEGAR** — corrigido no mesmo 14/09,
+horas depois. A primeira versão do guard só olhava `em_atendimento`, e
+`/a-caminho` **não muda o status** (grava só `tecnico_a_caminho_em`): a trava
+fechava a segunda porta e deixava a primeira escancarada. O Pedro achou testando
+à mão, marcando "A caminho" em dois chamados. A régua dizia uma coisa e o código
+fazia outra.
+
+⚠️ **NÃO HÁ EXCEÇÃO PARA O MESMO CONDOMÍNIO** — perguntado e respondido
+(14/09): *"não é para aceitar os dois mesmo que seja no mesmo condomínio"*. O
+caso que motivou a pergunta era um chamado **e a preventiva do mês do mesmo
+prédio**, e para ele o caminho já existe desde 04/09 e é outro: marcar
+`preventiva_mensal` nos `tipos_servico` da O.S. dá baixa no plano e fecha o
+chamado da preventiva sozinho (`darBaixaPorOS`). **Um serviço, uma O.S., uma
+assinatura** — aceitar os dois seria o mesmo trabalho contado duas vezes.
 
 - ⚠️ **NÃO TRAVA A ATRIBUIÇÃO.** A gestão segue enfileirando quantos chamados
   quiser no técnico pelo `PATCH /chamados/:id` — despacho é planejamento. O que
@@ -208,12 +225,14 @@ técnico no celular, e ele precisa saber **onde** ficou o chamado preso.
   registro retroativo quando o técnico avisou por telefone; não é ele que está
   na rua.
 - **No app, o botão avisa antes do toque** (`configurarCTA` em
-  `app/public/app.js`): vira "Termine o atendimento em `<prédio>`", desabilitado.
+  `app/public/app.js`): vira "Termine o atendimento em `<prédio>`" ou "Você já
+  está a caminho de `<prédio>`", desabilitado — o verbo segue o estado, porque
+  mandar procurar uma O.S. que ainda não existe confundiria mais do que travar.
   Descobrir a regra por 409 depois de tocar pareceria falha do app — e sem sinal
   o toque nem receberia o erro. A checagem usa a lista já em memória, então não
   custa requisição e funciona offline.
-- **Teste:** `scripts/testes/um-atendimento-por-vez.test.js` (10 checagens, rota
-  de verdade contra o banco de teste).
+- **Teste:** `scripts/testes/um-atendimento-por-vez.test.js` (14 checagens, rota
+  de verdade contra o banco de teste — incluindo o caso do mesmo condomínio).
 
 ### A devolução (11/09/2026)
 

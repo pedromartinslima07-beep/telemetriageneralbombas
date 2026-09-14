@@ -222,7 +222,11 @@ const ok = (nome, cond) => r.push([nome, cond]);
     lixo.chamados.push(chFechado.rows[0].id);
 
     t = await tela();
-    ok("chamado aberto COM técnico → em campo", doPlano(t, c.plano).estado === "em_campo");
+    // ⚠️ AFIRMAVA "em_campo" ATÉ 14/09/2026, e a régua mudou: ter técnico não é
+    // estar no prédio. Chamado com dono e sem deslocamento é `escalada`; para
+    // "em campo" o chamado precisa estar `em_atendimento`. Os dois estados
+    // novos são exercitados logo abaixo, no bloco "Os três estágios".
+    ok("chamado aberto COM técnico, parado → escalada", doPlano(t, c.plano).estado === "escalada");
     ok("chamado fechado no mês → feita", doPlano(t, d.plano).estado === "feita");
 
     // ⚠️ `ultima_em` no mês SEM chamado também conta como feita — é a execução
@@ -231,7 +235,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
     await pool.query("UPDATE planos_manutencao SET ultima_em = CURRENT_DATE WHERE id = $1", [c.plano]);
     t = await tela();
     ok("ultima_em no mês, sem chamado → feita", doPlano(t, a.plano).estado === "feita");
-    ok("mas chamado ABERTO COM TECNICO ganha de ultima_em", doPlano(t, c.plano).estado === "em_campo");
+    ok("mas chamado ABERTO COM TECNICO ganha de ultima_em", doPlano(t, c.plano).estado === "escalada");
 
     // ── O atraso ──────────────────────────────────────────────────────────
     await pool.query(
@@ -257,7 +261,37 @@ const ok = (nome, cond) => r.push([nome, cond]);
     await pool.query("UPDATE chamados SET tecnico_id = $2 WHERE id = $1",
                      [chAberto.rows[0].id, tecZona]);
     tEC = await tela();
-    ok("e com técnico volta a ser em campo", doPlano(tEC, c.plano).estado === "em_campo");
+    ok("e com técnico volta a sair do despacho automático",
+       doPlano(tEC, c.plano).estado === "escalada");
+
+    // ── Os três estágios de "tem técnico" (14/09/2026) ────────────────────
+    // ⚠️ O DEFEITO IRMÃO DO DE 04/09, e a segunda vez que este estado inchou.
+    // Lá, "em campo" era qualquer chamado aberto (69 planos, zero técnico);
+    // ganhou a exigência do técnico. Aqui faltava a outra metade — o técnico
+    // ter SAÍDO. Medido no banco de teste em 14/09: 10 dos 11 planos do mês
+    // diziam "Em campo", com ninguém em campo.
+    //
+    // O caso que expôs: o técnico aceita a preventiva, DEVOLVE, e o operador
+    // reescala — a reatribuição ressuscitava "Em campo" sem ninguém ter saído
+    // de casa. Pedido do Pedro: "não fica claro que o técnico devolveu".
+    await pool.query("UPDATE chamados SET tecnico_a_caminho_em = NOW() WHERE id = $1",
+                     [chAberto.rows[0].id]);
+    ok("saiu para o prédio → a caminho",
+       doPlano(await tela(), c.plano).estado === "a_caminho");
+
+    await pool.query("UPDATE chamados SET status = 'em_atendimento' WHERE id = $1",
+                     [chAberto.rows[0].id]);
+    ok("chegou e abriu a O.S. → em campo",
+       doPlano(await tela(), c.plano).estado === "em_campo");
+
+    // ⚠️ E A VOLTA TAMBÉM VALE: é o estado em que a devolução deixa o chamado
+    // (status aberto, `tecnico_a_caminho_em` limpo). Sem isto o plano ficaria
+    // preso em "em campo" depois de devolvido e reescalado.
+    await pool.query(
+      "UPDATE chamados SET status = 'aberto', tecnico_a_caminho_em = NULL WHERE id = $1",
+      [chAberto.rows[0].id]);
+    ok("devolvido e reescalado → volta a escalada, não a em campo",
+       doPlano(await tela(), c.plano).estado === "escalada");
 
     // ── Despachar ADOTA o chamado que já existe ───────────────────────────
     // Sem isto o operador escalava e o serviço não chegava a ninguém: a escala

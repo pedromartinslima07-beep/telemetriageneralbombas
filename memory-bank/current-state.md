@@ -201,8 +201,20 @@ prédio.
 ### Um atendimento por vez (14/09/2026)
 
 `POST /chamados/:id/a-caminho` e `/iniciar-atendimento` respondem **409**
-enquanto o técnico tiver outro chamado `em_atendimento`. Não havia trava nenhuma
-até aqui — dava para aceitar cinco ao mesmo tempo, cada um com sua O.S. rascunho.
+enquanto o técnico tiver outro chamado com deslocamento em aberto —
+`em_atendimento`, **ou** `aberto` com `tecnico_a_caminho_em`. Não havia trava
+nenhuma até aqui — dava para aceitar cinco ao mesmo tempo, cada um com sua O.S.
+rascunho.
+
+⚠️ **O COMPROMISSO COMEÇA AO SAIR, NÃO AO CHEGAR.** A primeira versão do guard,
+no mesmo dia, só olhava `em_atendimento` — e `/a-caminho` não muda o status.
+Achado em teste manual do Pedro, que marcou "A caminho" em dois chamados.
+
+⚠️ **SEM EXCEÇÃO PARA O MESMO CONDOMÍNIO** (decisão do Pedro, 14/09). Chamado +
+preventiva do mesmo prédio **não** são dois aceites: o técnico marca
+`preventiva_mensal` na O.S. do chamado e o sistema credita o plano e fecha o
+chamado da preventiva sozinho — caminho que existe desde 04/09
+(`darBaixaPorOS`).
 
 ⚠️ **A régua é física, não administrativa:** finalizar a O.S. exige
 `assinatura_b64` e `recebido_nome`, colhidos no local. Enquanto o chamado está
@@ -217,7 +229,7 @@ um deslocamento que o app gravava e que nunca existiu.
   próprio chamado; o app reenvia em reconexão.
 - **No app:** o CTA vira "Termine o atendimento em `<prédio>`", desabilitado,
   lendo a lista em memória (funciona sem sinal). ⚠️ **Exige APK novo.**
-- **Sem migration.** Teste: `scripts/testes/um-atendimento-por-vez.test.js` (10).
+- **Sem migration.** Teste: `scripts/testes/um-atendimento-por-vez.test.js` (14).
   Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
 
 ### Iniciar atendimento sem GPS (11/09/2026)

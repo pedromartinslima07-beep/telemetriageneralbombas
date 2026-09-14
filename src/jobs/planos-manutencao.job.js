@@ -65,18 +65,72 @@ async function executarPlano(planoId, { tecnicoId = null } = {}) {
 
     // Anti-duplicidade: já existe chamado aberto vinculado?
     const dupRes = await client.query(
-      `SELECT id FROM chamados
+      `SELECT id, tecnico_id FROM chamados
        WHERE plano_manutencao_id = $1
          AND status NOT IN ('fechado', 'cancelado')
-       LIMIT 1`,
+       ORDER BY id DESC
+       LIMIT 1
+       FOR UPDATE`,
       [planoId]
     );
     if (dupRes.rows.length) {
+      const existente = dupRes.rows[0];
+
+      // ⚠️ O CHAMADO ÓRFÃO É ADOTADO, NÃO RECUSADO (14/09/2026). Este ramo
+      // devolvia `duplicado` e parava — e isso fechava um beco completo para o
+      // técnico, conferido rota a rota no banco de teste:
+      //
+      //   Iniciar (esta rota)      → 200 {duplicado:true}, o chamado segue sem dono
+      //   iniciar-atendimento      → 403 "não está atribuído a você"
+      //   GET /chamados/meus/:id   → 404
+      //   GET /chamados/meus       → não lista
+      //
+      // Ou seja: o prédio é da zona dele, o serviço é dele, e ele não tinha
+      // caminho NENHUM pelo app — dependia de alguém no escritório escalar.
+      // E o chamado nasce órfão com frequência: logo abaixo, a atribuição
+      // automática só acontece quando a zona tem UM responsável (migration 066).
+      //
+      // Adotar é exatamente o que o operador faria à mão. Quem chega aqui com
+      // `tecnicoId` já teve o direito ao plano validado pela rota
+      // `POST /planos-manutencao/:id/executar-agora` (zona ou escala).
+      //
+      // ⚠️ SÓ QUANDO NÃO HÁ DONO. Chamado de outro técnico continua devolvendo
+      // `duplicado` sem tocar em nada — roubar serviço alheio pelo botão
+      // "Iniciar" seria pior que o beco.
+      //
+      // ⚠️ E O JOB NÃO ADOTA: ele chama sem `tecnicoId`, e aí não há ninguém
+      // para pôr no lugar.
+      if (tecnicoId && !existente.tecnico_id) {
+        await client.query(
+          `UPDATE chamados
+              SET tecnico_id = $2::int, atualizado_em = NOW()
+            WHERE id = $1`,
+          [existente.id, tecnicoId]
+        );
+        // O histórico é a memória de quem mandou quem: sem esta linha, o
+        // chamado apareceria com dono novo e nada explicando de onde ele veio —
+        // a mesma razão pela qual o despacho em lote da tela de Preventivas
+        // grava a dele.
+        await client.query(
+          `INSERT INTO historico_chamados (chamado_id, campo_alterado, valor_anterior, valor_novo)
+           VALUES ($1, 'tecnico_id', NULL, $2::text)`,
+          [existente.id, String(tecnicoId)]
+        );
+        await client.query("COMMIT");
+        return {
+          ok: true,
+          plano_id: planoId,
+          chamado_id: existente.id,
+          duplicado: true,
+          adotado: true,
+        };
+      }
+
       await client.query("ROLLBACK");
       return {
         ok: true,
         plano_id: planoId,
-        chamado_id: dupRes.rows[0].id,
+        chamado_id: existente.id,
         duplicado: true,
       };
     }

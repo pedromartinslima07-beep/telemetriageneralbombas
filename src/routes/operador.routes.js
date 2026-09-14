@@ -591,6 +591,12 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          -- sem esta coluna o estadoDa lia 69 planos como "em campo" com NINGUEM
          -- em campo — e a tela esconde o despacho nesse estado. Ver estadoDa.
          cha.tecnico_id AS chamado_aberto_tecnico_id,
+         -- ⚠️ OS DOIS CARIMBOS QUE SEPARAM "TEM DONO" DE "ESTA LA" (14/09/2026).
+         -- Ter tecnico nao e estar em campo: o estadoDa le estes dois para
+         -- dizer escalada / a caminho / em campo, e sem eles a tela voltava a
+         -- chamar de "em campo" um plano que so mudou de dono. Ver estadoDa.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         cha.tecnico_a_caminho_em AS chamado_aberto_a_caminho_em,
          chf.id     AS chamado_fechado_id,
          chf.fechado_em,
          (pm.ultima_em IS NOT NULL
@@ -613,6 +619,25 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          -- so alimentam ele e o rodape da placa; a regra de "feita" nao pode
          -- ter uma segunda versao dentro desta query.
          -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         -- ⚠️ A ULTIMA DEVOLUCAO DO CHAMADO ABERTO (14/09/2026). O tecnico
+         -- devolve, o chamado volta para a fila, e a tela nao tinha NADA que
+         -- contasse isso: o plano voltava a "a fazer" identico a um que ninguem
+         -- tocou, e pior, se o operador reescalasse ele voltava a dizer
+         -- "em campo". Pedido do Pedro: *"nao fica claro que o tecnico
+         -- devolveu"*.
+         --
+         -- O dado sempre existiu em historico_chamados com campo_alterado =
+         -- 'devolvido' (valor_novo = o motivo em texto, escrito pelo tecnico).
+         -- Faltava alguem ler.
+         --
+         -- ⚠️ SO A ULTIMA, e do chamado que esta ABERTO. Devolucao de um ciclo
+         -- passado nao e informacao sobre este mes; e historia, e o lugar dela
+         -- e a ficha do chamado.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         dev.alterado_em AS devolvido_em,
+         dev.valor_novo  AS devolvido_motivo,
+         udev.nome       AS devolvido_por_nome,
+
          bm.marcada_em AS baixa_manual_em,
          ubm.nome      AS baixa_manual_por_nome,
 
@@ -649,11 +674,23 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
               ON bm.plano_id = pm.id AND bm.competencia = $1::date
        LEFT JOIN usuarios ubm ON ubm.id = bm.marcada_por
        LEFT JOIN LATERAL (
-         SELECT ch.id, ch.status, ch.tecnico_id FROM chamados ch
+         SELECT ch.id, ch.status, ch.tecnico_id, ch.tecnico_a_caminho_em
+           FROM chamados ch
           WHERE ch.plano_manutencao_id = pm.id
             AND ch.status NOT IN ('fechado', 'cancelado')
           ORDER BY ch.id DESC LIMIT 1
        ) cha ON TRUE
+       -- ⚠️ DEPENDE DO cha E POR ISSO VEM DEPOIS DELE (mesma regra do ose com
+       -- o chf, logo abaixo): um LATERAL so enxerga o que ja foi juntado a sua
+       -- esquerda.
+       LEFT JOIN LATERAL (
+         SELECT h.alterado_em, h.valor_novo, h.alterado_por
+           FROM historico_chamados h
+          WHERE h.chamado_id = cha.id
+            AND h.campo_alterado = 'devolvido'
+          ORDER BY h.alterado_em DESC LIMIT 1
+       ) dev ON TRUE
+       LEFT JOIN usuarios udev ON udev.id = dev.alterado_por
        LEFT JOIN LATERAL (
          SELECT ch.id, ch.fechado_em FROM chamados ch
           WHERE ch.plano_manutencao_id = pm.id
@@ -736,6 +773,12 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
     const planos = r.rows.map((p) => ({
       ...p,
       estado: estadoDa(p),
+      // ⚠️ UM OBJETO, NAO TRES CAMPOS SOLTOS: a tela pergunta "houve
+      // devolucao?" uma vez so, e `devolucao && ...` e mais dificil de
+      // esquecer do que conferir tres colunas que podem vir meio preenchidas.
+      devolucao: p.devolvido_em
+        ? { em: p.devolvido_em, motivo: p.devolvido_motivo, tecnico_nome: p.devolvido_por_nome }
+        : null,
       tecnico_id:   p.atribuido_tecnico_id || p.zona_tecnico_id || null,
       tecnico_nome: p.atribuido_tecnico_nome || p.zona_tecnico_nome || null,
       tecnico_origem: origemDoTecnico(p),
@@ -1163,11 +1206,21 @@ router.delete("/orcamentos/:id/executado", authRequired, adminOnly, async (req, 
  * que já aconteceu: deixá-lo de pé mantém o prédio no roteiro do técnico e na
  * fila. O id fica guardado na baixa para o desfazer reabri-lo.
  *
- * ⚠️ MAS NÃO QUANDO ALGUÉM ESTÁ NELE. Chamado aberto COM técnico é o estado
- * "em campo": o serviço está andando agora, e quem o encerra é a O.S. que o
- * técnico assina no prédio. Marcar por fora criaria duas verdades sobre a
- * mesma visita — a mesma razão pela qual o "Já foi feito" de Aprovados só
- * aparece no estado livre.
+ * ⚠️ MAS NÃO QUANDO ALGUÉM JÁ SAIU PARA ELE. O serviço que está andando agora
+ * é encerrado pela O.S. que o técnico assina no prédio; marcar por fora criaria
+ * duas verdades sobre a mesma visita — a mesma razão pela qual o "Já foi feito"
+ * de Aprovados só aparece no estado livre.
+ *
+ * ⚠️ E "ANDANDO" PASSOU A EXIGIR DESLOCAMENTO (14/09/2026). Este guard recusava
+ * por `tecnico_id` preenchido, que era a definição antiga de "em campo" — e ter
+ * dono não é estar no prédio. Mantê-lo assim abriria uma divergência com a
+ * tela: `escalada` mostra a caixa "Já foi feita" (o front decide por
+ * `andando()`), e a rota responderia 409 dizendo que a preventiva está em
+ * campo. Caixa que aparece e recusa é pior que caixa que não aparece.
+ *
+ * Agora o corte é o mesmo dos dois lados: recusa com `em_atendimento` ou com
+ * `tecnico_a_caminho_em`. Com dono e parado, o operador pode marcar — é
+ * exatamente o caso do técnico que devolveu e ninguém foi.
  *
  * ⚠️ NÃO ACEITA DATA NEM AUTOR DO CORPO — só a competência. `marcada_em` é
  * `NOW()` e `marcada_por` é quem está logado: o valor do registro é ser
@@ -1205,7 +1258,7 @@ router.post("/preventivas/:id/feita", authRequired, adminOnly, async (req, res) 
     // serviço está andando e quem o encerra é a O.S.; sem técnico, é o chamado
     // órfão do job e ele sai de cena junto com a baixa.
     const chRes = await client.query(
-      `SELECT id, status, tecnico_id FROM chamados
+      `SELECT id, status, tecnico_id, tecnico_a_caminho_em FROM chamados
         WHERE plano_manutencao_id = $1
           AND status NOT IN ('fechado', 'cancelado')
         ORDER BY id DESC LIMIT 1
@@ -1213,10 +1266,15 @@ router.post("/preventivas/:id/feita", authRequired, adminOnly, async (req, res) 
       [id]
     );
     const chamado = chRes.rows[0] || null;
-    if (chamado && chamado.tecnico_id) {
+    const andando = !!chamado && !!chamado.tecnico_id
+      && (chamado.status === "em_atendimento" || !!chamado.tecnico_a_caminho_em);
+    if (andando) {
+      const emCampo = chamado.status === "em_atendimento";
       await client.query("ROLLBACK");
       return res.status(409).json({
-        error: "Esta preventiva já está em campo. Quem a fecha é a O.S. do técnico.",
+        error: emCampo
+          ? "Esta preventiva já está em campo. Quem a fecha é a O.S. do técnico."
+          : "O técnico já saiu para esta preventiva. Quem a fecha é a O.S. dele.",
         chamado_id: chamado.id,
       });
     }

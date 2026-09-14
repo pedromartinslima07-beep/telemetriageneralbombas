@@ -1377,8 +1377,14 @@ function configurarCTA(c) {
   //
   // A lista dele já está em memória, então a checagem não custa requisição —
   // e no subsolo, sem sinal, é a única que existe.
+  // ⚠️ O COMPROMISSO COMEÇA AO SAIR, NÃO AO CHEGAR (corrigido no mesmo 14/09).
+  // A primeira versão olhava só `em_atendimento`, e "A caminho" não muda o
+  // status do chamado — dava para sair para dois prédios ao mesmo tempo, que é
+  // exatamente o que a regra existe para impedir.
   const ocupadoEm = (TC.chamados || []).find(
-    (x) => x && x.id !== c.id && x.status === "em_atendimento"
+    (x) => x && x.id !== c.id &&
+      (x.status === "em_atendimento" ||
+       (x.status === "aberto" && x.tecnico_a_caminho_em))
   );
 
   if (c.status === "aberto" && ocupadoEm) {
@@ -1389,7 +1395,12 @@ function configurarCTA(c) {
     //
     // O nome do prédio, não o número do chamado: é assim que ele sabe onde está.
     const onde = ocupadoEm.condominio_nome || ocupadoEm.nome || "outro chamado";
-    lbl.textContent = "Termine o atendimento em " + onde;
+    // O verbo segue o estado: "termine o atendimento" para quem já está dentro
+    // do prédio, "você já está a caminho" para quem só saiu — mandar procurar
+    // uma O.S. que ainda não existe confundiria mais do que travar.
+    lbl.textContent = ocupadoEm.status === "em_atendimento"
+      ? "Termine o atendimento em " + onde
+      : "Você já está a caminho de " + onde;
     btn.className = "btn btn-lg";
     btn.style = "";
     btn.disabled = true;
@@ -6277,7 +6288,17 @@ function renderRoteiro() {
     // ⚠️ EM MESES, não em dias — senão o número do topo contradiz a etiqueta do
     // card logo abaixo, que já lê "este mês".
     const atrasadas = RT.planos.filter(p => !p.chamado_aberto_id && rtMesesAte(p.proxima_em) < 0).length;
-    const emCurso   = RT.planos.filter(p => p.chamado_aberto_id).length;
+    // ⚠️ "EM CURSO" CONTAVA CHAMADO EXISTENTE, NÃO SERVIÇO ANDANDO (14/09/2026).
+    // Como o job abre o chamado de toda preventiva do mês, o número marcava o
+    // roteiro inteiro como em curso já no dia 1 — e contradizia os próprios
+    // cards logo abaixo, que agora dizem "abrir #N". Em curso é quem saiu.
+    const emCurso   = RT.planos.filter(p => rtSituacao(p) === "andando").length;
+    // E o que sobra dele: o que ainda não existe mais o que é dele e está
+    // parado. É o número que responde "tenho trabalho aqui?".
+    const esperando = RT.planos.filter(p => {
+      const sit = rtSituacao(p);
+      return sit === "pendente" || sit === "meu_parado" || sit === "orfao";
+    }).length;
     const cell = (val, label, cls) => `
       <div class="tk-cell ${val > 0 ? cls : ""}">
         <div class="tk-value">${val}</div>
@@ -6287,7 +6308,9 @@ function renderRoteiro() {
       cell(grupos.length,     "Prédios",   "is-neutral") +
       cell(RT.planos.length,  "Serviços",  "is-neutral") +
       cell(atrasadas,         "Atrasadas", "is-bad")     +
-      cell(emCurso,           "Em curso",  "is-ok");
+      cell(esperando > 0 ? esperando : emCurso,
+           esperando > 0 ? "Esperando" : "Em curso",
+           esperando > 0 ? "is-neutral" : "is-ok");
   }
 
   rtRenderDesvio();
@@ -6303,26 +6326,111 @@ function renderRoteiro() {
   lista.innerHTML = grupos.map((g, i) => rtCardPredio(g, i + 1)).join("");
 }
 
+// ⚠️ UMA DEFINIÇÃO SÓ, lida pelo card, pelos números do topo e pelo badge da
+// aba (14/09/2026). Enquanto "tem chamado" era sinônimo de "em andamento", os
+// três podiam contar do seu jeito sem ninguém notar; agora que a situação
+// decide se há ação, três contagens diferentes seriam três respostas para
+// "tenho trabalho aqui?" — o mesmo erro que o `estadoDa` do backend existe
+// para não deixar acontecer entre a tela do operador e esta.
+function rtSituacao(p) {
+  if (!p.chamado_aberto_id) return "pendente";
+  // ⚠️ SEM DONO NÃO É "DE OUTRO" (14/09/2026, no mesmo dia). A primeira versão
+  // desta função classificava como `de_outro` tudo que não era dele — e o
+  // chamado do mês NASCE ÓRFÃO: o job o cria de madrugada e só atribui quando a
+  // zona tem um único responsável. O card dizia "com outro técnico" sobre um
+  // chamado que não tem técnico nenhum.
+  //
+  // É o mesmo erro de 04/09 numa roupa nova: ler ausência de dono como se fosse
+  // dono foi o que pôs 69 planos em "em campo" com ninguém em campo.
+  //
+  // O Pedro viu na tela: *"qual o motivo dos chamados que estão 'com outro
+  // técnico' continuarem aparecendo lá?"* — e a resposta é que o plano é dele
+  // pela ZONA (é isso que monta o roteiro), enquanto o chamado é de outro
+  // vínculo. Os dois são separados de propósito.
+  if (!p.chamado_aberto_tecnico_id) return "orfao";
+  if (!p.chamado_meu) return "de_outro";
+  return (p.estado === "a_caminho" || p.estado === "em_campo") ? "andando" : "meu_parado";
+}
+
 function rtCardPredio(g, ordem) {
   const distLabel = rtDistLabel(g.dist);
   const endereco = escapeHtml([g.endereco, g.bairro].filter(Boolean).join(", ") || "Endereço não cadastrado");
   const proxima = g.planos.reduce((min, p) => (!min || p.proxima_em < min ? p.proxima_em : min), null);
   const prazo = rtPrazoLabel(proxima);
 
-  // Plano que já tem chamado aberto não pode ser iniciado de novo (o
-  // executar-agora barra por anti-duplicidade) — a UI mostra o motivo e linka.
+  // ⚠️ TER CHAMADO NÃO É ESTAR EM ANDAMENTO (14/09/2026). Esta função lia só
+  // `!!p.chamado_aberto_id` e carimbava o card inteiro como "em andamento" —
+  // inclusive quando o chamado era DELE e estava parado, esperando ele sair.
+  //
+  // Como o job abre o chamado de toda preventiva do mês, isso valia para
+  // TODOS: medido no roteiro em 14/09, os três prédios estavam "em andamento"
+  // e nenhum tinha botão. A tela de trabalho tinha virado tela de leitura.
+  //
+  // O caso que expôs foi o do Pedro: o técnico aceita a preventiva, devolve, o
+  // operador reescala — e no app dele aquilo aparece como serviço que outra
+  // pessoa está fazendo. Ele só chegava nela pela aba Chamados, por fora do
+  // roteiro.
+  //
+  // Três leituras, e cada uma pede uma coisa diferente da tela:
+  //
+  //   meu e parado   → é trabalho dele, esperando: ABRE o chamado (é lá que
+  //                    fica o "A caminho")
+  //   meu e andando  → ele já saiu ou já está lá: informa, sem ação
+  //   de outro       → aviso, e nada para tocar
+  //
+  // `chamado_meu` e `estado` vêm prontos do backend, do mesmo `estadoDa` que a
+  // tela do operador usa — a régua de "de quem é" tem uma cópia só.
   const linhas = g.planos.map((p) => {
-    const emAndamento = !!p.chamado_aberto_id;
+    const sit = rtSituacao(p);
+    const tag = {
+      pendente:   `<span class="rt-plano-tag">${escapeHtml(rtPrazoLabel(p.proxima_em).txt)}</span>`,
+      // ⚠️ "VER", NUNCA "ABRIR" (14/09/2026). O primeiro rótulo aqui era
+      // "abrir #N", e o Pedro leu na hora o que qualquer técnico leria: *"por
+      // que tem 'abrir chamado' no app do técnico?"*. Em português, ABRIR
+      // CHAMADO é criar um — e o técnico nem pode. O botão só leva à ficha do
+      // chamado que já existe, que é onde mora o "A caminho".
+      meu_parado: `<button type="button" class="rt-plano-tag is-acao" data-chamado="${p.chamado_aberto_id}">ver #${p.chamado_aberto_id}</button>`,
+      andando:    `<button type="button" class="rt-plano-tag is-link" data-chamado="${p.chamado_aberto_id}">${p.estado === "em_campo" ? "em atendimento" : "a caminho"}</button>`,
+      de_outro:   `<button type="button" class="rt-plano-tag is-link" data-chamado="${p.chamado_aberto_id}">com outro técnico</button>`,
+      // ⚠️ SEM AÇÃO, E ISSO É UM BECO CONHECIDO — não um descuido. O chamado
+      // órfão do mês não pode ser começado pelo app: `executarPlano` responde
+      // `duplicado` sem atribuir ninguém (o "Iniciar" não adota), e
+      // `iniciar-atendimento` recusa com 403 quem não é o dono. Quem destrava
+      // hoje é o operador, escalando na tela de Preventivas.
+      // Registrado em memory-bank/roadmap.md; a saída natural seria o "Iniciar"
+      // adotar o chamado órfão de quem já tem direito ao plano.
+      // ⚠️ SPAN, NÃO BOTÃO, e isso foi MEDIDO: `abrirDetalheChamado` busca
+      // `GET /chamados/meus/:id`, e para chamado sem dono a rota responde 404
+      // ("não atribuído a você"). Um botão aqui levaria a uma tela de erro.
+      //
+      // Quem tira o plano deste estado é o "Iniciar" do rodapé, que desde
+      // 14/09 ADOTA o chamado órfão (ver `executarPlano`) — por isso a linha
+      // informa, e a ação fica num lugar só.
+      orfao:      `<span class="rt-plano-tag">sem técnico</span>`,
+    }[sit];
     return `
-      <li class="rt-plano${emAndamento ? " is-andamento" : ""}">
+      <!-- is-andamento apaga a linha, e isso vale para o que NÃO tem ação:
+           serviço andando, ou chamado de outro técnico. O órfão fica de fora
+           de propósito — ele é iniciável pelo rodapé (o Iniciar adota), e
+           apagá-lo diria o contrário. -->
+      <li class="rt-plano${sit === "andando" || sit === "de_outro" ? " is-andamento" : ""}">
         <span class="rt-plano-nome">${escapeHtml(p.titulo || "—")}</span>
-        ${emAndamento
-          ? `<button type="button" class="rt-plano-tag is-link" data-chamado="${p.chamado_aberto_id}">chamado #${p.chamado_aberto_id}</button>`
-          : `<span class="rt-plano-tag">${escapeHtml(rtPrazoLabel(p.proxima_em).txt)}</span>`}
+        ${tag}
       </li>`;
   }).join("");
 
-  const pendentes = g.planos.filter((p) => !p.chamado_aberto_id);
+  // ⚠️ "INICIÁVEL" É PENDENTE **OU** ÓRFÃO (14/09/2026). O pendente ainda não
+  // tem chamado e o "Iniciar" cria; o órfão já tem um, sem dono, e o "Iniciar"
+  // ADOTA (ver o ramo anti-duplicidade em `executarPlano`). Antes desse
+  // conserto, o órfão não tinha caminho nenhum pelo app — era do técnico pela
+  // zona e ele dependia do operador para começar.
+  //
+  // `meusParados` é a terceira porta: o chamado já é dele, então o rodapé leva
+  // à ficha em vez de dizer que não há o que fazer.
+  const pendentes = g.planos.filter((p) => rtSituacao(p) === "pendente");
+  const orfaos = g.planos.filter((p) => rtSituacao(p) === "orfao");
+  const iniciaveis = pendentes.length + orfaos.length;
+  const meusParados = g.planos.filter((p) => rtSituacao(p) === "meu_parado");
 
   return `
     <article class="rt-card" data-rt-condo="${g.condominio_id}">
@@ -6342,9 +6450,15 @@ function rtCardPredio(g, ordem) {
 
       <div class="rt-card-foot">
         <span class="rt-prazo ${prazo.cls}">${escapeHtml(prazo.txt)}</span>
-        ${pendentes.length
-          ? `<button type="button" class="btn btnAccent btn-sm rt-iniciar" data-rt-iniciar="${g.condominio_id}">Iniciar${pendentes.length > 1 ? ` (${pendentes.length})` : ""}</button>`
-          : `<span class="rt-prazo">em andamento</span>`}
+        ${iniciaveis
+          ? `<button type="button" class="btn btnAccent btn-sm rt-iniciar" data-rt-iniciar="${g.condominio_id}">Iniciar${iniciaveis > 1 ? ` (${iniciaveis})` : ""}</button>`
+          : meusParados.length
+            // ⚠️ O CARD SEM PENDENTE NÃO É UM CARD SEM TRABALHO. Antes, todo
+            // prédio cujo chamado já existia terminava em "em andamento" —
+            // inclusive o que estava parado esperando ele. Aqui o rodapé leva
+            // ao chamado em vez de dar a notícia de que não há nada a fazer.
+            ? `<button type="button" class="btn btnAccent btn-sm rt-iniciar" data-chamado="${meusParados[0].chamado_aberto_id}">Ver chamado</button>`
+            : `<span class="rt-prazo">em andamento</span>`}
       </div>
     </article>`;
 }
@@ -6371,7 +6485,14 @@ function rtRenderDesvio() {
 }
 
 function rtAtualizarBadge() {
-  const pendentes = RT.planos.filter((p) => !p.chamado_aberto_id).length;
+  // ⚠️ O BADGE CONTAVA SÓ PLANO SEM CHAMADO (14/09/2026) — e sumia justamente
+  // quando havia trabalho: o chamado do mês já existe, escalado no nome dele e
+  // parado. Conta o que PEDE AÇÃO DELE, que é a mesma pergunta do número
+  // "Esperando" no topo da tela.
+  const pendentes = RT.planos.filter((p) => {
+    const sit = rtSituacao(p);
+    return sit === "pendente" || sit === "meu_parado" || sit === "orfao";
+  }).length;
   document.querySelectorAll("[data-roteiro-badge]").forEach((b) => {
     b.textContent = pendentes;
     b.hidden = pendentes === 0;
@@ -6384,7 +6505,12 @@ async function rtIniciarPredio(condominioId) {
   const grupo = rtAgrupar().find((g) => g.condominio_id === condominioId);
   if (!grupo) return;
 
-  const pendentes = grupo.planos.filter((p) => !p.chamado_aberto_id);
+  // Mesma régua do card: o pendente ganha chamado novo, o órfão ganha dono.
+  // Ver `rtSituacao` e o ramo anti-duplicidade de `executarPlano`.
+  const pendentes = grupo.planos.filter((p) => {
+    const sit = rtSituacao(p);
+    return sit === "pendente" || sit === "orfao";
+  });
   if (!pendentes.length) return;
 
   const longe = grupo.dist != null && grupo.dist > RT_LIMITE_LONGE_KM;

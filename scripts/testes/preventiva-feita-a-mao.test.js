@@ -211,14 +211,33 @@ const ok = (nome, cond) => r.push([nome, cond]);
     );
     lixo.chamados.push(chCampo.rows[0].id);
 
+    // ⚠️ TER TÉCNICO DEIXOU DE BASTAR (14/09/2026). O guard desta rota recusava
+    // por `tecnico_id` preenchido — a definição antiga de "em campo" —, e agora
+    // exige DESLOCAMENTO (`em_atendimento` ou `tecnico_a_caminho_em`), igual ao
+    // `estadoDa` e ao `andando()` da tela. Sem este UPDATE o plano C fica em
+    // `escalada`, que é marcável de propósito: tem dono, ninguém saiu, e o
+    // operador pode saber que a visita aconteceu por fora.
+    await pool.query("UPDATE chamados SET tecnico_a_caminho_em = NOW() WHERE id = $1",
+                     [chCampo.rows[0].id]);
+
     d = await tela();
-    ok("(controle) o plano C está em campo", doPlano(d, c.plano).estado === "em_campo");
+    ok("(controle) o plano C está a caminho", doPlano(d, c.plano).estado === "a_caminho");
+
+    // ⚠️ E O ESTADO PARADO CONTINUA MARCÁVEL — a outra metade da régua, que é o
+    // que garante que a caixa mostrada na tela não recusa no servidor.
+    const paradoAntes = await pool.query(
+      "UPDATE chamados SET tecnico_a_caminho_em = NULL WHERE id = $1 RETURNING id",
+      [chCampo.rows[0].id]);
+    ok("(controle) sem deslocamento ele volta a escalada",
+       doPlano(await tela(), c.plano).estado === "escalada" && !!paradoAntes.rowCount);
+    await pool.query("UPDATE chamados SET tecnico_a_caminho_em = NOW() WHERE id = $1",
+                     [chCampo.rows[0].id]);
     const respC = await marcar(c.plano);
     ok("marcar uma preventiva em campo responde 409", respC.status === 409);
     ok("e não cria baixa nenhuma", (await pool.query(
       "SELECT count(*)::int AS n FROM planos_baixas_manuais WHERE plano_id = $1", [c.plano]
     )).rows[0].n === 0);
-    ok("nem cancela o chamado de quem está no prédio",
+    ok("nem cancela o chamado de quem já saiu",
        (await st(chCampo.rows[0].id)) === "aberto");
 
     // ── Entradas inválidas ───────────────────────────────────────────────

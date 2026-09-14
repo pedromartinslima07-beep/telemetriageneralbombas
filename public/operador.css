@@ -3782,8 +3782,58 @@ body.sem-trilho #tela{width:100%}
 .pv-selo[data-e="campo"]{
   color:var(--normal-t);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--normal-t) 40%,transparent);
 }
+/* "A caminho" divide a gramática do "Em campo": os dois são MOVIMENTO, e
+   movimento não pede nada do operador — quem grita nesta tela é o que espera
+   decisão. Quem distingue os dois é o rótulo, e é a Regra do Selo aplicada.
+   Preencher um deles faria a tela inteira acender no começo do mês, quando o
+   job abre o chamado de todas as preventivas de uma vez. */
+.pv-selo[data-e="caminho"]{
+  color:var(--normal-t);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--normal-t) 40%,transparent);
+}
+/* Devolvida é o segundo selo preenchido da tela, ao lado de "Atrasada": alguém
+   foi e não conseguiu, e isso EXIGE uma decisão nova — outro dono, ou um
+   telefonema para a portaria antes de mandar de novo.
+   ⚠️ ÂMBAR CRU NO FUNDO, TINTA MARINHO POR CIMA — a Regra do Preenchimento
+   Cru. `--warn` é tinta e flipa para a família `-t` na placa clara; usá-lo
+   como fundo aqui daria escuro sobre escuro. Mesma gramática do "Pode
+   executar" de Aprovados.
+   ⚠️ E ÂMBAR, NÃO VERMELHO: o vermelho desta tela é do ATRASO, que é dívida de
+   competência. Devolução é obstáculo de hoje — se as duas usassem a mesma cor,
+   a linha perderia a distinção que motivou o selo. */
+.pv-selo[data-e="devolvida"]{background:var(--amarelo);color:var(--mar-900)}
 .pv-selo[data-e="feita"]{
   color:var(--ok-t);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok-t) 40%,transparent);
+}
+
+/* ── A devolução, em linha própria ──────────────────────────────────────
+   ⚠️ LINHA PRÓPRIA, NÃO MAIS UM CAMPO DA FRASE DE METADADOS. O motivo é texto
+   de gente — o técnico escreveu no celular, com o chamado na mão —, e o
+   `.pv-meta` acima é uma frase de sistema (serviço · bairro · quem). Misturar
+   os dois faria o relato passar por mais um metadado.
+
+   É a mesma decisão que a fila do turno tomou com o `.fala`: relato de pessoa
+   ganha bloco citado; frase escrita pelo sistema, não.
+
+   O rótulo é mono (a etiqueta desta folha), o motivo é Archivo em corpo de
+   leitura — quem lê está decidindo se manda o mesmo técnico de novo. */
+.pv-devolvida{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;
+  margin:6px 0 0;padding:6px 10px;
+  background:color-mix(in srgb,var(--amarelo) 12%,transparent);
+  border-left:2px solid var(--amarelo);
+}
+.pv-devolvida-rot{
+  font-family:var(--mono);font-size:10.5px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--atencao-t);
+}
+/* ⚠️ MEDIDA DE LINHA, mesmo aqui: o motivo é campo livre e um técnico prolixo
+   atravessaria a placa inteira, que é o defeito que o passe de 27/08 corrigiu
+   no rodapé (110–140ch → 68ch). */
+.pv-devolvida-motivo{
+  font-size:13px;line-height:1.45;color:var(--tinta-2);max-width:68ch;
+}
+@media (max-width:640px){
+  .pv-devolvida{margin-top:8px}
 }
 
 /* ── "Já foi feita" e "Desfazer" na linha ───────────────────────────────

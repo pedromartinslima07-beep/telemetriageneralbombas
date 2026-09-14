@@ -46,7 +46,7 @@ function mesDe(competencia) {
 // ⚠️ MAS `ultima_em` NO MÊS TAMBÉM CONTA, quando não há chamado nenhum. É o
 // caso da execução anterior a este módulo e do plano marcado à mão: ignorar
 // faria a tela cobrar de novo um serviço que a equipe sabe ter sido feito.
-const ESTADOS = ["a_fazer", "escalada", "em_campo", "feita"];
+const ESTADOS = ["a_fazer", "escalada", "a_caminho", "em_campo", "feita"];
 
 // ⚠️ "ESCALADA" É A ATRIBUIÇÃO EXPLÍCITA, não "tem técnico". A primeira versão
 // lia `linha.tecnico_id` — que a linha do SQL nem tem (lá a coluna se chama
@@ -74,13 +74,48 @@ const ESTADOS = ["a_fazer", "escalada", "em_campo", "feita"];
 // chamado. O caso concreto: o operador marca a preventiva do mes como feita e
 // depois abre um chamado no mesmo predio; sem esta linha a placa esqueceria a
 // baixa e voltaria a cobrar o mes.
+// ⚠️ "EM CAMPO" PASSOU A EXIGIR CAMPO (14/09/2026). Até aqui, chamado aberto
+// COM técnico bastava — e ter dono não é estar no prédio. Medido no banco de
+// teste no dia: **10 dos 11 planos do mês** apareciam "Em campo", com ninguém
+// em campo. É a segunda vez que este estado incha: em 04/09 ele lia qualquer
+// chamado aberto (69 planos, zero técnico) e ganhou a exigência do técnico.
+// Faltava a outra metade — o técnico ter SAÍDO.
+//
+// O caso que expôs: o técnico aceita a preventiva, DEVOLVE, e o operador
+// reescala. A reatribuição do chamado devolvido ressuscitava "Em campo" sem
+// ninguém ter saído de casa. O Pedro: *"no painel do operador, na tela da
+// preventiva, não fica claro que o técnico devolveu"*.
+//
+// Os carimbos que separam os três já existiam no chamado e ninguém lia:
+//
+//   status em_atendimento          → em campo   (está lá dentro; a O.S. pede
+//                                                assinatura no local)
+//   tecnico_a_caminho_em           → a caminho  (saiu, ainda não chegou)
+//   tem dono e nenhum dos dois     → escalada   (é dele, não começou)
+//
+// ⚠️ A DEVOLUÇÃO NÃO É ESTADO, é um fato sobre a última tentativa — ela chega
+// às telas como `devolucao: {tecnico_nome, motivo, em}` e se desenha SOBRE
+// `escalada`/`a_fazer`. Criar um quinto estado para ela quebraria as três
+// leituras que dependem desta função por algo que não é a situação do plano.
 function estadoDa(linha) {
   if (linha.baixa_manual_em) return "feita";
   if (linha.chamado_fechado_id) return "feita";
   if (!linha.chamado_aberto_id && linha.feita_no_mes) return "feita";
-  if (linha.chamado_aberto_id && linha.chamado_aberto_tecnico_id) return "em_campo";
+  if (linha.chamado_aberto_id && linha.chamado_aberto_tecnico_id) {
+    if (linha.chamado_aberto_status === "em_atendimento") return "em_campo";
+    if (linha.chamado_aberto_a_caminho_em) return "a_caminho";
+    return "escalada";
+  }
   if (linha.atribuido_tecnico_id) return "escalada";
   return "a_fazer";
+}
+
+// "Andando" = saiu de casa por este plano. É o corte que a tela usa para
+// esconder o despacho e a caixa de marcar: mexer no que já está em movimento
+// é que produz dois técnicos no mesmo prédio. `escalada` NÃO entra — tem dono,
+// mas ninguém saiu, e remanejar aí é exatamente o trabalho do operador.
+function emMovimento(estado) {
+  return estado === "a_caminho" || estado === "em_campo";
 }
 
 // ── De quem é ───────────────────────────────────────────────────────────────
@@ -203,5 +238,6 @@ module.exports = {
   competenciaDe,
   mesDe,
   estadoDa,
+  emMovimento,
   origemDoTecnico,
 };

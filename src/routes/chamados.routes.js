@@ -38,16 +38,36 @@ const {
 // precisa poder largar um — e largar deixa rastro no histórico, enquanto
 // acumular em silêncio não deixava nenhum.
 //
+// ⚠️ O COMPROMISSO COMEÇA AO SAIR, NÃO AO CHEGAR (corrigido em 14/09/2026, no
+// mesmo dia). A primeira versão desta função só olhava `em_atendimento` — e
+// `POST /:id/a-caminho` NÃO muda o status (grava só `tecnico_a_caminho_em`, o
+// chamado segue `aberto`). Resultado: a trava fechava a segunda porta e deixava
+// a primeira escancarada. O Pedro testou à mão e marcou "A caminho" em dois
+// chamados; a regra dizia uma coisa e o código fazia outra.
+//
+// Segura o técnico, então, qualquer chamado dele que já tenha ganhado
+// deslocamento: `em_atendimento`, ou ainda `aberto` mas com `tecnico_a_caminho_em`.
+//
+// ⚠️ SEM EXCEÇÃO PARA O MESMO CONDOMÍNIO — e isso foi perguntado e respondido
+// (Pedro, 14/09): *"não é para aceitar os dois mesmo que seja no mesmo
+// condomínio"*. Para a preventiva do prédio onde ele já está o caminho é OUTRO e
+// já existe desde 04/09: marcar `preventiva_mensal` nos `tipos_servico` da O.S.
+// dá baixa no plano e fecha o chamado da preventiva sozinho
+// (`darBaixaPorOS` em `src/services/preventivas.service.js`). Um serviço, uma
+// O.S., uma assinatura — aceitar dois chamados seria o mesmo trabalho contado
+// duas vezes.
+//
 // Devolve o chamado que está segurando o técnico, ou null se ele está livre.
-async function atendimentoEmAberto(executor, tecnicoId, exceto) {
+async function compromissoEmAberto(executor, tecnicoId, exceto) {
   const r = await executor.query(
-    `SELECT ch.id, ch.titulo, c.nome AS condominio_nome
+    `SELECT ch.id, ch.titulo, ch.status, c.nome AS condominio_nome
        FROM chamados ch
        LEFT JOIN condominios c ON c.id = ch.condominio_id
       WHERE ch.tecnico_id = $1
-        AND ch.status = 'em_atendimento'
         AND ch.id <> $2
-      ORDER BY ch.id
+        AND (ch.status = 'em_atendimento'
+             OR (ch.status = 'aberto' AND ch.tecnico_a_caminho_em IS NOT NULL))
+      ORDER BY (ch.status = 'em_atendimento') DESC, ch.id
       LIMIT 1`,
     [tecnicoId, exceto || 0]
   );
@@ -55,13 +75,22 @@ async function atendimentoEmAberto(executor, tecnicoId, exceto) {
 }
 
 // A mesma frase nas duas rotas: quem lê é o técnico no celular, e ele precisa
-// saber ONDE ficou o chamado preso, não só que existe um.
-function erroAtendimentoEmAberto(aberto) {
+// saber ONDE ficou o chamado preso, não só que existe um. O verbo muda com o
+// estado — dizer "em atendimento" para quem só saiu de casa faria ele procurar
+// uma O.S. que não existe.
+function erroCompromissoEmAberto(aberto) {
   const onde = aberto.condominio_nome || aberto.titulo || ("chamado #" + aberto.id);
+  const emCampo = aberto.status === "em_atendimento";
   return {
-    error: "Você ainda está em atendimento em " + onde +
-           ". Finalize a O.S. (ou devolva o chamado para a fila) antes de pegar outro.",
-    chamado_em_atendimento: { id: aberto.id, condominio_nome: aberto.condominio_nome || null },
+    error: (emCampo ? "Você ainda está em atendimento em " : "Você já está a caminho de ") + onde +
+           (emCampo
+             ? ". Finalize a O.S. (ou devolva o chamado para a fila) antes de pegar outro."
+             : ". Conclua ou devolva esse chamado antes de pegar outro."),
+    chamado_em_atendimento: {
+      id: aberto.id,
+      condominio_nome: aberto.condominio_nome || null,
+      status: aberto.status,
+    },
   };
 }
 
@@ -827,9 +856,9 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
     // ⚠️ `exceto: id` é o que preserva a IDEMPOTÊNCIA desta rota: reenviar
     // `iniciar-atendimento` do chamado que ELE JÁ está atendendo tem de seguir
     // devolvendo a O.S. existente, e não 409 — o app reenvia em reconexão.
-    const ocupado = await atendimentoEmAberto(client, tecnicoId, id);
+    const ocupado = await compromissoEmAberto(client, tecnicoId, id);
     if (ocupado) {
-      return res.status(409).json(erroAtendimentoEmAberto(ocupado));
+      return res.status(409).json(erroCompromissoEmAberto(ocupado));
     }
 
     await client.query("BEGIN");
@@ -1355,9 +1384,33 @@ router.post("/:id/a-caminho", authRequired, async (req, res) => {
         [req.user.id]
       );
       if (tec.rows.length) {
-        const ocupado = await atendimentoEmAberto(pool, tec.rows[0].id, id);
+        // ⚠️ ESTA ROTA NÃO CONFERIA DONO (corrigido em 14/09/2026), e era a
+        // única da família sem a checagem: `/iniciar-atendimento`, `/devolver` e
+        // a finalização da O.S. todas recusam quem não é o técnico do chamado.
+        //
+        // Medido no banco de teste: um técnico marcava "A caminho" num chamado
+        // SEM DONO e recebia 200, gravando `tecnico_a_caminho_em` nele — e o
+        // mesmo valia para o chamado de outro técnico. O carimbo alimenta o SLA
+        // de chegada, o CTA do app e, desde hoje, o estado "a caminho" da tela
+        // de Preventivas: escrever nele em nome de outra pessoa suja as três.
+        //
+        // ⚠️ O ADMIN CONTINUA PASSANDO (o `if` acima). Ele alcança esta rota
+        // para registro retroativo — o técnico avisou por telefone — e não é
+        // ele que está na rua.
+        const dono = await pool.query(
+          `SELECT tecnico_id FROM chamados WHERE id = $1`,
+          [id]
+        );
+        if (!dono.rows.length) {
+          return res.status(404).json({ error: "Chamado não encontrado" });
+        }
+        if (dono.rows[0].tecnico_id !== tec.rows[0].id) {
+          return res.status(403).json({ error: "Chamado não está atribuído a você" });
+        }
+
+        const ocupado = await compromissoEmAberto(pool, tec.rows[0].id, id);
         if (ocupado) {
-          return res.status(409).json(erroAtendimentoEmAberto(ocupado));
+          return res.status(409).json(erroCompromissoEmAberto(ocupado));
         }
       }
     }

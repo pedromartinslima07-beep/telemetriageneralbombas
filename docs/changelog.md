@@ -17000,6 +17000,105 @@ chamado `em_atendimento` do mesmo técnico, com
 Sem migration. Sem bump de `?v=N`: o front alterado é o do APK
 (`app/public/app.js`), que não passa pelo cache-bust do admin.
 
+
+## A trava de um por vez começa ao SAIR (2026-09-14)
+
+Teste manual do Pedro, horas depois do commit anterior: *"acabei de testar e
+consegui colocar a caminho para dois chamados no mesmo condomínio (1 era chamado
+mesmo, outro era plano da preventiva) — esse é o comportamento?"*.
+
+Era, e era defeito. `POST /chamados/:id/a-caminho` **não muda o status** do
+chamado (grava só `tecnico_a_caminho_em`; ele segue `aberto`), e o guard escrito
+de manhã só olhava `em_atendimento`. A trava fechava a segunda porta — chegar —
+e deixava a primeira, sair, escancarada. A regra dizia uma coisa e o código fazia
+outra.
+
+O guard virou `compromissoEmAberto`: segura qualquer chamado do técnico com
+deslocamento em aberto — `em_atendimento`, **ou** `aberto` com
+`tecnico_a_caminho_em` preenchido. A mensagem passa a variar com o estado ("você
+já está a caminho de X" · "você ainda está em atendimento em X"), porque mandar
+procurar uma O.S. que ainda não existe confunde mais do que travar.
+
+⚠️ **E não há exceção para o mesmo condomínio**, ainda que os dois chamados do
+teste fossem do mesmo prédio. Resposta do Pedro à pergunta: *"não é para aceitar
+os dois mesmo que seja no mesmo condomínio; até um na mesma O.S. que faz a
+manutenção normal o técnico marca que fez a preventiva e o sistema entende"*.
+**Esse caminho já existe desde 04/09** (migration 084): marcar `preventiva_mensal`
+nos `tipos_servico` da O.S. chama `darBaixaPorOS`, que credita o plano, grava
+`ultima_os_id` como trilha e **fecha o chamado da preventiva** na mesma
+transação. Um serviço, uma O.S., uma assinatura.
+
+`scripts/testes/um-atendimento-por-vez.test.js` foi de 10 para **14 checagens**,
+com o caso exato do teste manual — dois chamados **no mesmo `condominio_id`**, e
+o segundo levando 409 já no "A caminho".
+
+⚠️ **Exige APK novo** de novo: `configurarCTA` também passou a considerar o
+estado "a caminho".
+
+
+## A preventiva devolvida aparece, e "em campo" volta a significar campo (2026-09-14)
+
+Pedido do Pedro depois de olhar a tela: *"no painel de operador, na tela da
+preventiva, não fica claro que o técnico devolveu; e se o operador mesmo assim
+escalar ele de novo, a forma que aparece no app não está boa"*.
+
+**Três defeitos, e dois só apareceram porque fomos olhar na tela.**
+
+### 1. "Em campo" não exigia campo
+
+`estadoDa` lia "chamado aberto COM técnico" como em campo — e ter dono não é
+estar no prédio. Assim, reescalar um chamado devolvido ressuscitava "Em campo"
+sem ninguém ter saído de casa. Medido no banco de teste: **10 dos 11 planos do
+mês** apareciam "Em campo". É a segunda vez que este estado incha (em 04/09 ele
+lia qualquer chamado aberto: 69 planos, zero técnico).
+
+Agora são três estágios, com carimbos que já existiam: `em_atendimento` → **em
+campo**; `tecnico_a_caminho_em` → **a caminho**; dono e nenhum dos dois →
+**escalada**.
+
+⚠️ **As guardas passaram a usar `andando()`** (a caminho ou em campo), não
+`em_campo` — senão um plano com o técnico já a caminho voltaria a ser
+despachável, que é a receita para dois técnicos no mesmo prédio. E o guard de
+`POST /operador/preventivas/:id/feita` foi junto: ele recusava por "tem
+técnico", e ficaria divergente da tela, que passa a oferecer "Já foi feita" em
+`escalada`. **Caixa que aparece e recusa é pior que caixa que não aparece.**
+
+### 2. A devolução era invisível
+
+`GET /operador/preventivas` passou a devolver `devolucao: {em, motivo,
+tecnico_nome}`, lida de `historico_chamados` (`campo_alterado = 'devolvido'`).
+O dado sempre existiu; faltava alguém ler. Na tela: selo âmbar **"Devolvida"**,
+que **ganha do atraso** (as duas pedem ação; ganha a que explica *por que* está
+parado), e o motivo em linha própria, entre aspas — é texto de gente.
+
+### 3. O roteiro do app tinha virado tela de leitura
+
+`rtCardPredio` carimbava como "em andamento" qualquer plano com chamado aberto —
+e o job abre chamado para todas as preventivas do mês, então valia para todos:
+os três prédios "em andamento", nenhum com botão. `meu-roteiro` passa a devolver
+`chamado_meu` e `estado`, e o card tem quatro leituras (pendente · meu parado ·
+andando · de outro). Os números do topo e o badge da aba contavam pela régua
+velha e foram junto: hoje mostram **"Esperando"**.
+
+### 4. E o chamado órfão, que era um beco completo
+
+O chamado do mês nasce sem dono (a atribuição automática só ocorre com **um**
+responsável na zona). Nesse estado o técnico não tinha caminho nenhum:
+"Iniciar" respondia `duplicado` sem atribuir, `iniciar-atendimento` dava 403, a
+ficha dava **404** e `/chamados/meus` não listava. Agora o "Iniciar" **adota** o
+chamado órfão de quem tem direito ao plano (chamado de outro técnico não é
+adotado; o job não adota).
+
+⚠️ **E `POST /chamados/:id/a-caminho` ganhou a checagem de dono** — era a única
+rota da família sem ela, e respondia 200 carimbando `tecnico_a_caminho_em` no
+chamado de qualquer um.
+
+**Testes:** `preventiva-orfa.test.js` (11, novo), `preventivas-mes` (66),
+`preventiva-feita-a-mao` (33), `planos-fluxo` (32), `planos-tela` (24). Os três
+do meio tiveram asserções atualizadas, com o porquê escrito no lugar.
+
+Sem migration. ⚠️ **Exige APK novo** (`app/public/app.js`).
+
 ---
 
 > Decisões, itens descartados e backlog futuro:

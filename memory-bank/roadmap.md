@@ -41,6 +41,20 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **A preventiva devolvida aparece, e "em campo" volta a significar campo**
+  (14/09/2026). *"não fica claro que o técnico devolveu; e se o operador mesmo
+  assim escalar ele de novo, a forma que aparece no app não está boa"*.
+  `estadoDa` ganhou três estágios (escalada · a caminho · em campo), a tela do
+  operador ganhou selo e motivo da devolução, e o roteiro do app voltou a ter
+  ação. De quebra, o **chamado órfão** deixou de ser beco: o "Iniciar" adota, e
+  o `/a-caminho` passou a conferir dono. Sem migration; 11 checagens novas em
+  `scripts/testes/preventiva-orfa.test.js`. Detalhe em
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - ⚠️ **Exige APK novo.**
+  - 📋 **Falta conferir em tela de mesa.** A verificação visual saiu em largura
+    de celular — o painel lateral do Chrome deixava a viewport em 396px, e o
+    brief dessa tela diz que desktop é a cena principal.
+
 - ✅ **Um atendimento por vez** (14/09/2026). *"temos hoje alguma trava para
   impedir o técnico de aceitar um chamado antes dele fechar outro?"* — não
   tinha. E a régua veio do próprio Pedro: finalizar a O.S. exige a assinatura de
@@ -49,7 +63,11 @@ aliases:
   `iniciar-atendimento` respondem 409 com outro chamado em atendimento; o app
   desabilita o botão antes do toque. **Não trava a atribuição** (despacho é
   planejamento) e **não tem exceção para P1** — quem precisa largar, devolve.
-  Sem migration; 10 checagens em `scripts/testes/um-atendimento-por-vez.test.js`.
+  ⚠️ **Sem exceção para o mesmo condomínio** — chamado + preventiva do mesmo
+  prédio se resolvem marcando `preventiva_mensal` na O.S. (caminho de 04/09), não
+  aceitando dois. Sem migration; 14 checagens em
+  `scripts/testes/um-atendimento-por-vez.test.js`, incluindo o furo do "A
+  caminho" duplo achado em teste manual no mesmo dia.
   Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
   - ⚠️ **Exige APK novo** — `configurarCTA` vai empacotado.
   - 📋 **A lista não sinaliza, só a ficha.** Quem abre a lista de chamados vê

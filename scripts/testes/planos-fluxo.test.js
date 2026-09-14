@@ -118,7 +118,13 @@ async function main() {
 
       tela = await (await fetch(base + "/planos-manutencao", { headers: H })).json();
       const agora = tela.planos.find((p) => p.id === p1.id);
-      ok("e AGORA a tela diz 'em campo'", agora && agora.estado === "em_campo",
+      // ⚠️ DIZIA "em campo" ATÉ 14/09/2026. Escalar dá DONO ao chamado, e ter
+      // dono não é estar no prédio — para "em campo" o chamado precisa estar
+      // `em_atendimento`. O que o despacho produz é `escalada`, e é isso que a
+      // tela do operador passa a mostrar. Ver `estadoDa` no preventivas.service
+      // e os três estágios em `preventivas-mes.test.js`.
+      ok("e AGORA a tela diz 'escalada' (tem dono; ninguém saiu ainda)",
+         agora && agora.estado === "escalada",
          agora ? "estado=" + agora.estado : "");
     }
 
