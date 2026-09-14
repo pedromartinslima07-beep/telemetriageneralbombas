@@ -176,6 +176,45 @@ na taxa de resolução e no tempo médio do painel como atendimento cumprido.
 - **Teste:** `scripts/testes/cancelar-chamado.test.js` (23 checagens, rota de
   verdade contra o banco de teste).
 
+### Um atendimento por vez (14/09/2026)
+
+⚠️ **`em_atendimento` SIGNIFICA QUE ELE ESTÁ NO PRÉDIO.** Pergunta do Pedro:
+*"não tem como; para ele finalizar a O.S. e pegar a assinatura ele tem que estar
+no cliente ainda, então não tem como ele estar a caminho de outro"*.
+`POST /ordens-servico/:id/finalizar` recusa sem `assinatura_b64` e
+`recebido_nome`, colhidos no local — o estado não é rótulo de intenção, é fato
+físico. Mesmo assim o app deixava marcar "A caminho" de um segundo chamado:
+gravava um deslocamento que não existia e punha dois prédios no workload de uma
+pessoa só.
+
+Hoje `POST /chamados/:id/a-caminho` e `POST /chamados/:id/iniciar-atendimento`
+respondem **409** enquanto o técnico tiver outro chamado `em_atendimento`. A
+resposta carrega `chamado_em_atendimento: {id, condominio_nome}` — quem lê é o
+técnico no celular, e ele precisa saber **onde** ficou o chamado preso.
+
+- ⚠️ **NÃO TRAVA A ATRIBUIÇÃO.** A gestão segue enfileirando quantos chamados
+  quiser no técnico pelo `PATCH /chamados/:id` — despacho é planejamento. O que
+  passa a ser um por vez é **aceitar**: sair para o prédio e chegar nele.
+- ⚠️ **NÃO HÁ EXCEÇÃO PARA P1, e é de propósito** — a válvula de escape já
+  existe: quem precisa largar o atendimento atual por uma emergência **devolve**
+  (abaixo). Ele não precisa poder aceitar dois; precisa poder largar um — e
+  largar deixa rastro no `historico_chamados`, enquanto acumular em silêncio não
+  deixava nenhum.
+- ⚠️ **A IDEMPOTÊNCIA DO `iniciar-atendimento` SOBREVIVE.** O guard ignora o
+  próprio chamado (`id <> $2`): reenviar no que ele **já** está atendendo segue
+  devolvendo a mesma O.S., e não 409. O app reenvia em reconexão — transformar
+  isso em erro travaria o técnico que perdeu sinal no subsolo.
+- ⚠️ **O `admin` não é travado** na rota `/a-caminho`. Ele também a alcança, para
+  registro retroativo quando o técnico avisou por telefone; não é ele que está
+  na rua.
+- **No app, o botão avisa antes do toque** (`configurarCTA` em
+  `app/public/app.js`): vira "Termine o atendimento em `<prédio>`", desabilitado.
+  Descobrir a regra por 409 depois de tocar pareceria falha do app — e sem sinal
+  o toque nem receberia o erro. A checagem usa a lista já em memória, então não
+  custa requisição e funciona offline.
+- **Teste:** `scripts/testes/um-atendimento-por-vez.test.js` (10 checagens, rota
+  de verdade contra o banco de teste).
+
 ### A devolução (11/09/2026)
 
 ⚠️ **ACEITAR ERA PORTA DE MÃO ÚNICA.** Pedido do Pedro: *"em alguns casos,

@@ -129,12 +129,29 @@ const ok = (nome, cond) => r.push([nome, cond]);
        posDepois.rows.length === posAntes.rows.length &&
        String(posDepois.rows[0]?.lat) === String(posAntes.rows[0]?.lat));
 
+    // ⚠️ DESDE 14/09/2026 O TÉCNICO SÓ ATENDE UM POR VEZ, e este teste inicia
+    // vários atendimentos seguidos para exercitar as formas do payload. Sem
+    // soltar o anterior, todos a partir do segundo levam 409 — e o teste
+    // passaria a medir a trava em vez do GPS.
+    //
+    // Solta escrevendo no banco de propósito: o que se prova aqui é o
+    // tratamento da coordenada, e a trava tem teste próprio
+    // (`scripts/testes/um-atendimento-por-vez.test.js`). Volta para `aberto`, e
+    // não `fechado`, porque o bloco de idempotência lá embaixo reinicia o
+    // primeiro chamado — fechado, ele levaria 400.
+    const liberar = () => pool.query(
+      "UPDATE chamados SET status='aberto' WHERE tecnico_id=$1 AND status='em_atendimento'",
+      [tecnicoId]
+    );
+
     // ── Sem corpo nenhum: nem Content-Type ────────────────────────────────
+    await liberar();
     const ch2 = await criar("Inicio sem GPS · sem corpo");
     const res2 = await iniciar(ch2.id, undefined);
     ok("sem corpo algum também inicia (200)", res2.status === 200);
 
     // ── Com GPS: o caminho normal não pode ter regredido ──────────────────
+    await liberar();
     const ch3 = await criar("Inicio sem GPS · com coordenada");
     const res3 = await iniciar(ch3.id, { lat: -23.55, lng: -46.63, precisao_m: 12 });
     ok("com coordenada continua 200", res3.status === 200);
@@ -161,6 +178,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
     ok("nem criou O.S.", os4.rows.length === 0);
 
     // ── Idempotência preservada ───────────────────────────────────────────
+    await liberar();
     const res5 = await iniciar(ch.id, {});
     const j5 = await res5.json();
     ok("iniciar de novo devolve a mesma O.S.", j5.ordem_servico?.id === j1.ordem_servico?.id);

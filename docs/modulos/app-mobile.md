@@ -629,6 +629,33 @@ armazenamento leva o rascunho junto. É local, não é backup.
 PATCH e do rascunho, que é justamente o caminho a exercitar. O jeito é
 interceptar o `fetch` na página e derrubar/levantar a rede.
 
+## Um atendimento por vez (14/09/2026)
+
+`configurarCTA()` decidia o botão olhando só **aquele** chamado, e a lista não
+sabia que já havia um em atendimento: dava para marcar "A caminho" de um segundo
+prédio estando dentro do primeiro. Como finalizar a O.S. exige a assinatura de
+quem recebeu, colhida no local, esse deslocamento nunca existiu de verdade — o
+app estava gravando ficção.
+
+Agora, com outro chamado `em_atendimento` na lista, o CTA de qualquer chamado
+`aberto` vira **"Termine o atendimento em `<prédio>`"**, desabilitado. O backend
+recusa igual (409); o botão só evita que o técnico descubra a regra por mensagem
+de erro — o que pareceria falha do app, e **sem sinal nem chegaria**, deixando
+ele diante de um botão que não faz nada.
+
+- A checagem lê `TC.chamados`, a lista já em memória: **nenhuma requisição**, e
+  por isso funciona no subsolo.
+- ⚠️ **O texto vai no `#tdCtaLabel`, nunca em `btn.textContent`.** O label é um
+  `<span>` dentro do botão, e existe **um** botão no `index.html`, reusado por
+  todos os chamados — escrever no botão apagaria o span para sempre. É o mesmo
+  tipo de estado residual que o `bar.style.display = ""` da mesma função existe
+  para limpar.
+- A saída para uma emergência continua sendo **devolver** (abaixo), não aceitar
+  dois.
+- Regra, rotas e o 409 em
+  [`chamados-sla.md`](chamados-sla.md).
+- ⚠️ **Exige APK novo** — `configurarCTA` é empacotado no app.
+
 ## Devolver o chamado para a fila (11/09/2026)
 
 Até aqui, `configurarCTA()` só sabia avançar: "A caminho" → "Iniciar

@@ -41,6 +41,21 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Um atendimento por vez** (14/09/2026). *"temos hoje alguma trava para
+  impedir o técnico de aceitar um chamado antes dele fechar outro?"* — não
+  tinha. E a régua veio do próprio Pedro: finalizar a O.S. exige a assinatura de
+  quem recebeu, colhida no local, então `em_atendimento` significa que ele está
+  **dentro** do prédio e "a caminho de outro" é impossível. `a-caminho` e
+  `iniciar-atendimento` respondem 409 com outro chamado em atendimento; o app
+  desabilita o botão antes do toque. **Não trava a atribuição** (despacho é
+  planejamento) e **não tem exceção para P1** — quem precisa largar, devolve.
+  Sem migration; 10 checagens em `scripts/testes/um-atendimento-por-vez.test.js`.
+  Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
+  - ⚠️ **Exige APK novo** — `configurarCTA` vai empacotado.
+  - 📋 **A lista não sinaliza, só a ficha.** Quem abre a lista de chamados vê
+    todos com aparência normal e só descobre a trava ao entrar. Se incomodar, o
+    lugar é o card em `renderTecnicoChamados`.
+
 - ✅ **O TTFR para de correr na preventiva** (14/09/2026). *"qual o sentido de
   ter isso na preventiva, levando em consideração que não tem o que responder,
   já que é um serviço que já está agendado mensalmente"*. Preventiva vencida

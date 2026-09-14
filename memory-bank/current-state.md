@@ -198,6 +198,28 @@ prédio.
   fica em `historico_chamados` (`campo_alterado = 'devolvido'`).
 - **Sem migration.** Teste: `scripts/testes/devolver-chamado.test.js` (24).
 
+### Um atendimento por vez (14/09/2026)
+
+`POST /chamados/:id/a-caminho` e `/iniciar-atendimento` respondem **409**
+enquanto o técnico tiver outro chamado `em_atendimento`. Não havia trava nenhuma
+até aqui — dava para aceitar cinco ao mesmo tempo, cada um com sua O.S. rascunho.
+
+⚠️ **A régua é física, não administrativa:** finalizar a O.S. exige
+`assinatura_b64` e `recebido_nome`, colhidos no local. Enquanto o chamado está
+`em_atendimento`, o técnico **está dentro do prédio** — "a caminho de outro" era
+um deslocamento que o app gravava e que nunca existiu.
+
+- **Não trava a atribuição** (`PATCH /chamados/:id`): despacho é planejamento; o
+  que é um por vez é **aceitar**.
+- **Sem exceção para P1**, de propósito: quem precisa largar o atendimento atual
+  **devolve** (11/09). Largar deixa rastro; acumular em silêncio não deixava.
+- **A idempotência do `iniciar-atendimento` sobrevive** — o guard ignora o
+  próprio chamado; o app reenvia em reconexão.
+- **No app:** o CTA vira "Termine o atendimento em `<prédio>`", desabilitado,
+  lendo a lista em memória (funciona sem sinal). ⚠️ **Exige APK novo.**
+- **Sem migration.** Teste: `scripts/testes/um-atendimento-por-vez.test.js` (10).
+  Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
+
 ### Iniciar atendimento sem GPS (11/09/2026)
 
 `POST /chamados/:id/iniciar-atendimento` **não exige mais a coordenada**. Ela

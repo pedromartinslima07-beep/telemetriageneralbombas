@@ -16,6 +16,55 @@ const {
   prioridadeSugerida, subirUmNivel,
 } = require("../services/prioridade.service");
 
+// ⚠️ UM ATENDIMENTO POR VEZ (14/09/2026) — o helper das duas travas abaixo.
+//
+// Pergunta do Pedro: *"não tem como; para ele finalizar a O.S. e pegar a
+// assinatura ele tem que estar no cliente ainda, então não tem como ele estar a
+// caminho de outro"*.
+//
+// `em_atendimento` não é um rótulo de intenção: `POST /ordens-servico/:id/finalizar`
+// recusa sem `assinatura_b64` e `recebido_nome`, colhidos no local. Enquanto o
+// chamado está nesse estado, o técnico está FISICAMENTE no prédio — e o app
+// deixava ele marcar "A caminho" de um segundo, gravando um deslocamento que não
+// existe e pondo dois prédios no workload de uma pessoa só.
+//
+// ⚠️ NÃO TRAVA A ATRIBUIÇÃO. A gestão continua podendo enfileirar quantos
+// chamados quiser no técnico (`PATCH /chamados/:id`) — despacho é planejamento.
+// O que passa a ser um por vez é ACEITAR: sair para o prédio e chegar nele.
+//
+// ⚠️ A VÁLVULA DE ESCAPE JÁ EXISTE e é por isso que não há exceção para P1:
+// quem precisa largar o atendimento atual por uma emergência usa
+// `POST /chamados/:id/devolver` (11/09). Ele não precisa poder aceitar dois;
+// precisa poder largar um — e largar deixa rastro no histórico, enquanto
+// acumular em silêncio não deixava nenhum.
+//
+// Devolve o chamado que está segurando o técnico, ou null se ele está livre.
+async function atendimentoEmAberto(executor, tecnicoId, exceto) {
+  const r = await executor.query(
+    `SELECT ch.id, ch.titulo, c.nome AS condominio_nome
+       FROM chamados ch
+       LEFT JOIN condominios c ON c.id = ch.condominio_id
+      WHERE ch.tecnico_id = $1
+        AND ch.status = 'em_atendimento'
+        AND ch.id <> $2
+      ORDER BY ch.id
+      LIMIT 1`,
+    [tecnicoId, exceto || 0]
+  );
+  return r.rows[0] || null;
+}
+
+// A mesma frase nas duas rotas: quem lê é o técnico no celular, e ele precisa
+// saber ONDE ficou o chamado preso, não só que existe um.
+function erroAtendimentoEmAberto(aberto) {
+  const onde = aberto.condominio_nome || aberto.titulo || ("chamado #" + aberto.id);
+  return {
+    error: "Você ainda está em atendimento em " + onde +
+           ". Finalize a O.S. (ou devolva o chamado para a fila) antes de pegar outro.",
+    chamado_em_atendimento: { id: aberto.id, condominio_nome: aberto.condominio_nome || null },
+  };
+}
+
 // POST /chamados — cria chamado manualmente (admin, gerente, operador)
 //
 // ⚠️ `tecnico_id` É OPCIONAL E NASCEU DEPOIS (31/08/2026, pedido do Pedro:
@@ -774,6 +823,15 @@ router.post("/:id/iniciar-atendimento", authRequired, async (req, res) => {
       return res.status(400).json({ error: "Chamado já fechado" });
     }
 
+    // Um atendimento por vez (ver `atendimentoEmAberto` no topo do arquivo).
+    // ⚠️ `exceto: id` é o que preserva a IDEMPOTÊNCIA desta rota: reenviar
+    // `iniciar-atendimento` do chamado que ELE JÁ está atendendo tem de seguir
+    // devolvendo a O.S. existente, e não 409 — o app reenvia em reconexão.
+    const ocupado = await atendimentoEmAberto(client, tecnicoId, id);
+    if (ocupado) {
+      return res.status(409).json(erroAtendimentoEmAberto(ocupado));
+    }
+
     await client.query("BEGIN");
 
     // Idempotência: UNIQUE em ordens_servico.chamado_id garante 1:1.
@@ -1284,6 +1342,26 @@ router.post("/:id/a-caminho", authRequired, async (req, res) => {
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
   try {
+    // Um atendimento por vez (ver `atendimentoEmAberto` no topo do arquivo).
+    // Sair para um prédio enquanto se está dentro de outro é impossível no
+    // mundo, e era possível aqui.
+    //
+    // ⚠️ SÓ PARA O TÉCNICO. O `admin` também alcança esta rota (registro
+    // retroativo pela gestão, quando o técnico avisou por telefone) e não é ele
+    // que está na rua — travá-lo seria impedir a correção do registro.
+    if (req.user.role === "tecnico") {
+      const tec = await pool.query(
+        `SELECT id FROM tecnicos WHERE usuario_id = $1 AND ativo = true LIMIT 1`,
+        [req.user.id]
+      );
+      if (tec.rows.length) {
+        const ocupado = await atendimentoEmAberto(pool, tec.rows[0].id, id);
+        if (ocupado) {
+          return res.status(409).json(erroAtendimentoEmAberto(ocupado));
+        }
+      }
+    }
+
     const r = await pool.query(
       `UPDATE chamados
        SET tecnico_a_caminho_em = COALESCE(tecnico_a_caminho_em, NOW()),

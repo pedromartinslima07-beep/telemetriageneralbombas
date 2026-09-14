@@ -16958,6 +16958,48 @@ Correção: uma condição a mais no `CASE` de `GET /chamados`
 Sem migration (nenhuma mudança de schema) e sem bump de `?v=N`: a correção é só
 de backend, e `sw.js` não muda porque nenhum endpoint é novo.
 
+
+## Um atendimento por vez (2026-09-14)
+
+Pergunta do Pedro: *"temos hoje alguma trava para impedir o técnico de aceitar
+um chamado antes dele fechar outro?"*. Não tinha — nem no app, nem no backend.
+`iniciar-atendimento` conferia três coisas (é técnico ativo, o chamado é dele,
+não está fechado) e nenhuma olhava para os outros chamados dele; `a-caminho` era
+um `UPDATE` direto.
+
+O que fecha a questão é o que o Pedro apontou em seguida: *"para ele finalizar a
+O.S. e pegar a assinatura ele tem que estar no cliente ainda, então não tem como
+ele estar a caminho de outro"*. `POST /ordens-servico/:id/finalizar` recusa sem
+`assinatura_b64` e `recebido_nome` — `em_atendimento` não é rótulo de intenção,
+é fato físico. O app deixava gravar um deslocamento que não existia e pôr dois
+prédios no workload de uma pessoa só.
+
+As duas rotas de aceitar passam a responder **409** enquanto houver outro
+chamado `em_atendimento` do mesmo técnico, com
+`chamado_em_atendimento: {id, condominio_nome}` na resposta.
+
+- ⚠️ **Não trava a atribuição:** a gestão segue enfileirando quantos quiser pelo
+  `PATCH /chamados/:id`. Despacho é planejamento; o que é um por vez é **aceitar**.
+- ⚠️ **Sem exceção para P1, de propósito:** a válvula de escape já existe desde
+  11/09 — quem precisa largar o atendimento atual **devolve**. Ele não precisa
+  poder aceitar dois; precisa poder largar um, e largar deixa rastro no
+  histórico.
+- ⚠️ **A idempotência sobrevive:** o guard ignora o próprio chamado (`id <> $2`),
+  então reenviar `iniciar-atendimento` no que ele já atende segue devolvendo a
+  mesma O.S. O app reenvia em reconexão.
+- O `admin` não é travado no `/a-caminho` (registro retroativo pela gestão).
+- **No app** (`configurarCTA`), o botão vira "Termine o atendimento em
+  `<prédio>`", desabilitado, lendo a lista já em memória — avisa antes do toque e
+  funciona sem sinal. ⚠️ **Exige APK novo.**
+- **Teste:** `scripts/testes/um-atendimento-por-vez.test.js` (10 checagens, rota
+  de verdade). O `iniciar-atendimento-sem-gps.test.js` (11/09) precisou de ajuste:
+  ele inicia vários atendimentos seguidos para exercitar formas de payload e
+  passou a esbarrar na trava — ganhou um `liberar()` explícito entre os blocos,
+  com o porquê escrito. Segue 19/19.
+
+Sem migration. Sem bump de `?v=N`: o front alterado é o do APK
+(`app/public/app.js`), que não passa pelo cache-bust do admin.
+
 ---
 
 > Decisões, itens descartados e backlog futuro:

@@ -1366,6 +1366,38 @@ function configurarCTA(c) {
   const secExist = document.getElementById("tdCtaBtnSec");
   if (secExist) secExist.remove();
 
+  // ⚠️ UM ATENDIMENTO POR VEZ (14/09/2026). O backend recusa com 409 desde esta
+  // data; aqui o botão avisa ANTES do toque. Descobrir a regra por mensagem de
+  // erro depois de tocar é pior de duas formas: parece falha do app, e quando o
+  // sinal cai o toque nem chega a receber o 409 — o técnico ficaria olhando um
+  // botão que não faz nada.
+  //
+  // A premissa: finalizar a O.S. pede assinatura de quem recebeu, colhida no
+  // local. Enquanto ele está `em_atendimento`, ele está DENTRO do outro prédio.
+  //
+  // A lista dele já está em memória, então a checagem não custa requisição —
+  // e no subsolo, sem sinal, é a única que existe.
+  const ocupadoEm = (TC.chamados || []).find(
+    (x) => x && x.id !== c.id && x.status === "em_atendimento"
+  );
+
+  if (c.status === "aberto" && ocupadoEm) {
+    // ⚠️ O texto vai no `lbl`, NUNCA em `btn.textContent`: o label é um <span>
+    // DENTRO do botão, e o botão é um só no index.html, reusado por todos os
+    // chamados. Escrever no botão apagaria o span para sempre — o mesmo tipo de
+    // estado residual que o `bar.style.display` acima existe para limpar.
+    //
+    // O nome do prédio, não o número do chamado: é assim que ele sabe onde está.
+    const onde = ocupadoEm.condominio_nome || ocupadoEm.nome || "outro chamado";
+    lbl.textContent = "Termine o atendimento em " + onde;
+    btn.className = "btn btn-lg";
+    btn.style = "";
+    btn.disabled = true;
+    btn.onclick = null;
+    return;
+  }
+  btn.disabled = false;
+
   if (c.status === "aberto") {
     if (!c.tecnico_a_caminho_em) {
       // Fase 1: ainda não saiu → "A caminho"
