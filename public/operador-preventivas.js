@@ -82,7 +82,23 @@ function mesPorExtenso(mes) {
 let DADOS = { mes: null, planos: [], tecnicos: [] };
 let MES = null;                 // YYYY-MM sendo exibido
 let SEL = new Set();            // ids marcados para o despacho em lote
-let VER_FEITAS = false;
+// ⚠️ TRÊS ESTADOS, NÃO DOIS: `null` é "ninguém decidiu ainda", e é o que
+// permite a busca abrir o bloco sozinha (ver `corpo()`) sem tirar do operador
+// o direito de fechá-lo. Com um booleano, o `esconder` de um bloco aberto pela
+// busca não escondia nada: a condição da busca continuava valendo no desenho
+// seguinte e reabria na hora. Medido no Chrome em 15/09/2026.
+let VER_FEITAS = null;
+// ⚠️ A BUSCA ATRAVESSA A TROCA DE MÊS de propósito — ao contrário da seleção,
+// que `carregar()` zera. A pergunta que traz o operador para cá com um prédio
+// na cabeça ("a preventiva do Torres do Parque saiu?") costuma continuar no mês
+// anterior, e obrigá-lo a redigitar o nome a cada seta seria cobrar duas vezes
+// pela mesma pergunta.
+let BUSCA = "";
+// Quem de fato está mostrando as feitas neste desenho — pode ser `VER_FEITAS`
+// ou a abertura automática da busca. O clique no "mostrar/esconder" inverte
+// ISTO, não o `VER_FEITAS`, senão o primeiro clique num bloco já aberto pela
+// busca não fecharia nada.
+let _MOSTRANDO_FEITAS = false;
 
 // ⚠️ O QUE JÁ FOI FEITO SAI DA LISTA, e recolhe para uma linha no fim — mesma
 // decisão de Aprovados (31/08, "se não vai ficar pra sempre e vai ficar tudo
@@ -125,6 +141,49 @@ async function carregar(mes) {
   // competência existe para impedir.
   SEL = new Set();
   return d;
+}
+
+/* ── A busca ─────────────────────────────────────────────────────────────
+   Pedido do Pedro (15/09/2026): pesquisa de cliente nesta tela. São 76 planos
+   ativos em produção espalhados por zona, e a tela é justamente a que ordena
+   por dívida, não por nome — achar UM prédio nela é rolar a lista inteira
+   lendo cabeçalho de zona por cabeçalho de zona.
+
+   ⚠️ FILTRA O QUE JÁ ESTÁ NA MÃO, não vai ao servidor. O mês inteiro chega
+   numa resposta só (`GET /operador/preventivas`), e ir à rede a cada tecla
+   custaria uma espera por letra para reordenar o que a tela já tem — a mesma
+   decisão da tela de equipamentos.
+
+   ⚠️ SEM ACENTO E SEM CAIXA, e por PALAVRA: "leste vila" acha "Vila Mariana"
+   na Zona Leste em qualquer ordem. É a regra do `condo-picker.js`, que é como
+   o operador já procura prédio nas outras telas — busca que casa só o começo
+   do texto é busca que se faz duas vezes.
+
+   ⚠️ E ELA PROCURA MAIS QUE O NOME DA PLACA. A placa mostra o nome fantasia;
+   quem liga da portaria às vezes diz a razão social, e quem despacha pensa em
+   bairro e zona. Os três entram, mais o título do plano. */
+var _RE_ACENTO = /[̀-ͯ]/g;
+
+function _norm(s) {
+  return String(s ?? "").normalize("NFD").replace(_RE_ACENTO, "").toLowerCase();
+}
+
+function _termos() {
+  return _norm(BUSCA).trim().split(/\s+/).filter(Boolean);
+}
+
+function _alvoDaBusca(p) {
+  return _norm([p.condominio_nome, p.condominio_razao_social, p.bairro,
+                p.cidade, p.zona, p.titulo].filter(Boolean).join(" "));
+}
+
+function filtrar(lista) {
+  const termos = _termos();
+  if (!termos.length) return lista;
+  return lista.filter((p) => {
+    const alvo = _alvoDaBusca(p);
+    return termos.every((t) => alvo.includes(t));
+  });
 }
 
 /* ── O agrupamento ───────────────────────────────────────────────────── */
@@ -488,11 +547,94 @@ function barraDespacho() {
   </div>`;
 }
 
+/* ── A barra de busca ────────────────────────────────────────────────────
+   ⚠️ DEPOIS DA MANCHETE, NÃO ANTES. A manchete é a resposta que a tela dá sem
+   ninguém pedir ("69 a fazer em setembro"); a busca é a pergunta de quem já
+   sabe o que quer. É a ordem da tela de equipamentos, que resolveu o mesmo par.
+
+   ⚠️ É `type="search"`. O × nativo do navegador limpa o campo E dispara
+   `input`, e o Esc dentro do campo faz o mesmo — três caminhos de volta sem
+   um botão nosso ocupando a linha.
+
+   ⚠️ A CONTAGEM É `role="status"`, e ela existe porque a lista filtrada não
+   diz mais de quantos ela saiu. Sem isso, "3" na tela com 69 no mês parece a
+   lista tendo encolhido, não um recorte. */
+function ferramentas(visiveis, total) {
+  return `
+  <div class="pv-ferramentas">
+    <label class="sr-only" for="pvBusca">Procurar prédio</label>
+    <input class="pv-busca" id="pvBusca" type="search" inputmode="search"
+      placeholder="Procurar prédio — nome, bairro ou zona"
+      value="${escapar(BUSCA)}" autocomplete="off" spellcheck="false">
+    <span class="pv-busca-n" id="pvBuscaN" role="status">${
+      BUSCA.trim() ? `${visiveis} de ${total}` : ""}</span>
+  </div>`;
+}
+
+/* ── O corpo ─────────────────────────────────────────────────────────────
+   A parte que a busca redesenha. Separado do `render()` para que digitar não
+   destrua o campo em que se está digitando: refazer `#tela` inteiro a cada
+   tecla tiraria o foco do `input` e mandaria o cursor embora. Mesma peça do
+   `_pintarLista()` da tela de equipamentos. */
+function corpo() {
+  const abertas = filtrar(DADOS.planos.filter((p) => !feita(p)));
+  const feitas  = filtrar(DADOS.planos.filter(feita));
+
+  // ⚠️ BUSCA SEM NADA É ESTADO, não lista vazia — e ela nomeia o termo. "Nada
+  // encontrado" sozinho deixa a dúvida de se o prédio não existe ou se foi o
+  // acento que faltou.
+  if (!abertas.length && !feitas.length) {
+    return `
+      <section class="calmo">
+        <h1>Nada encontrado.</h1>
+        <p>Nenhum prédio com <b>${escapar(BUSCA.trim())}</b> em
+           ${escapar(mesPorExtenso(MES))} — nem no nome, nem no bairro, nem na
+           zona. Tente parte do nome, ou use as setas para olhar outro mês.</p>
+      </section>`;
+  }
+
+  // ⚠️ A BUSCA ABRE AS FEITAS QUANDO NÃO SOBRA NADA A FAZER. Procurar um
+  // prédio e receber uma tela vazia com "1 já feita · mostrar" escondido lá
+  // embaixo é esconder exatamente a resposta que a pergunta pedia: ele já foi.
+  _MOSTRANDO_FEITAS = VER_FEITAS === null
+    ? (!!BUSCA.trim() && !abertas.length && feitas.length > 0)
+    : VER_FEITAS;
+
+  const linhaFeitas = feitas.length ? `
+    <div class="pv-feitas-cab">
+      <span>${feitas.length} já ${feitas.length > 1 ? "feitas" : "feita"}</span>
+      <button type="button" class="pv-verfeitas" data-acao="ver-feitas"
+        aria-expanded="${_MOSTRANDO_FEITAS ? "true" : "false"}">${
+        _MOSTRANDO_FEITAS ? "esconder" : "mostrar"}</button>
+    </div>
+    ${_MOSTRANDO_FEITAS ? `<div class="pv-lista pv-lista-feitas">${
+      agrupar(feitas).map(grupo).join("")}</div>` : ""}` : "";
+
+  return `<div class="pv-lista">${agrupar(abertas).map(grupo).join("")}</div>${linhaFeitas}`;
+}
+
+// Só o corpo e a contagem mudam quando se digita. O campo fica de pé, com o
+// foco e o cursor onde a pessoa os deixou.
+function _pintarBusca() {
+  const alvo = document.getElementById("pvCorpo");
+  if (!alvo) return render();
+  alvo.innerHTML = corpo();
+  const n = document.getElementById("pvBuscaN");
+  if (n) {
+    const total = DADOS.planos.length;
+    const vis = filtrar(DADOS.planos).length;
+    n.textContent = BUSCA.trim() ? `${vis} de ${total}` : "";
+  }
+}
+
 /* ── O desenho ───────────────────────────────────────────────────────── */
 function render() {
   const tela = document.getElementById("tela");
+  // ⚠️ A MANCHETE NÃO PASSA PELA BUSCA. Ela conta o MÊS ("69 a fazer em
+  // setembro"), e é o número que o operador leva para a reunião; recortá-lo
+  // pelo que está digitado no campo faria a tela dizer "1 preventiva a fazer"
+  // com 69 pendentes no banco. Quem fala do recorte é a contagem do campo.
   const abertas = DADOS.planos.filter((p) => !feita(p));
-  const feitas  = DADOS.planos.filter(feita);
 
   const troca = `
     <div class="pv-mes">
@@ -529,21 +671,11 @@ function render() {
     : `<h1>O mês de ${escapar(mesPorExtenso(MES))} está <b>fechado</b>.</h1>
        <p class="pv-lede">Todas as preventivas deste mês já foram feitas.</p>`;
 
-  const linhaFeitas = feitas.length ? `
-    <div class="pv-feitas-cab">
-      <span>${feitas.length} já ${feitas.length > 1 ? "feitas" : "feita"}</span>
-      <button type="button" class="pv-verfeitas" data-acao="ver-feitas"
-        aria-expanded="${VER_FEITAS ? "true" : "false"}">${
-        VER_FEITAS ? "esconder" : "mostrar"}</button>
-    </div>
-    ${VER_FEITAS ? `<div class="pv-lista pv-lista-feitas">${
-      agrupar(feitas).map(grupo).join("")}</div>` : ""}` : "";
-
   tela.innerHTML = `
     ${troca}
     <header class="pv-topo">${manchete}</header>
-    <div class="pv-lista">${agrupar(abertas).map(grupo).join("")}</div>
-    ${linhaFeitas}
+    ${ferramentas(filtrar(DADOS.planos).length, DADOS.planos.length)}
+    <div id="pvCorpo">${corpo()}</div>
     ${barraDespacho()}`;
 }
 
@@ -763,6 +895,14 @@ async function despachar(tecnicoId, nomeTec) {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && cancelarPvConfirma()) e.preventDefault();
 });
+
+// ⚠️ SEM `debounce`. O filtro é local e roda sobre 70-80 itens: esperar
+// 200ms para reordenar o que já está na memória só faz a tela parecer lenta.
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "pvBusca") return;
+  BUSCA = e.target.value;
+  _pintarBusca();
+});
 document.addEventListener("click", (e) => {
   if (e.target.closest("#btnSair")) return logout();
 
@@ -806,13 +946,20 @@ document.addEventListener("click", (e) => {
     return marcarFeita(Number(b.dataset.id), false);
   }
   if (a === "limpar")   { SEL = new Set(); return render(); }   // some tudo: vale redesenhar
-  if (a === "ver-feitas") { VER_FEITAS = !VER_FEITAS; return render(); }
+  // ⚠️ INVERTE O QUE ESTÁ NA TELA, não o `VER_FEITAS`. Com a busca tendo
+  // aberto o bloco sozinha, os dois divergem — e inverter a variável faria o
+  // primeiro clique em "esconder" não esconder nada.
+  if (a === "ver-feitas") { VER_FEITAS = !_MOSTRANDO_FEITAS; return render(); }
   if (a === "ajuda")    return dlgAjuda();
   if (a === "marcar-zona") {
     // ⚠️ ALTERNA A ZONA INTEIRA. Marcada toda, o mesmo botão desmarca — sem
     // isso, escolher a zona errada obriga a desmarcar prédio a prédio.
+    // ⚠️ E SÓ PEGA O QUE ESTÁ VISÍVEL. Com a busca ativa o botão diz "Escolher
+    // as 3" contando a lista filtrada; varrer `DADOS.planos` aqui marcaria os
+    // 14 da zona inteira — inclusive os que a pessoa não está vendo, que é a
+    // forma mais rápida de despachar um prédio sem querer.
     const zona = b.dataset.zona;
-    const daZona = DADOS.planos.filter(
+    const daZona = filtrar(DADOS.planos).filter(
       (p) => (p.zona || "Sem zona") === zona && !feita(p) && !andando(p));
     const todosMarcados = daZona.length > 0 && daZona.every((p) => SEL.has(p.id));
     for (const p of daZona) { if (todosMarcados) SEL.delete(p.id); else SEL.add(p.id); }

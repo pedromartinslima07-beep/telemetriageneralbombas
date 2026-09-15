@@ -545,6 +545,47 @@ vários seguidos com o teclado perde o lugar a cada um. Só a linha e o número 
 barra mudam (`_pintarMarcada` / `_atualizarBarra`), e a barra atualiza **só o
 número**, porque recriá-la apagaria o técnico já escolhido.
 
+### Procurar prédio (15/09/2026)
+
+Campo de busca entre a manchete e a lista. A tela ordena por **dívida** (quem
+tem mais atraso sobe), que responde "por onde começo" e não responde "e o
+Torres do Parque, saiu?" — achar UM prédio entre 70 e tantos era rolar a lista
+inteira lendo cabeçalho de zona por cabeçalho de zona.
+
+Filtra **o que já está na mão**: o mês inteiro chega numa resposta só, e ir à
+rede a cada tecla custaria uma espera por letra. Sem `debounce` pelo mesmo
+motivo. Procura em **seis campos** — nome fantasia, razão social, bairro,
+cidade, zona e título do plano —, **sem acento, sem caixa e por palavra**
+(`"leste vila"` acha "Vila Mariana" na Zona Leste em qualquer ordem). É a regra
+do `condo-picker.js`, que é como o operador já procura prédio nas outras telas.
+A razão social entra porque quem liga da portaria às vezes diz ela, e não o
+nome que está na placa.
+
+⚠️ **A manchete não passa pela busca.** Ela conta o mês ("69 a fazer em
+setembro") e é o número que vai para a reunião; recortá-lo pelo que está
+digitado faria a tela dizer "1 preventiva a fazer" com 69 pendentes no banco.
+Quem fala do recorte é a contagem em mono ao lado do campo ("3 de 69").
+
+⚠️ **Digitar não redesenha `#tela`** — destruiria o `<input>` em que se está
+digitando. Só `#pvCorpo` e a contagem mudam (`_pintarBusca`), como
+`_pintarLista()` faz na tela de equipamentos e pelo mesmo motivo que marcar uma
+caixinha já não chamava `render()`.
+
+⚠️ **"Escolher as N" só pega o que está visível.** Com a busca ativa o botão
+conta a lista filtrada; varrer `DADOS.planos` marcaria a zona inteira,
+inclusive o que a pessoa não está vendo.
+
+⚠️ **A busca abre "já feitas" quando não sobra nada a fazer** — receber tela
+vazia com "1 já feita · mostrar" escondido lá embaixo é esconder exatamente a
+resposta que a pergunta pedia. Por isso `VER_FEITAS` é **tri-state**
+(`null` = ninguém decidiu ainda): com booleano, o "esconder" de um bloco aberto
+pela busca não escondia nada — a condição da busca continuava valendo no
+desenho seguinte e reabria na hora.
+
+A busca **atravessa a troca de mês**, ao contrário da seleção, que `carregar()`
+zera: quem chega aqui com um prédio na cabeça costuma precisar olhar o mês
+anterior também.
+
 ### ⚠️ O terceiro link reabriu o defeito da barra no celular
 
 Com Preventivas a nav passou a ter três itens, e a 390px o wordmark voltou a

@@ -3602,6 +3602,51 @@ body.sem-trilho #tela{width:100%}
    não pode esperar. Preventiva atrasada cobra, não alarma. */
 .pv-alerta{color:var(--vermelho);font-weight:700}
 
+/* ── A busca ────────────────────────────────────────────────────────────── */
+/* ⚠️ MESMA MEDIDA E MESMO GUTTER DOS OUTROS BLOCOS. Cada bloco desta tela se
+   centra sozinho em `--area-max` (não há container envolvendo os três); um
+   campo que ignorasse isso começaria fora da coluna em que a lista começa.
+
+   ⚠️ O CAMPO NÃO OCUPA A LINHA INTEIRA. A 1920px um input de 1200px de largura
+   lê como área de texto, não como busca — e a leitura que a linha precisa
+   entregar é "isto filtra a lista", que 520px já dizem. A contagem mora no
+   espaço que sobra, à esquerda do que o campo não usou. */
+.pv-ferramentas{
+  max-width:var(--area-max);margin:0 auto;width:100%;
+  padding:0 var(--gut) clamp(18px,2.4vw,26px);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+/* A peça é a mesma `.eq-busca` da tela de equipamentos — chapa de fio com o
+   chanfro da casa. Duas telas irmãs com dois campos de busca diferentes leem
+   como dois produtos. */
+.pv-busca{
+  flex:0 1 520px;min-width:0;font:inherit;font-size:15px;
+  padding:12px 14px;min-height:46px;
+  background:var(--fio-fraco);color:var(--text);
+  border:1px solid var(--fio);clip-path:var(--corte-p);
+}
+.pv-busca::placeholder{color:var(--muted)}
+.pv-busca:focus{outline:none;border-color:var(--fio-forte);box-shadow:inset 0 0 0 2px var(--amarelo)}
+/* ⚠️ O × NATIVO DO `type="search"` É CINZA-ESCURO no Chrome, e some numa folha
+   escura. `filter:invert(1)` devolve o contraste sem trocar a peça por uma
+   nossa — o × nativo já responde ao Esc e ao clique, e reimplementá-lo seria
+   repor três comportamentos para mudar uma cor. */
+.pv-busca::-webkit-search-cancel-button{filter:invert(1);opacity:.55;cursor:pointer}
+.pv-busca:hover::-webkit-search-cancel-button{opacity:.9}
+/* ⚠️ MONO, como toda contagem desta folha. É número de conferência ("3 de
+   69"), não frase — e a mono é o que separa os dois nesta tela. */
+.pv-busca-n{
+  font-family:var(--mono);font-size:.82rem;font-weight:600;
+  letter-spacing:.02em;color:var(--muted);
+}
+
+/* No celular o campo toma a linha: não há espaço para dividir, e a contagem
+   cai embaixo por conta do `flex-wrap`. */
+@media (max-width:560px){
+  .pv-ferramentas{gap:8px}
+  .pv-busca{flex:1 1 100%}
+}
+
 /* ── A zona ─────────────────────────────────────────────────────────────── */
 .pv-lista{
   max-width:var(--area-max);margin:0 auto;width:100%;

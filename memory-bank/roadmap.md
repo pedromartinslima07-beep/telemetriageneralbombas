@@ -41,6 +41,18 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Procurar prédio na tela de Preventivas** (15/09/2026). *"precisa
+  implementar uma pesquisa de cliente na tela de preventiva do operador"*. A
+  tela ordena por dívida — certo para "por onde começo", inútil para "e o
+  Torres do Parque, saiu?". Campo entre a manchete e a lista, filtrando o que
+  já está na mão em seis campos (nome fantasia, razão social, bairro, cidade,
+  zona, título), sem acento e por palavra, como o `condo-picker.js` das outras
+  telas. A manchete segue contando o MÊS; quem fala do recorte é a contagem ao
+  lado do campo. Sem backend novo, sem migration. Detalhe em
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - 📋 **Falta conferir em largura de celular.** A verificação saiu em mesa,
+    no Chrome com dados do banco de teste (11 planos).
+
 - ✅ **A preventiva devolvida aparece, e "em campo" volta a significar campo**
   (14/09/2026). *"não fica claro que o técnico devolveu; e se o operador mesmo
   assim escalar ele de novo, a forma que aparece no app não está boa"*.

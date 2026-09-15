@@ -795,6 +795,14 @@ Fluxo e pegadinhas em
     como a barra do topo. Vale para toda barra fixa nova nesta folha.
   - ⚠️ **`.sr-only` passou a existir no `operador.css`** (04/09) — não existia,
     e o rótulo do select do técnico aparecia cru na tela em produção.
+  - ⚠️ **Preventivas tem busca de prédio** (15/09): campo entre a manchete e a
+    lista, filtrando o que já está na mão (nome fantasia, razão social, bairro,
+    cidade, zona e título, sem acento e por palavra). **A manchete não é
+    filtrada** — ela conta o mês, e recortá-la faria a tela dizer "1 a fazer"
+    com 69 pendentes; quem fala do recorte é a contagem "3 de 69" ao lado do
+    campo. Digitar redesenha só `#pvCorpo`, nunca `#tela` (o `<input>` em foco
+    morreria junto), e "Escolher as N" passou a varrer só o que está visível.
+    Detalhe em [painel-operador.md](../docs/modulos/painel-operador.md).
   - ⚠️ **A preventiva vence no MÊS, não no dia** (04/09): as visitas são feitas
     entre o dia 1 e o dia 10, então `proxima_em` marca o mês, não um prazo.
     Vencido = mês anterior. A tela do operador já era assim; o painel de planos

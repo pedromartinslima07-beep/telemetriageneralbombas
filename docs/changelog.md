@@ -17099,6 +17099,55 @@ do meio tiveram asserções atualizadas, com o porquê escrito no lugar.
 
 Sem migration. ⚠️ **Exige APK novo** (`app/public/app.js`).
 
+## Procurar prédio na tela de Preventivas (2026-09-15)
+
+Pedido do Pedro: *"precisa implementar uma pesquisa de cliente na tela de
+preventiva do operador"*. A tela ordena por **dívida** (quem tem mais atraso
+sobe), que é o certo para "por onde começo" e o pior possível para "e o Torres
+do Parque, saiu?" — achar UM prédio entre 70 e tantos era rolar a lista lendo
+cabeçalho de zona por cabeçalho de zona.
+
+**Filtra o que já está na mão.** O mês inteiro chega numa resposta só
+(`GET /operador/preventivas`); ir à rede a cada tecla custaria uma espera por
+letra para reordenar o que a tela já tem. Sem `debounce`, pelo mesmo motivo —
+são 70-80 itens. Nenhuma mudança no backend, nenhuma migration.
+
+**Procura em seis campos, sem acento e sem caixa, por palavra.** Nome fantasia,
+razão social, bairro, cidade, zona e título do plano; `"leste vila"` acha
+"Vila Mariana" na Zona Leste em qualquer ordem. É a regra do `condo-picker.js`,
+que é como o operador já procura prédio nas outras telas. A razão social entra
+porque quem liga da portaria às vezes diz ela, e não o nome da placa.
+
+⚠️ **A manchete NÃO passa pela busca.** Ela conta o mês ("69 a fazer em
+setembro") e é o número que vai para a reunião; recortá-lo pelo que está
+digitado faria a tela dizer "1 preventiva a fazer" com 69 pendentes no banco.
+Quem fala do recorte é a contagem em mono ao lado do campo — "3 de 69".
+
+⚠️ **Digitar não redesenha `#tela`.** Refazer a tela inteira a cada tecla
+destruiria o `<input>` em que se está digitando. Só `#pvCorpo` e a contagem
+mudam (`_pintarBusca`) — a mesma peça do `_pintarLista()` da tela de
+equipamentos, e o mesmo motivo pelo qual marcar uma caixinha já não chamava
+`render()`.
+
+⚠️ **"Escolher as N" só pega o que está visível.** Com a busca ativa o botão
+conta a lista filtrada; varrer `DADOS.planos` marcaria a zona inteira,
+inclusive o que a pessoa não está vendo — a forma mais rápida de despachar um
+prédio sem querer.
+
+⚠️ **A busca abre o bloco de "já feitas" quando não sobra nada a fazer.**
+Procurar um prédio e receber tela vazia com "1 já feita · mostrar" escondido lá
+embaixo é esconder a resposta que a pergunta pedia: ele já foi. E por isso
+`VER_FEITAS` virou **tri-state** (`null` = ninguém decidiu): com booleano, o
+"esconder" de um bloco aberto pela busca não escondia nada — a condição
+continuava valendo no desenho seguinte e reabria na hora. Medido no Chrome.
+
+A busca **atravessa a troca de mês** de propósito, ao contrário da seleção, que
+`carregar()` zera: a pergunta que traz o operador para cá com um prédio na
+cabeça costuma continuar no mês anterior.
+
+`public/operador-preventivas.js` (`?v=12`) e o bloco `.pv-ferramentas` /
+`.pv-busca` do `public/operador.css` (`?v=113` nas quatro telas da folha).
+
 ---
 
 > Decisões, itens descartados e backlog futuro:
