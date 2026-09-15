@@ -1172,6 +1172,22 @@ desenho em camadas original continua válido.
 
 ## Lições aprendidas (cicatrizes)
 
+- **Migration marcada como pendente depois de já ter subido custa igual à de
+  baixo (2026-09-15).** A doc dava 079, 080, 082 e 085 como "aplicadas só em
+  TESTE" — três lugares diferentes, o mais antigo desde 31/08. Todas estavam em
+  produção, e `planos_atribuicoes` já tinha **4 linhas** lá: não era só a
+  migration ter rodado, era gente usando a tela. A sessão começou listando
+  "rodar migration em produção" como o bloqueador nº 1 do projeto, e não havia
+  nenhuma para rodar.
+  **A Fase 7E ensinou a não marcar como concluído antes de aplicar; esta é a
+  mesma dívida virada do avesso — aplicar e não marcar.** O prejuízo não é
+  simétrico só no papel: bloqueador falso na doc afunda o bloqueador
+  verdadeiro, e ninguém confere o que a doc já afirma. A regra que fica: quem
+  roda a migration atualiza a linha no mesmo minuto, e quem **lê** um
+  "⏳ falta produção" com mais de uma semana confere antes de acreditar — é uma
+  consulta de leitura ao `information_schema` contra o `DATABASE_URL` de prod,
+  custa segundos. Ver o cabeçalho de [`active-work.md`](active-work.md).
+
 - **`novalidate` transfere a validação inteira para o JS, e `if (!campo)` não é
   validar (2026-08-25).** O Pedro leu na tela de orçamentos *"Enviamos um
   código de 6 dígitos para comer"* e perguntou o que era aquilo. A palavra veio

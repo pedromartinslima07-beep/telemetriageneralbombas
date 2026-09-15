@@ -13,8 +13,20 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-> ✅ **Schema de produção em dia:** 074 aplicada em 24/08; a 073 já estava
-> aplicada (rodou sem emitir NOTICE nenhum).
+> ✅ **Schema de produção em dia até a 086** — conferido em **15/09/2026**
+> lendo o `information_schema` do banco de prod: 075, 079, 080, 081 (as duas),
+> 082, 083, 084, 085 e 086 existem todas lá. A 074 foi aplicada em 24/08 e a
+> 073 já estava.
+>
+> ⚠️ **A doc deu quatro delas como pendentes por até duas semanas depois de já
+> terem subido** (079, 080, 082, 085). É a lição da Fase 7E virada do avesso, e
+> custa do mesmo jeito: **doc gritando bloqueador falso esconde o bloqueador de
+> verdade** — a sessão de 15/09 começou listando "rodar migration em produção"
+> como a prioridade da vez, e não havia nenhuma para rodar. Ao aplicar uma
+> migration, marque no mesmo minuto; ao ler "⏳ falta produção" com mais de uma
+> semana, **confira antes de acreditar** — é uma consulta de leitura ao
+> `information_schema` (colunas) ou a `information_schema.tables` (tabelas),
+> com o `DATABASE_URL` de prod.
 >
 > ⚠️ O proxy público do Railway dá `ETIMEDOUT` esporádico: em 24/08 o
 > `migrate.js` falhou assim e minutos depois o mesmo host aplicou sem
@@ -1682,10 +1694,9 @@ autorizado e parava aí; agora **a linha inteira é um `<button>`** que abre um
 chamado já vinculado ao orçamento (`chamados.orcamento_id`, migration 079),
 com título e descrição pré-preenchidos a partir do próprio orçamento.
 
-⚠️ **A migration 079 rodou SÓ NO BANCO DE TESTE.** Falta produção:
-`node scripts/migrate.js 079_chamado_orcamento.sql` com o `DATABASE_URL` de
-prod. Sem ela o `INSERT` do endpoint estoura — é a lição da Fase 7E, e é a
-única coisa entre este código e o ar.
+✅ **A migration 079 ESTÁ em produção** — conferido em 15/09/2026 lendo o
+`information_schema` do banco de prod. Este bloco a deu como "só no banco de
+teste" desde 31/08, e a doc é que ficou para trás.
 
 ### 5ª rodada: "Já foi feito", e o que é feito sai da lista (migration 080)
 
@@ -1702,7 +1713,7 @@ Sem elas, um clique errado só se conserta no banco.
 vermelho ensina o operador a não olhar para o vermelho — `--risco` é estado
 crítico e não aparece por outro motivo.
 
-⏳ **Migration 080 pendente em produção**, junto com a 079.
+✅ **Migration 080 em produção**, junto com a 079 — conferido em 15/09/2026.
 
 ### 4ª rodada: o "RECEBENDO · hh:mm" saiu da barra
 
@@ -2332,9 +2343,8 @@ comprava chutes à vontade dentro dos 10 min de validade, sobre 1.000.000 de
 combinações.
 
 - **Migration 075** — `login_codes.tentativas`. Ao 5º erro o código é queimado.
-  ✅ **Aplicada no banco de TESTE.** ⚠️ **Falta aplicar em produção:**
-  `node scripts/migrate.js 075_login_codes_tentativas.sql --prod`. Sem ela, o
-  `verify-otp` quebra em prod (a coluna não existe) — é a lição da Fase 7E.
+  ✅ **Aplicada nos dois bancos** — `login_codes.tentativas` conferida em
+  produção em 15/09/2026.
 - **Teto por e-mail** em `/auth/login` (10/15 min) e `/auth/codigo` (5/15 min),
   chave normalizada com `trim` + minúsculas.
 - `_codigoConfere` em tempo constante. ⚠️ `code` é `CHAR(6)` e volta com

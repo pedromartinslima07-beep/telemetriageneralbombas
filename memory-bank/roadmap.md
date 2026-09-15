@@ -172,8 +172,11 @@ aliases:
   datas anteriores, e é isso que faz o **Desfazer** devolver o plano ao estado
   exato. Não vale "em campo": ali quem fecha é a O.S. do técnico (409). Detalhe
   em [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
-  - ⏳ **Migration 085 aplicada só em TESTE** — falta produção, junto com a 082,
-    que segue pendente lá desde 03/09.
+  - ✅ **Migrations 085 e 082 aplicadas em produção** — conferido em 15/09/2026
+    lendo o `information_schema` do banco de prod. As duas constavam aqui como
+    pendentes desde 03/09: era a **doc** que estava atrasada, não a migration.
+    `planos_baixas_manuais` existe e está zerada — ninguém deu baixa à mão
+    ainda, mas a tela não estoura.
   - 📋 **Sem confirmação, com Desfazer** — a mesma troca de Aprovados. A
     confirmação do despacho em lote continua de pé: lá o risco é o tamanho.
   - ✅ **E o "Ver O.S." das feitas**, no mesmo dia: *"quero tb o link da os das
@@ -253,7 +256,9 @@ aliases:
   Impeccable depois que o Pedro duvidou do nível: a placa lia plana (16,3/700
   contra 21,6/800 da irmã) e a tela tinha âmbar em uma peça só. Detalhe em
   [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
-  - ⏳ **Migration 082 aplicada só em TESTE** — falta produção.
+  - ✅ **Migration 082 aplicada em produção** — conferido em 15/09/2026.
+    `planos_atribuicoes` já tem **4 linhas** lá: não é só "a migration rodou",
+    é escala de preventiva feita por esta tela em produção.
   - ⚠️ **Os 72 planos de produção estão INATIVOS**, todos mensais: a tela nasce
     vazia lá até alguém reativá-los em Planos, no admin.
   - 📋 **Só 1 zona tem responsável** para 11 técnicos ativos. Enquanto isso, o
@@ -354,9 +359,9 @@ aliases:
       orçamento abre o chamado que o executa, vinculado por
       `chamados.orcamento_id`. Fecha o buraco de "esse orçamento chegou a ser
       executado?", que antes não tinha onde ser respondido.
-      - ⏳ **Rodar a migration 079 em produção** —
-        `node scripts/migrate.js 079_chamado_orcamento.sql`. Sem ela o
-        endpoint estoura no `INSERT` (lição da Fase 7E).
+      - ✅ **Migration 079 aplicada em produção** — conferido em 15/09/2026
+        (`chamados.orcamento_id` existe). Ficou marcada como pendente aqui
+        por duas semanas depois de já ter subido.
     - ✅ **Identidade alinhada com a landing e o painel do cliente**
       (27/08/2026, terceiro passe — o primeiro feito com as três telas abertas
       lado a lado). Fechou a faixa de 660–1090px, que não existia e onde a tela

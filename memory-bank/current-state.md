@@ -1045,7 +1045,7 @@ Fluxo e pegadinhas em
   nunca do corpo da requisição, a prioridade padrão é **P4** (serviço aprovado
   é trabalho agendado) e não há bump de recorrência. **Nenhum valor entra
   nessa tela** — o endpoint não devolve dinheiro.
-  ⏳ **As migrations 079 e 080 só rodaram no banco de teste; faltam produção.**
+  ✅ **As migrations 079 e 080 estão em produção** (conferido em 15/09/2026).
   A tela tem **quatro estados** por orçamento (livre · chamado aberto · chamado
   fechado · marcado à mão), e o que é marcado como feito **sai da lista** — com
   duas voltas: a faixa com "Desfazer" na hora, e a linha "N já feitos ·

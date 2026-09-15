@@ -213,6 +213,13 @@ de confirmar que a migration rodou em produção causa bug silencioso (tabelas
 referenciadas no código não existem). Sempre rode `scripts/migrate.js`
 imediatamente após mexer no schema, mesmo em dev.
 
+**E a mesma dívida virada do avesso (15/09/2026):** aplicar em produção e
+**não** marcar na doc. Quatro migrations (079, 080, 082, 085) ficaram até duas
+semanas listadas como "⏳ falta produção" já estando lá — e bloqueador falso
+esconde o verdadeiro. Marque no mesmo minuto em que rodar; e ao **ler** um
+"falta produção" antigo, confira antes de acreditar (uma consulta de leitura ao
+`information_schema` com o `DATABASE_URL` de prod).
+
 ---
 
 ## App mobile herda do admin
