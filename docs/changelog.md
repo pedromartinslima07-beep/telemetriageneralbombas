@@ -17148,6 +17148,31 @@ cabeça costuma continuar no mês anterior.
 `public/operador-preventivas.js` (`?v=12`) e o bloco `.pv-ferramentas` /
 `.pv-busca` do `public/operador.css` (`?v=113` nas quatro telas da folha).
 
+## Editar a O.S. finalizada volta a mudar o PDF (2026-09-18)
+
+`GET /ordens-servico/:id/pdf` serve o arquivo de `uploads/os/<id>/` e **só
+chama o Puppeteer quando ele não existe**. Consequência não prevista: depois da
+finalização, corrigir a O.S. mudava o banco e a tela, e **não** mudava o
+documento. O caso que revelou: técnico marcou serviço **paliativo** e, na mesma
+O.S., **retorno não necessário**; o cliente recebeu o PDF, reclamou, e a
+correção feita no admin continuou invisível no PDF.
+
+`invalidarPdfOS(id)` apaga os `.pdf` da pasta da O.S. e zera `pdf_url`; a
+próxima leitura regenera do banco. Chamada em `PATCH /:id`, nas três rotas de
+foto (`POST /:id/fotos`, `POST /:id/fotos/upload`, `DELETE /:id/fotos/:foto_id`)
+e nas três de peça (`POST`, `PATCH`, `DELETE` em `/:id/pecas`). Nunca lança:
+falhar em apagar o cache não pode derrubar a edição que o usuário acabou de
+fazer.
+
+⚠️ **O e-mail já enviado continua com o anexo antigo** — reenviar pelo botão
+✉️ é parte da correção, não passo opcional.
+
+⚠️ **Rota nova que grave em O.S. finalizada precisa chamar `invalidarPdfOS`.**
+O esquecimento é silencioso: ninguém vê até o cliente ver.
+
+`src/routes/ordens-servico.routes.js`. Detalhe do fluxo em
+[`modulos/ordens-servico.md`](modulos/ordens-servico.md).
+
 ---
 
 > Decisões, itens descartados e backlog futuro:

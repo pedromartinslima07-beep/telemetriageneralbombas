@@ -198,6 +198,20 @@ prédio.
   fica em `historico_chamados` (`campo_alterado = 'devolvido'`).
 - **Sem migration.** Teste: `scripts/testes/devolver-chamado.test.js` (24).
 
+### ⚠️ O PDF da O.S. é cache em disco, e editar a O.S. o apaga (18/09/2026)
+
+`GET /ordens-servico/:id/pdf` serve `uploads/os/<id>/os-<numero>.pdf` e **só
+chama o Puppeteer se o arquivo não existir**. Até 18/09 isso significava que
+**editar uma O.S. finalizada não mudava o documento**: banco e tela corrigidos,
+PDF (e anexo de e-mail) antigos. Apareceu numa O.S. marcada como serviço
+**paliativo** com **retorno não necessário** — o cliente recebeu e reclamou.
+
+`invalidarPdfOS(id)` em `src/routes/ordens-servico.routes.js` apaga os `.pdf` da
+pasta e zera `pdf_url`; chamam ela `PATCH /:id`, as três rotas de foto e as três
+de peça. **Rota nova que grave em O.S. finalizada precisa chamá-la.** O e-mail
+já enviado não se corrige: tem que reenviar. Fluxo em
+[`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
+
 ### Um atendimento por vez (14/09/2026)
 
 `POST /chamados/:id/a-caminho` e `/iniciar-atendimento` respondem **409**

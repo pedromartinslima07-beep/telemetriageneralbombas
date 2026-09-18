@@ -98,6 +98,32 @@ lê a coluna direto do banco, escondia o defeito. Ver
 Uploads servidos em `/uploads` (estático, cacheável). Regerar PDFs em lote:
 `scripts/regenerar-pdfs-os.js`.
 
+#### ⚠️ Editar a O.S. depois de finalizada apaga o PDF (18/09/2026)
+
+`GET /:id/pdf` **só regenera quando o arquivo não existe** — é assim de
+propósito, porque cada geração sobe um Puppeteer. Mas isso transformava toda
+edição pós-finalização em mentira silenciosa: o admin corrigia o campo, a tela
+mostrava o valor novo, e o PDF servido (e anexado ao e-mail) continuava sendo o
+arquivo escrito na hora da finalização. Descoberto com uma O.S. em que o
+técnico marcou **serviço paliativo** e, na mesma O.S., **retorno não
+necessário** — o cliente recebeu o documento e reclamou; a correção no admin
+não chegou ao PDF.
+
+Por isso `invalidarPdfOS(id)` (em `src/routes/ordens-servico.routes.js`) apaga
+os `.pdf` de `uploads/os/<id>/` e zera `ordens_servico.pdf_url`. Chamam ela
+**todas** as rotas que mudam o que o documento imprime: `PATCH /:id`,
+`POST /:id/fotos`, `POST /:id/fotos/upload`, `DELETE /:id/fotos/:foto_id`,
+`POST /:id/pecas`, `PATCH /:id/pecas/:peca_id` e `DELETE /:id/pecas/:peca_id`.
+A próxima abertura do PDF — e o próximo e-mail — regeneram do banco.
+
+⚠️ **Rota nova que grava em O.S. finalizada precisa chamar `invalidarPdfOS`.**
+Esquecer não quebra nada na hora: só volta o PDF velho, que é exatamente o bug
+que ninguém vê até o cliente ver.
+
+⚠️ **E-mail já enviado não se corrige sozinho.** O anexo saiu com o conteúdo
+antigo; depois de editar, use o botão ✉️ **E-mail** de novo — aí o PDF é
+regerado com o dado certo.
+
 ### Envio da O.S. por e-mail ao cliente (10/09/2026)
 
 Botão **✉️ E-mail** no cabeçalho do modal da O.S., ao lado do PDF e sob a mesma
@@ -146,7 +172,8 @@ no console além da tela — fechar o modal apaga a mensagem, e numa falha
 intermitente essa é a única pista.
 
 O PDF já gerado na finalização é reaproveitado; só regenera quando o arquivo
-sumiu, o que acontece porque o filesystem do Railway é efêmero.
+sumiu — porque o filesystem do Railway é efêmero, ou porque uma edição o
+invalidou de propósito (ver "Editar a O.S. depois de finalizada apaga o PDF").
 
 #### Em lote: várias O.S., cada uma para o seu prédio
 

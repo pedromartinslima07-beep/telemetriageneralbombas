@@ -26,6 +26,32 @@ const FOTO_TIPOS = ["antes", "depois", "geral"];
 
 const UPLOAD_ROOT = path.join(__dirname, "../../uploads/os");
 
+// O PDF da O.S. e um arquivo em disco (`uploads/os/<id>/os-<numero>.pdf`), e
+// `GET /:id/pdf` so o regenera quando o arquivo NAO existe. Sem isto, qualquer
+// edicao depois da finalizacao (tipos de servico, resultado, retorno, pecas,
+// fotos, assinatura) fica so no banco: o cliente continua recebendo o PDF
+// velho enquanto a tela do admin mostra o dado novo -- o que faz parecer que a
+// edicao "nao salvou no PDF". Aconteceu com uma O.S. marcada como paliativa e
+// sem retorno necessario: corrigida no banco, PDF antigo no e-mail do cliente.
+// Toda rota que altera o conteudo impresso chama isto depois de gravar.
+// Nunca lanca: perder o cache e recuperavel, derrubar a edicao nao.
+async function invalidarPdfOS(id) {
+  try {
+    const dir = path.join(UPLOAD_ROOT, String(id));
+    let arquivos = [];
+    try { arquivos = await fs.readdir(dir); } catch { return; }
+    for (const nome of arquivos) {
+      if (nome.toLowerCase().endsWith(".pdf")) {
+        await fs.unlink(path.join(dir, nome)).catch(() => {});
+      }
+    }
+    await pool.query(`UPDATE ordens_servico SET pdf_url = NULL WHERE id = $1`, [id]);
+    console.log(`[ordens-servico] PDF invalidado OS#${id}`);
+  } catch (err) {
+    console.error(`[ordens-servico] falha ao invalidar PDF OS#${id}:`, err.message);
+  }
+}
+
 // Validação de e-mail do envio da O.S. ao cliente. Deliberadamente frouxa: o
 // que ela pega é dedo errado (vírgula sobrando, endereço sem arroba), não
 // conformidade com a RFC — quem valida de verdade é o provedor, e recusar um
@@ -375,6 +401,7 @@ router.patch("/:id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req
       values
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "O.S. não encontrada" });
+    await invalidarPdfOS(id);
     return res.json(result.rows[0]);
   } catch (err) {
     console.error("[ordens-servico] PATCH /:id:", err);
@@ -430,6 +457,7 @@ router.post("/:id/fotos/upload", authRequired, osDonoOuAdmin({ forWrite: true })
     const fotoId = r1.rows[0].id;
     const urlServico = `/ordens-servico/${id}/fotos/${fotoId}/imagem`;
     await pool.query(`UPDATE os_fotos SET url = $1 WHERE id = $2`, [urlServico, fotoId]);
+    await invalidarPdfOS(id);
     return res.status(201).json({ ...r1.rows[0], url: urlServico });
   } catch (err) {
     console.error("[ordens-servico] POST /:id/fotos/upload:", err);
@@ -484,6 +512,7 @@ router.post("/:id/fotos", authRequired, osDonoOuAdmin({ forWrite: true }), async
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [id, url, legenda || null, tipo || "geral"]
     );
+    await invalidarPdfOS(id);
     return res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("[ordens-servico] POST /:id/fotos:", err);
@@ -500,6 +529,7 @@ router.delete("/:id/fotos/:foto_id", authRequired, osDonoOuAdmin({ forWrite: tru
   }
   try {
     await pool.query(`DELETE FROM os_fotos WHERE id = $1 AND os_id = $2`, [fotoId, id]);
+    await invalidarPdfOS(id);
     return res.json({ ok: true });
   } catch (err) {
     console.error("[ordens-servico] DELETE foto:", err);
@@ -525,6 +555,7 @@ router.post("/:id/pecas", authRequired, osDonoOuAdmin({ forWrite: true }), async
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [id, descricao, qtd, observacao || null]
     );
+    await invalidarPdfOS(id);
     return res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("[ordens-servico] POST /:id/pecas:", err);
@@ -573,6 +604,7 @@ router.patch("/:id/pecas/:peca_id", authRequired, osDonoOuAdmin({ forWrite: true
       values
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Peça não encontrada" });
+    await invalidarPdfOS(id);
     return res.json(result.rows[0]);
   } catch (err) {
     console.error("[ordens-servico] PATCH peca:", err);
@@ -589,6 +621,7 @@ router.delete("/:id/pecas/:peca_id", authRequired, osDonoOuAdmin({ forWrite: tru
   }
   try {
     await pool.query(`DELETE FROM os_pecas WHERE id = $1 AND os_id = $2`, [pecaId, id]);
+    await invalidarPdfOS(id);
     return res.json({ ok: true });
   } catch (err) {
     console.error("[ordens-servico] DELETE peca:", err);

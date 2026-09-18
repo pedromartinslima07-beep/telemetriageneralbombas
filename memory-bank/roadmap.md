@@ -893,6 +893,9 @@ serviço. Mais padronizada (SEFAZ federal) mas exige certificado digital A1.
 Itens levantados durante o desenvolvimento, conscientemente deixados para
 depois. Nenhum é bloqueante.
 
+- **Marca d'água / carimbo de "documento revisado" no PDF da O.S.** — hoje a
+  edição pós-finalização regenera o PDF silenciosamente (18/09/2026), e quem
+  recebeu a primeira versão não tem como saber que houve uma segunda.
 - **Job de email de renovação de contrato** (60/30/15 dias antes de `fim_em`) —
   Resend já integrado, é trivial adicionar.
 - **Notificação à equipe comercial** quando entra orçamento `origem='ia'
