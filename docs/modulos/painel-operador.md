@@ -493,6 +493,38 @@ alguns. A confirmação do **despacho em lote** continua de pé, e não é
 contradição: lá o risco é o tamanho (uma zona inteira de uma vez), aqui é um
 prédio só.
 
+### A preventiva aproveitada some da fila (21/09/2026)
+
+Pergunta do Pedro sobre a OS-2026-0069: o técnico marcou que fez a preventiva e a
+placa continuava dizendo "em aberto".
+
+**Dar baixa no plano e fechar o chamado que esperava a visita são duas coisas** —
+e só havia um caminho para as duas. `darBaixaPorOS` devolvia o chamado a fechar
+apenas quando mexia nas datas, e ela só mexe quando o plano **ainda deve o mês**
+(guarda certa: `executarPlano` já empurra `ultima_em`/`proxima_em` ao **abrir** o
+chamado do mês, e mexer de novo pularia um mês inteiro).
+
+O resultado, no prédio cujo chamado do mês nasceu pelo job e ninguém pegou:
+a O.S. de outro chamado marca `preventiva_mensal`, a baixa sai por "nenhum plano
+devendo o mês", o chamado do dia 4 continua aberto — e o `estadoDa`, que lê
+chamado aberto **antes** de `feita_no_mes`, devolve "a fazer". Para sempre.
+
+Agora o caminho sem baixa também devolve o chamado de preventiva aberto do
+prédio, e `POST /ordens-servico/:id/finalizar` o fecha. **As datas não se
+mexem** — quem as moveu foi a abertura.
+
+⚠️ **Só com UM chamado de preventiva aberto no prédio.** Com dois, fechar o
+errado é pior que não fechar — a mesma prudência da baixa, que desiste diante de
+dois planos elegíveis, e o operador ainda tem o "Já foi feita" para resolver à
+mão.
+
+⚠️ **Chamado de preventiva aberto não é sujeira por si só.** Depois de o job
+abrir o mês, todos os planos ativos têm um, com `ultima_em` do dia da abertura —
+é o estado esperado. O defeito é o par: O.S. finalizada no mês com a caixa
+marcada **em outro chamado** do mesmo prédio, e o chamado do mês ainda aberto.
+Foi assim que a varredura de setembro achou 4 (`scripts/fechar-preventivas-orfas.js`,
+one-off de limpeza, idempotente e com simulação por padrão).
+
 ### ⚠️ `tecnicos` é o quadro inteiro — filtre por `cargo` (04/09/2026)
 
 A tabela `tecnicos` guarda **todo o pessoal**, não só quem vai a campo: em

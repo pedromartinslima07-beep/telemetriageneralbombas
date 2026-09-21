@@ -17173,6 +17173,66 @@ O esquecimento é silencioso: ninguém vê até o cliente ver.
 `src/routes/ordens-servico.routes.js`. Detalhe do fluxo em
 [`modulos/ordens-servico.md`](modulos/ordens-servico.md).
 
+
+## A preventiva marcada na O.S. some da fila do operador (2026-09-21)
+
+Pergunta do Pedro: *"por que o técnico marcou na OS-2026-0069 que foi feita a
+preventiva, e no painel de operador continua aparecendo que a preventiva está em
+aberto?"*.
+
+**Avançar o ciclo do plano e fechar o chamado que esperava a visita são duas
+consequências, e estavam amarradas numa só.**
+
+`darBaixaPorOS` só devolvia `chamadoPreventivaAberto` pelo caminho que dá baixa.
+E a baixa tem uma guarda certa — só mexe nas datas quando o plano **ainda deve o
+mês** —, porque `executarPlano` grava `ultima_em`/`proxima_em` no instante em que
+**abre** o chamado do mês, não quando alguém o atende. No RESIDENCIAL CANADIAN
+VILLAGE o job abriu o chamado #102 em 04/09 e já empurrou `proxima_em` para
+04/10. Ninguém pegou o chamado. Em 21/09 o técnico foi ao prédio por outro
+chamado (#221), marcou `preventiva_mensal` na O.S. — e `darBaixaPorOS` saiu por
+"nenhum plano devendo o mês", **sem fechar chamado nenhum**.
+
+A tela então lê o que sobrou: `estadoDa` vê chamado aberto **antes** de olhar
+`feita_no_mes` (de propósito), e chamado aberto sem técnico é "a fazer". Dezessete
+dias cobrando um serviço entregue.
+
+Agora o caminho "nenhum plano devendo o mês" também devolve o chamado de
+preventiva aberto do prédio, e `POST /ordens-servico/:id/finalizar` o fecha —
+**sem tocar nas datas**, que quem moveu foi a abertura e mexer de novo pularia um
+mês. Só com **um** chamado de preventiva aberto no prédio: com dois, fechar o
+errado é pior que não fechar (a mesma prudência da baixa com dois planos
+elegíveis).
+
+⚠️ **A varredura mostrou que o defeito não era de um prédio.** Das 6 O.S. de
+setembro com `preventiva_mensal` marcado, 2 eram a O.S. do próprio chamado da
+preventiva (fecharam certo) e **4 eram preventiva aproveitada em outro chamado**,
+todas com o chamado do mês ainda aberto: VIDERE PERDIZES (#158), CENTURY PLAZA
+RESIDENCE (#106), ALTOS DA FORMOSA (#145) e CANADIAN VILLAGE (#102).
+
+⚠️ **E não confunda com o normal do mês:** os 75 chamados de preventiva abertos
+em produção têm todos `ultima_em` de 04/09 — é o estado esperado logo depois de o
+job abrir o mês, não sujeira. O que caracteriza o defeito é a O.S. finalizada com
+a caixa marcada **em outro chamado** do mesmo prédio.
+
+A limpeza do que ficou para trás é `scripts/fechar-preventivas-orfas.js`
+(one-off, idempotente, simula por padrão; `--producao --aplicar` para gravar),
+**rodado em produção no mesmo dia** — os 4 chamados estão fechados, e o estado
+anterior ficou em `uploads/preventivas-orfas-2026-09-*.json`.
+
+⚠️ **O SLA de P4 de setembro piorou, e está certo assim.** Fechar carimba
+`tempo_resolucao_seg` com o tempo que o chamado ficou de pé (17 dias no #102).
+A alternativa era **cancelar** — o que a baixa à mão faz, e que sumiria do
+relatório. Ficou fechar, por consistência com o que a rota corrigida passa a
+fazer sozinha: houve O.S. assinada, e o chamado ficou aberto mesmo.
+Ele **não mexe nas datas do plano** e carimba `fechado_em` com a data da O.S.,
+nunca antes de `criado_em` — a OS-2026-0020 do VIDERE é de 02/09 e o chamado dela
+só nasceu em 04/09, anterior ao recurso da preventiva aproveitada.
+
+Sem migration. Sem bump de `?v=N`: só backend.
+
+`src/services/preventivas.service.js`, `src/routes/ordens-servico.routes.js`.
+Fluxo em [`modulos/painel-operador.md`](modulos/painel-operador.md).
+
 ---
 
 > Decisões, itens descartados e backlog futuro:

@@ -230,6 +230,15 @@ preventiva do mesmo prédio **não** são dois aceites: o técnico marca
 chamado da preventiva sozinho — caminho que existe desde 04/09
 (`darBaixaPorOS`).
 
+⚠️ **E O CHAMADO FECHA MESMO QUANDO NÃO HÁ O QUE CREDITAR** (21/09). Até aqui as
+duas coisas andavam juntas, e a baixa tem uma guarda certa: só mexe nas datas
+quando o plano **ainda deve o mês**. Como `executarPlano` já empurra
+`ultima_em`/`proxima_em` ao **abrir** o chamado do mês, marcar a caixa num prédio
+cujo chamado do mês estava aberto desde o dia 4 não fechava nada — e a tela do
+operador cobra para sempre, porque `estadoDa` lê chamado aberto antes de
+`feita_no_mes`. Quatro prédios em setembro; o que expôs foi a OS-2026-0069 no
+CANADIAN VILLAGE. Agora o chamado fecha e as datas ficam quietas.
+
 ⚠️ **A régua é física, não administrativa:** finalizar a O.S. exige
 `assinatura_b64` e `recebido_nome`, colhidos no local. Enquanto o chamado está
 `em_atendimento`, o técnico **está dentro do prédio** — "a caminho de outro" era

@@ -39,6 +39,24 @@ aliases:
 > teste tinha caído. Um `TcpClient.ConnectAsync` conecta nos dois em ~190ms.
 > Os dois bancos estão de pé.
 
+> ✅ **`scripts/fechar-preventivas-orfas.js` RODADO EM PRODUÇÃO em 21/09/2026**,
+> no mesmo dia do conserto. Os 4 chamados de preventiva que ficaram abertos
+> depois de a visita ter acontecido por outro chamado estão fechados: **#102**
+> CANADIAN VILLAGE (OS-2026-0069), **#106** CENTURY PLAZA (OS-2026-0056),
+> **#145** ALTOS DA FORMOSA (OS-2026-0064) e **#158** VIDERE PERDIZES
+> (OS-2026-0020). Nada a fazer aqui.
+>
+> O estado anterior das 4 linhas está em `uploads/preventivas-orfas-2026-09-*.json`
+> — é por onde se desfaz, se algum dia precisar. O script é idempotente:
+> rodar de novo não acha nada.
+>
+> ⚠️ **O SLA de P4 de setembro piorou de propósito.** Fechar carimba
+> `tempo_resolucao_seg` com o tempo real que o chamado ficou de pé — 17 dias no
+> #102, mais no #158. Não é defeito do relatório: os chamados ficaram abertos
+> mesmo. Decisão tomada com o Pedro na hora, por consistência com o que a rota
+> corrigida passa a fazer sozinha (a alternativa era **cancelar**, que é o que a
+> baixa à mão do operador faz e some do SLA).
+
 ## ⏸️ RETOMAR AQUI — a simplificação do operador está pela metade
 
 > Retomada em 31/08/2026: **o item 1 (o trilho) está feito e verificado** — ver

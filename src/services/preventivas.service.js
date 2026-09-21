@@ -197,7 +197,45 @@ async function darBaixaPorOS(client, { osId, condominioId, quando }) {
     [condominioId, competencia]
   );
 
-  if (elegiveis.rows.length === 0) return { baixou: false, motivo: "nenhum plano devendo o mês" };
+  /* ⚠️ "NÃO DEVE O MÊS" NÃO QUER DIZER "NADA A FAZER" (21/09/2026). Avançar o
+     ciclo e fechar o chamado que esperava a visita são duas consequências, e
+     estavam amarradas numa só: `chamadoPreventivaAberto` só saía daqui pelo
+     caminho que baixa, então a O.S. com a caixa marcada num prédio cujo ciclo
+     JÁ tinha avançado não fechava chamado nenhum.
+
+     E o ciclo avança cedo: `executarPlano` grava `ultima_em`/`proxima_em` no
+     instante em que ABRE o chamado do mês. Ninguém pegando o chamado, ele fica
+     aberto e sem técnico — e o `estadoDa` lê chamado aberto ANTES de
+     `feita_no_mes`, de propósito. A tela do operador cobra o mês para sempre.
+
+     O caso real: RESIDENCIAL CANADIAN VILLAGE, plano 43. Chamado #102 aberto
+     em 04/09 sem técnico; a OS-2026-0069, finalizada em 21/09 com a caixa
+     marcada, não o fechou — `proxima_em` já era 04/10, então "nenhum plano
+     devendo o mês" e saída silenciosa. Dezessete dias em aberto na tela.
+
+     O técnico esteve no prédio e fez a preventiva: o chamado fecha. As datas
+     é que não se mexem — quem as mexeu foi a abertura, e mexer de novo pularia
+     um mês (é a guarda descrita no cabeçalho, que continua valendo).
+
+     ⚠️ SÓ COM UM CHAMADO DE PREVENTIVA ABERTO no prédio. Com dois, fechar o
+     errado é pior que não fechar: a mesma razão pela qual a baixa desiste com
+     dois planos elegíveis, e o operador ainda tem a tela para resolver à mão. */
+  if (elegiveis.rows.length === 0) {
+    const abertos = await client.query(
+      `SELECT ch.id
+         FROM chamados ch
+         JOIN planos_manutencao pm ON pm.id = ch.plano_manutencao_id
+        WHERE pm.condominio_id = $1
+          AND ch.status NOT IN ('fechado','cancelado')
+        LIMIT 2`,
+      [condominioId]
+    );
+    return {
+      baixou: false,
+      motivo: "nenhum plano devendo o mês",
+      chamadoPreventivaAberto: abertos.rows.length === 1 ? abertos.rows[0].id : null,
+    };
+  }
   if (elegiveis.rows.length > 1) {
     // Não é erro do técnico — é cadastro. Fica no log para virar limpeza.
     console.warn(

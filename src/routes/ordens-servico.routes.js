@@ -843,9 +843,17 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
             alteradoPor: req.user.id,
           });
         }
+        // ⚠️ FECHA MESMO SEM BAIXA (21/09/2026). Quando o ciclo do plano já
+        // avançou na ABERTURA do chamado, `darBaixaPorOS` não mexe nas datas —
+        // mas o chamado que esperava a visita fecha do mesmo jeito, senão a
+        // tela do operador cobra o mês para sempre. Ver o comentário longo no
+        // `preventivas.service.js` e o caso do chamado #102.
         console.log(
-          `[ordens-servico] OS#${id} deu baixa na preventiva do plano ` +
-          `${baixaPreventiva.planoId} e fechou o chamado #${chPrev} que a esperava.`
+          baixaPreventiva.baixou
+            ? `[ordens-servico] OS#${id} deu baixa na preventiva do plano ` +
+              `${baixaPreventiva.planoId} e fechou o chamado #${chPrev} que a esperava.`
+            : `[ordens-servico] OS#${id} fechou o chamado de preventiva #${chPrev} ` +
+              `sem mexer nas datas (${baixaPreventiva.motivo}).`
         );
       }
     }
