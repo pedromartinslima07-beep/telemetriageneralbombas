@@ -46,12 +46,17 @@ aliases:
 > **#145** ALTOS DA FORMOSA (OS-2026-0064) e **#158** VIDERE PERDIZES
 > (OS-2026-0020). Nada a fazer aqui.
 >
-> ⏳ **FALTA A SEGUNDA PASSADA EM PRODUÇÃO** (o backfill da trilha): as 4 placas
-> ficaram dizendo "Feita" **sem O.S. e sem técnico**, porque fechar o chamado
-> não gravava `ultima_os_id`. Corrigido no código; para as 4 já fechadas, rodar
-> de novo `node scripts/fechar-preventivas-orfas.js --producao --aplicar` — a
-> query agora também alcança chamado já fechado sem trilha, e só grava o
-> ponteiro (não reabre nem refecha nada).
+> ✅ **E a segunda passada (backfill da trilha) também rodou**, em 21/09/2026.
+> As 4 placas tinham ficado dizendo "Feita" **sem O.S. e sem técnico**, porque
+> fechar o chamado não gravava `ultima_os_id`. Conferido em produção depois de
+> rodar: das **6 preventivas feitas em setembro, ZERO ficaram sem trilha** —
+> todas com O.S. e com quem fez (VIDERE foi o Alex Araujo; as outras cinco, o
+> José Glebson).
+>
+> ⚠️ **O nome do técnico na tela depende do deploy**, não do backfill:
+> `feita_por_nome` é campo novo da rota. A O.S. aparece sem deploy (a coluna
+> `baixa_os_numero` existe desde 04/09); o nome só depois que o `a53eda3`
+> subir.
 >
 > O estado anterior das 4 linhas está em `uploads/preventivas-orfas-2026-09-*.json`
 > — é por onde se desfaz, se algum dia precisar. O script é idempotente:

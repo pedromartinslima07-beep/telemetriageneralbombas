@@ -6,11 +6,19 @@
 // corrigido em `src/services/preventivas.service.js` (o chamado passa a fechar
 // mesmo quando o ciclo do plano já avançou na abertura) — este script só
 // limpa o que ficou para trás. Ele é idempotente: rodar duas vezes não muda
-// nada, porque só toca chamado que ainda está aberto.
+// nada, porque só toca chamado aberto e trilha vazia.
+//
+// Ele faz DUAS coisas, e a segunda nasceu de rodar a primeira: fechar o
+// chamado órfão, e gravar a trilha (`ultima_os_id`) da O.S. que fez a visita.
+// A primeira passada fechou 4 chamados sem gravar trilha, e a tela do operador
+// passou a dizer "Feita" sem O.S. e sem técnico — que é o oposto da regra do
+// Pedro: preventiva fechada tem origem, ponto.
 //
 // O critério é o mesmo do bug, e é conservador de propósito:
 //   · O.S. FINALIZADA no mês, com `preventiva_mensal` nos tipos de serviço;
-//   · no mesmo condomínio, um chamado de preventiva AINDA ABERTO;
+//   · no mesmo condomínio, um chamado de preventiva AINDA ABERTO — ou já
+//     fechado NESTA competência, sem O.S. própria e com trilha vazia (o
+//     backfill do que a primeira passada deixou pela metade);
 //   · e esse chamado NÃO é o da própria O.S. (esse já fecha sozinho).
 //
 // ⚠️ NÃO MEXE NAS DATAS DO PLANO. Quem as moveu foi a abertura do chamado
@@ -122,6 +130,8 @@ async function main() {
 
   const client = await pool.connect();
   const snapshot = [];
+  let fechados = 0;
+  let trilhas = 0;
   try {
     await client.query("BEGIN");
     for (const r of rows) {
@@ -145,12 +155,13 @@ async function main() {
       // SOZINHO: é ponteiro de trilha, não de ciclo, e mexer em
       // `ultima_em`/`proxima_em` aqui pularia um mês. O `IS NULL` no WHERE
       // garante que uma trilha já existente nunca é sobrescrita.
-      await client.query(
+      const trilha = await client.query(
         `UPDATE planos_manutencao
             SET ultima_os_id = $1
           WHERE id = $2 AND ultima_os_id IS NULL`,
         [r.os_id, r.plano_id]
       );
+      trilhas += trilha.rowCount;
 
       // Chamado já fechado (a primeira passada fechou): só a trilha faltava.
       if (r.chamado_status === "fechado") {
@@ -186,10 +197,17 @@ async function main() {
          VALUES ($1, 'status', $2, 'fechado', NULL)`,
         [r.chamado_id, antes.rows[0].status]
       );
+      fechados++;
       console.log(`  ✓ #${r.chamado_id} fechado (${r.os_numero}).`);
     }
     await client.query("COMMIT");
-    console.log(`\n${rows.length} chamado(s) fechado(s).`);
+    // ⚠️ CONTA SEPARADA (21/09/2026). A primeira versão imprimia
+    // "N chamado(s) fechado(s)" com o total das linhas, e na passada do
+    // backfill ela anunciou 4 fechamentos que não aconteceram — só trilha foi
+    // gravada. Log que mente sobre o que escreveu é pior que log nenhum: é
+    // exatamente o que alguém vai ler daqui a um mês para saber o que rodou.
+    console.log(
+      `\n${fechados} chamado(s) fechado(s), ${trilhas} trilha(s) gravada(s).`);
     console.log(`Estado anterior salvo em: ${snapPath}`);
   } catch (e) {
     await client.query("ROLLBACK");

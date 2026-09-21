@@ -17258,7 +17258,15 @@ despacho; misturar os dois faria a tela oferecer para despachar quem já foi.
 
 O backfill dos 4 entrou no mesmo script, com três guardas para não pegar o que
 não é dele: chamado fechado **nesta** competência, **sem O.S. própria** e plano
-com `ultima_os_id` nulo (trilha existente nunca é sobrescrita).
+com `ultima_os_id` nulo (trilha existente nunca é sobrescrita). **Rodado em
+produção no mesmo dia**, e conferido lendo o banco com a lógica do `estadoDa`:
+das 6 preventivas feitas em setembro, **nenhuma ficou sem trilha**.
+
+⚠️ **A conta do log mentia e foi corrigida junto.** A passada do backfill
+anunciou "4 chamado(s) fechado(s)" sem ter fechado nenhum — só gravou trilha. O
+script passa a contar as duas coisas em separado. Log que mente sobre o que
+escreveu é pior que log nenhum: é o que alguém vai ler daqui a um mês para saber
+o que rodou.
 
 ⚠️ **Bump de `?v=N`**: `operador-preventivas.js` foi para `v=13` no
 `operador-preventivas.html` **e** no `_preventivas-preview.html` — a prévia
