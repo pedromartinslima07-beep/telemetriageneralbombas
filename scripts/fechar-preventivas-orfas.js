@@ -51,6 +51,8 @@ async function main() {
             os.numero        AS os_numero,
             os.finalizada_em AS quando,
             pm.id            AS plano_id,
+            pm.ultima_os_id  AS plano_ultima_os_id,
+            ch.status        AS chamado_status,
             COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio
        FROM ordens_servico os
        JOIN condominios c        ON c.id  = os.condominio_id
@@ -59,8 +61,27 @@ async function main() {
       WHERE os.finalizada_em >= $1::date
         AND os.finalizada_em <  ($1::date + INTERVAL '1 month')
         AND os.tipos_servico @> ARRAY['preventiva_mensal']::text[]
-        AND ch.status NOT IN ('fechado','cancelado')
         AND ch.id <> COALESCE(os.chamado_id, -1)
+        AND (
+          ch.status NOT IN ('fechado','cancelado')
+          -- ⚠️ E TAMBEM O QUE JA FECHOU SEM TRILHA (21/09/2026). A primeira
+          -- passada deste script fechou 4 chamados e NAO gravou ultima_os_id:
+          -- a placa passou a dizer "Feita" sem O.S. e sem tecnico, que e o que
+          -- o Pedro viu na tela. Regra dele: preventiva fechada tem origem,
+          -- ponto. Estas linhas so recebem o ponteiro, nada mais.
+          --
+          -- ⚠️ AS TRES CONDICOES JUNTAS, e nenhuma e decorativa: sem
+          -- "fechado NESTA competencia" entraria chamado de ciclo antigo; sem
+          -- "sem O.S. propria" entraria a preventiva feita pelo caminho normal,
+          -- que ja tem trilha melhor (a O.S. do proprio chamado); e sem
+          -- "ultima_os_id IS NULL" o script sobrescreveria uma trilha existente.
+          OR (ch.status = 'fechado'
+              AND ch.fechado_em >= $1::date
+              AND ch.fechado_em <  ($1::date + INTERVAL '1 month')
+              AND pm.ultima_os_id IS NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM ordens_servico osp WHERE osp.chamado_id = ch.id))
+        )
       ORDER BY ch.id, os.finalizada_em DESC`,
     [inicio]
   );
@@ -70,12 +91,16 @@ async function main() {
     return;
   }
 
-  console.log(`${rows.length} chamado(s) de preventiva a fechar em ${COMPETENCIA}:\n`);
+  console.log(`${rows.length} preventiva(s) a acertar em ${COMPETENCIA}:\n`);
   for (const r of rows) {
+    const acao = r.chamado_status === "fechado"
+      ? "só grava a trilha (chamado já estava fechado)"
+      : "fecha o chamado e grava a trilha";
     console.log(
       `  #${r.chamado_id}  plano ${r.plano_id}  ${r.condominio}` +
       `\n      aberto em ${String(r.chamado_criado_em).slice(0, 10)}` +
-      `  ·  fecha com ${r.os_numero} (${String(r.quando).slice(0, 10)})`
+      `  ·  ${r.os_numero} (${String(r.quando).slice(0, 10)})` +
+      `\n      ${acao}`
     );
   }
 
@@ -106,11 +131,33 @@ async function main() {
            FROM chamados WHERE id = $1 FOR UPDATE`,
         [r.chamado_id]
       );
-      if (antes.rows.length > 0) {
-        snapshot.push({ chamado_id: r.chamado_id, os: r.os_numero, antes: antes.rows[0] });
-        fs.writeFileSync(snapPath, JSON.stringify(snapshot, null, 2), "utf8");
-      }
       if (antes.rows.length === 0) continue;
+      snapshot.push({
+        chamado_id: r.chamado_id,
+        os: r.os_numero,
+        antes: antes.rows[0],
+        plano_id: r.plano_id,
+        plano_ultima_os_id_antes: r.plano_ultima_os_id,
+      });
+      fs.writeFileSync(snapPath, JSON.stringify(snapshot, null, 2), "utf8");
+
+      // ⚠️ A TRILHA, SEMPRE — é a razão desta segunda passada. `ultima_os_id`
+      // SOZINHO: é ponteiro de trilha, não de ciclo, e mexer em
+      // `ultima_em`/`proxima_em` aqui pularia um mês. O `IS NULL` no WHERE
+      // garante que uma trilha já existente nunca é sobrescrita.
+      await client.query(
+        `UPDATE planos_manutencao
+            SET ultima_os_id = $1
+          WHERE id = $2 AND ultima_os_id IS NULL`,
+        [r.os_id, r.plano_id]
+      );
+
+      // Chamado já fechado (a primeira passada fechou): só a trilha faltava.
+      if (r.chamado_status === "fechado") {
+        console.log(`  ✓ #${r.chamado_id} trilha gravada (${r.os_numero}).`);
+        continue;
+      }
+
       await client.query(
         `UPDATE chamados
             SET status = 'fechado',

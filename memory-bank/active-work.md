@@ -46,6 +46,13 @@ aliases:
 > **#145** ALTOS DA FORMOSA (OS-2026-0064) e **#158** VIDERE PERDIZES
 > (OS-2026-0020). Nada a fazer aqui.
 >
+> ⏳ **FALTA A SEGUNDA PASSADA EM PRODUÇÃO** (o backfill da trilha): as 4 placas
+> ficaram dizendo "Feita" **sem O.S. e sem técnico**, porque fechar o chamado
+> não gravava `ultima_os_id`. Corrigido no código; para as 4 já fechadas, rodar
+> de novo `node scripts/fechar-preventivas-orfas.js --producao --aplicar` — a
+> query agora também alcança chamado já fechado sem trilha, e só grava o
+> ponteiro (não reabre nem refecha nada).
+>
 > O estado anterior das 4 linhas está em `uploads/preventivas-orfas-2026-09-*.json`
 > — é por onde se desfaz, se algum dia precisar. O script é idempotente:
 > rodar de novo não acha nada.

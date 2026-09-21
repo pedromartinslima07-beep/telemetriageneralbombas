@@ -132,8 +132,13 @@ const ok = (nome, cond, extra) => {
     ok("as datas do plano NÃO se mexem — quem as moveu foi a abertura",
       String(depoisPl.proxima_em) === String(plano.proxima_em) &&
       String(depoisPl.ultima_em) === String(plano.ultima_em));
-    ok("e nenhuma baixa é creditada (ultima_os_id segue vazio)",
-      depoisPl.ultima_os_id === null);
+    // ⚠️ MAS A TRILHA FICA. Regra do Pedro: preventiva fechada tem origem,
+    // ponto — ou a O.S. com preventiva mensal (e o técnico dela), ou o "Já foi
+    // feito" do operador. Sem `ultima_os_id` a placa dizia "Feita" sem O.S. e
+    // sem técnico, que é o que ele viu na tela depois da primeira passada.
+    ok("a O.S. que fez fica gravada como trilha (ultima_os_id)",
+      depoisPl.ultima_os_id === os.id,
+      "ultima_os_id=" + depoisPl.ultima_os_id + " os=" + os.id);
 
     const depoisOutro = (await pool.query(
       `SELECT status FROM chamados WHERE id = $1`, [chOutro.id])).rows[0];

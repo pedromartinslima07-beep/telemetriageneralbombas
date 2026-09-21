@@ -295,7 +295,19 @@ function rodape(p) {
   if (p.bairro) partes.push(escapar(p.bairro));
 
   let quem;
-  if (!p.tecnico_nome) {
+  // ⚠️ NUMA PREVENTIVA FEITA, A PERGUNTA É "QUEM FEZ" (21/09/2026), e a
+  // resposta não está na atribuição nem na zona: está na O.S. assinada no
+  // prédio, ou na assinatura do "Já foi feito". Regra do Pedro: preventiva
+  // fechada tem origem, ponto. A placa dizia "sem técnico definido" justamente
+  // nas que foram aproveitadas em visita de outro chamado — o caso em que o
+  // operador não despachou ninguém e, ainda assim, alguém foi lá.
+  //
+  // ⚠️ `feita_por_nome` NÃO entra em `tecnico_nome` no backend, de propósito:
+  // aquele campo é "de quem é este mês" e alimenta a barra de despacho.
+  // Misturar faria a tela oferecer para despachar quem já foi.
+  if (feita(p) && p.feita_por_nome) {
+    quem = `<b class="pv-quem">${escapar(p.feita_por_nome)}</b> <span class="pv-origem">fez</span>`;
+  } else if (!p.tecnico_nome) {
     quem = `<b class="pv-sem">sem técnico definido</b>`;
   } else {
     const origem = p.tecnico_origem === "escala"

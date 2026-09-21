@@ -17228,9 +17228,46 @@ Ele **não mexe nas datas do plano** e carimba `fechado_em` com a data da O.S.,
 nunca antes de `criado_em` — a OS-2026-0020 do VIDERE é de 02/09 e o chamado dela
 só nasceu em 04/09, anterior ao recurso da preventiva aproveitada.
 
-Sem migration. Sem bump de `?v=N`: só backend.
+### A segunda passada: "Feita" sem O.S. e sem técnico
 
-`src/services/preventivas.service.js`, `src/routes/ordens-servico.routes.js`.
+Fechados os 4, o Pedro olhou a tela e viu o buraco que o conserto abriu: as
+quatro placas diziam **Feita** com o rodapé em **"sem técnico definido"** e sem
+número de O.S. nenhum.
+
+A regra, na voz dele: *"para a preventiva estar fechada tem que ter uma O.S. que
+foi marcada preventiva mensal, e se tem a O.S. tem o técnico que fez ela, ou
+alguém tem que ter ido no painel de operador e clicado no botão de 'já foi
+feito'. Ponto. Não tem complicação."* **Preventiva fechada tem origem** — e a
+tela tem de conseguir mostrá-la.
+
+Eram duas colunas vazias com a mesma causa:
+
+1. **A O.S.** — gravar `ultima_os_id` morava dentro do mesmo `UPDATE` que move
+   `ultima_em`/`proxima_em`, e o conserto de propósito não roda esse UPDATE. A
+   trilha foi junto com o que precisava ficar parado. Agora o caminho sem baixa
+   grava **`ultima_os_id` sozinho** — é ponteiro de trilha, não de ciclo: o
+   `estadoDa` não o lê, e mover as datas ali pularia um mês.
+2. **O técnico** — o rodapé só olhava atribuição e zona, e a preventiva
+   aproveitada não passa por nenhuma das duas: quem foi está na **O.S.**. A rota
+   passa a trazer `feita_por_nome` (técnico da O.S. que executou, ou da
+   aproveitada, ou quem assinou o "Já foi feito").
+
+⚠️ **`feita_por_nome` é campo próprio, não um fallback dentro de
+`tecnico_nome`.** Aquele responde "de quem é este mês" e alimenta a barra de
+despacho; misturar os dois faria a tela oferecer para despachar quem já foi.
+
+O backfill dos 4 entrou no mesmo script, com três guardas para não pegar o que
+não é dele: chamado fechado **nesta** competência, **sem O.S. própria** e plano
+com `ultima_os_id` nulo (trilha existente nunca é sobrescrita).
+
+⚠️ **Bump de `?v=N`**: `operador-preventivas.js` foi para `v=13` no
+`operador-preventivas.html` **e** no `_preventivas-preview.html` — a prévia
+repete a versão do HTML de verdade.
+
+Sem migration.
+
+`src/services/preventivas.service.js`, `src/routes/ordens-servico.routes.js`,
+`src/routes/operador.routes.js`, `public/operador-preventivas.js`.
 Fluxo em [`modulos/painel-operador.md`](modulos/painel-operador.md).
 
 ---

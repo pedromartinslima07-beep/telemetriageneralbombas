@@ -610,6 +610,15 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
          -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
          osb.id     AS baixa_os_id,
          osb.numero AS baixa_os_numero,
+         -- ⚠️ E QUEM ASSINOU ESSA O.S. (21/09/2026). Regra do Pedro: preventiva
+         -- fechada tem origem, ponto — ou uma O.S. com preventiva mensal, e
+         -- entao tem o tecnico que a fez, ou o "Ja foi feito" do operador, que
+         -- tem nome e hora. A placa dizia "sem tecnico definido" nas que foram
+         -- aproveitadas porque so olhava atribuicao e zona, e a visita nao
+         -- passou por nenhuma das duas: quem foi esta na O.S.
+         -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
+         tosb.nome  AS baixa_os_tecnico_nome,
+         tose.nome  AS exec_os_tecnico_nome,
 
          -- A BAIXA MARCADA A MAO nesta competencia (migration 085). E o
          -- "Ja foi feito" de Aprovados trazido para ca: visita que aconteceu
@@ -704,12 +713,14 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
        -- nao existe e o Postgres recusa a query — o mesmo cuidado que o
        -- GET /operador/orcamentos ja registra entre os dois laterais dele.
        LEFT JOIN LATERAL (
-         SELECT os2.id, os2.numero, os2.finalizada_em
+         SELECT os2.id, os2.numero, os2.finalizada_em, os2.tecnico_id
            FROM ordens_servico os2
           WHERE os2.chamado_id = chf.id
           ORDER BY (os2.finalizada_em IS NOT NULL) DESC, os2.finalizada_em DESC, os2.id DESC
           LIMIT 1
        ) ose ON TRUE
+       LEFT JOIN tecnicos tosb ON tosb.id = osb.tecnico_id
+       LEFT JOIN tecnicos tose ON tose.id = ose.tecnico_id
        WHERE pm.ativo = TRUE
          -- ⚠️ DUAS PORTAS PARA O MES, E A SEGUNDA FALTAVA (04/09/2026).
          -- (Sem crase em nenhum comentario daqui: eles vivem dentro de um
@@ -782,6 +793,16 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
       tecnico_id:   p.atribuido_tecnico_id || p.zona_tecnico_id || null,
       tecnico_nome: p.atribuido_tecnico_nome || p.zona_tecnico_nome || null,
       tecnico_origem: origemDoTecnico(p),
+      // ⚠️ QUEM FEZ NAO E QUEM E O DONO (21/09/2026). `tecnico_nome` responde
+      // "de quem e este mes" — atribuicao ou zona — e e o que a barra de
+      // despacho usa. Numa preventiva JA FEITA a pergunta e outra, e a resposta
+      // nao esta em nenhuma das duas: esta na O.S. assinada no predio, ou na
+      // assinatura do "Ja foi feito". Sem este campo a placa dizia "sem tecnico
+      // definido" numa visita que aconteceu e tem documento.
+      // Campo proprio, e nao um fallback dentro de `tecnico_nome`, porque
+      // misturar os dois faria a tela oferecer para despachar quem ja foi.
+      feita_por_nome:
+        p.exec_os_tecnico_nome || p.baixa_os_tecnico_nome || p.baixa_manual_por_nome || null,
     }));
 
     // A equipe, para o diálogo de escala. `abertos` deixa a tela dizer quem já

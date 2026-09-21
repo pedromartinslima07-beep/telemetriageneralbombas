@@ -525,6 +525,22 @@ marcada **em outro chamado** do mesmo prédio, e o chamado do mês ainda aberto.
 Foi assim que a varredura de setembro achou 4 (`scripts/fechar-preventivas-orfas.js`,
 one-off de limpeza, idempotente e com simulação por padrão).
 
+⚠️ **E TODA PREVENTIVA FECHADA TEM ORIGEM** (21/09/2026, a segunda passada).
+Regra do Pedro, olhando as 4 recém-fechadas aparecerem como "sem técnico
+definido": *"para a preventiva estar fechada tem que ter uma O.S. que foi marcada
+preventiva mensal, e se tem a O.S. tem o técnico que fez ela, ou alguém tem que
+ter ido no painel de operador e clicado no botão de 'já foi feito'. Ponto."*
+
+Não existe terceira porta, e a tela precisa conseguir mostrar a que valeu. Por
+isso o caminho sem baixa grava **`ultima_os_id` sozinho** (ponteiro de trilha,
+não de ciclo — o `estadoDa` não o lê, e mexer nas datas ali pularia um mês), e o
+rodapé da placa passa a responder **"quem fez"**, não "de quem é": `feita_por_nome`
+= técnico da O.S. que executou → da aproveitada → quem assinou a baixa à mão.
+
+⚠️ **`feita_por_nome` NÃO entra em `tecnico_nome`.** Aquele é "de quem é este
+mês" e alimenta a barra de despacho; misturar faria a tela oferecer para
+despachar quem já foi.
+
 ### ⚠️ `tecnicos` é o quadro inteiro — filtre por `cargo` (04/09/2026)
 
 A tabela `tecnicos` guarda **todo o pessoal**, não só quem vai a campo: em

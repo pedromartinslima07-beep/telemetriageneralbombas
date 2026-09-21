@@ -222,7 +222,7 @@ async function darBaixaPorOS(client, { osId, condominioId, quando }) {
      dois planos elegíveis, e o operador ainda tem a tela para resolver à mão. */
   if (elegiveis.rows.length === 0) {
     const abertos = await client.query(
-      `SELECT ch.id
+      `SELECT ch.id, ch.plano_manutencao_id
          FROM chamados ch
          JOIN planos_manutencao pm ON pm.id = ch.plano_manutencao_id
         WHERE pm.condominio_id = $1
@@ -230,10 +230,34 @@ async function darBaixaPorOS(client, { osId, condominioId, quando }) {
         LIMIT 2`,
       [condominioId]
     );
+    const unico = abertos.rows.length === 1 ? abertos.rows[0] : null;
+
+    /* ⚠️ A TRILHA FICA, MESMO SEM BAIXA (21/09/2026, segunda passada). Fechar o
+       chamado sem gravar `ultima_os_id` deixava a placa dizendo "Feita" sem
+       nada que explicasse quem fez nem com qual documento — e a tela chama isso
+       de "sem técnico definido", que lê como defeito.
+
+       Regra do Pedro, e ela não tem exceção: *"para a preventiva estar fechada
+       tem que ter uma O.S. que foi marcada preventiva mensal, e se tem a O.S.
+       tem o técnico que fez ela, ou alguém tem que ter ido no painel de operador
+       e clicado no botão de 'já foi feito'"*. Toda preventiva fechada tem
+       origem; a tela tem de conseguir mostrá-la.
+
+       ⚠️ `ultima_os_id` SOZINHO, sem `ultima_em`/`proxima_em`. É ponteiro de
+       trilha, não de ciclo: ninguém deduz "feita" a partir dele (o `estadoDa`
+       não o lê), e mover as datas aqui pularia um mês — a guarda de sempre. */
+    if (unico) {
+      await client.query(
+        `UPDATE planos_manutencao SET ultima_os_id = $1 WHERE id = $2`,
+        [osId, unico.plano_manutencao_id]
+      );
+    }
+
     return {
       baixou: false,
       motivo: "nenhum plano devendo o mês",
-      chamadoPreventivaAberto: abertos.rows.length === 1 ? abertos.rows[0].id : null,
+      chamadoPreventivaAberto: unico ? unico.id : null,
+      planoId: unico ? unico.plano_manutencao_id : null,
     };
   }
   if (elegiveis.rows.length > 1) {
