@@ -175,6 +175,15 @@ router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
         values
       );
       updated = r.rows[0];
+      // O e-mail mora em duas tabelas: tecnicos (o que o app mostra) e
+      // usuarios (o login). Trocar só um deixa o app com o e-mail antigo —
+      // então o login acompanha. E-mail vazio não apaga o login.
+      if (email && tec.usuario_id) {
+        await client.query(
+          `UPDATE usuarios SET email = $1 WHERE id = $2`,
+          [String(email).toLowerCase(), tec.usuario_id]
+        );
+      }
     } else {
       // Nada pra atualizar em tecnicos (só trocou senha). Devolve o estado atual.
       const r = await client.query(

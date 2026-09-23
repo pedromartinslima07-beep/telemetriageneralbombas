@@ -17278,6 +17278,23 @@ Sem migration.
 `src/routes/operador.routes.js`, `public/operador-preventivas.js`.
 Fluxo em [`modulos/painel-operador.md`](modulos/painel-operador.md).
 
+## Trocar o e-mail do técnico chega ao app (2026-09-23)
+
+O e-mail do técnico mora em duas tabelas: `tecnicos.email` (o que o app mostra
+em "Seus dados", via `GET /tecnicos/me`) e `usuarios.email` (o login). O admin
+tem duas telas que editam esse e-mail, e cada uma gravava só na sua:
+Colaboradores (`PATCH /tecnicos/:id`) mexia em `tecnicos`, Configurações ›
+Usuários (`PATCH /admin/usuarios/:id`) mexia em `usuarios`. Trocar pela segunda
+não aparecia no app; trocar pela primeira não mudava o login.
+
+As duas rotas agora gravam nas duas tabelas. E-mail vazio no modal de
+Colaboradores não apaga o login. Em produção havia 1 técnico divergente
+(técnico 2).
+
+Sem migration.
+
+`src/routes/tecnicos.routes.js`, `src/routes/admin.routes.js`.
+
 ---
 
 > Decisões, itens descartados e backlog futuro:

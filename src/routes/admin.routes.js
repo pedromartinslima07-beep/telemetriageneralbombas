@@ -472,6 +472,14 @@ router.patch("/usuarios/:id", authRequired, masterAdminOnly, async (req, res) =>
       vals
     );
     if (!result.rows.length) return res.status(404).json({ error: "Não encontrado" });
+    // Técnico tem o e-mail também em tecnicos, que é o que o app mostra em
+    // "Seus dados". Sem isto, trocar o login por aqui não aparece no app.
+    if (email) {
+      await pool.query(
+        `UPDATE tecnicos SET email = $1 WHERE usuario_id = $2`,
+        [String(email).toLowerCase(), id]
+      );
+    }
     return res.json(result.rows[0]);
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "Email já cadastrado" });
