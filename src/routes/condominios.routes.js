@@ -7,6 +7,7 @@ const { adminOnly } = require("../middleware/adminOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { zonaParaGravar } = require("../services/zona.service");
+const { consultarCnpj, CnpjErro } = require("../services/cnpj.service");
 
 const router = express.Router();
 
@@ -137,6 +138,19 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
   } catch (error) {
     console.error("Erro ao listar condomínios:", error);
     return res.status(500).json({ error: "Erro ao listar condomínios" });
+  }
+});
+
+// GET /condominios/cnpj/:cnpj — auto-preenchimento do cadastro pela Receita.
+// Passa pelo backend com fontes de reserva (ver `cnpj.service.js`). Precisa vir
+// ANTES de `/:id`, senão "cnpj" é lido como id e responde 400.
+router.get("/cnpj/:cnpj", authRequired, gestaoOnly, async (req, res) => {
+  try {
+    return res.json(await consultarCnpj(req.params.cnpj));
+  } catch (error) {
+    if (error instanceof CnpjErro) return res.status(error.status).json({ error: error.message });
+    console.error("Erro ao consultar CNPJ:", error);
+    return res.status(500).json({ error: "Erro ao consultar CNPJ" });
   }
 });
 

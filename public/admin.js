@@ -3915,11 +3915,14 @@ function abrirModalNovoCliente() {
     }
     const btn = document.getElementById("btnBuscarCnpj");
     if (btn) { btn.disabled = true; btn.textContent = "Buscando…"; }
+    if (msgCnpj) msgCnpj.style.color = "";
     try {
-      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
-      const data = await r.json();
+      // Passa pelo backend, que tenta BrasilAPI → OpenCNPJ → CNPJ.ws.
+      // Direto do navegador a BrasilAPI falhava sozinha (anti-bot / rate limit).
+      const r = await fetch(`/condominios/cnpj/${cnpj}`, { headers: authHeaders() });
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        if (msgCnpj) msgCnpj.textContent = data.message || "CNPJ não encontrado.";
+        if (msgCnpj) msgCnpj.textContent = data.error || "CNPJ não encontrado.";
         return;
       }
       // preenche campos automaticamente
@@ -3963,7 +3966,7 @@ function abrirModalNovoCliente() {
     } catch {
       if (msgCnpj) msgCnpj.textContent = "Erro ao consultar CNPJ. Verifique a conexão.";
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = "Buscar dados"; }
+      if (btn) { btn.disabled = false; btn.textContent = "Buscar"; }
     }
   });
 
@@ -7539,9 +7542,10 @@ function abrirModalEditar(id) {
       const btn = document.getElementById("btnBuscarCnpjEdit");
       if (btn) { btn.disabled = true; btn.textContent = "Buscando…"; }
       try {
-        const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
-        const data = await r.json();
-        if (!r.ok) { if (msgEl) msgEl.textContent = data.message || "CNPJ não encontrado."; return; }
+        // Mesmo caminho do cadastro: backend com fontes de reserva.
+        const r = await fetch(`/condominios/cnpj/${cnpj}`, { headers: authHeaders() });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) { if (msgEl) msgEl.textContent = data.error || "CNPJ não encontrado."; return; }
         const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
         set("editNome",         data.razao_social || data.nome_fantasia);
         set("editNomeFantasia", data.nome_fantasia);

@@ -189,6 +189,7 @@ Leaflet, Lucide) — sem CDN, sem npm no frontend.
 | **Resend** | `email.js` | `RESEND_API_KEY`, `SMTP_FROM` | OTP de login + email de alerta crítico |
 | **Nominatim (OSM)** | `/admin/geocode`, `/admin/reverse-geocode` | — | proxy server-side, fila 1 req/s (ToS) |
 | **ViaCEP / BrasilAPI / AwesomeAPI** | frontend (CEP → endereço/coords) | — | liberados na CSP (`connect-src`) |
+| **BrasilAPI / OpenCNPJ / CNPJ.ws** | `cnpj.service.js` → `GET /condominios/cnpj/:cnpj` | — | consulta de CNPJ **server-side**, em cascata (desde 01/10/2026; antes era do browser e falhava por anti-bot/rate limit) |
 | **Carto (tiles dark)** | proxy `/tiles/:z/:x/:y.png` | — | cache em memória 4000 tiles/24h + dedupe inflight; resolve adblock/firewall |
 | **ESP32 (entrada)** | `POST /telemetria` | `X-Device-Key` (por reservatório) | não é serviço externo, mas é a fonte primária de dados |
 

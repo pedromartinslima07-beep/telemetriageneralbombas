@@ -17295,6 +17295,30 @@ Sem migration.
 
 `src/routes/tecnicos.routes.js`, `src/routes/admin.routes.js`.
 
+## Buscar CNPJ no cadastro passa pelo backend, com fontes de reserva (2026-10-01)
+
+O botão "Buscar" do CNPJ no cadastro de cliente (e o "Buscar dados" da edição)
+chamava a BrasilAPI direto do navegador e dava "Erro ao consultar CNPJ.
+Verifique a conexão.". Do servidor a mesma URL respondia 200 em 0,1 s. Essa
+mensagem é o `catch` do front: ele pega tanto falha de rede quanto resposta que
+não é JSON, e o anti-bot e o limite de requisições da BrasilAPI devolvem HTML.
+Com uma fonte só, chamada do browser, o usuário não tinha saída.
+
+Agora o front chama `GET /condominios/cnpj/:cnpj` (gestão), que tenta
+**BrasilAPI → OpenCNPJ → CNPJ.ws** e devolve sempre no formato da BrasilAPI,
+mais `fonte`. CNPJ inválido para na hora (400). 404 em uma fonte tenta as
+outras. Rede, timeout (8 s), 5xx, 429 ou HTML passa para a próxima. Se nenhuma
+responder, a rota devolve 502 com mensagem legível e registra `[cnpj]` no log
+com o motivo de cada fonte.
+
+O rótulo do botão no cadastro voltava como "Buscar dados" depois da primeira
+busca. Agora volta como "Buscar".
+
+Sem migration. `/condominios` já estava na lista network-first do SW.
+
+`src/services/cnpj.service.js` (novo), `src/routes/condominios.routes.js`,
+`public/admin.js` (`?v=358`).
+
 ---
 
 > Decisões, itens descartados e backlog futuro:

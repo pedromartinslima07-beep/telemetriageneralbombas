@@ -100,6 +100,7 @@ segue no comportamento padrão do Express.
 | Método | Rota | Acesso |
 |---|---|---|
 | GET | `/condominios` · `/condominios/:id` | adminOnly |
+| GET | `/condominios/cnpj/:cnpj` | **gestao** — consulta pública do CNPJ para auto-preencher o cadastro. Tenta BrasilAPI → OpenCNPJ → CNPJ.ws (`cnpj.service.js`) e responde no formato da BrasilAPI (`razao_social`, `nome_fantasia`, `logradouro`, `numero`, `complemento`, `bairro`, `municipio`, `uf`, `cep`, `ddd_telefone_1`, `descricao_situacao_cadastral`) + `fonte`. `400` inválido · `404` não encontrado · `502` nenhuma fonte respondeu. Declarada antes de `/:id` |
 | POST | `/condominios` | **gestao** (aceita lat/lng/cep/cnpj) |
 | PATCH | `/condominios/:id` | **gestao** |
 | DELETE | `/condominios/:id` | masterAdmin (soft/inativar). `ativo = false` no condomínio e nos reservatórios — **revoga o acesso dos logins de cliente** (contas preservadas). `PATCH {ativo:true}` devolve |

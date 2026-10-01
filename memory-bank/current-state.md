@@ -65,7 +65,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 |---|---|
 | **auth** | Login identifier-first: e-mail → `/auth/metodo` diz o campo seguinte (senha da equipe ou código do cliente) → OTP → JWT + trusted device cookie |
 | **telemetria** | Ingestão de leituras dos ESP32 |
-| **condominios / reservatorios** | CRUD + calibração + limiar + lat/lng/CEP/CNPJ/nome_fantasia |
+| **condominios / reservatorios** | CRUD + calibração + limiar + lat/lng/CEP/CNPJ/nome_fantasia · consulta de CNPJ server-side com fallback (`GET /condominios/cnpj/:cnpj`: BrasilAPI → OpenCNPJ → CNPJ.ws) |
 | **cliente** | Status e histórico do próprio condomínio |
 | **alertas** | Página unificada telemetria+chamados, comentários, análise IA |
 | **whatsapp** | Webhook Meta, conversas, central de atendimento, curadoria IA (contatos WhatsApp removidos da UI até módulo ser ativado) |
