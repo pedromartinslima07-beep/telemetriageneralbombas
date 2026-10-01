@@ -155,11 +155,23 @@ esconder do front.
 
 ## Classificação por zona de SP
 
-A página Mapa agrupa condomínios por zona. A divisão oficial de SP **não é
-simétrica** (a Zona Sul cobre todo o sudoeste — Capão Redondo, Campo Limpo,
-M'Boi Mirim), então quadrante puro lat/lng errava. `_mpZonaPara` usa um mapa de
-~80 bairros conhecidos → zona oficial (com normalização de acentos), com
-fallback geográfico (ex.: > 8 km ao sul = Zona Sul).
+A página Mapa agrupa condomínios pela zona **gravada** em `condominios.zona`
+(`_mpZonaPara` lê `condominio.zona` do `GET /admin/status`; sem zona →
+"Sem zona"). Quem decide a zona é o cadastro, via `src/services/zona.service.js`:
+
+1. cidade fora de SP → a cidade é a zona;
+2. CEP de prefixo inequívoco (02 Norte, 03/08 Leste, 04 Sul), que resolve
+   bairro de nome repetido como Jardim São Francisco e Chácara Santo Antônio;
+3. bairro conhecido (`BAIRROS_ZONA`, com normalização de acento e parêntese),
+   exceto os de `BAIRROS_AMBIGUOS`;
+4. coordenada → zona do **ponto de referência mais próximo** (`REFERENCIAS`,
+   cerca de 95 centros de bairro cobrindo a capital).
+
+A divisão oficial de SP **não é simétrica** (a Zona Sul cobre todo o sudoeste;
+a Norte vai até a Vila Maria, a leste da Sé). Por isso o quadrante a partir da
+Sé errava. Até 01/10/2026 ele punha o nordeste na Zona Norte (ver
+[changelog](../changelog.md)). Se uma região cair na zona errada, acrescente
+um ponto em `REFERENCIAS`.
 
 ## Onde os pinos aparecem
 

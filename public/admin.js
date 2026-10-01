@@ -8516,83 +8516,13 @@ let _mpMarkers = new Map(); // condoId → L.Marker
 let _mpCondoSelecionadoId = null;
 let _mpTabAtiva = "visao";
 let _mpZonaChart   = null;
-// Praça da Sé como referência para os quadrantes (fallback)
-const _MP_SE = { lat: -23.5505, lng: -46.6333 };
-
-// Mapeamento oficial de bairros de SP → zona. A divisão real da prefeitura
-// não é simétrica: a Zona Sul cobre um pedaço gigante a sudoeste (Capão
-// Redondo, M'Boi Mirim, Jardim Ângela), então quadrante puro por lat/lng erra.
-// Bairros aqui ditam a zona; se o bairro não estiver na lista (ou não
-// preenchido), cai no fallback geográfico mais abaixo.
-const _MP_BAIRROS_ZONA = {
-  // Centro
-  "se": "Centro", "republica": "Centro", "liberdade": "Centro",
-  "bela vista": "Centro", "consolacao": "Centro", "santa cecilia": "Centro",
-  "cambuci": "Centro", "bom retiro": "Centro",
-
-  // Zona Norte
-  "santana": "Zona Norte", "tucuruvi": "Zona Norte", "tremembe": "Zona Norte",
-  "jacana": "Zona Norte", "vila guilherme": "Zona Norte", "vila maria": "Zona Norte",
-  "casa verde": "Zona Norte", "limao": "Zona Norte", "freguesia do o": "Zona Norte",
-  "pirituba": "Zona Norte", "jaragua": "Zona Norte", "perus": "Zona Norte",
-  "brasilandia": "Zona Norte", "mandaqui": "Zona Norte", "cachoeirinha": "Zona Norte",
-  "vila nova cachoeirinha": "Zona Norte", "vila medeiros": "Zona Norte",
-
-  // Zona Sul (inclui o sudoeste todo)
-  "vila mariana": "Zona Sul", "saude": "Zona Sul", "ipiranga": "Zona Sul",
-  "jabaquara": "Zona Sul", "santo amaro": "Zona Sul", "brooklin": "Zona Sul",
-  "campo belo": "Zona Sul", "moema": "Zona Sul", "vila olimpia": "Zona Sul",
-  "campo limpo": "Zona Sul", "capao redondo": "Zona Sul", "jardim sao luis": "Zona Sul",
-  "jardim angela": "Zona Sul", "mboi mirim": "Zona Sul", "m'boi mirim": "Zona Sul",
-  "cidade ademar": "Zona Sul", "pedreira": "Zona Sul", "cidade dutra": "Zona Sul",
-  "socorro": "Zona Sul", "capela do socorro": "Zona Sul", "grajau": "Zona Sul",
-  "parelheiros": "Zona Sul", "marsilac": "Zona Sul", "interlagos": "Zona Sul",
-  "morumbi": "Zona Sul", "vila andrade": "Zona Sul", "real parque": "Zona Sul",
-  "veleiros": "Zona Sul", "americanopolis": "Zona Sul",
-
-  // Zona Leste
-  "mooca": "Zona Leste", "tatuape": "Zona Leste", "penha": "Zona Leste",
-  "belem": "Zona Leste", "bras": "Zona Leste", "itaquera": "Zona Leste",
-  "sao miguel": "Zona Leste", "itaim paulista": "Zona Leste",
-  "cidade tiradentes": "Zona Leste", "vila prudente": "Zona Leste",
-  "aricanduva": "Zona Leste", "vila formosa": "Zona Leste", "vila carrao": "Zona Leste",
-  "ermelino matarazzo": "Zona Leste", "guaianases": "Zona Leste",
-  "sao mateus": "Zona Leste", "sapopemba": "Zona Leste", "cangaiba": "Zona Leste",
-  "vila matilde": "Zona Leste", "artur alvim": "Zona Leste", "carrao": "Zona Leste",
-
-  // Zona Oeste (relativamente pequena)
-  "butanta": "Zona Oeste", "pinheiros": "Zona Oeste", "lapa": "Zona Oeste",
-  "vila madalena": "Zona Oeste", "perdizes": "Zona Oeste", "pompeia": "Zona Oeste",
-  "barra funda": "Zona Oeste", "alto de pinheiros": "Zona Oeste",
-  "itaim bibi": "Zona Sul", "vila leopoldina": "Zona Oeste",
-  "jaguare": "Zona Oeste", "rio pequeno": "Zona Oeste",
-  "raposo tavares": "Zona Oeste", "vila sonia": "Zona Oeste",
-  "jardim paulista": "Zona Oeste", "jardins": "Zona Oeste",
-};
-
-// Tira acento, baixa caixa e normaliza espaços pra match estável
-function _mpNormalizar(s) {
-  return String(s || "")
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .toLowerCase().trim().replace(/\s+/g, " ");
-}
-
+// A zona vem do banco (`condominios.zona`), decidida no cadastro por
+// `src/services/zona.service.js`. Aqui morava uma terceira cópia da tabela de
+// bairros e do quadrante a partir da Sé — o mesmo quadrante que punha o
+// nordeste na Zona Norte (01/10/2026). Uma regra, um lugar.
 function _mpZonaPara(c) {
-  // 1) Bairro tem prioridade — divisão oficial de SP não é simétrica
-  const bairroNorm = _mpNormalizar(c.bairro);
-  if (bairroNorm && _MP_BAIRROS_ZONA[bairroNorm]) {
-    return _MP_BAIRROS_ZONA[bairroNorm];
-  }
-
-  // 2) Fallback geográfico: quadrante a partir da Sé
-  if (c.lat == null || c.lng == null) return "Sem coordenada";
-  const dLat = c.lat - _MP_SE.lat;
-  const dLng = c.lng - _MP_SE.lng;
-  const distKm = Math.sqrt((dLat * 111) ** 2 + (dLng * 102) ** 2);
-  if (distKm <= 3) return "Centro";
-  if (dLat < -0.032) return "Zona Sul";  // ~3.5km ao sul cobre Moema, Brooklin, Vila Mariana
-  if (dLat >  0.032) return "Zona Norte";
-  return dLng > 0 ? "Zona Leste" : "Zona Oeste";
+  const z = c.zona == null ? "" : String(c.zona).trim();
+  return z || "Sem zona";
 }
 
 function _mpRelTime(iso) {
@@ -9188,9 +9118,9 @@ function _mpAtualizarZonaDonut() {
     contagem.set(z, (contagem.get(z) || 0) + 1);
   }
 
-  // "Sem coordenada" não é uma zona — é falta de dado. Vai por último e em
+  // "Sem zona" não é uma zona — é falta de dado. Vai por último e em
   // tinta apagada, para não competir com as zonas de verdade.
-  const SEM_COORD = "Sem coordenada";
+  const SEM_COORD = "Sem zona";
   const itens = [...contagem.entries()]
     .map(([label, value]) => ({ label, value }))
     .sort((a, b) => {

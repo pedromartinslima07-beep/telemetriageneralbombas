@@ -109,7 +109,7 @@ router.post("/", authRequired, gestaoOnly, async (req, res) => {
         //
         // O que a pessoa digitou ganha sempre; a derivação só preenche o vazio.
         // Ver `src/services/zona.service.js`.
-        zonaParaGravar(zona, { bairro, cidade, lat, lng }),
+        zonaParaGravar(zona, { bairro, cidade, cep: cepNorm, lat, lng }),
       ]
     );
 
@@ -256,7 +256,7 @@ router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
   // ⚠️ MAS NÃO REESCREVE ZONA EXISTENTE. Só entra quando a zona resultante
   // ficaria vazia: um prédio na divisa que a equipe atende como Zona Sul não
   // pode virar Zona Oeste porque alguém corrigiu o CEP.
-  if ("zona" in b || "bairro" in b || "cidade" in b || "lat" in b || "lng" in b) {
+  if ("zona" in b || "bairro" in b || "cidade" in b || "cep" in b || "lat" in b || "lng" in b) {
     const zonaCrua = "zona" in b ? (b.zona ? String(b.zona).trim() || null : null) : undefined;
     if (zonaCrua) {
       add("zona", zonaCrua);
@@ -264,13 +264,14 @@ router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
       // O endereço final é o que vem no corpo sobre o que já está no banco —
       // editar só o bairro precisa enxergar a cidade e as coordenadas antigas.
       const atualRes = await pool.query(
-        "SELECT bairro, cidade, lat, lng, zona FROM condominios WHERE id = $1", [idNum]
+        "SELECT bairro, cidade, cep, lat, lng, zona FROM condominios WHERE id = $1", [idNum]
       );
       const atual = atualRes.rows[0] || {};
       if (!atualRes.rows.length) return res.status(404).json({ error: "Condomínio não encontrado" });
       const end = {
         bairro: "bairro" in b ? b.bairro : atual.bairro,
         cidade: "cidade" in b ? b.cidade : atual.cidade,
+        cep:    "cep"    in b ? b.cep    : atual.cep,
         lat:    "lat"    in b ? b.lat    : atual.lat,
         lng:    "lng"    in b ? b.lng    : atual.lng,
       };

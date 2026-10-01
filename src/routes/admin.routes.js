@@ -70,6 +70,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
         c.cep      AS condominio_cep,
         c.lat      AS condominio_lat,
         c.lng      AS condominio_lng,
+        c.zona     AS condominio_zona,
 
         r.id        AS reservatorio_id,
         r.nome      AS reservatorio_nome,
@@ -123,6 +124,7 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
             cep: row.condominio_cep,
             lat: row.condominio_lat != null ? Number(row.condominio_lat) : null,
             lng: row.condominio_lng != null ? Number(row.condominio_lng) : null,
+            zona: row.condominio_zona || null,
           },
           reservatorios: [],
           resumo: {

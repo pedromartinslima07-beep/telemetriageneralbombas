@@ -278,7 +278,7 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 
 ## Admin (`/admin`)
 
-| GET | `/admin/status` | adminOnly (status agregado por condomínio + lat/lng/endereço) |
+| GET | `/admin/status` | adminOnly (status agregado por condomínio + lat/lng/endereço/zona) |
 | GET | `/admin/historico?device_ids=A,B&horas=N` | adminOnly (até 10 devices) |
 | GET | `/admin/geocode?q=` · `/admin/reverse-geocode?lat=&lon=` | adminOnly (proxy Nominatim) |
 | GET/POST/PATCH/DELETE | `/admin/usuarios[/:id]` | GET adminOnly; escrita masterAdmin. **`senha` é opcional para `role='cliente'`** (25/08/2026): ele entra por código no e-mail, e nasce com hash de 32 bytes aleatórios. Para acesso interno a senha segue obrigatória |

@@ -66,11 +66,26 @@ async function main() {
        zonaDe({ bairro: "Indianópolis", cidade: "SAO PAULO" }) === "Zona Sul" &&
        zonaDe({ bairro: "ALTO DA MOOCA", cidade: "SAO PAULO" }) === "Zona Leste" &&
        zonaDe({ bairro: "VILA IPOJUCA", cidade: "SAO PAULO" }) === "Zona Oeste");
-    // ⚠️ O cadastro real escreve "CHACARA SANTO ANTONIO (ZONA LESTE)" — o
-    // parêntese é anotação de quem digitou, e ainda por cima ERRADA (Chácara
-    // Santo Antônio é Zona Sul). A normalização tem de ignorá-lo.
+    // O parêntese é anotação de quem digitou; a normalização o ignora.
     ok("parêntese do cadastro é ignorado",
-       zonaDe({ bairro: "CHACARA SANTO ANTONIO (ZONA LESTE)", cidade: "SAO PAULO" }) === "Zona Sul");
+       zonaDe({ bairro: "VILA MARIANA (PERTO DO METRO)", cidade: "SAO PAULO" }) === "Zona Sul");
+    // ⚠️ BAIRRO DE NOME REPETIDO (01/10/2026). Este teste afirmava que
+    // "CHACARA SANTO ANTONIO (ZONA LESTE)" é Zona Sul, e a anotação estava
+    // CERTA: há uma Chácara Santo Antônio na Sul e outra na Leste (CEP 034xx).
+    // Mesma coisa com o Jardim São Francisco do Atua Parque Ecológico 1, que
+    // estava na Zona Norte. O CEP desempata; sem CEP, a coordenada.
+    ok("CEP desempata bairro de nome repetido",
+       zonaDe({ bairro: "JARDIM SAO FRANCISCO (ZONA LESTE)", cidade: "SAO PAULO", cep: "03718090" }) === "Zona Leste" &&
+       zonaDe({ bairro: "CHACARA SANTO ANTONIO (ZONA LESTE)", cidade: "SAO PAULO", cep: "03408000" }) === "Zona Leste" &&
+       zonaDe({ bairro: "CHACARA SANTO ANTONIO", cidade: "SAO PAULO", cep: "04707000" }) === "Zona Sul");
+    ok("sem CEP, bairro ambíguo vai para a coordenada",
+       zonaDe({ bairro: "JARDIM SAO FRANCISCO", cidade: "SAO PAULO", lat: -23.4986, lng: -46.5274 }) === "Zona Leste");
+    // 01 e 05 ficam de fora: Jardins (014xx) e Morumbi/Vila Suzana (056xx) têm
+    // convenção da casa diferente do prefixo, e Pirituba é 05xxx na Zona Norte.
+    ok("CEP 01/05 não decide — o bairro decide",
+       zonaDe({ bairro: "JARDIM PAULISTA", cidade: "SAO PAULO", cep: "01415000" }) === "Zona Oeste" &&
+       zonaDe({ bairro: "VILA SUZANA", cidade: "SAO PAULO", cep: "05641030" }) === "Zona Sul" &&
+       zonaDe({ bairro: "PIRITUBA", cidade: "SAO PAULO", cep: "05144000" }) === "Zona Norte");
     ok("acento e caixa não importam",
        zonaDe({ bairro: "perdizes" }) === zonaDe({ bairro: "PERDIZES" }));
     // Fora de SP a cidade É a zona — é como a operação fala, e é o que já está
@@ -81,6 +96,16 @@ async function main() {
     // quando há coordenada.
     ok("sem bairro conhecido, a coordenada decide",
        zonaDe({ bairro: "Rua Que Não Existe", cidade: "SAO PAULO", lat: -23.65, lng: -46.70 }) === "Zona Sul");
+    // ⚠️ O QUADRANTE ANTIGO (01/10/2026) perguntava "ao norte da Sé?" antes de
+    // olhar a longitude, e o Atua Parque Ecológico (Parque Ecológico do Tietê,
+    // Zona Leste) caía na Zona Norte. Nordeste não é Norte, sudeste não é Sul.
+    ok("nordeste da Sé não vira Zona Norte",
+       zonaDe({ cidade: "SAO PAULO", lat: -23.487, lng: -46.515 }) === "Zona Leste" &&
+       zonaDe({ cidade: "SAO PAULO", lat: -23.525, lng: -46.545 }) === "Zona Leste");
+    ok("e a Vila Maria, a leste da Sé, continua Zona Norte",
+       zonaDe({ cidade: "SAO PAULO", lat: -23.515, lng: -46.580 }) === "Zona Norte");
+    ok("noroeste da Sé não vira Zona Norte",
+       zonaDe({ cidade: "SAO PAULO", lat: -23.523, lng: -46.700 }) === "Zona Oeste");
     ok("sem nada, devolve null (e o cadastro não inventa)",
        zonaDe({ bairro: null, cidade: "SAO PAULO" }) === null);
 
@@ -93,6 +118,11 @@ async function main() {
     const zonaVazia = await criar({ nome: "Zona Vazia " + suf, bairro: "Perdizes", cidade: "SAO PAULO", zona: "" });
     ok("zona em branco também deriva", zonaVazia.j.zona === "Zona Oeste",
        "zona=" + JSON.stringify(zonaVazia.j.zona));
+
+    const comCep = await criar({ nome: "Zona Cep " + suf, bairro: "JARDIM SAO FRANCISCO (ZONA LESTE)",
+                                 cidade: "SAO PAULO", cep: "03718-090" });
+    ok("o cadastro passa o CEP para a derivação", comCep.j.zona === "Zona Leste",
+       "zona=" + JSON.stringify(comCep.j.zona));
 
     // ⚠️ QUEM DIGITOU GANHA. Um prédio na divisa que a equipe atende como Zona
     // Sul é Zona Sul, mesmo que o bairro diga outra coisa — a derivação
@@ -139,10 +169,12 @@ async function main() {
     // ⚠️ Todo bairro que existe HOJE na carteira precisa resolver. Se um novo
     // aparecer e cair no chute geográfico, este teste avisa antes de virar
     // prédio órfão.
+    // Endereço inteiro, não só o bairro: bairro de nome repetido só resolve
+    // com o CEP (ou a coordenada) junto.
     const carteira = await pool.query(
-      "SELECT DISTINCT bairro, cidade FROM condominios WHERE ativo AND bairro IS NOT NULL AND bairro <> ''"
+      "SELECT bairro, cidade, cep, lat, lng FROM condominios WHERE ativo AND bairro IS NOT NULL AND bairro <> ''"
     );
-    const semResolver = carteira.rows.filter((c) => !zonaDe({ bairro: c.bairro, cidade: c.cidade }));
+    const semResolver = carteira.rows.filter((c) => !zonaDe(c));
     ok("todo bairro da carteira de teste resolve", semResolver.length === 0,
        semResolver.length ? semResolver.map((c) => c.bairro).join(", ") : "");
   } finally {

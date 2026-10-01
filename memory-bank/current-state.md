@@ -421,7 +421,9 @@ Detalhe e o porquê de cada uma em
   viram filete de 1px. Ver [decisions.md](decisions.md).
 - **Mapa interativo Leaflet** (tiles Esri World Topo Map + filtro CSS que
   inverte para dark): pinos por status, painel lateral com tabs, KPIs, donuts,
-  classificação por zona de SP. O basemap é claro; o escuro é feito em
+  classificação por zona de SP (lê `condominios.zona`; a regra mora só em
+  `src/services/zona.service.js`; desde 01/10/2026 a ordem é cidade → CEP
+  02/03/04/08 → bairro → bairro de referência mais próximo). O basemap é claro; o escuro é feito em
   `.map-tiles-dark` — um basemap já escuro passando por ali volta a clarear.
   ⚠️ **Não voltar para `tile.openstreetmap.org`** — o OSM bloqueou o app em
   11/09/2026 (403 "App is not following the tile usage policy" em toda tile). O

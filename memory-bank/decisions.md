@@ -383,6 +383,24 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
   justificar.
 - **Classificação por zona de SP** usa mapa de ~80 bairros conhecidos (a divisão
   oficial não é simétrica; quadrante lat/lng puro falhava — ex: Capão Redondo).
+- **O CEP decide antes do bairro, mas só nos prefixos 02/03/04/08**
+  (01/10/2026). SP tem bairros com o mesmo nome em zonas diferentes (Jardim
+  São Francisco, Chácara Santo Antônio). A tabela pôs o Atua Parque Ecológico 1
+  na Zona Norte e o Praça das Águas na Zona Sul, e os dois são Zona Leste.
+  **Lição:** a anotação "(ZONA LESTE)" que o cadastro trazia e que a
+  normalização descarta estava certa, e o teste que a chamava de errada
+  estava errado. Antes de chamar o dado do usuário de erro, confira o CEP.
+  Os prefixos 01 e 05 ficam de fora porque contrariam a convenção da casa
+  (Jardins = Oeste; Morumbi/Vila Suzana = Sul; Pirituba 05xxx = Norte).
+- **Sem bairro conhecido, vale o ponto de referência mais próximo, não o
+  quadrante** (01/10/2026). O quadrante testava norte/sul antes de leste/oeste
+  e punha todo o nordeste na Zona Norte. Inverter a ordem só trocaria o erro de
+  lado (a Vila Maria, a leste da Sé, é Zona Norte).
+  Vizinho mais próximo sobre centros de bairro reais acompanha a fronteira
+  verdadeira. **Descartado:** polígonos oficiais das subprefeituras, porque
+  seria um GeoJSON grande para resolver o que uma lista de pontos já resolve.
+  A correção em massa preserva as zonas que parecem digitadas, porque o
+  cadastro diz que quem digitou vence.
 
 ## App mobile
 

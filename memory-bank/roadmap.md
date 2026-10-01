@@ -263,6 +263,14 @@ aliases:
     vazia lá até alguém reativá-los em Planos, no admin.
   - 📋 **Só 1 zona tem responsável** para 11 técnicos ativos. Enquanto isso, o
     despacho depende da escala manual desta tela — que é o que ela resolve.
+  - ✅ **Zonas erradas por bairro de nome repetido, corrigidas em produção**
+    (01/10/2026): Atua Parque Ecológico 1 (Norte → Leste) e Praça das Águas
+    (Sul → Leste). O CEP agora desempata no cadastro. Ver
+    [changelog](../docs/changelog.md).
+  - 📋 **Dois prédios com o pino no centro geográfico de SP** (Saint Antoine e
+    Virgilio, os dois em `-23.5475, -46.63611`): o geocoding não achou o
+    endereço. A zona deles está certa (decidida pelo bairro), mas no mapa os
+    pinos estão na Sé. Basta arrastar o pino no cadastro.
 
 - ✅ **A prioridade do chamado vem do contrato** (03/09/2026). Pedido do Pedro,
   a partir da minuta do Saint Antoine: *"com o que tem nela dá para setar um

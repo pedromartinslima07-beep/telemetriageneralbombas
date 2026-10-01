@@ -17319,6 +17319,57 @@ Sem migration. `/condominios` já estava na lista network-first do SW.
 `src/services/cnpj.service.js` (novo), `src/routes/condominios.routes.js`,
 `public/admin.js` (`?v=358`).
 
+## Zona: o CEP desempata bairro de nome repetido (2026-10-01)
+
+O Atua Parque Ecológico 1 aparecia na Zona Norte das preventivas do operador.
+O bairro dele está cadastrado como "JARDIM SAO FRANCISCO (ZONA LESTE)". A
+normalização descarta o parêntese, e a tabela `BAIRROS_ZONA` só conhecia o
+Jardim São Francisco da Zona Norte. **SP tem bairros com o mesmo nome em zonas
+diferentes.** O Praça das Águas tinha o mesmo problema com a Chácara Santo
+Antônio (há uma na Sul e outra na Leste) e estava na Zona Sul. Os dois são
+Zona Leste. Uma zona errada tira o prédio do roteiro do técnico daquela região.
+
+- **CEP antes do bairro** (`zonaPorCep`): nos prefixos sem ambiguidade (02 é
+  Norte, 03 e 08 são Leste, 04 é Sul), o CEP decide. Em produção, esses
+  prefixos batiam com a zona gravada em 55 de 57 prédios, e as duas exceções
+  eram esses dois erros. Os prefixos 01 e 05 ficam de fora porque os Jardins,
+  Morumbi e Vila Suzana seguem a convenção da casa, e Pirituba é 05xxx e fica
+  na Zona Norte. O cadastro (`POST`/`PATCH /condominios`) passou a enviar o CEP
+  para a derivação.
+- **`BAIRROS_AMBIGUOS`**: sem CEP, um nome repetido não decide pela tabela e
+  passa para a coordenada.
+- **`zonaPorCoordenada`** (`src/services/zona.service.js`): a zona agora é a do
+  **ponto de referência mais próximo**, numa lista de cerca de 95 centros de
+  bairro que cobrem a capital (`REFERENCIAS`). A fronteira entre as zonas sai
+  de pontos reais, não de uma reta. O quadrante antigo a partir da Sé
+  verificava norte/sul antes da longitude, então todo o nordeste virava Zona
+  Norte. Hoje nenhum prédio de produção depende desse fallback. Há dois com o
+  pino no centro geográfico da cidade (geocoding que não achou o endereço:
+  Saint Antoine e Virgilio), mas o bairro deles decide antes. A tabela
+  `BAIRROS_ZONA` ganhou cerca de 35
+  bairros (da cópia do admin e da periferia leste e sul, como Engenheiro
+  Goulart, Ponte Rasa e Vila Jacuí).
+- **O mapa do admin lê a zona gravada.** `_mpZonaPara` tinha uma terceira
+  cópia da tabela e do mesmo quadrante. Agora usa `condominio.zona`, que entrou
+  no `GET /admin/status`. Prédio sem zona aparece como "Sem zona".
+- **`scripts/auto-zona-condominios.js` não reescreve tudo às cegas.** A regra
+  do cadastro diz que a zona digitada vence, e o banco não registra se uma zona
+  foi digitada ou derivada. O script corrige só as vazias e as que batem
+  exatamente com o código antigo (bairro ou quadrante). As que divergem das
+  duas regras são listadas e só mudam com `--incluir-manuais`.
+- `scripts/testes/zona-cadastro.test.js`: o caso que afirmava que "CHACARA
+  SANTO ANTONIO (ZONA LESTE)" é Zona Sul estava errado, porque a anotação
+  estava certa. Entraram casos para CEP, bairro ambíguo, prefixos 01/05,
+  coordenada e um pela rota. 24/24 no banco de teste.
+
+Sem migration. **Produção corrigida em 01/10/2026** com
+`node scripts/auto-zona-condominios.js --prod`: o Atua Parque Ecológico 1
+(Norte → Leste) e o Praça das Águas (Sul → Leste). O dry-run seguinte deu 0.
+
+`src/services/zona.service.js`, `src/routes/condominios.routes.js`,
+`src/routes/admin.routes.js`,
+`scripts/auto-zona-condominios.js`, `public/admin.js` (`?v=359`).
+
 ---
 
 > Decisões, itens descartados e backlog futuro:
