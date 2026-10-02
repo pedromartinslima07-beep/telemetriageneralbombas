@@ -92,6 +92,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
+| 087 | chamado_competencia | `chamados.competencia` (dia 1) + índice parcial; preenche os existentes pelo mês de criação (o segundo chamado do mesmo plano no mesmo mês vai para o seguinte) e põe o mês no título dos abertos. Ver a entrada de 02/10/2026 abaixo |
 | 086 | os_envio_email | `ordens_servico.enviado_em`, `enviado_para` — rastreio do envio da O.S. por e-mail ao cliente, com os mesmos nomes que `orcamentos` usa desde a 047. Ver [ordens-servico.md](modulos/ordens-servico.md) |
 
 ## Marcos de produto (fases do plano)
@@ -17376,3 +17377,46 @@ Sem migration. **Produção corrigida em 01/10/2026** com
 > [`../memory-bank/decisions.md`](../memory-bank/decisions.md) e
 > [`../memory-bank/roadmap.md`](../memory-bank/roadmap.md). Fluxos de negócio em
 > [`modulos/`](modulos/README.md).
+
+## O chamado de preventiva sabe de que mês ele é (2026-10-02)
+
+**O caso:** o Alex recebeu no app uma "Preventiva" do AGUIA DE HAIA com data de
+28/09, de um prédio visitado naquele mesmo dia, e perguntou por que aquilo era
+dele. O histórico respondeu: o chamado #257 nasceu em 28/09 quando o Glebson
+tocou "Iniciar" de novo logo depois de fechar setembro (o plano já devia
+outubro), e em 01/10 o despacho de outubro o adotou para o Alex. Nada no
+chamado dizia o mês.
+
+**A causa era estrutural:** a escala (082) e a baixa à mão (085) já eram por
+competência, mas o chamado se ligava ao plano só por `plano_manutencao_id`, e o
+despacho, o "Iniciar" e a baixa pegavam "o chamado aberto do plano" — de
+qualquer mês. Em produção, no mesmo dia: **42 chamados de setembro abertos**, e
+o job de 04/10 os teria herdado como outubro sem criar nenhum.
+
+**O que mudou:**
+
+- **Migration 087** — `chamados.competencia`; os existentes preenchidos pelo
+  mês de criação no fuso de Brasília (só o #257 cai no mês seguinte), e o
+  título dos abertos ganha o mês.
+- **`executarPlano`** grava a competência (`proxima_em`, ou o mês corrente se
+  ela já passou) e põe o mês no título: "Preventiva — outubro/26".
+- **A virada do mês** (`cancelarPreventivasVencidas`, em
+  `src/services/preventivas.service.js`): chamado de preventiva de mês já
+  encerrado, em `aberto` e sem "a caminho", é **cancelado** com o motivo
+  "Preventiva de setembro/26 não realizada — cancelada na virada do mês".
+  Roda no começo de cada passada do job (mesmo com a geração desligada) e
+  dentro do `executarPlano`. `em_atendimento` e "a caminho" nunca são tocados.
+  O corte é o mês de hoje em Brasília (o banco roda em UTC).
+- **`POST /operador/preventivas/atribuir`** só adota o chamado da competência
+  escalada.
+- **`POST /operador/preventivas/:id/feita`** só cancela o chamado da
+  competência marcada.
+- **O portal do cliente não mostra chamado de preventiva cancelado** (lista,
+  detalhe e mensagens — `visivelAoCliente` em `src/routes/cliente.routes.js`).
+  O motivo da virada ("não realizada") iria para ~42 síndicos; o da baixa à mão
+  diria "cancelado" de uma visita que aconteceu. Chamado comum cancelado segue
+  visível, com o motivo.
+
+Decisão do Pedro entre cancelar / manter como atrasado / transferir — ver
+[`decisions.md`](../memory-bank/decisions.md).
+

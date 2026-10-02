@@ -946,14 +946,22 @@ router.post("/preventivas/atribuir", authRequired, adminOnly, async (req, res) =
     //
     // Desescalar (`tecId` nulo) tambem limpa: o chamado volta a esperar alguem,
     // que e o que a tela passa a mostrar.
+    //
+    // ⚠️ E SÓ O CHAMADO DESTA COMPETÊNCIA (02/10/2026, migration 087). A busca
+    // era por plano e status, de qualquer mês — e em 01/10 escalar outubro do
+    // AGUIA DE HAIA adotou um chamado aberto em setembro: o Alex recebeu no app
+    // um serviço com data de 28/09 de um prédio visitado naquele dia, e
+    // estranhou com razão. Chamado de outro mês fica onde está; o de mês
+    // vencido a virada cancela, o de mês futuro espera a escala dele.
     const chamados = await client.query(
       `SELECT ch.id, ch.tecnico_id
          FROM chamados ch
         WHERE ch.plano_manutencao_id = ANY($1::int[])
           AND ch.status IN ('aberto', 'em_atendimento')
+          AND ch.competencia = $3::date
           AND ch.tecnico_id IS DISTINCT FROM $2::int
         FOR UPDATE`,
-      [idsOk, tecId]
+      [idsOk, tecId, competencia]
     );
     if (chamados.rows.length) {
       await client.query(
@@ -1278,13 +1286,19 @@ router.post("/preventivas/:id/feita", authRequired, adminOnly, async (req, res) 
     // ⚠️ O CHAMADO ABERTO DECIDE SE ESTA ROTA PODE AGIR. Com técnico dentro, o
     // serviço está andando e quem o encerra é a O.S.; sem técnico, é o chamado
     // órfão do job e ele sai de cena junto com a baixa.
+    //
+    // ⚠️ O CHAMADO DA COMPETÊNCIA MARCADA, não "o aberto do plano" (02/10/2026,
+    // migration 087). Marcar setembro como feito cancelaria o chamado de
+    // OUTUBRO, se fosse ele o aberto — e o técnico escalado perderia o
+    // serviço do mês por causa de um mês que já passou.
     const chRes = await client.query(
       `SELECT id, status, tecnico_id, tecnico_a_caminho_em FROM chamados
         WHERE plano_manutencao_id = $1
+          AND competencia = $2::date
           AND status NOT IN ('fechado', 'cancelado')
         ORDER BY id DESC LIMIT 1
         FOR UPDATE`,
-      [id]
+      [id, competencia]
     );
     const chamado = chRes.rows[0] || null;
     const andando = !!chamado && !!chamado.tecnico_id

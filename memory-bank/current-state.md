@@ -180,6 +180,16 @@ de `abrirChamadoAuto` e o guard da IA dependem disso.
 
 Detalhe em [`../docs/modulos/chamados-sla.md`](../docs/modulos/chamados-sla.md).
 
+### ⚠️ O chamado de preventiva tem mês (02/10/2026)
+
+`chamados.competencia` (migration 087) é o mês que o chamado paga, e o título o
+repete ("Preventiva — outubro/26"). Despacho e "Já foi feita" só mexem no
+chamado da competência deles. Na virada do mês, o chamado de mês encerrado que
+ninguém começou é **cancelado** como "não realizada" — nunca o que está
+`em_atendimento` ou "a caminho". Regra em
+[`decisions.md`](decisions.md); mecânica em
+[`painel-operador.md`](../docs/modulos/painel-operador.md).
+
 ### ⚠️ O técnico devolve o chamado para a fila (11/09/2026)
 
 `POST /chamados/:id/devolver` (`{motivo}`, mín. 5 caracteres), **só o técnico

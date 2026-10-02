@@ -143,8 +143,8 @@ const ok = (nome, cond) => r.push([nome, cond]);
 
     // ── O chamado órfão do job sai junto ─────────────────────────────────
     const chOrfao = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id)
-       VALUES ($1, 'Preventiva B', 'orfao', 'p4', 'manutencao', 'aberto', $2) RETURNING id`,
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, competencia)
+       VALUES ($1, 'Preventiva B', 'orfao', 'p4', 'manutencao', 'aberto', $2, date_trunc('month', CURRENT_DATE)::date) RETURNING id`,
       [b.condo, b.plano]
     );
     lixo.chamados.push(chOrfao.rows[0].id);
@@ -176,8 +176,8 @@ const ok = (nome, cond) => r.push([nome, cond]);
     // planos_manutencao <- chamados.plano_manutencao_id <- ordens_servico.chamado_id.
     const dOs = await novoPlano("D");
     const chFechado = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, fechado_em)
-       VALUES ($1, 'Preventiva D', 'feita', 'p4', 'manutencao', 'fechado', $2, NOW()) RETURNING id`,
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, fechado_em, competencia)
+       VALUES ($1, 'Preventiva D', 'feita', 'p4', 'manutencao', 'fechado', $2, NOW(), date_trunc('month', CURRENT_DATE)::date) RETURNING id`,
       [dOs.condo, dOs.plano]
     );
     lixo.chamados.push(chFechado.rows[0].id);
@@ -205,8 +205,8 @@ const ok = (nome, cond) => r.push([nome, cond]);
 
     // ── Em campo: a rota recusa ──────────────────────────────────────────
     const chCampo = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id)
-       VALUES ($1, 'Preventiva C', 'em campo', 'p4', 'manutencao', 'aberto', $2, $3) RETURNING id`,
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id, competencia)
+       VALUES ($1, 'Preventiva C', 'em campo', 'p4', 'manutencao', 'aberto', $2, $3, date_trunc('month', CURRENT_DATE)::date) RETURNING id`,
       [c.condo, c.plano, tecnico]
     );
     lixo.chamados.push(chCampo.rows[0].id);

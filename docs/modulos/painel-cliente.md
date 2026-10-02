@@ -699,6 +699,14 @@ do SVG**: dentro do `viewBox` ele encolhe junto com o gráfico e vira borrão a
   telefonema: quem abriu é quem mais precisa saber por que ele saiu da fila.
   `GET /cliente/chamados[/:id]` traz `cancelado_em` e `cancelado_motivo` de
   propósito. Ver [chamados-sla.md](chamados-sla.md).
+- ⚠️ **MAS PREVENTIVA CANCELADA NÃO APARECE** (02/10/2026, decisão do Pedro).
+  O argumento acima é sobre o pedido que **o cliente abriu**. Preventiva é
+  chamado interno da equipe, e os dois jeitos de ela ser cancelada mentiriam
+  para o síndico: a virada do mês escreve "Preventiva de setembro/26 não
+  realizada", e a baixa à mão cancela o chamado de uma visita que aconteceu.
+  `visivelAoCliente` (`src/routes/cliente.routes.js`) corta da lista, do
+  detalhe e das mensagens; o chamado comum cancelado segue com o motivo. Ver
+  [painel-operador.md](painel-operador.md).
 
 ---
 

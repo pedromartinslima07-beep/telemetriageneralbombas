@@ -2,7 +2,9 @@
 //
 // `executarPlano(id)` é o ATO de pôr uma preventiva em execução:
 //   1. Abre um chamado P4 (categoria 'manutencao') vinculado ao plano via
-//      `chamados.plano_manutencao_id`.
+//      `chamados.plano_manutencao_id`, com o mês que ele paga em
+//      `chamados.competencia` e no título (migration 087). Antes, cancela o
+//      chamado de mês já encerrado que ninguém começou — a virada do mês.
 //   2. Grava `ultima_em = hoje` e joga `proxima_em` para o dia 1 do próximo
 //      ciclo, contado em MESES DE CALENDÁRIO (ver a nota longa lá embaixo).
 //
@@ -25,6 +27,9 @@
 const { pool } = require("../db");
 const { getConfigBool } = require("../services/config.service");
 const { registrarCriacao } = require("../services/chamado-historico.service");
+const {
+  SQL_COMPETENCIA_DO_PLANO, rotuloCompetencia, cancelarPreventivasVencidas,
+} = require("../services/preventivas.service");
 
 const INTERVALO_MS = 24 * 60 * 60 * 1000; // 1 dia
 const PRIMEIRA_EXECUCAO_MS = 30 * 60 * 1000; // 30 min após boot
@@ -50,7 +55,8 @@ async function executarPlano(planoId, { tecnicoId = null } = {}) {
 
     const planoRes = await client.query(
       `SELECT pm.id, pm.condominio_id, pm.titulo, pm.descricao, pm.periodicidade_dias, pm.proxima_em,
-              c.zona AS condominio_zona
+              c.zona AS condominio_zona,
+              to_char(${SQL_COMPETENCIA_DO_PLANO}, 'YYYY-MM-DD') AS competencia
        FROM planos_manutencao pm
        JOIN condominios c ON c.id = pm.condominio_id
        WHERE pm.id = $1 AND pm.ativo = TRUE
@@ -62,6 +68,15 @@ async function executarPlano(planoId, { tecnicoId = null } = {}) {
       throw Object.assign(new Error("Plano não encontrado ou inativo"), { status: 404 });
     }
     const plano = planoRes.rows[0];
+
+    // ⚠️ A VIRADA DO MÊS ANTES DA ANTI-DUPLICIDADE (02/10/2026). Sem ela, o
+    // chamado de setembro que ninguém começou seria "o chamado aberto do
+    // plano" logo abaixo, e outubro o herdaria em silêncio — foi assim que o
+    // Alex recebeu como outubro um chamado criado em setembro. Ver
+    // `cancelarPreventivasVencidas`. O job também a roda para todos no começo
+    // da passada; aqui é para o "Iniciar" do técnico não depender do relógio
+    // do job.
+    await cancelarPreventivasVencidas(client, { planoId });
 
     // Anti-duplicidade: já existe chamado aberto vinculado?
     const dupRes = await client.query(
@@ -151,12 +166,17 @@ async function executarPlano(planoId, { tecnicoId = null } = {}) {
       if (zr.rows.length === 1) atribuidoA = zr.rows[0].tecnico_id;
     }
 
+    // ⚠️ O MÊS VAI NO CHAMADO E NO TÍTULO (migration 087). A coluna é o que o
+    // despacho e a baixa à mão leem para não pegar o chamado de outro mês; o
+    // título é o que o técnico lê no app — "Preventiva — outubro/26".
     const chamadoRes = await client.query(
       `INSERT INTO chamados
-         (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id)
-       VALUES ($1, $2, $3, 'p4', 'manutencao', 'aberto', $4, $5)
+         (condominio_id, titulo, descricao, prioridade, categoria, status,
+          plano_manutencao_id, tecnico_id, competencia)
+       VALUES ($1, $2, $3, 'p4', 'manutencao', 'aberto', $4, $5, $6::date)
        RETURNING id`,
-      [plano.condominio_id, plano.titulo, descricao, planoId, atribuidoA]
+      [plano.condominio_id, `${plano.titulo} — ${rotuloCompetencia(plano.competencia)}`,
+       descricao, planoId, atribuidoA, plano.competencia]
     );
 
     await registrarCriacao({
@@ -242,9 +262,14 @@ async function jobGerarChamadosPreventivos() {
   // Desligar a geração é decisão de operação, não efeito colateral de um porte
   // — o Pedro viu o job rodar hoje e tratou como normal. O interruptor existe
   // (`PATCH /admin/configuracoes`, chave `planos.geracao_enabled`) e é dele.
+  // ⚠️ A VIRADA RODA MESMO COM A GERAÇÃO DESLIGADA. Cancelar o chamado do mês
+  // que passou não é gerar nada: é a tela parar de mostrar setembro como
+  // serviço pendente de outubro. Ver `cancelarPreventivasVencidas`.
+  const cancelados = await _virarMes();
+
   const enabled = await getConfigBool("planos.geracao_enabled", true);
   if (!enabled) {
-    return { ok: true, enabled: false, gerados: 0, duplicados: 0, candidatos: 0 };
+    return { ok: true, enabled: false, cancelados, gerados: 0, duplicados: 0, candidatos: 0 };
   }
 
   const r = await pool.query(
@@ -268,11 +293,31 @@ async function jobGerarChamadosPreventivos() {
   return {
     ok: true,
     enabled: true,
+    cancelados,
     candidatos: r.rows.length,
     gerados,
     duplicados,
     erros,
   };
+}
+
+async function _virarMes() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const ids = await cancelarPreventivasVencidas(client);
+    await client.query("COMMIT");
+    if (ids.length) {
+      console.log(`[planos-manutencao] virada do mês: ${ids.length} preventiva(s) não realizada(s) cancelada(s):`, ids.join(", "));
+    }
+    return ids.length;
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[planos-manutencao] virada do mês falhou:", e.message);
+    return 0;
+  } finally {
+    client.release();
+  }
 }
 
 function getPlanosManutencaoStatus() {

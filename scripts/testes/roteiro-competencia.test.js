@@ -110,8 +110,8 @@ async function main() {
       `UPDATE planos_manutencao SET proxima_em = (CURRENT_DATE + INTERVAL '1 month')::date,
               ultima_em = CURRENT_DATE WHERE id = $1`, [pRolado]);
     const ch = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id)
-       VALUES ($1, 'Preventiva', 'do mês', 'p4', 'manutencao', 'aberto', $2) RETURNING id`,
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, competencia)
+       VALUES ($1, 'Preventiva', 'do mês', 'p4', 'manutencao', 'aberto', $2, date_trunc('month', CURRENT_DATE)::date) RETURNING id`,
       [cRolado, pRolado]);
     lixo.chamados.push(ch.rows[0].id);
 

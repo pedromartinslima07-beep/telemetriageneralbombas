@@ -407,6 +407,30 @@ se a linha EXISTE.
 propósito — recortá-lo faria a tela oferecer despacho para um prédio que já tem
 chamado aberto de outro mês.
 
+### ⚠️ O chamado de preventiva tem mês (02/10/2026, migration 087)
+
+`chamados.competencia` é o mês que o chamado paga, e o título o repete
+("Preventiva — outubro/26") — é o que o técnico lê no app. Quem grava é o
+`executarPlano`: `proxima_em`, ou o mês corrente quando ela já passou.
+
+- **Despacho** (`POST /operador/preventivas/atribuir`) só adota o chamado
+  **da competência escalada**. Antes adotava "o aberto do plano", de qualquer
+  mês — foi assim que o Alex recebeu como outubro um chamado criado em 28/09.
+- **"Já foi feita"** (`POST /operador/preventivas/:id/feita`) só cancela o
+  chamado **da competência marcada**.
+- **A virada do mês** (`cancelarPreventivasVencidas`, em
+  `src/services/preventivas.service.js`) cancela o chamado de mês encerrado em
+  `aberto` e sem "a caminho", com `cancelado_motivo` "Preventiva de
+  setembro/26 não realizada — cancelada na virada do mês". Roda no começo de
+  cada passada do job (mesmo com `planos.geracao_enabled` desligado) e dentro
+  do `executarPlano`. **Nunca** toca `em_atendimento` nem "a caminho". O corte
+  é o mês de hoje no fuso de Brasília.
+
+O LATERAL `cha` continua sem recorte (nota acima): depois da virada, o único
+chamado aberto de mês anterior que sobra é o que está andando, e esse é
+justamente o que a tela precisa mostrar. Teste:
+`scripts/testes/preventiva-competencia.test.js`.
+
 ### Os quatro estados, e o que é "feita"
 
 | Estado | Quando |

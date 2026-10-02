@@ -300,6 +300,21 @@ router.post("/trocar-senha", authRequired, clienteOnly, async (req, res) => {
 // Sempre filtrado pelo condominio_id do JWT — cliente nunca vê de outro.
 // ============================================================
 
+// ⚠️ PREVENTIVA CANCELADA NÃO EXISTE PARA O CLIENTE (02/10/2026, decisão do
+// Pedro). A virada do mês cancela o chamado de preventiva que ninguém começou
+// com o motivo "Preventiva de setembro/26 não realizada" (ver
+// `cancelarPreventivasVencidas`), e o `cancelado_motivo` vai para o cliente de
+// propósito desde a 083 — então ~42 síndicos leriam isso no portal. A baixa à
+// mão ("Já foi feita") também cancela chamado de preventiva, e esse é ainda
+// mais enganoso para o cliente: a visita aconteceu.
+//
+// O cancelamento continua inteiro para a equipe (admin, operador, histórico);
+// só some daqui. Chamado comum cancelado segue aparecendo, com o motivo.
+// Vale para lista, detalhe e tudo que passa por `_verificaChamadoDoCliente`.
+function visivelAoCliente(a = "") {
+  return `NOT (${a}plano_manutencao_id IS NOT NULL AND ${a}status = 'cancelado')`;
+}
+
 // GET /cliente/chamados?status=aberto,em_atendimento
 router.get("/chamados", authRequired, clienteOnly, async (req, res) => {
   const condominioId = Number(req.user.condominio_id);
@@ -309,7 +324,7 @@ router.get("/chamados", authRequired, clienteOnly, async (req, res) => {
   const statusList = statusCsv ? statusCsv.split(",").map((s) => s.trim()).filter(Boolean) : null;
 
   const values = [condominioId];
-  let where = `ch.condominio_id = $1`;
+  let where = `ch.condominio_id = $1 AND ${visivelAoCliente("ch.")}`;
   if (statusList && statusList.length) {
     values.push(statusList);
     where += ` AND ch.status = ANY($${values.length}::text[])`;
@@ -376,6 +391,7 @@ router.get("/chamados/:id", authRequired, clienteOnly, async (req, res) => {
        LEFT JOIN tecnicos t        ON t.id = ch.tecnico_id
        LEFT JOIN ordens_servico os ON os.chamado_id = ch.id
        WHERE ch.id = $1 AND ch.condominio_id = $2
+         AND ${visivelAoCliente("ch.")}
        LIMIT 1`,
       [id, condominioId]
     );
@@ -394,7 +410,7 @@ router.get("/chamados/:id", authRequired, clienteOnly, async (req, res) => {
 
 async function _verificaChamadoDoCliente(chamadoId, condominioId) {
   const r = await pool.query(
-    `SELECT id FROM chamados WHERE id = $1 AND condominio_id = $2 LIMIT 1`,
+    `SELECT id FROM chamados WHERE id = $1 AND condominio_id = $2 AND ${visivelAoCliente()} LIMIT 1`,
     [chamadoId, condominioId]
   );
   return r.rows.length > 0;

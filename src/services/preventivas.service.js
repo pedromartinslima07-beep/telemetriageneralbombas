@@ -34,6 +34,103 @@ function mesDe(competencia) {
   return String(competencia).slice(0, 7);
 }
 
+// "2026-10-01" → "outubro/26". É o que vai no título do chamado — o técnico lê
+// o mês no app sem abrir nada (migration 087).
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+               "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function rotuloCompetencia(competencia) {
+  const [a, m] = String(competencia).slice(0, 10).split("-");
+  return `${MESES[Number(m) - 1]}/${String(a).slice(2)}`;
+}
+
+// ── A competência de um chamado de preventiva (migration 087) ───────────────
+//
+// O mês que o plano está devendo: o de `proxima_em`, ou o de HOJE quando ele
+// já passou (dívida se paga no mês corrente — mesma regra com que a tela do
+// operador escala o atrasado). Expressão SQL, e não JS, porque ela é lida
+// dentro da transação que trava o plano, e `proxima_em` é DATE sem fuso.
+//
+// ⚠️ O CASO QUE ELA RESOLVE: em 28/09 o Glebson fechou setembro do AGUIA DE
+// HAIA e tocou "Iniciar" de novo. O plano já devia OUTUBRO (`proxima_em` =
+// 01/10), e o chamado nasceu sem dizer isso — o Alex o recebeu em 01/10 e leu
+// "setembro".
+const SQL_COMPETENCIA_DO_PLANO =
+  "GREATEST(date_trunc('month', pm.proxima_em), date_trunc('month', CURRENT_DATE))::date";
+
+/* ══════════════════════════════════════════════════════════════════════════
+   A VIRADA DO MÊS (02/10/2026)
+   ──────────────────────────────────────────────────────────────────────────
+   Chamado de preventiva de um mês que JÁ PASSOU e que ninguém começou é
+   cancelado, com o motivo "não realizada". Decisão do Pedro, entre três
+   opções (cancelar / manter como atrasado ao lado do novo / transferir para o
+   mês novo): o contrato é uma visita por mês, ninguém vai duas vezes ao prédio
+   em outubro para pagar setembro, e transferir apagaria o registro de que
+   setembro não aconteceu.
+
+   O que havia antes era a transferência sem aviso: o chamado de setembro
+   seguia aberto, o job de outubro via "já existe chamado aberto" e não criava
+   nada, e o despacho de outubro o adotava. Medido em 02/10/2026: 42 chamados
+   de setembro abertos, a dois dias de o job herdar todos como outubro.
+
+   ⚠️ NUNCA O QUE ESTÁ ANDANDO. `em_atendimento` (técnico no prédio) e
+   `tecnico_a_caminho_em` (saiu para lá) ficam: quem encerra esses é a O.S.,
+   e cancelar por baixo do técnico seria pior do que o atraso. É o mesmo corte
+   de "andando" da baixa à mão (`POST /operador/preventivas/:id/feita`).
+
+   ⚠️ O CORTE É O MÊS DE HOJE, NÃO A COMPETÊNCIA DO PLANO. Com o roteiro
+   enxergando 7 dias à frente, o técnico pode tocar "Iniciar" em 28/10 num
+   plano que já deve novembro — e o chamado de outubro, parado, é justamente o
+   que ele está indo fazer. Mês que não acabou não está perdido.
+
+   ⚠️ CANCELAR, NÃO FECHAR: sem `fechado_em` e sem `tempo_resolucao_seg`, para
+   não entrar no SLA como resolvido (a mesma regra do PATCH de chamados). E sem
+   notificar o cliente — isto é rodízio interno, não uma resposta a ele.
+
+   ⚠️ CHAMADO SEM COMPETÊNCIA NÃO É TOCADO (o `<` com nulo é falso). Todo
+   chamado de preventiva ganhou a sua na migration 087; um nulo seria dado que
+   ninguém sabe ler, e cancelar no escuro é o contrário desta função.
+
+   `client` é o da transação de quem chama; `planoId` nulo = todos os planos
+   (o job, no começo de cada passada).
+   ══════════════════════════════════════════════════════════════════════════ */
+async function cancelarPreventivasVencidas(client, { planoId = null } = {}) {
+  const r = await client.query(
+    `SELECT ch.id, ch.status, ch.competencia::text AS competencia
+       FROM chamados ch
+      WHERE ch.plano_manutencao_id IS NOT NULL
+        AND ($1::int IS NULL OR ch.plano_manutencao_id = $1::int)
+        AND ch.status = 'aberto'
+        AND ch.tecnico_a_caminho_em IS NULL
+        -- Fuso de Brasilia, nao CURRENT_DATE: o banco roda em UTC, e as 21h
+        -- do dia 30 ele ja estaria em outubro — cancelaria setembro tres horas
+        -- antes de setembro acabar.
+        AND ch.competencia < date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo'))::date
+      FOR UPDATE`,
+    [planoId]
+  );
+
+  for (const ch of r.rows) {
+    const motivo = `Preventiva de ${rotuloCompetencia(ch.competencia)} não realizada — cancelada na virada do mês.`;
+    await client.query(
+      `UPDATE chamados
+          SET status = 'cancelado', cancelado_em = NOW(), cancelado_motivo = $2,
+              atualizado_em = NOW()
+        WHERE id = $1`,
+      [ch.id, motivo]
+    );
+    // O histórico é a memória do chamado; `alterado_por` nulo = sistema, como
+    // na criação pelo job.
+    await client.query(
+      `INSERT INTO historico_chamados
+         (chamado_id, campo_alterado, valor_anterior, valor_novo, alterado_por, motivo)
+       VALUES ($1, 'status', $2, 'cancelado', NULL, $3)`,
+      [ch.id, ch.status, motivo]
+    );
+  }
+
+  return r.rows.map((ch) => ch.id);
+}
+
 // ── Os estados ──────────────────────────────────────────────────────────────
 //
 // ⚠️ "FEITA" É O CHAMADO FECHADO, não `ultima_em`. Elas parecem a mesma coisa e
@@ -299,6 +396,9 @@ module.exports = {
   competenciaValida,
   competenciaDe,
   mesDe,
+  rotuloCompetencia,
+  SQL_COMPETENCIA_DO_PLANO,
+  cancelarPreventivasVencidas,
   estadoDa,
   emMovimento,
   origemDoTecnico,

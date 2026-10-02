@@ -69,6 +69,32 @@ aliases:
 > corrigida passa a fazer sozinha (a alternativa era **cancelar**, que é o que a
 > baixa à mão do operador faz e some do SLA).
 
+## ⏳ URGENTE — o chamado de preventiva com mês precisa subir antes de 04/10/2026
+
+Código pronto em 02/10/2026 (migration 087, `executarPlano`, virada do mês,
+despacho e "Já foi feita" por competência — ver
+[`decisions.md`](decisions.md)). **Nada aplicado ainda:**
+
+1. ✅ 087 no **teste** (02/10) e testes rodados: `preventiva-competencia`
+   20/20, `preventivas-mes` 66/66, `preventiva-feita-a-mao` 33/33,
+   `roteiro-competencia` 6/6, `planos-lote` 10/10. `preventiva-orfa` 10/11 — a
+   falha é do banco de teste, não da mudança: o técnico do fixture tem o #623
+   `em_atendimento` desde 14/09 e o "um atendimento por vez" responde 409 no
+   "A caminho".
+2. ✅ 087 em **produção** em 02/10/2026, conferida em seguida: nenhum
+   chamado de preventiva sem competência; só o #257 (AGUIA DE HAIA) foi para
+   outubro e ganhou "— outubro/26". Setembro ficou com 41 abertos e 1 em
+   atendimento — este a virada poupa.
+3. ⏳ Deploy. Na primeira passada do job (30 min após o boot) a virada cancela
+   os ~42 chamados de setembro parados — 5 deles com técnico e sem
+   deslocamento (#103, #118, #141, #166, #167) entram na regra.
+4. ✅ **O portal do cliente não mostra preventiva cancelada** (decisão do
+   Pedro, 02/10): `visivelAoCliente` em `cliente.routes.js`. Coberto pelo bloco
+   6 do `preventiva-competencia`.
+
+⚠️ Se o deploy passar de 04/10 sem a 087, o job antigo herda setembro como
+outubro em 64 planos — o defeito inteiro, em escala.
+
 ## ⏸️ RETOMAR AQUI — a simplificação do operador está pela metade
 
 > Retomada em 31/08/2026: **o item 1 (o trilho) está feito e verificado** — ver

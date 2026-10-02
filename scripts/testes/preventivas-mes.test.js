@@ -208,15 +208,15 @@ const ok = (nome, cond) => r.push([nome, cond]);
       // mes sem responsavel, e chamado orfao nao e servico andando — e servico
       // esperando alguem. A fixture sem tecnico virou o caso do bloco
       // "chamado aberto SEM tecnico volta a ser despachavel", la embaixo.
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id)
-       VALUES ($1, 'Preventiva C', 'em campo', 'p4', 'manutencao', 'aberto', $2, $3) RETURNING id`,
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, tecnico_id, competencia)
+       VALUES ($1, 'Preventiva C', 'em campo', 'p4', 'manutencao', 'aberto', $2, $3, date_trunc('month', CURRENT_DATE)::date) RETURNING id`,
       [c.condo, c.plano, tecZona]
     );
     lixo.chamados.push(chAberto.rows[0].id);
 
     const chFechado = await pool.query(
-      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, fechado_em)
-       VALUES ($1, 'Preventiva D', 'feita', 'p4', 'manutencao', 'fechado', $2, NOW()) RETURNING id`,
+      `INSERT INTO chamados (condominio_id, titulo, descricao, prioridade, categoria, status, plano_manutencao_id, fechado_em, competencia)
+       VALUES ($1, 'Preventiva D', 'feita', 'p4', 'manutencao', 'fechado', $2, NOW(), date_trunc('month', CURRENT_DATE)::date) RETURNING id`,
       [d.condo, d.plano]
     );
     lixo.chamados.push(chFechado.rows[0].id);

@@ -41,6 +41,15 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O chamado de preventiva tem mês** (02/10/2026, migration 087).
+  `chamados.competencia` + o mês no título; despacho e "Já foi feita" só mexem
+  no chamado do mês deles; a virada cancela o mês encerrado que ninguém
+  começou. Decisão em [`decisions.md`](decisions.md); detalhe em
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+  - ✅ 087 aplicada no teste e em produção (02/10); testes de rota passando.
+  - ⏳ **Falta o deploy — antes de 04/10**, quando 64 planos vencem. Ver
+    [`active-work.md`](active-work.md).
+
 - ✅ **Procurar prédio na tela de Preventivas** (15/09/2026). *"precisa
   implementar uma pesquisa de cliente na tela de preventiva do operador"*. A
   tela ordena por dívida — certo para "por onde começo", inútil para "e o

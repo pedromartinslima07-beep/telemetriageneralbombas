@@ -1164,6 +1164,39 @@ Medido na produção antes de subir, com a régua antiga contra a nova:
 Esta custou um dia e uma repetição. Ao ouvir "normalmente a gente faz assim",
 escreva aqui na hora, mesmo sem implementar nada.
 
+## Preventiva de mês encerrado e não feita é CANCELADA na virada (02/10/2026)
+
+**O caso:** o Alex recebeu como outubro um chamado do AGUIA DE HAIA criado em
+28/09. O chamado não tinha mês; o despacho adotava "o aberto do plano". Em
+produção havia **42 chamados de setembro abertos**, e o job de 04/10 os teria
+herdado como outubro sem criar nenhum.
+
+**Três opções postas ao Pedro**, e ele escolheu a 1:
+
+1. ✅ **Cancelar** com motivo "não realizada em setembro/26"; o mês novo nasce
+   limpo. O contrato é uma visita por mês — ninguém vai duas vezes ao prédio em
+   outubro para pagar setembro — e o histórico guarda que setembro não houve.
+2. ❌ Manter aberto como atrasado, ao lado do de outubro: dois chamados do
+   mesmo prédio no app do técnico.
+3. ❌ Transferir para outubro: era o que já acontecia sem aviso, só que
+   rotulado; apaga o registro de que setembro não aconteceu.
+
+⚠️ **O que está andando não é cancelado** (`em_atendimento` ou "a caminho"):
+quem encerra é a O.S. Chamado com técnico mas parado entra na regra — ter dono
+não é ter ido (mesma régua do `estadoDa` desde 14/09).
+
+⚠️ **O corte é o mês de HOJE, não a competência do plano.** O roteiro enxerga 7
+dias à frente; em 28/10 o chamado de outubro parado é o que o técnico está indo
+fazer. Mês que não acabou não está perdido.
+
+⚠️ **E o cliente não vê preventiva cancelada** — decisão do Pedro no mesmo dia
+("esconde do cliente"). O `cancelado_motivo` vai para o portal de propósito
+desde a 083, e ~42 síndicos leriam "Preventiva de setembro/26 não realizada".
+Vale também para a baixa à mão, que cancela chamado de preventiva de uma
+visita que ACONTECEU. `visivelAoCliente` em `src/routes/cliente.routes.js`
+corta a preventiva cancelada da lista, do detalhe e das mensagens; chamado
+comum cancelado segue aparecendo, com o motivo. Para a equipe nada some.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

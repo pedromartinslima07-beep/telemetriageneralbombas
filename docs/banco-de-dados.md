@@ -186,6 +186,13 @@ Evolução:
   o clique duplo é o `POST /operador/orcamentos/:id/chamado`, que devolve o
   chamado aberto existente em vez de criar outro. Ver
   [painel-operador.md](modulos/painel-operador.md)
+- 087: `competencia DATE` (CHECK dia 1; nulo em chamado que não é preventiva)
+  + `idx_chamados_plano_competencia` (parcial) — **o mês que o chamado de
+  preventiva paga**, e o título ganha o mês ("Preventiva — outubro/26").
+  O despacho e a baixa à mão só mexem no chamado da competência deles; o de
+  mês encerrado que ninguém começou é **cancelado na virada**
+  (`cancelado_motivo` = "Preventiva de setembro/26 não realizada…"). Ver
+  [painel-operador.md](modulos/painel-operador.md)
 - (015 criou `ordem_servico_id`, removido em 034 — FK redundante)
 
 **`tecnicos`** (008) — `id`, dados do técnico. 016: `usuario_id UNIQUE (FK)`
