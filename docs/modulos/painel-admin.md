@@ -294,6 +294,34 @@ conta, o badge soma **solicitado + rascunho** (os dois estados abertos) e
 `carregarTudo` carrega a lista no boot — uma requisição a mais na primeira
 carga e nenhuma no polling, porque `carregarTudo` não roda em intervalo.
 
+### ⚠️ Um amarelo só: o pedido que ninguém começou (05/10/2026)
+
+Relato do Pedro: *"usa a cor amarela para coisas diferentes, tem 'solicitado' e
+'pendente' que meio que parece a mesma coisa"*. A aba tinha **quatro amarelos
+para três estados**: SOLICITADO em âmbar translúcido (`.orc-status-req`), o
+rascunho como **PENDENTE em amarelo cheio**, o ponto de "enviado" no condomínio
+em amarelo cheio, e os KPIs "Solicitados" e "Em orçamento" os dois amarelos. O
+rascunho gritava **mais alto** que o pedido novo — o contrário do que a aba
+existe para mostrar. E "PENDENTE" não nomeava nada: a aba do rascunho se chama
+"Em orçamento".
+
+Hoje vale a Regra do Selo do [DESIGN.md](../../DESIGN.md) — preenchido quando
+pede ação, de fio em repouso, e só um preenche:
+
+| Estado | Selo | Ponto do condomínio | KPI | Quem age |
+|---|---|---|---|---|
+| sem orçamento | **SOLICITADO**, amarelo cheio | amarelo, pulsando | "Solicitados", amarelo | o escritório, começar |
+| `rascunho` | **EM ORÇAMENTO**, de fio | de fio | "Em orçamento", neutro | o escritório, terminar |
+| `enviado` | ENVIADO, de fio | de fio | — | o cliente |
+| `aprovado` | APROVADO, fio verde | fio verde | — | — |
+| `rejeitado` | REJEITADO, vermelho cheio | — | — | — |
+
+O `.orc-status-req` saiu (ficou sem uso); o SOLICITADO usa o `.orc-status-pend`,
+que é o preenchido. ⚠️ **A aba irmã ("Criar orçamento") continua com o
+"enviado" em amarelo** (`_avStatusCls`): lá não existe pedido sem orçamento, e o
+amarelo marca o que espera resposta do cliente. Se o amarelo tiver de significar
+a mesma coisa nas duas, é lá que se mexe.
+
 ### O layout: as duas abas usam o mesmo esqueleto
 
 Elas vivem na mesma seção, a um clique uma da outra, e eram coisas diferentes:

@@ -16,10 +16,13 @@ aliases:
 > ⏳ **Assinatura em branco — falta subir (05/10/2026).** Código e testes
 > prontos (ver [roadmap.md](roadmap.md) e
 > [ordens-servico.md](../docs/modulos/ordens-servico.md)). Em ordem:
-> 1. `node scripts/migrate.js 088_os_assinatura_refazer.sql --prod` — **antes**
->    do deploy: o código novo lê as colunas da 088 no `GET /ordens-servico/:id`
->    e no `/chamados/meus`, e sem elas as duas rotas dão 500.
-> 2. Deploy do backend/admin (`admin.js?v=360`, `admin.css?v=270`).
+> 1. ✅ **088 aplicada em produção em 05/10/2026.** ⚠️ Foi aplicada **depois**
+>    do deploy, e entre os dois nenhuma O.S. abria: o código novo lê as colunas
+>    da 088 no `GET /ordens-servico/:id` e no `/chamados/meus`, e sem elas as
+>    duas rotas dão 500. O push na main dispara o deploy no Railway, então
+>    **migration que o código lê roda ANTES do push**, não antes do "deploy".
+> 2. ✅ Deploy do backend/admin (`admin.js?v=360`, `admin.css?v=270`) — subiu
+>    com o push do `3b30b84`.
 > 3. **APK novo** — o conserto do canvas mora no `app/public/`, que vai
 >    empacotado. Até lá o backend segura: quadro vazio vira NULL no PATCH e o
 >    `/finalizar` recusa.

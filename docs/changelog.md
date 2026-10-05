@@ -17471,3 +17471,15 @@ uma assinatura com pixels (`scripts/testes/_assinatura-fixture.js`) — o
 com usuário inexistente), ele engole o erro, a transação fica abortada e o
 `COMMIT` vira `ROLLBACK` calado — a rota responde **200 sem ter finalizado**.
 Em produção o usuário sempre existe, mas o padrão merece um SAVEPOINT.
+
+## Pedidos de orçamento das O.S.: um amarelo só (2026-10-05)
+
+*"usa a cor amarela para coisas diferentes, tem 'solicitado' e 'pendente' que
+meio que parece a mesma coisa"*. Na aba "Solicitados pelos técnicos" o rascunho
+saía como **PENDENTE em amarelo cheio**, mais forte que o SOLICITADO (âmbar
+translúcido) que a aba existe para mostrar; o ponto de "enviado" e o KPI "Em
+orçamento" também eram amarelos. Agora só o pedido sem orçamento é amarelo
+(selo cheio, ponto pulsando, KPI); o rascunho virou **EM ORÇAMENTO**, de fio,
+com o nome da aba que o lista; "enviado" ficou de fio. `.orc-status-req` saiu.
+Sem mudança de dado nem de rota. Tabela e porquê em
+[painel-admin.md](modulos/painel-admin.md).

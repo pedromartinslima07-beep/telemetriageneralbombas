@@ -15003,13 +15003,25 @@ function _orcFmtDataSemFuso(iso) {
   return `${d}/${m}/${y}`;
 }
 
+// ⚠️ AMARELO É SÓ O PEDIDO QUE NINGUÉM COMEÇOU (05/10/2026). Relato do Pedro:
+// "usa a cor amarela para coisas diferentes, tem solicitado e pendente que
+// meio que parece a mesma coisa". Eram quatro amarelos na tela: SOLICITADO em
+// âmbar translúcido, o rascunho ("PENDENTE") em amarelo CHEIO, o ponto de
+// "enviado" no condomínio e os KPIs "Solicitados" e "Em orçamento". O rascunho
+// gritava mais alto que o pedido novo, que é o que esta aba existe para achar.
+//
+// Agora segue a Regra do Selo do DESIGN.md — preenchido quando pede ação, de
+// fio em repouso, e só um preenche:
+//   sem orçamento → SOLICITADO, amarelo cheio: o escritório tem de começar.
+//   rascunho      → EM ORÇAMENTO, de fio: já começou. Mesmo nome da aba, e
+//                   mesmo fio que a aba irmã já usava para rascunho.
+//   enviado       → ENVIADO, de fio: quem deve agora é o cliente.
+// "PENDENTE" saiu: não nomeava nada que a tela chamasse assim em outro lugar.
 function _orcStatusCls(s) {
-  if (!s)                return "orc-status-req"; // técnico pediu, orçamento ainda não existe
+  if (!s)                return "orc-status-pend"; // técnico pediu, orçamento ainda não existe
   if (s === "aprovado")  return "orc-status-ok";
   if (s === "rejeitado") return "orc-status-bad";
-  if (s === "expirado")  return "orc-status-off";
-  if (s === "enviado")   return "orc-status-info";
-  return "orc-status-pend"; // rascunho
+  return "orc-status-off"; // rascunho, enviado, expirado
 }
 
 function _orcStatusLabel(s) {
@@ -15021,7 +15033,7 @@ function _orcStatusLabel(s) {
   if (s === "rejeitado") return "REJEITADO";
   if (s === "expirado")  return "EXPIRADO";
   if (s === "enviado")   return "ENVIADO";
-  return "PENDENTE"; // rascunho mostra como PENDENTE pro usuário (estado inicial)
+  return "EM ORÇAMENTO"; // rascunho — o nome da aba que o lista
 }
 
 function _orcFiltrados() {
@@ -15068,7 +15080,8 @@ function _orcRenderTudo() {
   if (grid) grid.innerHTML =
     kpi(ICO_LIST,  total,   "Total",         "rc-neutral") +
     kpi(ICO_HAND,  solicit, "Solicitados",   solicit > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(ICO_DRAFT, pend,    "Em orçamento",  pend    > 0 ? "rc-warn" : "rc-neutral") +
+    // Neutro mesmo com rascunho: o amarelo desta tela é só do "Solicitados".
+    kpi(ICO_DRAFT, pend,    "Em orçamento",  "rc-neutral") +
     kpi(ICO_MONEY, _orcFmtValor(totalVal || null), "Total aprovado", aprov > 0 ? "rc-ok" : "rc-neutral");
 
   // Contadores das tabs
@@ -15141,7 +15154,8 @@ function _orcRenderTudo() {
     const nEnv = g.itens.filter(o => o.orcamento_status === "enviado").length;
     const nApr = g.itens.filter(o => o.orcamento_status === "aprovado").length;
     // O ponto que pulsa é o do pedido não atendido — é o único dos quatro
-    // que significa trabalho parado. Mesma gramática da aba irmã.
+    // que significa trabalho parado, e o único amarelo. "Enviado" era
+    // amarelo cheio também e brigava com ele; agora é de fio, como o rascunho.
     const dot = (n, cls, lbl) => n ? `<span class="av-dot ${cls}" title="${n} ${lbl}">${n}</span>` : "";
     return `
       <div class="av-condo-row${sel}" data-orc-condo="${_waEscaparHtml(g.key)}">
@@ -15149,7 +15163,7 @@ function _orcRenderTudo() {
           <div class="av-condo-name">${_waEscaparHtml(g.nome)}</div>
           <div class="av-condo-sub">${g.itens.length} ${g.itens.length === 1 ? "pedido" : "pedidos"}${totalGrupo ? ` · ${_orcFmtValor(totalGrupo)}` : ""}</div>
         </div>
-        <div class="av-condo-dots">${dot(nSol, "pend", "solicitado sem orçamento")}${dot(nRas, "off", "em orçamento")}${dot(nEnv, "warn", "enviado")}${dot(nApr, "ok", "aprovado")}</div>
+        <div class="av-condo-dots">${dot(nSol, "pend", "solicitado sem orçamento")}${dot(nRas, "off", "em orçamento")}${dot(nEnv, "off", "enviado")}${dot(nApr, "ok", "aprovado")}</div>
       </div>`;
   }).join("");
 
@@ -15246,7 +15260,9 @@ async function _orcExcluirPedido(osId) {
     pergunta = "Excluir o pedido de orçamento da " + qual + "?\n\n"
              + "A O.S. continua no sistema — ela só sai desta fila de orçamentos.";
   } else {
-    pergunta = "A " + qual + " tem um orçamento " + _orcStatusLabel(o.orcamento_status)
+    // Rascunho por extenso: "um orçamento EM ORÇAMENTO" não diz nada.
+    const estado = o.orcamento_status === "rascunho" ? "em rascunho" : _orcStatusLabel(o.orcamento_status);
+    pergunta = "A " + qual + " tem um orçamento " + estado
              + (o.orcamento_numero ? " (nº " + o.orcamento_numero + ")" : "")
              + (o.orcamento_valor ? " de " + _orcFmtValor(o.orcamento_valor) : "") + ".\n\n"
              + "Excluir o pedido APAGA esse orçamento junto, com os itens dele.\n"
