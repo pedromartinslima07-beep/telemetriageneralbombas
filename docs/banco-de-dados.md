@@ -251,6 +251,9 @@ avulso — quando preenchido, sobrepõe a soma de `orcamento_linhas`. 065:
 `cliente_email` — **cliente avulso (pessoa física)** não cadastrado: usados no
 bloco "Cliente" do PDF quando `condominio_id` é NULL (senão prevalece o
 condomínio). No PDF o rótulo do documento vira `CPF` (≤11 dígitos) ou `CNPJ`.
+`garantia` (texto livre, 026): **vazio/NULL não é "sem garantia"** — criação e
+PDF caem em "12 meses por defeito de fabricação". Orçamento sem garantia grava
+o texto literal `Sem garantia` (caixa "Sem garantia" do editor, 05/10/2026).
 **`orcamento_linhas`** (026, CASCADE) — `quantidade`, `valor_unitario`. 062:
 `valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço
 lançado fica `NULL` de verdade em vez de `0`, e o PDF omite a coluna de valor

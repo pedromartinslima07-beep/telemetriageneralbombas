@@ -9422,6 +9422,12 @@ body.role-viewer .viewer-only-hide-inline {
   flex-shrink: 0; border-top: 1px solid var(--border2); padding-top: 14px;
 }
 .av-cond-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+/* Garantia: o "Sem garantia" mora na linha do rótulo, à direita, pra não
+   empurrar o campo pra baixo dos vizinhos da grade. */
+.av-gar-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.av-gar-sem { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+.av-gar-sem input { margin: 0; accent-color: var(--accent); }
+.av-cond-grid .input:disabled { opacity: .6; cursor: not-allowed; }
 
 /* ── Tipo: escolha de documento ── */
 /* Uma coluna, não 2×2. Em 2 colunas cada card ficava com 184px e os títulos

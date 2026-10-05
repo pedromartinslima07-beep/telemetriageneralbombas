@@ -41,6 +41,11 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Orçamento sem garantia** (05/10/2026). Caixa "Sem garantia" nas
+  condições comerciais do editor; grava o texto literal, porque campo vazio
+  sempre imprimiu 12 meses. Sem migration. Ver
+  [`../docs/changelog.md`](../docs/changelog.md).
+
 - ✅ **Assinatura em branco não vira documento, e se recolhe de novo**
   (05/10/2026, migration 088). *"procure possíveis erros das assinaturas das
   O.S., tem algumas que está vindo sem assinatura"*. Nenhuma estava nula: três

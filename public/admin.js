@@ -13381,10 +13381,22 @@ function _avRenderPainel() {
               <input id="avInputPrazo" class="input" type="text" maxlength="100"
                 placeholder="5 dias úteis" value="${_waEscaparHtml(o.prazo_entrega || '')}">
             </label>
-            <label class="orc-form-label">Garantia
+            <!-- Garantia vazia NÃO quer dizer sem garantia: o PDF imprime o
+                 padrão de 12 meses no lugar. Sem garantia é esta caixa, que
+                 grava o texto literal e trava o campo. Div, não label: label
+                 dentro de label é HTML inválido. -->
+            <div class="orc-form-label">
+              <span class="av-gar-head">
+                <label for="avInputGarantia">Garantia</label>
+                <label class="av-gar-sem">
+                  <input type="checkbox" id="avSemGarantia" ${_avEhSemGarantia(o.garantia) ? "checked" : ""}>
+                  Sem garantia
+                </label>
+              </span>
               <input id="avInputGarantia" class="input" type="text" maxlength="100"
-                placeholder="12 meses" value="${_waEscaparHtml(o.garantia || '')}">
-            </label>
+                placeholder="12 meses" value="${_waEscaparHtml(o.garantia || '')}"
+                ${_avEhSemGarantia(o.garantia) ? "disabled" : ""}>
+            </div>
             <label class="orc-form-label">Data do orçamento
               <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
             </label>
@@ -13605,6 +13617,22 @@ function _avRenderPainel() {
     _avRenderLinhas();
   });
 
+  // "Sem garantia": trava o campo com o texto literal; desmarcar devolve o que
+  // estava escrito antes (ou o padrão da casa, se não havia nada).
+  document.getElementById("avSemGarantia")?.addEventListener("change", e => {
+    const inp = document.getElementById("avInputGarantia");
+    if (!inp) return;
+    if (e.target.checked) {
+      if (!_avEhSemGarantia(inp.value)) inp.dataset.anterior = inp.value;
+      inp.value = AV_SEM_GARANTIA;
+      inp.disabled = true;
+    } else {
+      inp.value = inp.dataset.anterior || "12 meses por defeito de fabricação";
+      inp.disabled = false;
+      inp.focus();
+    }
+  });
+
   // Toggle cliente avulso (pessoa física) × condomínio cadastrado: alterna qual
   // bloco de campos aparece.
   document.getElementById("avToggleAvulso")?.addEventListener("change", e => {
@@ -13785,6 +13813,14 @@ function _avMascaraMoeda(txt) {
   inteiro = inteiro.replace(/^0+(?=\d)/, "");
   inteiro = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return dec === undefined ? inteiro : `${inteiro},${dec}`;
+}
+
+// Orçamento sem garantia não tem coluna própria: é o texto literal no campo
+// `garantia`. Vazio não serve — backend e PDF caem no padrão de 12 meses.
+// A comparação ignora caixa e espaços pra reconhecer quem digitou à mão.
+const AV_SEM_GARANTIA = "Sem garantia";
+function _avEhSemGarantia(txt) {
+  return String(txt ?? "").trim().toLowerCase() === AV_SEM_GARANTIA.toLowerCase();
 }
 
 // "1.234,50" → 1234.5 · vazio → null (que é o que faz o total voltar a somar
@@ -14727,7 +14763,9 @@ async function _avAcao(acao) {
     constatacao:     document.getElementById("avInputConstatacao")?.value.trim() || null,
     forma_pagamento: document.getElementById("avInputPagamento")?.value.trim() || null,
     prazo_entrega:   document.getElementById("avInputPrazo")?.value.trim() || null,
-    garantia:        document.getElementById("avInputGarantia")?.value.trim() || null,
+    garantia:        document.getElementById("avSemGarantia")?.checked
+                       ? AV_SEM_GARANTIA
+                       : (document.getElementById("avInputGarantia")?.value.trim() || null),
     valido_ate:      document.getElementById("avInputValidade")?.value || null,
     data_documento:  document.getElementById("avInputDataDoc")?.value || null,
     status:          document.getElementById("avInputStatus")?.value || "rascunho",

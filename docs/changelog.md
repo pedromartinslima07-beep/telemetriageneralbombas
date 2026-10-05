@@ -17483,3 +17483,18 @@ orçamento" também eram amarelos. Agora só o pedido sem orçamento é amarelo
 com o nome da aba que o lista; "enviado" ficou de fio. `.orc-status-req` saiu.
 Sem mudança de dado nem de rota. Tabela e porquê em
 [painel-admin.md](modulos/painel-admin.md).
+
+## Orçamento sem garantia (2026-10-05)
+
+*"hj se eu quiser fazer um orçamento sem garantia acredito q eu n consiga"*. Não
+conseguia: apagar o campo Garantia gravava `NULL`, e tanto a criação
+(`POST /admin/orcamentos/avulsos`) quanto o PDF (`orcamento-pdf.service.js`)
+tratam vazio como **"12 meses por defeito de fabricação"**. Agora as condições
+comerciais do editor têm a caixa **"Sem garantia"** ao lado do rótulo: marcada,
+grava o texto literal `Sem garantia` em `orcamentos.garantia` e trava o campo;
+desmarcada, devolve o que estava escrito (ou o padrão da casa). O PDF e o painel
+do cliente imprimem "Sem garantia" sem mudança nenhuma — **sem migration, sem
+rota nova**. Vazio continua sendo "padrão de 12 meses", de propósito: quem
+esquece de preencher não manda orçamento sem garantia por acidente. Quem digitar
+"sem garantia" à mão também é reconhecido (caixa e espaços ignorados).
+`admin.js?v=362`, `admin.css?v=272`.
