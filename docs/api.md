@@ -206,7 +206,9 @@ restringe escrita.
 | POST | `/:id/fotos/upload` · `/:id/fotos` | dono/admin (base64) |
 | DELETE | `/:id/fotos/:foto_id` | dono/admin |
 | POST/PATCH/DELETE | `/:id/pecas[/:peca_id]` | dono/admin |
-| POST | `/:id/finalizar` | dono/admin (gera PDF) |
+| POST | `/:id/finalizar` | dono/admin (gera PDF). Recusa assinatura **sem tinta** (400 "chegou em branco") desde 05/10/2026 |
+| POST · DELETE | `/:id/pedir-assinatura` | **gestao** — liga/desliga o pedido de nova assinatura de O.S. **finalizada** (`assinatura_refazer_em`, migration 088) |
+| PUT | `/:id/assinatura` | admin/gerente, ou **técnico dono só com pedido aberto** — grava `assinatura_b64` + `recebido_nome` (+ `recebido_tipo?`) em O.S. finalizada, consome o pedido, marca `assinatura_refeita_em` e invalida o PDF. Recusa quadro sem tinta. Operador 403 |
 | GET | `/:id/destinatarios` | **gestao** — os `condominios.email` do prédio da O.S., ponto de partida do modal de envio |
 | POST | `/:id/enviar-email` | **gestao** — manda a O.S. finalizada ao cliente com o PDF em anexo. Body `{ emails, mensagem? }` |
 | POST | `/ordens-servico/enviar-email-lote` | **gestao** — várias O.S. de uma vez, **cada uma para o e-mail do seu próprio condomínio**. Body `{ ids, mensagem? }`, até 40 por chamada |
@@ -217,6 +219,14 @@ booleano **`tem_assinatura`**; a imagem sai por `GET /:id/assinatura`, sob
 demanda. Quem exibe assinatura precisa das **duas** chamadas — ler
 `assinatura_b64` do detalhe dá `undefined`, e o front cai no ramo "não
 assinada" numa O.S. assinada (foi o bug de 02/09/2026 no painel admin).
+Desde 05/10/2026 o detalhe da O.S. **finalizada** também traz
+**`assinatura_em_branco`** (o servidor mede a tinta do PNG) e os campos da 088.
+O `PATCH` grava quadro sem tinta como NULL, e o envio por e-mail recusa O.S.
+com assinatura em branco ou com pedido de nova assinatura aberto.
+
+`GET /chamados/meus` traz `os_assinatura_refazer_em` e `GET /chamados/meus/:id`
+traz `ordem_servico.assinatura_refazer_em` + `recebido_nome`: é o que põe o
+chamado fechado de volta na aba Hoje do técnico.
 
 ⚠️ **O envio por e-mail não tem dois modos, e o orçamento tem** — não é
 esquecimento. O orçamento oferece "pelo painel" porque existe uma tela onde o

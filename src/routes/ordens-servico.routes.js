@@ -11,6 +11,8 @@ const { sendOrdemServicoCliente } = require("../services/email");
 // "Preventiva mensal" na O.S., e isso dá baixa no plano do mês. Ver o bloco
 // longo em `preventivas.service.js`.
 const { MARCA_PREVENTIVA, darBaixaPorOS } = require("../services/preventivas.service");
+// "Tem assinatura" é ter TINTA, não ter o campo preenchido — ver o serviço.
+const { assinaturaTemTinta } = require("../services/assinatura-tinta.service");
 
 const router = express.Router();
 
@@ -233,6 +235,13 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
          -- enviada em ... para ..." antes de mandar de novo.
          os.enviado_em, os.enviado_para,
          (os.assinatura_b64 IS NOT NULL) AS tem_assinatura,
+         -- Pedido de nova assinatura (088). O app do técnico e o modal do
+         -- admin leem daqui.
+         os.assinatura_refazer_em, os.assinatura_refeita_em,
+         -- A imagem só vem da O.S. FINALIZADA, e só para medir a tinta aqui
+         -- dentro (sai do objeto antes da resposta). Na O.S. em preenchimento,
+         -- que é a que o técnico abre no 4G, não vem.
+         CASE WHEN os.finalizada_em IS NOT NULL THEN os.assinatura_b64 END AS _assinatura_final,
          COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          c.endereco, c.bairro, c.cidade, c.uf, c.cep,
          t.nome AS tecnico_nome,
@@ -250,7 +259,13 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
       pool.query(`SELECT * FROM os_pecas WHERE os_id = $1 ORDER BY id ASC`, [id]),
     ]);
 
-    return res.json({ ...osRes.rows[0], fotos: fotos.rows, pecas: pecas.rows });
+    // `assinatura_em_branco`: finalizada com o campo preenchido e sem tinta — o
+    // caso da OS-2026-0139. É o que faz o admin acusar o defeito antes de o
+    // documento ir para o cliente.
+    const { _assinatura_final, ...osRow } = osRes.rows[0];
+    osRow.assinatura_em_branco = !!_assinatura_final && !assinaturaTemTinta(_assinatura_final);
+
+    return res.json({ ...osRow, fotos: fotos.rows, pecas: pecas.rows });
   } catch (err) {
     console.error("[ordens-servico] GET /:id:", err);
     return res.status(500).json({ error: "Erro ao buscar O.S." });
@@ -270,6 +285,119 @@ router.get("/:id/assinatura", authRequired, osDonoOuAdmin(), async (req, res) =>
   } catch (err) {
     console.error("[ordens-servico] GET /:id/assinatura:", err);
     return res.status(500).json({ error: "Erro ao buscar assinatura" });
+  }
+});
+
+// ── Nova assinatura de O.S. JÁ FINALIZADA (088, 05/10/2026) ─────────────────
+//
+// O.S. finalizada continua só leitura para o técnico — o `forWrite` do
+// `osDonoOuAdmin` não muda. Isto é uma porta estreita ao lado dela: o
+// escritório PEDE a nova assinatura de uma O.S. específica, e só a partir daí
+// o técnico dono consegue gravar assinatura + nome de quem recebeu naquela O.S.
+// Nada além desses três campos passa por aqui.
+//
+// Existe porque a assinatura original pode ter sido apagada (o app gravava um
+// quadro vazio por cima dela — OS-2026-0139), e nesse caso a única saída
+// honesta é colher de novo com o cliente. Por isso `assinatura_refeita_em`
+// fica gravado para sempre e o PDF imprime a data.
+
+// POST /ordens-servico/:id/pedir-assinatura — acende o pedido para o técnico.
+router.post("/:id/pedir-assinatura", authRequired, gestaoOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `UPDATE ordens_servico
+          SET assinatura_refazer_em = COALESCE(assinatura_refazer_em, NOW())
+        WHERE id = $1 AND finalizada_em IS NOT NULL
+        RETURNING id, assinatura_refazer_em`,
+      [id]
+    );
+    if (!r.rows.length) {
+      const existe = await pool.query("SELECT 1 FROM ordens_servico WHERE id = $1", [id]);
+      return existe.rows.length
+        ? res.status(400).json({ error: "A O.S. ainda está em preenchimento — a assinatura se colhe no próprio formulário." })
+        : res.status(404).json({ error: "O.S. não encontrada" });
+    }
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[ordens-servico] POST /:id/pedir-assinatura:", err);
+    return res.status(500).json({ error: "Erro ao pedir nova assinatura" });
+  }
+});
+
+// DELETE /ordens-servico/:id/pedir-assinatura — desiste do pedido.
+router.delete("/:id/pedir-assinatura", authRequired, gestaoOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(
+      `UPDATE ordens_servico SET assinatura_refazer_em = NULL WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
+    return res.json({ id, assinatura_refazer_em: null });
+  } catch (err) {
+    console.error("[ordens-servico] DELETE /:id/pedir-assinatura:", err);
+    return res.status(500).json({ error: "Erro ao cancelar o pedido" });
+  }
+});
+
+// PUT /ordens-servico/:id/assinatura — grava a nova assinatura da O.S. finalizada.
+// Body: { assinatura_b64, recebido_nome, recebido_tipo? }
+//
+// ⚠️ TÉCNICO SÓ COM PEDIDO ABERTO. Sem isto ele poderia trocar, depois do
+// serviço, a assinatura de qualquer O.S. dele — exatamente o tipo de edição
+// que o `forWrite` existe para impedir. Admin e gerente gravam sem pedido.
+router.put("/:id/assinatura", authRequired, osDonoOuAdmin(), async (req, res) => {
+  const id = Number(req.params.id);
+  if (req.user.role === "operador") {
+    return res.status(403).json({ error: "O operador só lê a O.S." });
+  }
+
+  const b = req.body || {};
+  const nome = String(b.recebido_nome || "").trim();
+  if (!nome) return res.status(400).json({ error: "Informe o nome de quem assinou." });
+  if (nome.length > 120) return res.status(400).json({ error: "Nome muito longo (máx. 120)." });
+  if (b.recebido_tipo && !RECEBIDO_TIPOS.includes(b.recebido_tipo)) {
+    return res.status(400).json({ error: `recebido_tipo deve ser: ${RECEBIDO_TIPOS.join(", ")}` });
+  }
+  if (!assinaturaTemTinta(b.assinatura_b64)) {
+    return res.status(400).json({ error: "A assinatura está em branco ou pequena demais. Peça para assinar de novo, ocupando o quadro." });
+  }
+
+  try {
+    const atual = await pool.query(
+      "SELECT finalizada_em, assinatura_refazer_em FROM ordens_servico WHERE id = $1",
+      [id]
+    );
+    if (!atual.rows.length) return res.status(404).json({ error: "O.S. não encontrada" });
+    const { finalizada_em, assinatura_refazer_em } = atual.rows[0];
+    if (!finalizada_em) {
+      return res.status(400).json({ error: "A O.S. ainda está em preenchimento — a assinatura se colhe no próprio formulário." });
+    }
+    if (req.user.role === "tecnico" && !assinatura_refazer_em) {
+      return res.status(403).json({ error: "O escritório não pediu nova assinatura para esta O.S." });
+    }
+
+    const r = await pool.query(
+      `UPDATE ordens_servico
+          SET assinatura_b64        = $1,
+              recebido_nome         = $2,
+              recebido_tipo         = COALESCE($3, recebido_tipo),
+              assinatura_refazer_em = NULL,
+              assinatura_refeita_em = NOW()
+        WHERE id = $4
+        RETURNING id, recebido_nome, recebido_tipo, assinatura_refeita_em`,
+      [b.assinatura_b64, nome, b.recebido_tipo || null, id]
+    );
+    // O PDF em disco tem o quadro antigo; o próximo download/e-mail regenera.
+    await invalidarPdfOS(id);
+    console.log(`[ordens-servico] OS#${id}: nova assinatura gravada por ${req.user.role}#${req.user.id}`);
+    return res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[ordens-servico] PUT /:id/assinatura:", err);
+    return res.status(500).json({ error: "Erro ao gravar a assinatura" });
   }
 });
 
@@ -374,7 +502,17 @@ router.patch("/:id", authRequired, osDonoOuAdmin({ forWrite: true }), async (req
     sets.push(`retorno_sugerido_em = $${values.length}`);
   }
   if (b.assinatura_b64 !== undefined) {
-    values.push(b.assinatura_b64 || null);
+    // ⚠️ QUADRO SEM TINTA VIRA NULL, não 400. Recusar aqui travaria o
+    // formulário inteiro de APK antigo: o app devolve o patch recusado à fila
+    // e o reenvia junto com todo campo digitado depois. Gravando NULL, o
+    // `/finalizar` explica o que falta e a O.S. reaberta pede a assinatura de
+    // novo. O app novo nem chega a mandar quadro vazio.
+    let assin = b.assinatura_b64 || null;
+    if (assin && !assinaturaTemTinta(assin)) {
+      console.warn(`[ordens-servico] OS#${id}: assinatura sem tinta recebida no PATCH — gravada como vazia`);
+      assin = null;
+    }
+    values.push(assin);
     sets.push(`assinatura_b64 = $${values.length}`);
   }
 
@@ -693,6 +831,14 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Assinatura e nome de quem recebeu são obrigatórios" });
     }
+    // ⚠️ PREENCHIDO NÃO É ASSINADO. Um PNG transparente passava na linha de
+    // cima, e foi assim que a OS-2026-0139 virou documento com o quadro vazio.
+    if (!assinaturaTemTinta(os.assinatura_b64)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "A assinatura chegou em branco. Abra a O.S., colha a assinatura de novo e finalize.",
+      });
+    }
 
     // Fotos obrigatórias quando tipo for instalacao_pecas ou chamado_emergencial
     const tiposObrigamFoto = os.tipos_servico.some((t) =>
@@ -920,12 +1066,26 @@ router.get("/:id/pdf", authRequired, osDonoOuAdmin(), async (req, res) => {
 // que o outro não tem.
 const _SQL_OS_PARA_EMAIL = `
   SELECT os.id, os.numero, os.finalizada_em, os.chegada_em, os.condominio_id,
+         os.assinatura_b64, os.assinatura_refazer_em,
          COALESCE(NULLIF(c.nome_fantasia, ''), c.nome) AS condominio_nome,
          c.email AS condominio_email,
          t.nome AS tecnico_nome
     FROM ordens_servico os
     LEFT JOIN condominios c ON c.id = os.condominio_id
     LEFT JOIN tecnicos    t ON t.id = os.tecnico_id`;
+
+// Por que esta O.S. não pode ir ao cliente por causa da assinatura (ou null).
+// ⚠️ É a assinatura que faz o papel valer como comprovante; mandar o PDF com o
+// quadro vazio é entregar o defeito ao cliente — e com e-mail não há volta.
+function _assinaturaImpedeEnvio(os) {
+  if (os.assinatura_refazer_em) {
+    return "Nova assinatura pedida ao técnico e ainda não colhida — envie depois que ela chegar.";
+  }
+  if (!assinaturaTemTinta(os.assinatura_b64)) {
+    return "A assinatura desta O.S. está em branco — peça uma nova assinatura na ficha antes de enviar.";
+  }
+  return null;
+}
 
 // Lista de e-mails vinda de texto separado por vírgula, normalizada.
 function _listaEmails(raw) {
@@ -1067,6 +1227,8 @@ router.post("/:id/enviar-email", authRequired, gestaoOnly, async (req, res) => {
         error: "Esta O.S. ainda não foi finalizada — só depois da assinatura ela vira documento para o cliente.",
       });
     }
+    const travaAssinatura = _assinaturaImpedeEnvio(os);
+    if (travaAssinatura) return res.status(400).json({ error: travaAssinatura });
 
     // ⚠️ A LISTA VEM DO CORPO, e isso é diferente do orçamento de propósito.
     // Lá o modo "pelo painel" monta a lista no backend porque o e-mail leva um
@@ -1149,6 +1311,11 @@ router.post("/enviar-email-lote", authRequired, gestaoOnly, async (req, res) => 
       if (!os) { registrarFalha(id, null, null, "O.S. não encontrada"); continue; }
       if (!os.finalizada_em) {
         registrarFalha(id, os.numero, os.condominio_nome, "Ainda não finalizada — só depois da assinatura ela vira documento para o cliente.");
+        continue;
+      }
+      const travaAssinatura = _assinaturaImpedeEnvio(os);
+      if (travaAssinatura) {
+        registrarFalha(id, os.numero, os.condominio_nome, travaAssinatura);
         continue;
       }
 

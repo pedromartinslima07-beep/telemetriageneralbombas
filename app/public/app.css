@@ -1954,6 +1954,35 @@ body:has(.screen-auth[data-active])::before { display: none; }
 }
 .sign-fs-canvas-wrap.has-ink .sign-fs-hint { display: none; }
 
+/* Nova assinatura de O.S. finalizada: o nome de quem assina vai na própria
+   barra, entre o título e as ações — em paisagem sobra largura, e assim nome e
+   assinatura saem na mesma tela, sem um passo a mais. */
+.sign-fs-nome {
+  flex: 1;
+  min-width: 0;
+  max-width: 280px;
+  margin: 0 12px;
+  height: 34px;
+  font-size: 14px;
+}
+.sign-rc-erro {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+}
+.sign-rc-erro[hidden] { display: none; }
+
 /* Mensagem "vire o celular" — fallback iOS quando orientation.lock não está disponível */
 .sign-fs-rotate-msg {
   position: absolute;

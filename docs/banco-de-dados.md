@@ -212,6 +212,12 @@ por e-mail ao cliente. **Mesmos nomes que `orcamentos` usa desde a 047**: é o
 mesmo fato sobre outro documento, e nome diferente para a mesma coisa custa uma
 consulta ao schema toda vez. Ver
 [envio da O.S.](modulos/ordens-servico.md).
+088: `assinatura_refazer_em TIMESTAMPTZ` (o escritório pediu nova assinatura;
+NULL = nada pendente — é o que acende o botão no app do técnico) e
+`assinatura_refeita_em TIMESTAMPTZ` (quando a nova chegou; fica para sempre e o
+PDF imprime). ⚠️ **`assinatura_b64` preenchido não quer dizer assinado**: a
+OS-2026-0139 tinha um PNG transparente. "Tem assinatura" é ter tinta —
+`assinaturaTemTinta` em `src/services/assinatura-tinta.service.js`.
 ⚠️ **`chegada_lat`/`chegada_lng` são NULÁVEIS de propósito, e desde
 11/09/2026 isso acontece na prática.** O técnico pode iniciar o atendimento
 sem sinal — subsolo e casa de máquinas são onde ele trabalha — e a coluna

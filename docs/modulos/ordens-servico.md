@@ -95,6 +95,62 @@ sem essa chamada, mostrando "Não assinada." em O.S. assinada — e o PDF, que
 lê a coluna direto do banco, escondia o defeito. Ver
 [`../changelog.md`](../changelog.md).
 
+### ⚠️ Preenchido não é assinado (05/10/2026)
+
+Até 05/10/2026, "tem assinatura" era `assinatura_b64 IS NOT NULL` — e um PNG
+transparente passa nessa conta. Três O.S. finalizadas tinham a assinatura
+**gravada em branco** (OS-2026-0139 vazia, 0069 com um ponto, 0052 com um risco
+solto), e o PDF saiu com o quadro vazio.
+
+**A causa** estava no app: o canvas é limpo toda vez que a seção abre e a imagem
+salva chega depois pela segunda chamada acima — ou não chega, sem sinal. Mas o
+app considerava o quadro "com tinta" só pelo `tem_assinatura`, e um toque no
+quadro vazio gravava o vazio **por cima da assinatura verdadeira**. Hoje o app
+só grava quem traçou naquele gesto e só com tinta suficiente
+(`_assinaturaTemTinta`); a tela cheia não grava sem traço.
+
+**A segunda trava** é o servidor, que vale também para APK antigo:
+`assinaturaTemTinta` (em `src/services/assinatura-tinta.service.js`) decodifica o
+PNG e exige **0,3% dos pixels com tinta e 15% de extensão** — corte medido nas
+110 O.S. de produção, com 2,6× de folga para baixo da menor assinatura real.
+
+| Onde | O que faz com quadro sem tinta |
+|---|---|
+| `PATCH /:id` | grava **NULL** (recusar travaria o formulário: o app reenvia o patch recusado junto com todo campo digitado depois) |
+| `POST /:id/finalizar` | **400** "A assinatura chegou em branco" |
+| `GET /:id` (finalizada) | devolve `assinatura_em_branco: true` — o admin acusa na ficha |
+| envio por e-mail (unitário e lote) | recusa: o defeito não vai para o cliente |
+
+⚠️ **O corte mora em dois lugares** — o serviço e o `_assinaturaTemTinta` do
+app. Mudou num, muda no outro.
+
+### Recolher a assinatura de O.S. já finalizada (migration 088)
+
+O.S. finalizada continua só leitura para o técnico. Ao lado disso há uma porta
+estreita, aberta pelo escritório:
+
+1. Na ficha da O.S. (admin), **"Pedir nova assinatura"** —
+   `POST /:id/pedir-assinatura` (gestão) grava `assinatura_refazer_em`. Com
+   assinatura em branco o botão vem em destaque; com assinatura boa ele fica
+   discreto (para o caso duvidoso). "Cancelar pedido" desfaz.
+2. O chamado **fechado** volta para a aba **Hoje** do técnico com o selo
+   **"Recolher assinatura"**, e o detalhe mostra o botão.
+3. Ele colhe **nome + assinatura** em tela cheia, com o cliente. O quadro abre
+   vazio de propósito: o pedido existe porque a antiga não vale. **Precisa de
+   sinal** — não há fila offline aqui; uma assinatura de O.S. fechada esperando
+   no aparelho sem ninguém saber é o tipo de pendência invisível que causou o
+   problema.
+4. `PUT /:id/assinatura` grava só `assinatura_b64`, `recebido_nome` e
+   (opcional) `recebido_tipo`, consome o pedido, marca `assinatura_refeita_em`
+   e chama `invalidarPdfOS`. O técnico **só passa com pedido aberto**; admin e
+   gerente passam sempre; operador nunca.
+
+O PDF imprime **"Assinatura colhida em dd/mm/aaaa, após o atendimento"** quando
+há `assinatura_refeita_em`: o documento não finge que a assinatura foi dada na
+hora do serviço. Enquanto o pedido está aberto, o e-mail ao cliente espera.
+
+Prova: `scripts/testes/assinatura-em-branco.test.js` (39 checagens).
+
 Uploads servidos em `/uploads` (estático, cacheável). Regerar PDFs em lote:
 `scripts/regenerar-pdfs-os.js`.
 

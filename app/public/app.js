@@ -440,7 +440,9 @@ function filtroDaTab(c) {
   // Próximos: por enquanto = mesmos que "Hoje" sem o em_atendimento, fica como placeholder
   //           (Fase futura terá agendamento via campo agendado_para)
   // Histórico: fechados
-  if (TC.tab === "hoje") return chEmAberto(c.status);
+  // + o chamado FECHADO cuja O.S. o escritório mandou reassinar: é trabalho
+  // pendente dele, e no Histórico ninguém procura trabalho pendente.
+  if (TC.tab === "hoje") return chEmAberto(c.status) || !!c.os_assinatura_refazer_em;
   if (TC.tab === "proximos") return c.status === "aberto";
   if (TC.tab === "historico") return c.status === "fechado";
   return true;
@@ -545,7 +547,7 @@ function renderTecnicoChamados() {
   renderTecnicoCriticos();
 
   // Contadores das tabs (independentes da tab atual)
-  const hoje      = TC.chamados.filter((c) => chEmAberto(c.status)).length;
+  const hoje      = TC.chamados.filter((c) => chEmAberto(c.status) || !!c.os_assinatura_refazer_em).length;
   const proximos  = TC.chamados.filter((c) => c.status === "aberto").length;
   const historico = TC.chamados.filter((c) => c.status === "fechado").length;
   document.getElementById("tcCountHoje").textContent = hoje;
@@ -753,7 +755,9 @@ function renderCardChamado(c) {
           <span class="ch-cat-badge">${escapeHtml(cat)}</span>
           ${aguardando
             ? `<span class="ch-st ch-st-aguardando">Aguardando envio</span>`
-            : `<span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>`}
+            : c.os_assinatura_refazer_em
+              ? `<span class="ch-st ch-st-assinatura">Recolher assinatura</span>`
+              : `<span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>`}
           <span class="ch-row-mob-meta">há ${tempo}</span>
         </div>
       </div>
@@ -1349,6 +1353,20 @@ function configurarCTA(c) {
   const lbl  = document.getElementById("tdCtaLabel");
 
   if (c.status === "fechado") {
+    // O escritório pediu nova assinatura desta O.S. (088): é a única ação que
+    // um chamado fechado ainda oferece. Ver `abrirRecolherAssinatura`.
+    const osF = c.ordem_servico;
+    if (osF && osF.finalizada_em && osF.assinatura_refazer_em) {
+      bar.hidden = false;
+      bar.style.display = "";
+      document.getElementById("tdCtaBtnSec")?.remove();
+      lbl.textContent = "Recolher assinatura";
+      btn.className = "btn btnAccent btn-lg";
+      btn.style = "";
+      btn.disabled = false;
+      btn.onclick = () => abrirRecolherAssinatura(c);
+      return;
+    }
     bar.hidden = true;
     return;
   }
@@ -3801,6 +3819,59 @@ function bindResolucao() {
   });
 }
 
+// ---- Assinatura: o quadro tem TINTA de verdade? (05/10/2026) ----
+//
+// ⚠️ O DEFEITO QUE ISTO FECHA: a OS-2026-0139 foi finalizada com um PNG
+// transparente no lugar da assinatura, e a 0069 com um ponto. O canvas reabria
+// LIMPO (redimensionar apaga o desenho; a imagem salva vem depois, pela rede, e
+// no subsolo às vezes não vem) mas `OS.sign.hasInk` já nascia `true` só porque
+// o servidor dizia `tem_assinatura`. Daí um toque qualquer no quadro — rolando
+// a tela, por exemplo — caía no `end()`, que fotografava o canvas vazio e
+// gravava POR CIMA da assinatura verdadeira. A tela cheia tinha a mesma falha
+// no "Confirmar".
+//
+// A regra agora: só grava quem TRAÇOU naquele gesto, e só se o quadro inteiro
+// tiver tinta suficiente. Toque sem traço não grava nada.
+//
+// ⚠️ O CORTE É O MESMO DO BACKEND (src/services/assinatura-tinta.service.js),
+// medido nas 110 O.S. de produção. Mudou lá, muda aqui.
+const ASSIN_TINTA_MIN_PCT = 0.3;
+const ASSIN_EXTENSAO_MIN  = 0.15;
+
+function _assinaturaTemTinta(canvas) {
+  if (!canvas || !canvas.width || !canvas.height) return false;
+  const w = canvas.width, h = canvas.height;
+  let data;
+  try {
+    data = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+  } catch { return true; } // sem como medir: o backend confere
+  let tinta = 0, x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 20) {
+        tinta++;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  const extensao = x1 < 0 ? 0 : Math.max((x1 - x0 + 1) / w, (y1 - y0 + 1) / h);
+  return (tinta / (w * h)) * 100 >= ASSIN_TINTA_MIN_PCT && extensao >= ASSIN_EXTENSAO_MIN;
+}
+
+// A assinatura já salva desta O.S., da memória ou do servidor (o GET /:id só
+// traz o booleano). Devolve null se não houver ou se não deu para baixar.
+async function _osObterAssinatura() {
+  if (OS.data.assinatura_b64) return OS.data.assinatura_b64;
+  if (IS_DEMO || !OS.data.tem_assinatura) return null;
+  const r = await api(`/ordens-servico/${OS.data.id}/assinatura`);
+  if (!r?.assinatura_b64) return null;
+  OS.data.assinatura_b64 = r.assinatura_b64; // cacheia pra não rebaixar
+  return r.assinatura_b64;
+}
+
 // ---- Seção 8: Quem recebeu + Assinatura ----
 function sectionRecebidoAssinatura() {
   const nome = OS.data.recebido_nome || "";
@@ -3860,7 +3931,9 @@ function bindRecebidoAssinatura() {
 function avaliarRecebidoComplete() {
   const nome = document.getElementById("osRecNome")?.value || "";
   const tipo = document.querySelector('#osRecTipo input:checked')?.value || "";
-  const tem = OS.sign.hasInk || !!OS.data.assinatura_b64 || !!OS.data.tem_assinatura;
+  // Só o que foi GRAVADO conta. Traço no quadro que ainda não passou no corte
+  // de tinta não é assinatura — e o finalizar também não o aceitaria.
+  const tem = !!OS.data.assinatura_b64 || !!OS.data.tem_assinatura;
   const sec = document.querySelector('[data-section="recebido"]');
   if (sec) {
     sec.classList.toggle("is-complete", !!(nome && tipo && tem));
@@ -3891,11 +3964,14 @@ function iniciarCanvasAssinatura() {
 
   OS.sign.canvas = canvas;
   OS.sign.ctx = ctx;
-  // `tem_assinatura` vem do GET /:id; a imagem em si é buscada à parte, porque
-  // são ~120KB que não fazem sentido baixar em toda abertura da O.S.
-  OS.sign.hasInk = !!(OS.data.assinatura_b64 || OS.data.tem_assinatura);
+  // ⚠️ `hasInk` NÃO HERDA MAIS o `tem_assinatura`. Neste ponto o canvas acabou
+  // de ser limpo (mudar `width` apaga tudo) e a imagem salva ainda vai chegar
+  // — ou não, sem sinal. Era essa herança que fazia um toque no quadro vazio
+  // gravar o vazio por cima da assinatura (OS-2026-0139). Ver o bloco acima de
+  // `_assinaturaTemTinta`.
+  OS.sign.hasInk = false;
 
-  if (OS.sign.hasInk) {
+  if (OS.data.assinatura_b64 || OS.data.tem_assinatura) {
     wrap?.classList.add("has-signature");
     _osDesenharAssinatura(ctx, rect);
   }
@@ -3904,15 +3980,11 @@ function iniciarCanvasAssinatura() {
 // Desenha a assinatura existente, baixando-a se ainda não estiver em memória.
 async function _osDesenharAssinatura(ctx, rect) {
   try {
-    if (!OS.data.assinatura_b64) {
-      if (IS_DEMO || !OS.data.tem_assinatura) return;
-      const r = await api(`/ordens-servico/${OS.data.id}/assinatura`);
-      if (!r?.assinatura_b64) return;
-      OS.data.assinatura_b64 = r.assinatura_b64; // cacheia pra não rebaixar
-    }
+    const src = await _osObterAssinatura();
+    if (!src) return;
     const img = new Image();
     img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-    img.src = OS.data.assinatura_b64;
+    img.src = src;
   } catch (e) {
     console.warn("[os] assinatura não carregou:", e.message);
   }
@@ -3933,6 +4005,7 @@ function bindCanvasAssinatura() {
   const start = (e) => {
     e.preventDefault();
     OS.sign.drawing = true;
+    OS.sign.tracou = false; // vira true só se o dedo ANDAR neste gesto
     const { x, y } = ptFromEvent(e);
     OS.sign.lastX = x; OS.sign.lastY = y;
   };
@@ -3948,17 +4021,23 @@ function bindCanvasAssinatura() {
     ctx.stroke();
     OS.sign.lastX = x; OS.sign.lastY = y;
     OS.sign.hasInk = true;
+    OS.sign.tracou = true;
     wrap?.classList.add("has-signature");
   };
   const end = () => {
     if (!OS.sign.drawing) return;
     OS.sign.drawing = false;
-    if (OS.sign.hasInk) {
-      const dataUrl = canvas.toDataURL("image/png");
-      OS.data.tem_assinatura = true;
-      salvarOSDebounced({ assinatura_b64: dataUrl });
-      avaliarRecebidoComplete();
-    }
+    // ⚠️ TOQUE SEM TRAÇO NÃO GRAVA. Era aqui que o quadro vazio virava
+    // assinatura: o `hasInk` herdado bastava para fotografar o canvas.
+    if (!OS.sign.tracou) return;
+    OS.sign.tracou = false;
+    // Primeiro traço curto (uma letra) ainda não é assinatura: espera os
+    // próximos — o canvas acumula, e o `end` deles mede o quadro inteiro.
+    if (!_assinaturaTemTinta(canvas)) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    OS.data.tem_assinatura = true;
+    salvarOSDebounced({ assinatura_b64: dataUrl });
+    avaliarRecebidoComplete();
   };
 
   canvas.addEventListener("mousedown", start);
@@ -3981,45 +4060,28 @@ function limparAssinatura() {
   avaliarRecebidoComplete();
 }
 
-async function abrirAssinaturaFullscreen() {
-  const overlay = document.createElement("div");
-  overlay.className = "sign-fs-overlay";
-
-  const jaTemAssinatura = OS.sign.hasInk || !!OS.data.assinatura_b64 || !!OS.data.tem_assinatura;
-
-  overlay.innerHTML = `
-    <div class="sign-fs-bar">
-      <span class="sign-fs-title">Assinatura</span>
-      <div class="sign-fs-actions">
-        <button class="btn btn-sm" id="signFsClear">Limpar</button>
-        <button class="btn btn-sm" id="signFsCancel">Cancelar</button>
-        <button class="btn btn-sm btnAccent" id="signFsConfirm"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Confirmar</button>
-      </div>
-    </div>
-    <div class="sign-fs-canvas-wrap${jaTemAssinatura ? " has-ink" : ""}" id="signFsWrap">
-      <canvas id="signFsCanvas" class="sign-fs-canvas"></canvas>
-      <div class="sign-fs-hint">Assine aqui com o dedo</div>
-      <div class="sign-fs-rotate-msg" id="signFsRotateMsg">
-        <svg class="sign-fs-rotate-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="10" y="4" width="18" height="30" rx="3" stroke="currentColor" stroke-width="2.5"/>
-          <circle cx="19" cy="30" r="1.5" fill="currentColor"/>
-          <path d="M32 10 A13 13 0 0 1 32 36" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-          <polyline points="29,33 32,36 35,33" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>Vire o celular para o lado</span>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
+// ---- Quadro de assinatura em tela cheia (mecânica compartilhada) ----
+//
+// Monta paisagem + canvas + traço dentro de um overlay já no DOM. Usado pela
+// tela cheia do formulário e pela nova assinatura de O.S. finalizada — uma
+// mecânica só, para as duas não divergirem na primeira correção.
+//
+// `base`: função opcional que devolve (Promise) a imagem a desenhar por baixo.
+// Devolve o controle: `tracou` (o dedo andou desde a abertura ou o último
+// Limpar), `ctx` (null até o canvas ter tamanho), `limpar()` e `fechar()`.
+async function _quadroAssinaturaTelaCheia(overlay, { base } = {}) {
   const _gpsEl = document.getElementById("tcFooterGps");
   if (_gpsEl) _gpsEl.style.display = "none";
 
-  const canvas    = overlay.querySelector("#signFsCanvas");
-  const wrap      = overlay.querySelector("#signFsWrap");
-  const rotateMsg = overlay.querySelector("#signFsRotateMsg");
+  const canvas    = overlay.querySelector(".sign-fs-canvas");
+  const wrap      = overlay.querySelector(".sign-fs-canvas-wrap");
+  const rotateMsg = overlay.querySelector(".sign-fs-rotate-msg");
 
-  let ctx     = null;
-  let drawing = false, lastX = 0, lastY = 0, hasInk = jaTemAssinatura;
+  // ⚠️ `tracou`, não "já tem assinatura". Antes isto nascia `true` quando a O.S.
+  // já tinha assinatura — e se a imagem não estava na memória, a tela abria em
+  // branco e o "Confirmar" sem desenhar nada gravava o branco por cima dela.
+  const q = { canvas, ctx: null, tracou: false };
+  let drawing = false, lastX = 0, lastY = 0;
   const cleanups = [];
 
   function iniciarCtx() {
@@ -4027,17 +4089,20 @@ async function abrirAssinaturaFullscreen() {
     const rect = canvas.getBoundingClientRect();
     canvas.width  = Math.floor(rect.width  * dpr);
     canvas.height = Math.floor(rect.height * dpr);
-    ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d");
     ctx.scale(dpr, dpr);
     ctx.lineCap     = "round";
     ctx.lineJoin    = "round";
     ctx.lineWidth   = 2.5;
     ctx.strokeStyle = "#0a0a0a";
-    if (OS.data.assinatura_b64) {
+    q.ctx = ctx;
+    if (!base) return;
+    base().then((src) => {
+      if (!src) return;
       const img = new Image();
       img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-      img.src = OS.data.assinatura_b64;
-    }
+      img.src = src;
+    }).catch((e) => console.warn("[os] assinatura não carregou:", e.message));
   }
 
   // Tenta travar em landscape — aguarda a rotação completar antes de inicializar o canvas
@@ -4057,7 +4122,7 @@ async function abrirAssinaturaFullscreen() {
     const verificar = () => {
       const landscape = window.innerWidth > window.innerHeight;
       rotateMsg.style.display = landscape ? "none" : "flex";
-      if (landscape && !ctx) requestAnimationFrame(() => requestAnimationFrame(iniciarCtx));
+      if (landscape && !q.ctx) requestAnimationFrame(() => requestAnimationFrame(iniciarCtx));
     };
     verificar();
     window.addEventListener("resize", verificar);
@@ -4070,18 +4135,19 @@ async function abrirAssinaturaFullscreen() {
     return { x: t.clientX - r.left, y: t.clientY - r.top };
   };
   const start = (e) => {
-    if (!ctx) return;
+    if (!q.ctx) return;
     e.preventDefault();
     drawing = true;
     const p = pt(e); lastX = p.x; lastY = p.y;
   };
   const move = (e) => {
-    if (!drawing || !ctx) return;
+    if (!drawing || !q.ctx) return;
     e.preventDefault();
     const p = pt(e);
+    const ctx = q.ctx;
     ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
     lastX = p.x; lastY = p.y;
-    hasInk = true;
+    q.tracou = true;
     wrap.classList.add("has-ink");
   };
   const stop = () => { drawing = false; };
@@ -4094,34 +4160,161 @@ async function abrirAssinaturaFullscreen() {
   canvas.addEventListener("touchmove",  move,  { passive: false });
   canvas.addEventListener("touchend",   stop);
 
-  function _fechar() {
+  q.limpar = () => {
+    if (!q.ctx) return;
+    q.ctx.clearRect(0, 0, canvas.width, canvas.height);
+    q.tracou = false;
+    wrap.classList.remove("has-ink");
+  };
+  q.fechar = () => {
     cleanups.forEach(fn => fn());
     try { screen.orientation?.unlock?.(); } catch (_) {}
     overlay.remove();
     if (_gpsEl) _gpsEl.style.display = "";
-  }
+  };
+  return q;
+}
 
-  overlay.querySelector("#signFsClear").addEventListener("click", () => {
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    hasInk = false;
-    wrap.classList.remove("has-ink");
-  });
+const _SIGN_FS_ROTATE_MSG = `
+      <div class="sign-fs-rotate-msg">
+        <svg class="sign-fs-rotate-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="4" width="18" height="30" rx="3" stroke="currentColor" stroke-width="2.5"/>
+          <circle cx="19" cy="30" r="1.5" fill="currentColor"/>
+          <path d="M32 10 A13 13 0 0 1 32 36" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <polyline points="29,33 32,36 35,33" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Vire o celular para o lado</span>
+      </div>`;
 
-  overlay.querySelector("#signFsCancel").addEventListener("click", _fechar);
+async function abrirAssinaturaFullscreen() {
+  const overlay = document.createElement("div");
+  overlay.className = "sign-fs-overlay";
+
+  const jaTemAssinatura = !!OS.data.assinatura_b64 || !!OS.data.tem_assinatura;
+
+  overlay.innerHTML = `
+    <div class="sign-fs-bar">
+      <span class="sign-fs-title">Assinatura</span>
+      <div class="sign-fs-actions">
+        <button class="btn btn-sm" id="signFsClear">Limpar</button>
+        <button class="btn btn-sm" id="signFsCancel">Cancelar</button>
+        <button class="btn btn-sm btnAccent" id="signFsConfirm"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Confirmar</button>
+      </div>
+    </div>
+    <div class="sign-fs-canvas-wrap${jaTemAssinatura ? " has-ink" : ""}">
+      <canvas class="sign-fs-canvas"></canvas>
+      <div class="sign-fs-hint">Assine aqui com o dedo</div>
+      ${_SIGN_FS_ROTATE_MSG}
+    </div>`;
+
+  document.body.appendChild(overlay);
+  // Baixa a salva se só o booleano estiver em memória — senão o técnico
+  // completaria uma assinatura que não está na tela e gravaria só o pedaço.
+  const q = await _quadroAssinaturaTelaCheia(overlay, { base: _osObterAssinatura });
+
+  overlay.querySelector("#signFsClear").addEventListener("click", q.limpar);
+  overlay.querySelector("#signFsCancel").addEventListener("click", q.fechar);
 
   overlay.querySelector("#signFsConfirm").addEventListener("click", () => {
-    if (hasInk && ctx) {
-      const dataUrl = canvas.toDataURL("image/png");
-      OS.data.assinatura_b64 = dataUrl;
-      OS.sign.hasInk = true;
-      document.getElementById("osSignWrap")?.classList.add("has-signature");
-      iniciarCanvasAssinatura();
-      OS.data.tem_assinatura = true;
-      salvarOSDebounced({ assinatura_b64: dataUrl });
-      avaliarRecebidoComplete();
+    // Confirmar sem traço novo = sair sem mexer no que está salvo.
+    if (!q.tracou || !q.ctx) { q.fechar(); return; }
+    if (!_assinaturaTemTinta(q.canvas)) {
+      q.fechar();
+      showAlert(document.getElementById("osAlert"),
+        "A assinatura ficou pequena demais e não foi salva. Peça para assinar de novo, ocupando o quadro.", "error");
+      return;
     }
-    _fechar();
+    const dataUrl = q.canvas.toDataURL("image/png");
+    OS.data.assinatura_b64 = dataUrl;
+    OS.data.tem_assinatura = true;
+    document.getElementById("osSignWrap")?.classList.add("has-signature");
+    iniciarCanvasAssinatura();
+    salvarOSDebounced({ assinatura_b64: dataUrl });
+    avaliarRecebidoComplete();
+    q.fechar();
+  });
+}
+
+// ---- Nova assinatura de O.S. JÁ FINALIZADA (088, 05/10/2026) ----
+//
+// O escritório pede no admin ("Pedir nova assinatura") e o chamado fechado
+// volta para a aba Hoje com o selo "Recolher assinatura". O técnico colhe com o
+// cliente, ali, na tela cheia — nome e assinatura — e o PUT grava só isso. Nada
+// mais da O.S. finalizada se mexe.
+//
+// ⚠️ PRECISA DE SINAL, de propósito. Não há fila offline aqui: é um caso raro,
+// e uma assinatura de O.S. fechada esperando no aparelho sem ninguém saber é
+// exatamente o tipo de pendência invisível que causou o problema original. Sem
+// rede, a tela diz e o técnico tenta de novo na hora.
+//
+// O quadro abre VAZIO (não desenha a antiga): o pedido existe justamente porque
+// a antiga não vale.
+async function abrirRecolherAssinatura(c) {
+  const os = c.ordem_servico;
+  if (!os) return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "sign-fs-overlay";
+  overlay.innerHTML = `
+    <div class="sign-fs-bar">
+      <span class="sign-fs-title">Nova assinatura · ${escapeHtml(os.numero || "")}</span>
+      <input class="input sign-fs-nome" id="signRcNome" type="text" autocomplete="off"
+             placeholder="Nome de quem assina" value="${escapeHtml(os.recebido_nome || "")}">
+      <div class="sign-fs-actions">
+        <button class="btn btn-sm" id="signRcClear">Limpar</button>
+        <button class="btn btn-sm" id="signRcCancel">Cancelar</button>
+        <button class="btn btn-sm btnAccent" id="signRcSalvar"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Salvar</button>
+      </div>
+    </div>
+    <div class="sign-fs-canvas-wrap">
+      <canvas class="sign-fs-canvas"></canvas>
+      <div class="sign-fs-hint">Assine aqui com o dedo</div>
+      <div class="sign-rc-erro" id="signRcErro" hidden></div>
+      ${_SIGN_FS_ROTATE_MSG}
+    </div>`;
+
+  document.body.appendChild(overlay);
+  const q = await _quadroAssinaturaTelaCheia(overlay);
+
+  const erroEl = overlay.querySelector("#signRcErro");
+  const dizer = (msg) => { erroEl.textContent = msg; erroEl.hidden = !msg; };
+
+  overlay.querySelector("#signRcClear").addEventListener("click", () => { q.limpar(); dizer(""); });
+  overlay.querySelector("#signRcCancel").addEventListener("click", q.fechar);
+
+  const btnSalvar = overlay.querySelector("#signRcSalvar");
+  btnSalvar.addEventListener("click", async () => {
+    const nome = overlay.querySelector("#signRcNome").value.trim();
+    if (!nome) { dizer("Escreva o nome de quem está assinando."); return; }
+    if (!q.tracou || !q.ctx || !_assinaturaTemTinta(q.canvas)) {
+      dizer("A assinatura está em branco ou pequena demais. Peça para assinar ocupando o quadro.");
+      return;
+    }
+    dizer("");
+    btnSalvar.disabled = true;
+    try {
+      if (!IS_DEMO) {
+        await api(`/ordens-servico/${os.id}/assinatura`, {
+          method: "PUT",
+          body: { assinatura_b64: q.canvas.toDataURL("image/png"), recebido_nome: nome },
+        });
+      }
+      q.fechar();
+      // Some da aba Hoje e o botão sai do detalhe: recarrega os dois.
+      os.assinatura_refazer_em = null;
+      os.recebido_nome = nome;
+      const naLista = (TC.chamados || []).find((x) => x.id === c.id);
+      if (naLista) naLista.os_assinatura_refazer_em = null;
+      configurarCTA(c);
+      showAlert(document.getElementById("tdAlert"),
+        `Assinatura de ${nome} salva na ${os.numero || "O.S."}.`, "success");
+      if (typeof carregarMeusChamados === "function") carregarMeusChamados(true);
+    } catch (err) {
+      btnSalvar.disabled = false;
+      dizer(ehFalhaDeRede(err)
+        ? "Sem sinal agora. A assinatura continua na tela — tente salvar de novo quando o sinal voltar."
+        : "Não foi possível salvar: " + err.message);
+    }
   });
 }
 

@@ -12123,6 +12123,35 @@ function _osRenderView(os) {
       ? `<div id="osAssinSlot"><span class="os-muted">Carregando assinatura…</span></div>`
       : `<span class="os-muted">Não assinada.</span>`;
 
+  // ⚠️ ASSINATURA EM BRANCO (05/10/2026). O backend mede a tinta do PNG da
+  // O.S. finalizada e devolve assinatura_em_branco — o caso da OS-2026-0139,
+  // que tinha o campo preenchido com um quadro transparente. Daqui o
+  // escritório pede a nova assinatura; o chamado volta para a aba Hoje do
+  // técnico com o botão "Recolher assinatura" (migration 088).
+  const assinGestao = _osPodeGestao();
+  let assinAcao = "";
+  if (os.finalizada_em && os.assinatura_refazer_em) {
+    assinAcao = `
+      <div class="os-assin-aviso">
+        <span class="os-status-pill os-status-rascunho">Nova assinatura pedida ao técnico em ${_osFmtData(os.assinatura_refazer_em)}</span>
+        ${assinGestao ? `<button class="btn btn-sm" type="button" id="osBtnCancelarPedidoAssin">Cancelar pedido</button>` : ""}
+      </div>`;
+  } else if (os.finalizada_em && os.assinatura_em_branco) {
+    assinAcao = `
+      <div class="os-assin-aviso">
+        <span class="os-assin-alerta">Assinatura em branco: o documento sai sem assinatura.</span>
+        ${assinGestao ? `<button class="btn btn-sm" type="button" id="osBtnPedirAssin">Pedir nova assinatura</button>` : ""}
+      </div>`;
+  } else if (os.finalizada_em && assinGestao) {
+    assinAcao = `
+      <div class="os-assin-aviso">
+        <button class="btn btn-sm os-assin-link" type="button" id="osBtnPedirAssin">Pedir nova assinatura</button>
+      </div>`;
+  }
+  const assinRefeita = os.assinatura_refeita_em
+    ? `<div class="os-muted" style="margin-top:6px;">Colhida de novo em ${_osFmtData(os.assinatura_refeita_em)}, após o atendimento.</div>`
+    : "";
+
   // ⚠️ Número, Condomínio, Técnico e "Finalizada" NÃO entram no corpo: o
   // cabeçalho do modal já os exibe (`osModalTitle` = número, `osModalSub` =
   // condomínio · técnico · status). Eram 4 das 7 linhas de "Identificação"
@@ -12178,6 +12207,8 @@ function _osRenderView(os) {
         <div>
           <div class="os-vsec-title">Assinatura de quem recebeu</div>
           ${assin}
+          ${assinRefeita}
+          ${assinAcao}
         </div>
       </div>
     </div>`;
@@ -12210,10 +12241,42 @@ async function _osCarregarAssinatura(id) {
   }
 }
 
+// Admin e gerente pedem nova assinatura; o operador só lê a O.S. (o backend
+// recusa de qualquer jeito — aqui é para não oferecer o botão que dá 403).
+function _osPodeGestao() {
+  try { return ["admin", "gerente"].includes(localStorage.getItem("userRole")); }
+  catch { return false; }
+}
+
+// Liga/desliga o pedido de nova assinatura e reabre a ficha com o estado novo.
+async function _osPedidoAssinatura(id, pedir) {
+  try {
+    const r = await fetch(`/ordens-servico/${id}/pedir-assinatura`, {
+      method: pedir ? "POST" : "DELETE",
+      headers: authHeaders(),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+    if (_osSelecionadaId === id) await abrirOSDetalhe(id);
+  } catch (err) {
+    console.error("[os] pedido de assinatura:", err);
+    alert("Não foi possível " + (pedir ? "pedir" : "cancelar") + " a nova assinatura: " + err.message);
+  }
+}
+
 function _osBindViewEventos() {
   if (_osSelecionada?.tem_assinatura && !_osSelecionada.assinatura_b64) {
     _osCarregarAssinatura(_osSelecionada.id);
   }
+  const osId = _osSelecionada?.id;
+  document.getElementById("osBtnPedirAssin")?.addEventListener("click", (e) => {
+    e.currentTarget.disabled = true;
+    _osPedidoAssinatura(osId, true);
+  });
+  document.getElementById("osBtnCancelarPedidoAssin")?.addEventListener("click", (e) => {
+    e.currentTarget.disabled = true;
+    _osPedidoAssinatura(osId, false);
+  });
 
   document.querySelectorAll("#osModalBody .os-foto").forEach(fig => {
     fig.addEventListener("click", () => {

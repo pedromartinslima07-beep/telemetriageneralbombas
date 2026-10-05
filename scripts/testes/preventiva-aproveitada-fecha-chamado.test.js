@@ -24,6 +24,8 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const { pool } = require("../../src/db");
 const { resolverDatabaseUrl } = require("../../src/db-url");
+// O /finalizar mede a tinta da assinatura desde 05/10/2026.
+const { ASSINATURA_OK } = require("./_assinatura-fixture");
 
 const { alvo } = resolverDatabaseUrl();
 if (alvo !== "TESTE") {
@@ -105,9 +107,9 @@ const ok = (nome, cond, extra) => {
          (numero, chamado_id, condominio_id, tipos_servico, servico_realizado,
           assinatura_b64, recebido_nome, chegada_em)
        VALUES ($1, $2, $3, ARRAY['visita_tecnica','preventiva_mensal']::text[],
-               'resolvido', 'data:image/png;base64,iVBORw0KGgo=', 'Zelador TESTE', NOW())
+               'resolvido', $4, 'Zelador TESTE', NOW())
        RETURNING id`,
-      ["OS-T-" + sufixo, chOutro.id, condo.id])).rows[0];
+      ["OS-T-" + sufixo, chOutro.id, condo.id, ASSINATURA_OK])).rows[0];
     lixo.os.push(os.id);
 
     // ── A finalização ───────────────────────────────────────────────────────
@@ -179,9 +181,9 @@ const ok = (nome, cond, extra) => {
          (numero, chamado_id, condominio_id, tipos_servico, servico_realizado,
           assinatura_b64, recebido_nome, chegada_em)
        VALUES ($1, $2, $3, ARRAY['visita_tecnica','preventiva_mensal']::text[],
-               'resolvido', 'data:image/png;base64,iVBORw0KGgo=', 'Zelador TESTE', NOW())
+               'resolvido', $4, 'Zelador TESTE', NOW())
        RETURNING id`,
-      ["OS-T2-" + sufixo, chOutro2.id, condo.id])).rows[0];
+      ["OS-T2-" + sufixo, chOutro2.id, condo.id, ASSINATURA_OK])).rows[0];
     lixo.os.push(os2.id);
 
     const res2 = await fetch(base + "/ordens-servico/" + os2.id + "/finalizar", {

@@ -13,6 +13,27 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> ⏳ **Assinatura em branco — falta subir (05/10/2026).** Código e testes
+> prontos (ver [roadmap.md](roadmap.md) e
+> [ordens-servico.md](../docs/modulos/ordens-servico.md)). Em ordem:
+> 1. `node scripts/migrate.js 088_os_assinatura_refazer.sql --prod` — **antes**
+>    do deploy: o código novo lê as colunas da 088 no `GET /ordens-servico/:id`
+>    e no `/chamados/meus`, e sem elas as duas rotas dão 500.
+> 2. Deploy do backend/admin (`admin.js?v=360`, `admin.css?v=270`).
+> 3. **APK novo** — o conserto do canvas mora no `app/public/`, que vai
+>    empacotado. Até lá o backend segura: quadro vazio vira NULL no PATCH e o
+>    `/finalizar` recusa.
+> 4. Na ficha de cada uma, **"Pedir nova assinatura"**: **OS-2026-0139**
+>    (Smart Home Cambuci — ainda não enviada ao cliente), **OS-2026-0069** e
+>    **OS-2026-0052**. A **0138** (um "V") passa no corte; vale olhar a imagem.
+>    ⚠️ Pedir só depois do APK novo: o botão "Recolher assinatura" não existe
+>    no app antigo.
+>
+> ⚠️ **Achado à parte, sem conserto ainda:** no `/finalizar`, se o
+> `registrarMudancas` falhar dentro da transação, ele engole o erro, o `COMMIT`
+> vira `ROLLBACK` calado e a rota responde **200 sem finalizar**. Visto no teste
+> com usuário inexistente (FK de `alterado_por`). Precisa de SAVEPOINT.
+
 > ✅ **Schema de produção em dia até a 086** — conferido em **15/09/2026**
 > lendo o `information_schema` do banco de prod: 075, 079, 080, 081 (as duas),
 > 082, 083, 084, 085 e 086 existem todas lá. A 074 foi aplicada em 24/08 e a

@@ -92,6 +92,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
+| 088 | os_assinatura_refazer | `ordens_servico.assinatura_refazer_em` (o escritório pediu nova assinatura) e `assinatura_refeita_em` (quando ela chegou — impresso no PDF). Ver a entrada de 05/10/2026 abaixo |
 | 087 | chamado_competencia | `chamados.competencia` (dia 1) + índice parcial; preenche os existentes pelo mês de criação (o segundo chamado do mesmo plano no mesmo mês vai para o seguinte) e põe o mês no título dos abertos. Ver a entrada de 02/10/2026 abaixo |
 | 086 | os_envio_email | `ordens_servico.enviado_em`, `enviado_para` — rastreio do envio da O.S. por e-mail ao cliente, com os mesmos nomes que `orcamentos` usa desde a 047. Ver [ordens-servico.md](modulos/ordens-servico.md) |
 
@@ -17420,3 +17421,53 @@ o job de 04/10 os teria herdado como outubro sem criar nenhum.
 Decisão do Pedro entre cancelar / manter como atrasado / transferir — ver
 [`decisions.md`](../memory-bank/decisions.md).
 
+## Assinatura em branco não vira documento, e se recolhe de novo (2026-10-05)
+
+**O caso:** O.S. chegando ao escritório "sem assinatura". Nenhuma das 110 O.S.
+finalizadas tinha `assinatura_b64` nulo — o `/finalizar` sempre recusou isso.
+Decodificando os PNGs, três estavam **gravadas em branco**: **OS-2026-0139**
+(Smart Home Cambuci, quadro 592×360 transparente), **OS-2026-0069** (um ponto) e
+**OS-2026-0052** (um risco solto na borda). A OS-2026-0138 (um "V") ficou em
+dúvida e passa no corte.
+
+**A causa, no app do técnico:** o canvas da assinatura é limpo toda vez que a
+seção abre (mudar `width` apaga o desenho) e a imagem salva chega depois, por
+`GET /:id/assinatura` — ou não chega, sem sinal. Mas `OS.sign.hasInk` nascia
+`true` só porque o servidor dizia `tem_assinatura`. Um toque qualquer no quadro
+vazio caía no `end()`, que fotografava o canvas e gravava **por cima da
+assinatura verdadeira**. A tela cheia tinha a mesma falha no "Confirmar".
+Toque parado = quadro todo branco (0139); toque com micro-movimento = ponto
+(0069). A original não existe mais em lugar nenhum.
+
+**O que mudou:**
+
+- **App** (`app/public/app.js`): só grava quem **traçou naquele gesto**
+  (`OS.sign.tracou`) e só se o quadro tiver tinta (`_assinaturaTemTinta`).
+  `hasInk` não herda mais o `tem_assinatura`. A tela cheia baixa a assinatura
+  salva antes de desenhar e não grava sem traço. A mecânica da tela cheia virou
+  `_quadroAssinaturaTelaCheia`, compartilhada com a tela nova de recolher.
+  ⚠️ **Só chega aos técnicos com APK novo** — o app é empacotado.
+- **Backend** (`src/services/assinatura-tinta.service.js`): mede a tinta do PNG.
+  Corte de **0,3% dos pixels e 15% de extensão**, medido nas 110 O.S. de
+  produção (as defeituosas ficam abaixo de 0,22%; a menor real tem 0,80% e 40%).
+  O `/finalizar` recusa quadro sem tinta; o `PATCH` grava quadro sem tinta como
+  NULL (recusar travaria o formulário de APK antigo); o envio por e-mail, unitário
+  e em lote, recusa O.S. com assinatura em branco ou com pedido aberto.
+- **Recolher a assinatura de O.S. finalizada** (migration 088): o escritório
+  clica **"Pedir nova assinatura"** na ficha da O.S. (o admin acusa "Assinatura em
+  branco"); o chamado fechado volta para a aba **Hoje** do técnico com o selo
+  **"Recolher assinatura"**; ele colhe nome + assinatura em tela cheia e o
+  `PUT /ordens-servico/:id/assinatura` grava só isso, invalida o PDF e marca
+  `assinatura_refeita_em`. O PDF passa a dizer "Assinatura colhida em
+  dd/mm/aaaa, após o atendimento".
+
+Prova: `scripts/testes/assinatura-em-branco.test.js` (39 checagens). Os testes
+`os-envio-email` e `preventiva-aproveitada-fecha-chamado` passaram a gravar
+uma assinatura com pixels (`scripts/testes/_assinatura-fixture.js`) — o
+`iVBORw0KGgo=` que usavam é só o cabeçalho de um PNG.
+
+**Achado de passagem, não corrigido aqui:** dentro da transação do
+`/finalizar`, se o `registrarMudancas` falhar (no teste, FK de `alterado_por`
+com usuário inexistente), ele engole o erro, a transação fica abortada e o
+`COMMIT` vira `ROLLBACK` calado — a rota responde **200 sem ter finalizado**.
+Em produção o usuário sempre existe, mas o padrão merece um SAVEPOINT.

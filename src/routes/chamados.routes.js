@@ -508,11 +508,17 @@ router.get("/meus", authRequired, async (req, res) => {
          -- preventiva. Quem manda e a ORIGEM. Mesma decisao do filtro da fila
          -- do turno, no operador.routes.js.
          -- (Sem crase nos comentarios: template literal. Ver CLAUDE.md.)
-         ch.plano_manutencao_id
+         ch.plano_manutencao_id,
+         -- O escritorio pediu nova assinatura da O.S. deste chamado (088).
+         -- O chamado esta fechado, mas volta para a aba Hoje do tecnico ate
+         -- a assinatura chegar.
+         os.id                    AS ordem_servico_id,
+         os.assinatura_refazer_em AS os_assinatura_refazer_em
        FROM chamados ch
        LEFT JOIN condominios c ON c.id = ch.condominio_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
+       LEFT JOIN ordens_servico os     ON os.chamado_id = ch.id
        ${where}
        ORDER BY
          CASE ch.status
@@ -636,7 +642,9 @@ router.get("/meus/:id", authRequired, async (req, res) => {
     if (chamado.ordem_servico_id) {
       const os = await pool.query(
         `SELECT id, numero, chegada_em, chegada_lat, chegada_lng,
-                saida_em, finalizada_em
+                saida_em, finalizada_em,
+                recebido_nome, recebido_tipo,
+                assinatura_refazer_em, assinatura_refeita_em
          FROM ordens_servico WHERE chamado_id = $1`,
         [chamado.id]
       );

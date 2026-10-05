@@ -45,6 +45,8 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const { pool } = require("../../src/db");
 const { resolverDatabaseUrl } = require("../../src/db-url");
+// Desde 05/10/2026 O.S. sem tinta na assinatura não vai ao cliente.
+const { ASSINATURA_OK } = require("./_assinatura-fixture");
 
 const { alvo } = resolverDatabaseUrl();
 if (alvo !== "TESTE") {
@@ -105,7 +107,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
     ok("nada foi enviado", ultimoPayload === null);
 
     // ── Finaliza (na marra, sem passar pelo Puppeteer) e planta o PDF ─────
-    await pool.query("UPDATE ordens_servico SET finalizada_em = NOW(), chegada_em = NOW() WHERE id = $1", [osId]);
+    await pool.query("UPDATE ordens_servico SET finalizada_em = NOW(), chegada_em = NOW(), assinatura_b64 = $2 WHERE id = $1", [osId, ASSINATURA_OK]);
     const dir = path.join(__dirname, "../../uploads/os", String(osId));
     fs.mkdirSync(dir, { recursive: true });
     pdfPath = path.join(dir, "os-" + numero + ".pdf");
@@ -156,8 +158,8 @@ const ok = (nome, cond) => r.push([nome, cond]);
 
       const n2 = "OS-T2-" + String(Date.now()).slice(-9);
       os2Id = (await pool.query(
-        `INSERT INTO ordens_servico (numero, condominio_id, finalizada_em, chegada_em)
-         VALUES ($1, $2, NOW(), NOW()) RETURNING id`, [n2, condo2Id]
+        `INSERT INTO ordens_servico (numero, condominio_id, finalizada_em, chegada_em, assinatura_b64)
+         VALUES ($1, $2, NOW(), NOW(), $3) RETURNING id`, [n2, condo2Id, ASSINATURA_OK]
       )).rows[0].id;
       const dir2 = path.join(__dirname, "../../uploads/os", String(os2Id));
       fs.mkdirSync(dir2, { recursive: true });

@@ -726,6 +726,43 @@ aceitava e não conseguia concluir ficava com o chamado preso em
   rastrear o técnico por um serviço que ele não está mais fazendo.
 - **O cliente não é avisado** — ver [chamados-sla.md](chamados-sla.md).
 
+## O quadro da assinatura só grava traço de verdade (05/10/2026)
+
+O canvas da seção "Quem recebeu + Assinatura" é **limpo toda vez que a seção
+abre** (`iniciarCanvasAssinatura` muda `width`, o que apaga o desenho) e a
+imagem salva chega depois, por `GET /ordens-servico/:id/assinatura`. Sem sinal,
+ela não chega. Até 05/10, `OS.sign.hasInk` nascia `true` só pelo
+`tem_assinatura`, e um toque no quadro vazio, rolando a tela por exemplo,
+caía no `end()` e gravava o **vazio por cima da assinatura**. Foi assim que a
+OS-2026-0139 virou documento com o quadro em branco.
+
+Regras de hoje:
+
+- **Só grava quem traçou naquele gesto** (`OS.sign.tracou`), e só se o quadro
+  inteiro passar no `_assinaturaTemTinta` (mesmo corte do backend). Primeiro
+  traço curto não grava; os seguintes acumulam no canvas e o `end` deles mede de
+  novo.
+- **Tela cheia**: "Confirmar" sem traço novo sai sem mexer no que está salvo.
+  Antes de desenhar, ela baixa a assinatura salva quando só o booleano está em
+  memória (`_osObterAssinatura`). Assinatura pequena demais não é salva e o
+  aviso aparece no topo da O.S.
+- A mecânica da tela cheia (paisagem, canvas, traço) virou
+  `_quadroAssinaturaTelaCheia`, usada também pela tela de recolher abaixo.
+
+### Recolher assinatura de O.S. finalizada
+
+Quando o escritório pede nova assinatura (ver
+[ordens-servico.md](ordens-servico.md)), o chamado **fechado** aparece na aba
+**Hoje** com o selo "Recolher assinatura" (`os_assinatura_refazer_em` de
+`GET /chamados/meus`), e o detalhe ganha o botão. `abrirRecolherAssinatura` abre a
+tela cheia com o **nome na barra** e o quadro vazio, e salva com
+`PUT /ordens-servico/:id/assinatura`. **Exige sinal**: sem rede, a assinatura
+fica na tela e ele tenta de novo; não existe fila offline para isso.
+
+⚠️ **O app é empacotado no APK** (`capacitor.config.json` sem `server.url`):
+tudo isto só chega ao técnico com APK novo. Até lá, o backend segura o
+estrago — o `PATCH` grava quadro vazio como NULL e o `/finalizar` recusa.
+
 ## A tela de fim de O.S. (01/09/2026)
 
 `mostrarOSSucesso()` (`app/public/app.js`) troca o conteúdo de `#osSections`

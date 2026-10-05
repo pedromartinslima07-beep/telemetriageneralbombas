@@ -404,6 +404,31 @@ canônica do "porquê"; o "o quê" está em `../docs/` e em [`current-state.md`]
 
 ## App mobile
 
+- **Assinatura: "tem" é ter tinta, e O.S. finalizada só reabre para a
+  assinatura, a pedido** (05/10/2026). O caso foram três O.S. com a assinatura
+  gravada em branco por cima da verdadeira — ver
+  [ordens-servico.md](../docs/modulos/ordens-servico.md). As escolhas:
+  - **Medir pixel, não tamanho do arquivo.** O tamanho do PNG varia com o
+    tamanho do canvas (592×360 vazio dá 7,6 mil caracteres de base64; uma
+    assinatura real pequena dá 23 mil), e qualquer limite em bytes erraria numa tela de outra densidade. A
+    proporção de tinta não depende da densidade. O corte (0,3% / 15%) saiu das
+    110 O.S. de produção, não de chute.
+  - **No `PATCH`, quadro vazio vira NULL em vez de 400.** O app devolve à fila
+    o patch recusado e o reenvia junto com todo campo digitado depois. Um 400
+    travaria o formulário inteiro do APK antigo. Com NULL, quem explica é o
+    `/finalizar`, e a O.S. reaberta pede a assinatura.
+  - **Recolher exige pedido do escritório.** Abrir a O.S. finalizada para o
+    técnico regravar a assinatura quando quisesse desfaria o `forWrite`. O
+    pedido é por O.S., é consumido no uso e fica registrado
+    (`assinatura_refeita_em`, que o PDF imprime).
+  - **Recolher exige sinal; sem fila offline.** É caso raro, e uma assinatura de
+    O.S. fechada esperando no aparelho sem ninguém saber é a mesma pendência
+    invisível que causou o problema.
+  - **Descartado: recolher por link enviado ao cliente** (como a assinatura de
+    contrato). Assinar no próprio celular do síndico resolveria sem visita, mas
+    pede token público, código por e-mail e tela nova, para três O.S. Se o caso
+    voltar com frequência, é por aí.
+
 - **Push via FCM, não notificação local** (Fase 7G, decidido em 2026-07-28).
   A alternativa barata seria `@capacitor/local-notifications` disparado pelo
   polling de 30s que já existe. Descartada: o Android congela os timers de

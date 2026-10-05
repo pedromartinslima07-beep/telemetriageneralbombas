@@ -7765,6 +7765,26 @@ body.role-viewer .viewer-only-hide-inline {
   padding: 8px;
 }
 
+/* Assinatura em branco / pedido de nova assinatura (088). */
+.os-assin-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.os-assin-alerta {
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+}
+/* Pedir de novo uma assinatura que parece boa é exceção (a da 0138 era um
+   "V" e ficava em dúvida): o botão fica discreto até haver motivo. */
+.os-assin-link {
+  opacity: .7;
+}
+.os-assin-link:hover { opacity: 1; }
+
 /* ---------- Lightbox ---------- */
 #osFotoLightbox { z-index: 9999; cursor: zoom-out; }
 #osFotoLightbox img { display: block; }

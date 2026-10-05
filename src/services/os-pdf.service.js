@@ -193,6 +193,12 @@ function renderHTML({ os, fotos, pecas }) {
         os.assinatura_b64.startsWith("data:") ? os.assinatura_b64 : "data:image/png;base64," + os.assinatura_b64
       }" alt="Assinatura">`
     : "";
+  // ⚠️ ASSINATURA RECOLHIDA DEPOIS (088): ela não foi dada na hora do serviço,
+  // e o documento diz isso em vez de fingir que foi. Aconteceu quando o app
+  // apagou a original (OS-2026-0139) e o cliente assinou de novo dias depois.
+  const sigNota = os.assinatura_refeita_em
+    ? `<div class="sig-cap" style="font-size:8.5px;color:#666;margin-top:2px;">Assinatura colhida em ${escapeHtml(fmtDateBR(os.assinatura_refeita_em))}, após o atendimento</div>`
+    : "";
 
   /* ── Peças ── */
   const pecasHtml = pecas.length > 0 ? `
@@ -597,6 +603,7 @@ function renderHTML({ os, fotos, pecas }) {
   <div class="sig-area">
     <div class="sig-box">${sigImg}</div>
     <div class="sig-cap">Nome do Responsável / Visto</div>
+    ${sigNota}
   </div>
 </div>
 

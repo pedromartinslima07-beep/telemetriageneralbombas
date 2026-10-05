@@ -41,6 +41,18 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Assinatura em branco não vira documento, e se recolhe de novo**
+  (05/10/2026, migration 088). *"procure possíveis erros das assinaturas das
+  O.S., tem algumas que está vindo sem assinatura"*. Nenhuma estava nula: três
+  estavam **gravadas em branco** (0139, 0069, 0052) — o app gravava o quadro
+  vazio por cima da assinatura verdadeira. App só grava traço com tinta;
+  backend mede a tinta no PATCH, no `/finalizar` e no envio por e-mail; o
+  escritório pede nova assinatura e o técnico recolhe pelo app. Detalhe em
+  [`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
+  - ✅ 088 aplicada no **teste**; `assinatura-em-branco.test.js` 39/39.
+  - ⏳ **Falta: 088 em produção, deploy, APK novo** e pedir a nova assinatura
+    das três O.S. Ver [`active-work.md`](active-work.md).
+
 - ✅ **O chamado de preventiva tem mês** (02/10/2026, migration 087).
   `chamados.competencia` + o mês no título; despacho e "Já foi feita" só mexem
   no chamado do mês deles; a virada cancela o mês encerrado que ninguém
