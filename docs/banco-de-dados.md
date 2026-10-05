@@ -253,7 +253,9 @@ bloco "Cliente" do PDF quando `condominio_id` é NULL (senão prevalece o
 condomínio). No PDF o rótulo do documento vira `CPF` (≤11 dígitos) ou `CNPJ`.
 `garantia` (texto livre, 026): **vazio/NULL não é "sem garantia"** — criação e
 PDF caem em "12 meses por defeito de fabricação". Orçamento sem garantia grava
-o texto literal `Sem garantia` (caixa "Sem garantia" do editor, 05/10/2026).
+o texto literal `Sem garantia` (caixa "Sem garantia" do editor, 05/10/2026) —
+é **marca**, não texto de exibição: com ela o PDF e o painel do cliente tiram a
+garantia do documento (inclusive os 90 dias da cláusula de dedetização).
 **`orcamento_linhas`** (026, CASCADE) — `quantidade`, `valor_unitario`. 062:
 `valor_unitario` vira nullable (era `NOT NULL DEFAULT 0`) — item sem preço
 lançado fica `NULL` de verdade em vez de `0`, e o PDF omite a coluna de valor

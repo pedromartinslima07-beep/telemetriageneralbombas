@@ -42,8 +42,8 @@ aliases:
 ## Em andamento / pendente
 
 - ✅ **Orçamento sem garantia** (05/10/2026). Caixa "Sem garantia" nas
-  condições comerciais do editor; grava o texto literal, porque campo vazio
-  sempre imprimiu 12 meses. Sem migration. Ver
+  condições comerciais do editor; grava o texto literal como marca (campo vazio
+  sempre imprimiu 12 meses) e o PDF tira a garantia do documento. Sem migration. Ver
   [`../docs/changelog.md`](../docs/changelog.md).
 
 - ✅ **Assinatura em branco não vira documento, e se recolhe de novo**

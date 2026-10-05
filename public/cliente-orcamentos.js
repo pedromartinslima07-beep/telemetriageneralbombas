@@ -463,7 +463,9 @@ async function abrir(id) {
   const cond = [
     celula("Forma de pagamento", esc(o.forma_pagamento)),
     celula("Prazo de execução", esc(o.prazo_entrega)),
-    celula("Garantia", esc(o.garantia)),
+    // "Sem garantia" é a marca do admin para tirar a garantia do documento:
+    // aqui também some, em vez de virar a frase "Garantia: Sem garantia".
+    celula("Garantia", /^\s*sem garantia\s*$/i.test(o.garantia || "") ? "" : esc(o.garantia)),
   ].join("");
 
   const secCond = !cond ? "" : `

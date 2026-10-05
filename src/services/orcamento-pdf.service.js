@@ -12,6 +12,14 @@ const PUBLIC_ROOT  = path.join(__dirname, "../../public");
 
 const MM_PER_PX = 25.4 / 96; // 1 CSS px = 0.2646mm (96dpi)
 
+// Orçamento sem garantia = o texto literal "Sem garantia" em `garantia`, gravado
+// pela caixa do editor do admin. Vazio NÃO é sem garantia (cai no padrão de 12
+// meses). Sem garantia, a informação some do PDF — não sai "Garantia: Sem
+// garantia". Mesmo teste em public/admin.js e public/cliente-orcamentos.js.
+function semGarantia(os) {
+  return /^\s*sem garantia\s*$/i.test(os.orcamento_garantia || "");
+}
+
 function escapeHtml(s) {
   if (s == null) return "";
   return String(s)
@@ -340,10 +348,10 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
       <div class="cond-key">Prazo de Entrega</div>
       <div class="cond-val">${escapeHtml(os.orcamento_prazo_entrega || "5 dias úteis após aprovação")}</div>
     </div>
-    <div class="cond-item">
+    ${semGarantia(os) ? "" : `<div class="cond-item">
       <div class="cond-key">Garantia</div>
       <div class="cond-val">${escapeHtml(os.orcamento_garantia || "12 meses por defeito de fabricação")}</div>
-    </div>
+    </div>`}
     <div class="cond-item">
       <div class="cond-key">Validade da Proposta</div>
       <div class="cond-val">${escapeHtml(validadeStr)}</div>
@@ -641,7 +649,9 @@ function clausulasLimpezaReservatorio(especificacao) {
 // Recebe especificação pelo mesmo caminho da limpeza. Antes não recebia nada,
 // e o campo que o admin oferecia para dedetização não aparecia em lugar nenhum
 // do documento — o texto ia pro banco e morria ali.
-function clausulasDedetizacao(especificacao) {
+// `semGar`: a cláusula de normas carrega a garantia de 90 dias de retratamento;
+// orçamento marcado sem garantia tira a frase e o "Garantia" do título.
+function clausulasDedetizacao(especificacao, semGar = false) {
   const espHtml = especificacao
     ? `<p><strong>Especificação:</strong> ${escapeHtml(especificacao)}.</p>`
     : "";
@@ -656,8 +666,8 @@ function clausulasDedetizacao(especificacao) {
   <p>Aplicação de produtos saneantes desinfestantes registrados no Ministério da Saúde e no MAPA (Ministério da Agricultura, Pecuária e Abastecimento), com foco no controle de baratas, formigas, aranhas, grilos, mosquitos e demais pragas urbanas nas áreas comuns.</p>
 </div>
 <div class="clausula">
-  <div class="clausula-titulo">Cláusula Terceira – Normas e Garantia</div>
-  <p>Serviço executado em conformidade com a legislação sanitária vigente. Será emitido Laudo Técnico com ART, relacionando os produtos aplicados (nome comercial, registro e concentração). Garantia de 90 (noventa) dias para retratamento sem custo adicional em caso de reinfestação.</p>
+  <div class="clausula-titulo">Cláusula Terceira – ${semGar ? "Normas" : "Normas e Garantia"}</div>
+  <p>Serviço executado em conformidade com a legislação sanitária vigente. Será emitido Laudo Técnico com ART, relacionando os produtos aplicados (nome comercial, registro e concentração).${semGar ? "" : " Garantia de 90 (noventa) dias para retratamento sem custo adicional em caso de reinfestação."}</p>
 </div>`;
 }
 
@@ -691,12 +701,12 @@ function acharEspecificacaoDedetizacao(itens) {
 
 const CLAUSULAS_POR_TIPO = {
   limpeza_reservatorio: (itens) => clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens)),
-  dedetizacao: (itens) => clausulasDedetizacao(acharEspecificacaoDedetizacao(itens)),
-  limpeza_dedetizacao: (itens) => `
+  dedetizacao: (itens, semGar) => clausulasDedetizacao(acharEspecificacaoDedetizacao(itens), semGar),
+  limpeza_dedetizacao: (itens, semGar) => `
 <div class="servico-header">Serviço 1 – Limpeza de Reservatório de Água Potável</div>
 ${clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens))}
 <div class="servico-header">Serviço 2 – Dedetização</div>
-${clausulasDedetizacao(acharEspecificacaoDedetizacao(itens))}`,
+${clausulasDedetizacao(acharEspecificacaoDedetizacao(itens), semGar)}`,
 };
 
 function renderHTMLServico({ os, itens }, timbrado) {
@@ -705,7 +715,7 @@ function renderHTMLServico({ os, itens }, timbrado) {
   const endParts      = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr   = endParts.join(" – ");
   const tipoSubtitulo = TIPO_SUBTITULO[os.tipo] || "";
-  const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens);
+  const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens, semGarantia(os));
   const validadeStr   = validadeTexto(os);
   const totalGeral    = os.valor != null
     ? Number(os.valor)

@@ -13382,9 +13382,10 @@ function _avRenderPainel() {
                 placeholder="5 dias úteis" value="${_waEscaparHtml(o.prazo_entrega || '')}">
             </label>
             <!-- Garantia vazia NÃO quer dizer sem garantia: o PDF imprime o
-                 padrão de 12 meses no lugar. Sem garantia é esta caixa, que
-                 grava o texto literal e trava o campo. Div, não label: label
-                 dentro de label é HTML inválido. -->
+                 padrão de 12 meses no lugar. Sem garantia é esta caixa: grava
+                 o texto literal como marca, esvazia e trava o campo, e o PDF
+                 tira a garantia do documento. Div, não label: label dentro de
+                 label é HTML inválido. -->
             <div class="orc-form-label">
               <span class="av-gar-head">
                 <label for="avInputGarantia">Garantia</label>
@@ -13394,8 +13395,9 @@ function _avRenderPainel() {
                 </label>
               </span>
               <input id="avInputGarantia" class="input" type="text" maxlength="100"
-                placeholder="12 meses" value="${_waEscaparHtml(o.garantia || '')}"
-                ${_avEhSemGarantia(o.garantia) ? "disabled" : ""}>
+                ${_avEhSemGarantia(o.garantia)
+                  ? 'placeholder="Não sai no PDF" value="" disabled'
+                  : `placeholder="12 meses" value="${_waEscaparHtml(o.garantia || '')}"`}>
             </div>
             <label class="orc-form-label">Data do orçamento
               <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
@@ -13617,17 +13619,19 @@ function _avRenderPainel() {
     _avRenderLinhas();
   });
 
-  // "Sem garantia": trava o campo com o texto literal; desmarcar devolve o que
-  // estava escrito antes (ou o padrão da casa, se não havia nada).
+  // "Sem garantia": esvazia e trava o campo (a garantia sai do PDF); desmarcar
+  // devolve o que estava escrito antes (ou o padrão da casa, se não havia nada).
   document.getElementById("avSemGarantia")?.addEventListener("change", e => {
     const inp = document.getElementById("avInputGarantia");
     if (!inp) return;
     if (e.target.checked) {
       if (!_avEhSemGarantia(inp.value)) inp.dataset.anterior = inp.value;
-      inp.value = AV_SEM_GARANTIA;
+      inp.value = "";
+      inp.placeholder = "Não sai no PDF";
       inp.disabled = true;
     } else {
       inp.value = inp.dataset.anterior || "12 meses por defeito de fabricação";
+      inp.placeholder = "12 meses";
       inp.disabled = false;
       inp.focus();
     }
@@ -13816,7 +13820,9 @@ function _avMascaraMoeda(txt) {
 }
 
 // Orçamento sem garantia não tem coluna própria: é o texto literal no campo
-// `garantia`. Vazio não serve — backend e PDF caem no padrão de 12 meses.
+// `garantia`, usado só como marca — o PDF e o painel do cliente, ao vê-lo,
+// tiram a garantia do documento (não imprimem a frase). Vazio não serve —
+// backend e PDF caem no padrão de 12 meses.
 // A comparação ignora caixa e espaços pra reconhecer quem digitou à mão.
 const AV_SEM_GARANTIA = "Sem garantia";
 function _avEhSemGarantia(txt) {

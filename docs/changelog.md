@@ -17491,10 +17491,18 @@ conseguia: apagar o campo Garantia gravava `NULL`, e tanto a criação
 (`POST /admin/orcamentos/avulsos`) quanto o PDF (`orcamento-pdf.service.js`)
 tratam vazio como **"12 meses por defeito de fabricação"**. Agora as condições
 comerciais do editor têm a caixa **"Sem garantia"** ao lado do rótulo: marcada,
-grava o texto literal `Sem garantia` em `orcamentos.garantia` e trava o campo;
-desmarcada, devolve o que estava escrito (ou o padrão da casa). O PDF e o painel
-do cliente imprimem "Sem garantia" sem mudança nenhuma — **sem migration, sem
-rota nova**. Vazio continua sendo "padrão de 12 meses", de propósito: quem
-esquece de preencher não manda orçamento sem garantia por acidente. Quem digitar
-"sem garantia" à mão também é reconhecido (caixa e espaços ignorados).
-`admin.js?v=362`, `admin.css?v=272`.
+esvazia e trava o campo e grava o texto literal `Sem garantia` em
+`orcamentos.garantia` **como marca**; desmarcada, devolve o que estava escrito (ou
+o padrão da casa). **Sem migration, sem rota nova.** Vazio continua sendo "padrão
+de 12 meses", de propósito: quem esquece de preencher não manda orçamento sem
+garantia por acidente. Quem digitar "sem garantia" à mão também é reconhecido
+(caixa e espaços ignorados).
+
+**A garantia sai do documento, não vira frase.** A primeira versão imprimia
+"Garantia: Sem garantia" — *"eu n quero q o botao sem garantia escreva sem
+garantia, quero q saia do pdf a informação de garantia"*. Com a marca, o
+`orcamento-pdf.service.js` (`semGarantia(os)`) tira o card Garantia das
+Condições Comerciais do layout de peças, e a Cláusula Terceira da dedetização
+(sozinha ou no combo) perde a frase dos 90 dias de retratamento e vira só
+"Normas". O painel do cliente (`cliente-orcamentos.js`) também esconde a célula.
+`admin.js?v=363`, `admin.css?v=272`, `cliente-orcamentos.js?v=16`.
