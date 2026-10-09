@@ -41,6 +41,11 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O que a ação muda, a lista mostra sem F5** (09/10/2026). Enviar uma O.S.
+  por e-mail, mexer na assinatura/exclusão de contrato e montar itens de
+  orçamento avulso redesenhavam só o modal; a lista ficava velha até um F5.
+  Front apenas. Ver [`../docs/modulos/painel-admin.md`](../docs/modulos/painel-admin.md).
+
 - ✅ **Orçamento sem garantia** (05/10/2026). Caixa "Sem garantia" nas
   condições comerciais do editor; grava o texto literal como marca (campo vazio
   sempre imprimiu 12 meses) e o PDF tira a garantia do documento. Sem migration. Ver

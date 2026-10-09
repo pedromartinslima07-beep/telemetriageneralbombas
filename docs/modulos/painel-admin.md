@@ -21,6 +21,31 @@ outro público e outro sistema visual.
 
 ---
 
+## ⚠️ Ação que grava redesenha a LISTA, não só o modal (09/10/2026)
+
+O painel não tem polling para tudo: telemetria roda a cada 7 s e atendimento
+(chamados + conversas) a cada 20 s; o resto (O.S., orçamentos, contratos,
+planos, equipamentos) só muda quando a tela redesenha. Então **toda ação que
+grava precisa, no sucesso, redesenhar o que mostra aquele dado fora do modal**
+— a linha da tabela, o contador da aba, o KPI. Acertar o objeto em memória sem
+redesenhar não basta: o dado fica certo e a tela continua mentindo até um F5.
+
+Relato do Pedro que achou o padrão: *"quando envia uma O.S. por e-mail continua
+escrito não enviada"*. Os três casos corrigidos:
+
+| Ação | Antes | Agora |
+|---|---|---|
+| Enviar **uma** O.S. por e-mail | só `_osRenderModal` | + `_osRenderKpis` e `_osRenderTabela` (o lote já fazia) |
+| Contrato: enviar p/ assinatura, consultar status, excluir | só o selo do modal | `_ctrRefrescarListas(condoId)` — detalhe do cliente (cache `_cliContratoCache`), KPIs e seção Contratos; salvar e inativar também passam por ele |
+| Orçamento avulso: adicionar/remover item, orçamento recém-criado | `valor_total` acertado em `_avData`, lista só no Salvar | `_avFecharModal` chama `_avRenderTudo` |
+
+**Ao criar ação nova:** depois do `r.ok`, ou recarregue a coleção
+(`carregarTudo`, `carregarOrdensServico`, `carregarPlanos`, `_eqCarregar`) ou
+redesenhe a tabela e os KPIs da seção. Na dúvida, procure como o vizinho da
+mesma tela faz — em 09/10 as ~80 ações que gravam foram conferidas uma a uma.
+
+---
+
 ## Planos de manutenção — a tela reformulada (04/09/2026)
 
 **A tela é o cadastro E o acompanhamento**, por decisão do Pedro: *"acho que é

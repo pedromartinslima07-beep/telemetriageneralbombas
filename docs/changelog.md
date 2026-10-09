@@ -17506,3 +17506,27 @@ Condições Comerciais do layout de peças, e a Cláusula Terceira da dedetizaç
 (sozinha ou no combo) perde a frase dos 90 dias de retratamento e vira só
 "Normas". O painel do cliente (`cliente-orcamentos.js`) também esconde a célula.
 `admin.js?v=363`, `admin.css?v=272`, `cliente-orcamentos.js?v=16`.
+
+## O que a ação muda, a lista mostra sem F5 (2026-10-09)
+
+*"tem algumas coisas no sistema que quando fazemos não atualiza automaticamente,
+precisa da F5 — quando envia uma O.S. por e-mail continua escrito não enviada"*.
+Três telas do admin gravavam no servidor, acertavam o dado em memória e só
+redesenhavam o modal aberto; a lista atrás dele ficava velha até um F5:
+
+- **O.S. → enviar por e-mail (uma só):** o selo "Não enviada" da linha, o
+  contador da aba "A enviar" e o KPI "A enviar ao cliente" não mudavam. O envio
+  em lote já redesenhava; o individual agora também (`_osRenderKpis` +
+  `_osRenderTabela`).
+- **Contratos → enviar para assinatura, consultar status, excluir:** só salvar e
+  inativar refrescavam o detalhe do cliente (cache por condomínio), os KPIs e a
+  seção Contratos. Os cinco caminhos passam pelo mesmo `_ctrRefrescarListas`.
+- **Orçamento avulso → itens adicionados ou removidos, orçamento recém-criado:**
+  só o Salvar redesenhava a lista, então fechar o modal sem Salvar deixava o
+  total antigo (ou nem mostrava o orçamento novo). `_avFecharModal` agora chama
+  `_avRenderTudo`.
+
+As outras ~80 ações do admin que gravam foram conferidas e já recarregam o que
+mostram (`carregarTudo`, `carregarPlanos`, `_eqCarregar`…). Sem mudança de
+rota nem de banco. Regra em [painel-admin.md](modulos/painel-admin.md).
+`admin.js?v=364`, `admin.css?v=273`.

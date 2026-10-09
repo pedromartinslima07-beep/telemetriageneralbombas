@@ -5367,6 +5367,25 @@ function _ctrFecharModal() {
   _ctrEditando = null;
 }
 
+// ⚠️ TODA AÇÃO QUE MUDA UM CONTRATO PASSA POR AQUI (09/10/2026). O contrato
+// aparece em três lugares fora do modal — o detalhe do cliente (que tem cache
+// próprio por condomínio), os KPIs e a seção Contratos —, e só salvar e
+// inativar refrescavam os três. Enviar para assinatura e consultar o status
+// mudam o selo da assinatura; excluir tira a linha. Os três deixavam a lista
+// mentindo até um F5.
+function _ctrRefrescarListas(condoId) {
+  if (condoId) {
+    _cliInvalidarContrato(condoId);
+    if (_cliSelecionadoId === condoId) {
+      const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
+      if (c) renderCliDetalhe(c);
+    }
+  }
+  _carregarContratosMetricas?.();
+  renderCliTabela?.();
+  if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
+}
+
 async function _ctrSalvar() {
   if (!_ctrEditando) return;
   const msg = document.getElementById("ctrMsg");
@@ -5426,15 +5445,7 @@ async function _ctrSalvar() {
     document.getElementById("ctrBtnMais").style.display = "";
     document.getElementById("ctrBtnPdf").style.display = "";
     document.getElementById("ctrBtnEnviarAssinatura").style.display = "";
-    const condoId = _ctrEditando.condoId;
-    _cliInvalidarContrato(condoId);
-    if (_cliSelecionadoId === condoId) {
-      const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
-      if (c) renderCliDetalhe(c);
-    }
-    _carregarContratosMetricas?.();
-    renderCliTabela?.();
-    if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
+    _ctrRefrescarListas(_ctrEditando.condoId);
     setTimeout(() => { msg.textContent = ""; }, 2500);
   } catch (e) {
     msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
@@ -5457,15 +5468,8 @@ async function _ctrEncerrar() {
     }
     const condoId = _ctrEditando?.condoId;
     if (condoId) {
-      _cliInvalidarContrato(condoId);
       _ctrFecharModal();
-      if (_cliSelecionadoId === condoId) {
-        const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
-        if (c) renderCliDetalhe(c);
-      }
-        _carregarContratosMetricas?.();
-      renderCliTabela?.();
-      if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
+      _ctrRefrescarListas(condoId);
     }
   } catch (e) {
     msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
@@ -5501,6 +5505,7 @@ async function _ctrEnviarAssinatura() {
       document.getElementById("ctrUrlGeral").value = data.zapsign_url_geral;
     }
     _ctrAtualizarBadge("aguardando");
+    _ctrRefrescarListas(_ctrEditando?.condoId);
     setTimeout(() => { msg.textContent = ""; }, 3000);
   } catch (e) {
     msg.style.color = "var(--danger)"; msg.textContent = "Erro de rede";
@@ -5518,6 +5523,7 @@ async function _ctrAtualizarStatus() {
     const data = await r.json().catch(() => ({}));
     if (!r.ok) { msg.style.color = "var(--danger)"; msg.textContent = data.error || "Erro"; return; }
     _ctrAtualizarBadge(data.zapsign_status);
+    _ctrRefrescarListas(_ctrEditando?.condoId);
     if (data.doc_url) {
       document.getElementById("ctrDocUrlRow").style.display = "";
       document.getElementById("ctrDocUrlLink").href = data.doc_url;
@@ -5567,9 +5573,9 @@ async function _ctrAtualizarStatus() {
     const r = await fetch(`/contratos/${id}`, { method: "DELETE", headers: authHeaders() });
     const d = await r.json();
     if (!r.ok) { alert(d.error || "Erro ao excluir"); return; }
+    const condoId = _ctrEditando?.condoId;
     _ctrFecharModal();
-    _carregarContratosMetricas?.();
-    renderCliTabela?.();
+    _ctrRefrescarListas(condoId);
   });
   document.getElementById("ctrServicoTipo")?.addEventListener("change", function() {
     const showQtd = this.value === "bombas";
@@ -12582,6 +12588,12 @@ async function _osAbrirEnvioEmail() {
       if (idx !== -1) Object.assign(_osData[idx], { enviado_em: j.enviado_em, enviado_para: j.enviado_para });
       fechar();
       _osRenderModal();
+      // ⚠️ A LISTA ATRÁS DA FICHA TAMBÉM (09/10/2026). Só a ficha era
+      // redesenhada: o dado em memória já dizia "enviada", mas o selo da linha,
+      // o contador da aba "A enviar" e o KPI continuavam em "Não enviada" até
+      // um F5 — e quem vê "Não enviada" depois de enviar manda de novo.
+      _osRenderKpis();
+      _osRenderTabela();
       const quantos = String(j.enviado_para || "").split(",").filter(s => s.trim()).length;
       alert(`✓ O.S. enviada com o PDF em anexo para ${quantos} endereço(s).`);
     } catch (e) {
@@ -13181,6 +13193,12 @@ function _avFecharModal() {
   _avSelecionado = null;
   // Atualiza seleção visual na lista de orçamentos do painel
   document.querySelectorAll("#avCondoDetail .av-orc-item.is-selected").forEach(r => r.classList.remove("is-selected"));
+  // ⚠️ A LISTA SE REDESENHA AO FECHAR (09/10/2026). Item adicionado ou
+  // removido grava na hora e acerta o `valor_total` em `_avData`, e o
+  // orçamento nasce no servidor na primeira ação (`_avGarantirRegistro`) —
+  // mas só o Salvar redesenhava a lista. Quem montava os itens e fechava sem
+  // Salvar via o total antigo, ou nem via o orçamento novo, até um F5.
+  _avRenderTudo();
 }
 
 // Fecha o modal, mas se for um orçamento recém-criado que nunca foi salvo,

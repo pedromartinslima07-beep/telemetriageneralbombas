@@ -420,6 +420,10 @@ Detalhe e o porquê de cada uma em
 - ⚠️ O **app do técnico** (`app/public/app.css`) não migrou e mantém
   `--accent: #f0b014` — quarta identidade, dívida conhecida.
 - Sidebar colapsável, topbar, mission control grid, feed em tempo real.
+- **Ação que grava redesenha a lista, não só o modal** (09/10/2026): polling só
+  existe para telemetria (7 s) e atendimento (20 s); nas outras telas, quem não
+  redesenha tabela e KPIs depois do `r.ok` deixa a tela velha até um F5. Regra e
+  os três casos corrigidos em [painel-admin.md](../docs/modulos/painel-admin.md).
 - **A nav da sidebar cabe inteira na tela** (24/08/2026): as faixas de
   `@media (max-height)` foram recalculadas por medição (Puppeteer varrendo
   de 1 em 1px, confirmado no Chrome real). Com os 15 itens visíveis a nav
