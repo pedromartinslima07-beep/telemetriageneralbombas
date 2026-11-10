@@ -41,6 +41,11 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O operador dá o chamado como resolvido** (10/11/2026). Botão "Dar como
+  resolvido" na ficha do painel do operador, com confirmação. O backend já
+  permitia; só front. Reabrir e cancelar seguem no admin. Ver
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+
 - ✅ **O que a ação muda, a lista mostra sem F5** (09/10/2026). Enviar uma O.S.
   por e-mail, mexer na assinatura/exclusão de contrato e montar itens de
   orçamento avulso redesenhavam só o modal; a lista ficava velha até um F5.

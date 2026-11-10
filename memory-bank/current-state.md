@@ -391,6 +391,9 @@ o turno inteiro, com o mapa em tela cheia.
 - **O clique no pino segue o estado do chamado** — sem técnico abre o despacho,
   com técnico abre o balão. Antes abria o despacho sempre, e reatribuir era um
   clique sem aviso.
+- **O operador fecha chamado pela ficha** (10/11/2026) — "Dar como resolvido",
+  com confirmação, só para aberto/em atendimento. Reabrir e cancelar ficam no
+  admin.
 
 Detalhe e o porquê de cada uma em
 [painel-operador.md](../docs/modulos/painel-operador.md).

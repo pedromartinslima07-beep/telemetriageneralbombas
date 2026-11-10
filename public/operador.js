@@ -1583,11 +1583,60 @@ async function dlgFicha(id) {
       <div class="ficha-pe">
         <p>${escapar(c.descricao || "")}</p>
         <button class="btn btn-fio" data-acao="fechar">Fechar</button>
+        ${(c.status === "aberto" || c.status === "em_atendimento") ? `
+          <button class="btn" data-acao="resolver" data-id="${c.id}">Dar como resolvido</button>` : ""}
       </div>
     </div>`);
+    _fichaAtual = { id: c.id, titulo: c.titulo };
   } catch (e) {
     avisar(e.message);
     fechar();
+  }
+}
+
+/* DAR COMO RESOLVIDO (10/11/2026). O backend sempre deixou o operador fechar
+   (PATCH /chamados/:id é adminOnly, e adminOnly inclui o operador — ver
+   decisions.md, 04/09); faltava a porta nesta tela.
+
+   ⚠️ O RÓTULO NÃO É "FECHAR". "Fechar" já é o botão que fecha a ficha, ao
+   lado — dois "Fechar" no mesmo pé, um que some com a janela e outro que
+   encerra o chamado, é o clique sem querer pronto.
+
+   ⚠️ CONFIRMA, PORQUE NÃO VOLTA DAQUI. Fechar grava fechado_em e
+   tempo_resolucao_seg, que entram na taxa de resolução e no tempo médio; e
+   reabrir só existe no admin. Pela regra desta tela (confirma o que não
+   volta, desfaz o que volta), pede antes. Cancelar continua fora: é da
+   gestão, e o backend recusa o operador. */
+let _fichaAtual = null;
+
+function pedirResolver(id) {
+  const t = _fichaAtual && _fichaAtual.id === id ? _fichaAtual.titulo : "";
+  confirmar({
+    pergunta: `Dar o chamado <b>#${id}${t ? " · " + escapar(t) : ""}</b> como resolvido?`,
+    nota: "Ele sai da fila e entra no tempo de resolução. Reabrir, só pelo admin.",
+    rotulo: "Dar como resolvido",
+    aoSim: () => resolver(id),
+  });
+}
+
+async function resolver(id) {
+  const btn = document.querySelector(`#fundo [data-acao="resolver"][data-id="${id}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = "Resolvendo…"; }
+  try {
+    const r = await fetch(`/chamados/${id}`, {
+      method: "PATCH",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "fechado" }),
+    });
+    const d = await lerJson(r, "Resolver");
+    if (!r.ok) throw new Error(d.error || "Erro ao dar o chamado como resolvido");
+    fechar();
+    await carregar();
+    avisar(`Chamado #${id} resolvido. Ele saiu da fila.`, true);
+  } catch (e) {
+    // Erro NÃO fecha a ficha — o mesmo contrato dos outros diálogos daqui.
+    avisar(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Dar como resolvido"; }
   }
 }
 
@@ -2385,6 +2434,7 @@ document.addEventListener("click", (e) => {
     if (a === "senha") return dlgSenha();
     if (a === "salvar-senha") return salvarSenha();
     if (a === "ficha") return dlgFicha(Number(b.dataset.id));
+    if (a === "resolver") return pedirResolver(Number(b.dataset.id));
     if (a === "despacho") return dlgDespacho(Number(b.dataset.id));
     if (a === "salvar-novo") return salvarNovo();
     if (a === "escolher") return pedirDespacho(Number(b.dataset.chamado), Number(b.dataset.tec), b);

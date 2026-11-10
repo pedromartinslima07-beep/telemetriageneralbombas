@@ -191,6 +191,26 @@ feito nada, que foi exatamente o relato.
    fila**: chamado novo costuma ser num prédio que ainda não tem chamado
    aberto — exatamente o que não está na fila.
 
+### Dar como resolvido, pela ficha (10/11/2026)
+
+*"podemos colocar para o operador conseguir fechar chamados tbm pelo painel
+dele?"*. O backend já deixava: `PATCH /chamados/:id { status: "fechado" }` é
+`adminOnly`, e `adminOnly` inclui o operador (decisão de 04/09 em
+[decisions.md](../../memory-bank/decisions.md): fechar é o dia dele, cancelar
+é da gestão). Faltava o botão nesta tela. Só front, nenhuma rota nova.
+
+| | Regra |
+|---|---|
+| Onde | **Só no pé da ficha**, nunca no cartão da fila: a ficha mostra a linha do tempo antes da decisão |
+| Quando aparece | Chamado `aberto` ou `em_atendimento` |
+| Rótulo | **"Dar como resolvido"**, nunca "Fechar" — "Fechar" já é o botão que fecha a ficha, ao lado |
+| Confirmação | A mesma barra no pé do despacho. Fechar grava `fechado_em` e `tempo_resolucao_seg` (taxa de resolução, tempo médio) e reabrir só existe no admin: não há desfazer daqui, então pede antes |
+| Sucesso | Fecha a ficha, recarrega a fila e avisa na faixa *"Chamado #N resolvido. Ele saiu da fila."* |
+| Erro | A ficha **fica aberta** e o botão volta |
+| Fora | **Reabrir** e **cancelar** continuam no admin (cancelar é `GESTAO_ROLES`, o backend devolve 403 ao operador) |
+
+Código: `pedirResolver` / `resolver` em `public/operador.js`; `operador.js?v=84`.
+
 ## Abrir já despachando (31/08/2026)
 
 > *"Queria que quando fosse criar o chamado já desse para atribuir o técnico,

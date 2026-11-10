@@ -17530,3 +17530,12 @@ As outras ~80 ações do admin que gravam foram conferidas e já recarregam o qu
 mostram (`carregarTudo`, `carregarPlanos`, `_eqCarregar`…). Sem mudança de
 rota nem de banco. Regra em [painel-admin.md](modulos/painel-admin.md).
 `admin.js?v=364`, `admin.css?v=273`.
+
+## O operador dá o chamado como resolvido pela ficha (2026-11-10)
+
+*"podemos colocar para o operador conseguir fechar chamados tbm pelo painel
+dele?"*. A ficha do chamado no painel do operador ganha **"Dar como resolvido"**
+(só para chamado aberto ou em atendimento), com a barra de confirmação no pé.
+Usa o `PATCH /chamados/:id { status: "fechado" }` que já aceitava o operador;
+sem rota nova nem mudança de banco. Reabrir e cancelar continuam no admin.
+Detalhe em [painel-operador.md](modulos/painel-operador.md). `operador.js?v=84`.
