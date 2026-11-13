@@ -1248,6 +1248,21 @@ desenho em camadas original continua válido.
 
 ## Lições aprendidas (cicatrizes)
 
+- **Exclusão em cascata que o aviso não nomeia é exclusão às cegas
+  (2026-11-11).** O "Excluir permanentemente" do condomínio pedia senha e
+  falava em *"reservatórios, leituras e alertas"*. Por baixo, levava O.S.
+  finalizadas, fotos, peças, chamados e orçamentos. As primeiras O.S. de
+  produção sumiram assim, e o dono do sistema tinha certeza de que ninguém
+  tinha apagado nada, porque ninguém apagou O.S.: foi apagado um condomínio.
+  Pedir senha protege contra quem não devia apertar o botão, não contra quem
+  não sabe o que o botão leva. Duas regras ficaram. Primeira: histórico de
+  atendimento não se apaga por cascata, e o prédio com O.S. finalizada é
+  inativado. Segunda: a lixeira mora no **banco** (trigger), não na rota,
+  porque a próxima cascata pode vir de um caminho que ainda não existe.
+  Descartado: trigger que **bloqueia** o DELETE de O.S. finalizada. Ele
+  quebraria a limpeza dos testes de rota, que apagam O.S. finalizada que eles
+  mesmos criaram, e a lixeira já torna qualquer perda recuperável.
+
 - **Migration marcada como pendente depois de já ter subido custa igual à de
   baixo (2026-09-15).** A doc dava 079, 080, 082 e 085 como "aplicadas só em
   TESTE" — três lugares diferentes, o mais antigo desde 31/08. Todas estavam em

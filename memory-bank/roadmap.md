@@ -41,6 +41,19 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Lista de O.S. paginada** (13/11/2026). O `LIMIT 200` fixo escondia as
+  O.S. mais antigas (havia 226), e parecia que elas tinham sido apagadas. Agora
+  a rota pagina e a tabela mostra 25/50/100 por página. Ver
+  [`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
+
+- ✅ **Lixeira: O.S. e chamados param de sumir sem cópia** (11/11/2026,
+  migration 089, **aplicada em produção**). As O.S. 1–13 tinham sumido pelo
+  "Excluir permanentemente" do condomínio. Agora toda linha apagada de
+  atendimento fica em `registros_apagados`, e o hard delete recusa prédio com
+  O.S. finalizada. Pendente: deploy do código da rota e recuperar as antigas por
+  backup do Railway, se houver. Ver
+  [`../docs/banco-de-dados.md`](../docs/banco-de-dados.md), seção "Lixeira".
+
 - ✅ **O operador dá o chamado como resolvido** (10/11/2026). Botão "Dar como
   resolvido" na ficha do painel do operador, com confirmação. O backend já
   permitia; só front. Reabrir e cancelar seguem no admin. Ver

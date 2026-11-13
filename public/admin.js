@@ -11622,6 +11622,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let _osData = [];
 let _osLoaded = false;
+let _osPagina = 1;      // paginação da TABELA (KPIs, abas e busca usam tudo)
+let _osPageSize = 50;
 let _osSelecionadaId = null;
 let _osSelecionada = null;
 let _osModoEdicao = false;
@@ -11689,11 +11691,23 @@ function _osFmtDataCurta(iso) {
   return new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit" });
 }
 
+// ⚠️ TRAZ TODAS, DE PÁGINA EM PÁGINA (13/11/2026). A rota corta em 500 por
+// chamada; até aqui era uma chamada só com LIMIT 200 fixo, e as O.S. mais
+// antigas que isso sumiam da tela como se tivessem sido apagadas. Os KPIs, as
+// abas e a busca precisam do conjunto inteiro — quem pagina é a tabela.
 async function carregarOrdensServico() {
   try {
-    const r = await fetch("/ordens-servico", { headers: authHeaders() });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    _osData = await r.json();
+    const LOTE = 500;
+    const todas = [];
+    for (let offset = 0; offset < 100000; offset += LOTE) {
+      const r = await fetch(`/ordens-servico?limit=${LOTE}&offset=${offset}`, { headers: authHeaders() });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const pagina = await r.json();
+      todas.push(...pagina);
+      const total = Number(r.headers.get("X-Total-Count"));
+      if (pagina.length < LOTE || (Number.isFinite(total) && todas.length >= total)) break;
+    }
+    _osData = todas;
     _osLoaded = true;
   } catch (err) {
     console.error("[os] carregarOrdensServico:", err);
@@ -11795,14 +11809,35 @@ function _osRenderTabela() {
   set("osCtAEnviar",  data.filter(_osFaltaEnviar).length);
 
   const lista = _osFiltrados();
+
+  // Paginação da tabela: corta só o que se desenha. A seleção do lote continua
+  // valendo entre páginas (é podada pela lista filtrada, lá embaixo).
+  const totalFiltrado = lista.length;
+  const maxPagina = Math.max(1, Math.ceil(totalFiltrado / _osPageSize));
+  if (_osPagina > maxPagina) _osPagina = maxPagina;
+  if (_osPagina < 1) _osPagina = 1;
+  const ini = (_osPagina - 1) * _osPageSize;
+  const pagina = lista.slice(ini, ini + _osPageSize);
+  const info = document.getElementById("osPageInfo");
+  if (info) {
+    info.textContent = totalFiltrado
+      ? `Mostrando ${ini + 1}–${ini + pagina.length} de ${totalFiltrado}`
+      : "Nenhuma O.S.";
+  }
+  const bAnt = document.getElementById("osBtnPagAnt");
+  const bProx = document.getElementById("osBtnPagProx");
+  if (bAnt) bAnt.disabled = _osPagina <= 1;
+  if (bProx) bProx.disabled = _osPagina >= maxPagina;
+
   if (!lista.length) {
     tbody.innerHTML = "";
     if (empty) empty.style.display = "block";
+    _osAtualizarBulkBar();
     return;
   }
   if (empty) empty.style.display = "none";
 
-  tbody.innerHTML = lista.map(o => {
+  tbody.innerHTML = pagina.map(o => {
     const tipos = Array.isArray(o.tipos_servico) ? o.tipos_servico : [];
     const tiposHtml = tipos.length
       ? tipos.slice(0, 2).map(t => `<span class="os-chip">${_waEscaparHtml(_OS_TIPOS_SERVICO[t] || t)}</span>`).join("") +
@@ -11874,8 +11909,10 @@ function _osAtualizarBulkBar() {
   if (chkAll) {
     // ⚠️ "Todas" quer dizer todas as ENVIÁVEIS da tela, não todas as linhas.
     // Rascunho e prédio sem e-mail não entram, então marcá-los deixaria o
-    // cabeçalho eternamente em estado intermediário.
-    const alvos = _osFiltrados().filter(_osPodeEnviarLote);
+    // cabeçalho eternamente em estado intermediário. "Da tela" = da página
+    // que está aberta: marcar O.S. que a pessoa não está vendo seria mandar
+    // e-mail às cegas.
+    const alvos = _osPaginaAtual().filter(_osPodeEnviarLote);
     const todas = alvos.length > 0 && alvos.every(o => _osSelecionadas.has(o.id));
     chkAll.checked = todas;
     chkAll.indeterminate = !todas && alvos.some(o => _osSelecionadas.has(o.id));
@@ -11884,16 +11921,40 @@ function _osAtualizarBulkBar() {
 
 let _osSelecionadas = new Set(); // ids marcados para o envio em lote
 
+// A fatia da lista filtrada que a tabela está mostrando agora.
+function _osPaginaAtual() {
+  const ini = (_osPagina - 1) * _osPageSize;
+  return _osFiltrados().slice(ini, ini + _osPageSize);
+}
+
 let _osEventosBound = false;
 function _osBindEventos() {
   if (_osEventosBound) return;
   _osEventosBound = true;
 
-  document.getElementById("osBusca")?.addEventListener("input", _osRenderTabela);
+  document.getElementById("osBusca")?.addEventListener("input", () => {
+    _osPagina = 1;
+    _osRenderTabela();
+  });
+
+  document.getElementById("osBtnPagAnt")?.addEventListener("click", () => {
+    if (_osPagina > 1) { _osPagina--; _osRenderTabela(); }
+  });
+  document.getElementById("osBtnPagProx")?.addEventListener("click", () => {
+    _osPagina++; // _osRenderTabela segura no teto
+    _osRenderTabela();
+  });
+  document.getElementById("osPageSize")?.addEventListener("change", (e) => {
+    const v = Number(e.target.value);
+    _osPageSize = Number.isFinite(v) && v > 0 ? v : 50;
+    _osPagina = 1;
+    _osRenderTabela();
+  });
 
   document.querySelectorAll(".wa-tab[data-os-tab]").forEach(tab => {
     tab.addEventListener("click", () => {
       _osTabAtiva = tab.dataset.osTab;
+      _osPagina = 1;
       document.querySelectorAll(".wa-tab[data-os-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
       _osRenderTabela();
     });
@@ -11922,7 +11983,7 @@ function _osBindEventos() {
   });
 
   document.getElementById("osChkAll")?.addEventListener("change", (e) => {
-    const alvos = _osFiltrados().filter(_osPodeEnviarLote);
+    const alvos = _osPaginaAtual().filter(_osPodeEnviarLote);
     if (e.target.checked) alvos.forEach(o => _osSelecionadas.add(o.id));
     else alvos.forEach(o => _osSelecionadas.delete(o.id));
     _osRenderTabela();

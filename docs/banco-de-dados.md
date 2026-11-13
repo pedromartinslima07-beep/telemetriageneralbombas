@@ -551,6 +551,49 @@ do 500 mudo de antes — mas a FK continua precisando de conserto.
 
 ---
 
+## Lixeira — `registros_apagados` (migration 089)
+
+Toda linha apagada das tabelas de atendimento deixa uma cópia aqui, gravada
+por trigger. Como a cópia é feita no banco, ela acontece em qualquer caminho:
+rota, cascata de FK, script ou `psql` na mão.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `id` | BIGSERIAL | PK |
+| `tabela` | VARCHAR(63) | `TG_TABLE_NAME` de onde a linha saiu |
+| `registro_id` | TEXT | `id` da linha apagada (texto, para servir a qualquer tabela) |
+| `dados` | JSONB | a linha inteira (`to_jsonb(OLD)`), incluindo foto base64 |
+| `contexto` | TEXT | motivo, vindo de `current_setting('app.contexto', true)`; nulo se ninguém disse |
+| `usuario_db` | TEXT | papel do Postgres que apagou |
+| `apagado_em` | TIMESTAMPTZ | NOW() |
+
+Trigger `trg_lixeira` (AFTER DELETE FOR EACH ROW → `fn_guardar_registro_apagado()`)
+em: `ordens_servico`, `os_fotos`, `os_pecas`, `chamados`, `historico_chamados`,
+`orcamentos`, `orcamento_linhas`, `condominios`, `reservatorios`, `contratos`,
+`planos_manutencao`, `equipamentos`. **Ficam de fora**, de propósito:
+`leituras`, `alertas`, GPS e `login_codes`, que os jobs de limpeza apagam em
+volume todos os dias.
+
+Para deixar o motivo ao apagar, dentro da transação:
+`SELECT set_config('app.contexto', 'hard delete do condomínio 12 pelo usuário 8', true)`.
+Hoje fazem isso o hard delete do condomínio e a devolução de chamado.
+
+Para recuperar uma O.S. apagada:
+```sql
+SELECT dados FROM registros_apagados
+ WHERE tabela = 'ordens_servico' AND dados->>'numero' = 'OS-2026-0123';
+-- reinserir (mesmo id e número; testado em 11/11/2026):
+INSERT INTO ordens_servico
+SELECT (jsonb_populate_record(NULL::ordens_servico, dados)).*
+  FROM registros_apagados
+ WHERE tabela = 'ordens_servico' AND dados->>'numero' = 'OS-2026-0123';
+```
+Reinsira primeiro o pai (condomínio, chamado) e depois os filhos (`os_fotos`,
+`os_pecas` pelo `os_id`).
+
+⚠️ **Regra que veio junto:** o `DELETE /condominios/:id/hard` recusa (409) o
+prédio que tem O.S. finalizada. Prédio com histórico se inativa, não se apaga.
+
 ## Scripts utilitários
 
 - `migrations/limpar-dados-teste.sql` — DELETE explícito (preserva logins/config).

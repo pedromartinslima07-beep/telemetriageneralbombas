@@ -81,6 +81,23 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Lista de O.S. paginada (13/11/2026)
+
+`GET /ordens-servico` aceita `limit` (até 500) e `offset` e devolve o total em
+`X-Total-Count`. O admin carrega todas e pagina só a tabela. Antes havia um
+`LIMIT 200` fixo: com 226 O.S., as antigas sumiam da tela. Ver
+[`../docs/modulos/ordens-servico.md`](../docs/modulos/ordens-servico.md).
+
+### ⚠️ Nada de atendimento some sem cópia — lixeira (11/11/2026)
+
+Toda linha apagada de O.S., fotos, peças, chamados, histórico, orçamentos,
+condomínios, reservatórios, contratos, planos e equipamentos vai para
+`registros_apagados` (migration 089, trigger no banco). O hard delete do
+condomínio **recusa prédio com O.S. finalizada**: esse prédio é inativado.
+Origem: as O.S. 1–13 de produção sumiram por esse caminho, sem rastro. Detalhe
+e consulta de recuperação em
+[`../docs/banco-de-dados.md`](../docs/banco-de-dados.md), seção "Lixeira".
+
 ### ⚠️ Onde chega o "preciso de orçamento" do técnico (02/09/2026)
 
 O app grava `orcamento_necessario` + `orcamento_observacoes` na O.S. Daí a

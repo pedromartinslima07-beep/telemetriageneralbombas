@@ -286,6 +286,22 @@ seleção em curso.
 o selo; o segundo é o que decide se a O.S. pode ir em lote — e a tela diz isso
 antes do clique, não depois.
 
+#### ⚠️ A lista é paginada na tabela, não no conjunto (13/11/2026)
+
+*"acredito q o sistema esta apagando as o.s"*. Não estava: a rota `GET
+/ordens-servico` tinha um `LIMIT 200` fixo, e com 226 O.S. em produção as 26
+mais antigas ficavam fora da tela. Cada O.S. nova empurrava mais uma antiga
+para fora, e isso parecia exclusão.
+
+- **A rota pagina** (`limit` até 500 e `offset`; o total vem em `X-Total-Count`).
+- **O admin traz todas**, de 500 em 500 (`carregarOrdensServico`). KPIs,
+  contadores das abas e busca continuam valendo para o conjunto inteiro.
+- **Quem pagina é a tabela**: 25, 50 (padrão) ou 100 por página, com
+  "Mostrando a–b de N". Busca, aba e tamanho de página voltam para a página 1.
+- **"Marcar todas" vale para a página aberta**, não para as O.S. que a pessoa
+  não está vendo. A seleção feita em outras páginas continua marcada, e a barra
+  do lote mostra o total.
+
 #### Preview sem enviar nada
 
 `node scripts/preview-email-os.js` grava `public/_preview-email-os.html`, aberto

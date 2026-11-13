@@ -391,6 +391,34 @@ router.delete("/:id/hard", authRequired, masterAdminOnly, async (req, res) => {
     );
     const osIds = osRes.rows.map((r) => r.id);
 
+    // ⚠️ O.S. finalizada é atendimento que aconteceu: tem assinatura, foto e
+    // peça, e é o que se mostra ao cliente. Em 11/11/2026 descobrimos que as
+    // primeiras O.S. de produção tinham sumido por este caminho — o modal
+    // falava em "reservatórios, leituras e alertas" e calava as O.S. Prédio
+    // com histórico se inativa (DELETE /condominios/:id), não se apaga.
+    if (osIds.length) {
+      const fin = await client.query(
+        "SELECT count(*)::int AS n FROM ordens_servico WHERE id = ANY($1::int[]) AND finalizada_em IS NOT NULL",
+        [osIds]
+      );
+      if (fin.rows[0].n > 0) {
+        await client.query("ROLLBACK");
+        const n = fin.rows[0].n;
+        return res.status(409).json({
+          error:
+            `Este condomínio tem ${n} O.S. finalizada${n > 1 ? "s" : ""} e não pode ser excluído. ` +
+            `Use "Inativar": o prédio sai das listas e o histórico de atendimento fica guardado.`,
+          os_finalizadas: n,
+        });
+      }
+    }
+
+    // Vai para registros_apagados.contexto (migration 089) em cada linha que
+    // a cascata abaixo apagar — é o que diz, depois, de onde veio a exclusão.
+    await client.query("SELECT set_config('app.contexto', $1, true)", [
+      `hard delete do condomínio ${idNum} pelo usuário ${req.user.id}`,
+    ]);
+
     const deviceRes = await client.query(
       "SELECT device_id FROM reservatorios WHERE condominio_id = $1", [idNum]
     );
@@ -478,6 +506,10 @@ router.delete("/:id/hard", authRequired, masterAdminOnly, async (req, res) => {
 
     await client.query("COMMIT");
 
+    console.log(
+      `[hard delete] condomínio ${idNum} por usuário ${req.user.id}: ` +
+      `${chamadoIds.length} chamado(s), ${osIds.length} O.S. (rascunho) — cópia em registros_apagados`
+    );
     if (usuariosRemovidos.length) {
       console.log(
         `[hard delete] condomínio ${idNum}: ${usuariosRemovidos.length} login(s) de cliente removido(s) —`,

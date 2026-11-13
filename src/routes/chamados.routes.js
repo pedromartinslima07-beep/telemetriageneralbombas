@@ -1052,6 +1052,10 @@ router.post("/:id/devolver", authRequired, async (req, res) => {
       });
     }
     if (osRow) {
+      // Motivo que fica na cópia em registros_apagados (migration 089).
+      await client.query("SELECT set_config('app.contexto', $1, true)", [
+        `devolução do chamado ${id} pelo técnico ${tecnicoId} (O.S. rascunho)`,
+      ]);
       await client.query(`DELETE FROM ordens_servico WHERE id = $1`, [osRow.id]);
     }
 

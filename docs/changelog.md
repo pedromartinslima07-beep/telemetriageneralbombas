@@ -92,6 +92,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
+| 089 | lixeira_registros_apagados | Tabela `registros_apagados` + trigger `trg_lixeira` (AFTER DELETE, por linha) em 12 tabelas de atendimento: toda linha apagada deixa cópia JSONB, por qualquer caminho. **Aplicada em teste e produção em 11/11/2026.** Ver a entrada de 11/11/2026 abaixo |
 | 088 | os_assinatura_refazer | `ordens_servico.assinatura_refazer_em` (o escritório pediu nova assinatura) e `assinatura_refeita_em` (quando ela chegou — impresso no PDF). Ver a entrada de 05/10/2026 abaixo |
 | 087 | chamado_competencia | `chamados.competencia` (dia 1) + índice parcial; preenche os existentes pelo mês de criação (o segundo chamado do mesmo plano no mesmo mês vai para o seguinte) e põe o mês no título dos abertos. Ver a entrada de 02/10/2026 abaixo |
 | 086 | os_envio_email | `ordens_servico.enviado_em`, `enviado_para` — rastreio do envio da O.S. por e-mail ao cliente, com os mesmos nomes que `orcamentos` usa desde a 047. Ver [ordens-servico.md](modulos/ordens-servico.md) |
@@ -17539,3 +17540,56 @@ dele?"*. A ficha do chamado no painel do operador ganha **"Dar como resolvido"**
 Usa o `PATCH /chamados/:id { status: "fechado" }` que já aceitava o operador;
 sem rota nova nem mudança de banco. Reabrir e cancelar continuam no admin.
 Detalhe em [painel-operador.md](modulos/painel-operador.md). `operador.js?v=84`.
+
+## As O.S. param de sumir sem deixar cópia (2026-11-11)
+
+*"tenho ctz q foram apagadas pelo menos n to conseguindo achar as primeiras"*.
+Em produção faltavam as O.S. 1–13, os chamados 1–72 e os orçamentos 1–42; a
+O.S. mais antiga era a `OS-2026-0016`, de 01/09. Nenhum job apaga O.S. e as
+migrations não apagam nada. O caminho que bate é o **"Excluir
+permanentemente" do condomínio** (`DELETE /condominios/:id/hard`): ele leva em
+cascata O.S., fotos, peças, chamados e orçamentos do prédio, e o modal só
+avisava *"reservatórios, leituras e alertas"*. Os contadores do Postgres
+(`pg_stat_user_tables.n_tup_del`) registravam 17 condomínios, 28 O.S., 13 fotos
+e 12 peças apagados. O único usuário `admin` é o master, e a rota exige a senha
+dele. Não havia cópia nem registro de quais linhas eram.
+
+- **Lixeira no banco (migration 089).** A tabela `registros_apagados` recebe,
+  por trigger `AFTER DELETE`, a linha inteira de `ordens_servico`, `os_fotos`,
+  `os_pecas`, `chamados`, `historico_chamados`, `orcamentos`,
+  `orcamento_linhas`, `condominios`, `reservatorios`, `contratos`,
+  `planos_manutencao` e `equipamentos`. Isso vale para qualquer caminho: rota,
+  cascata de FK, script ou `psql`. A coluna `contexto` registra o motivo
+  quando quem apaga faz `set_config('app.contexto', …, true)`.
+- **O hard delete recusa prédio com O.S. finalizada** (409, *"use
+  Inativar"*). Se só houver rascunhos, ele segue apagando e grava o contexto
+  `hard delete do condomínio N pelo usuário U`.
+- **A devolução do chamado** (o outro caminho que apaga O.S., só rascunho)
+  também grava o contexto.
+- **O modal de exclusão** passa a listar tudo o que vai junto e avisa do bloqueio.
+
+Teste: `scripts/testes/hard-delete-protege-os.test.js`, com **14/14** contra a
+rota de verdade no banco de teste. O `devolver-chamado.test.js` continua em
+19/24, igual ao código anterior: as falhas vêm do passo `iniciar-atendimento`
+e já existiam.
+
+**As linhas apagadas antes de hoje não têm cópia.** A recuperação delas depende
+de um backup do Postgres no Railway com data anterior à exclusão.
+
+## A lista de O.S. pagina em vez de cortar em 200 (2026-11-13)
+
+*"acredito q o sistema esta apagando as o.s ve se existe algum limite"*. Havia
+um limite, mas de exibição: `GET /ordens-servico` terminava em `LIMIT 200`, e
+produção tem 226 O.S. As 26 mais antigas estavam no banco, mas fora da tela.
+Os contadores confirmam que nada foi apagado depois da investigação de 11/11:
+`n_tup_del` continua em 28 e `registros_apagados` está vazia.
+
+- **Rota:** `limit` (1–500, padrão 200, o mesmo de antes para quem não passa
+  nada) e `offset`, ordem `criado_em DESC, id DESC`. O total vem no header
+  `X-Total-Count`, que é calculado também quando a página vem vazia.
+- **Admin:** carrega todas de 500 em 500. A tabela pagina em 25/50/100, com
+  ◀ ▶ e "Mostrando a–b de N". "Marcar todas" vale só para a página aberta.
+- Testado contra a rota de verdade no banco de teste: página, offset além do
+  fim, filtro e parâmetro inválido. `admin.js?v=365`.
+
+Detalhe em [ordens-servico.md](modulos/ordens-servico.md).

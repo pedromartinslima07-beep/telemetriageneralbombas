@@ -200,6 +200,7 @@ Guard `osDonoOuAdmin()` — técnico dono da O.S. ou admin; `{forWrite:true}`
 restringe escrita.
 
 | POST · GET | `/ordens-servico` | adminOnly |
+| GET | `/ordens-servico?limit=&offset=` | **gestão**. Lista **paginada** (13/11/2026): `limit` 1–500 (padrão 200), `offset` ≥ 0, mais recentes primeiro; o total do filtro vem no header **`X-Total-Count`**. Filtros `chamado_id`, `condominio_id`, `tecnico_id`, `finalizada`. ⚠️ Antes era um `LIMIT 200` fixo, e com 226 O.S. as mais antigas sumiam da tela como se tivessem sido apagadas. Quem precisa de todas pede página a página |
 | GET | `/ordens-servico/:id` · `/:id/pdf` | dono ou admin — **e o operador desde 03/09/2026** (só leitura). A tela de Aprovados nomeia a O.S. que executou cada orçamento, e ele precisava chegar nela |
 | GET | `/ordens-servico/:id/assinatura` | dono ou admin (idem operador) |
 | PATCH | `/ordens-servico/:id` | dono/admin (escrita). ⚠️ **O operador NÃO passa aqui** — a linha em `osDonoOuAdmin` é o `forWrite`: editar O.S. é do técnico que esteve no prédio |

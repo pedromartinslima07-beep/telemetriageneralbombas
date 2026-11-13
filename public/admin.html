@@ -693,6 +693,18 @@
           <div id="osEmpty" class="mc-empty" style="display:none;padding:24px;text-align:center;">
             Nenhuma O.S. encontrada com esses filtros.
           </div>
+          <div class="al-pagination" id="osPaginacao">
+            <span class="hint" id="osPageInfo">—</span>
+            <div class="al-pag-btns">
+              <button class="btn btn-sm" id="osBtnPagAnt" type="button" title="Página anterior">◀</button>
+              <button class="btn btn-sm" id="osBtnPagProx" type="button" title="Próxima página">▶</button>
+            </div>
+            <select id="osPageSize" class="select" style="width:auto;">
+              <option value="25">25 por página</option>
+              <option value="50" selected>50 por página</option>
+              <option value="100">100 por página</option>
+            </select>
+          </div>
         </section>
       </div><!-- /section ordens-servico -->
 
@@ -2235,7 +2247,7 @@
     <div class="modalBody" style="padding:20px 24px 24px;">
       <p id="hardDeleteMsg" style="margin:0 0 16px;line-height:1.5;color:var(--text-muted);font-size:13px;"></p>
       <p style="margin:0 0 16px;line-height:1.5;color:var(--danger);font-size:13px;font-weight:600;">
-        Esta ação apagará permanentemente o condomínio, todos os reservatórios, leituras e alertas. Não é reversível.
+        Esta ação apagará permanentemente o condomínio e tudo dele: reservatórios, leituras, alertas, chamados, O.S. em rascunho, orçamentos, planos e contratos. Condomínio com O.S. finalizada não pode ser excluído — use "Inativar".
       </p>
       <!-- Preenchido por _hardDeleteCarregarLogins(): lista os logins de cliente
            que serão apagados junto. Fica oculto quando não há nenhum. -->
@@ -2886,7 +2898,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=364" defer></script>
+<script src="/static/admin.js?v=365" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

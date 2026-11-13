@@ -25,7 +25,9 @@ aliases:
 >    com o push do `3b30b84`.
 > 3. **APK novo** — o conserto do canvas mora no `app/public/`, que vai
 >    empacotado. Até lá o backend segura: quadro vazio vira NULL no PATCH e o
->    `/finalizar` recusa.
+>    `/finalizar` recusa. 🟡 **Gerado em 07/10/2026** (`npm run build:apk`,
+>    debug, a partir do `bbee1e5`) — **falta instalar nos aparelhos** dos
+>    técnicos. Só depois disso o passo 4.
 > 4. Na ficha de cada uma, **"Pedir nova assinatura"**: **OS-2026-0139**
 >    (Smart Home Cambuci — ainda não enviada ao cliente), **OS-2026-0069** e
 >    **OS-2026-0052**. A **0138** (um "V") passa no corte; vale olhar a imagem.

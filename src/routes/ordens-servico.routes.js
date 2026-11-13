@@ -179,9 +179,19 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
+  // ⚠️ PAGINADA, NÃO CORTADA (13/11/2026). Antes era um LIMIT 200 fixo: com 226
+  // O.S. em produção, as 26 mais antigas sumiram da tela e pareciam apagadas.
+  // Agora quem chama pede a página (limit/offset) e o total vem no header
+  // X-Total-Count. Sem parâmetro continua devolvendo as 200 mais recentes.
+  const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+  values.push(limit);  const pLimit  = values.length;
+  values.push(offset); const pOffset = values.length;
+
   try {
     const result = await pool.query(
       `SELECT
+         COUNT(*) OVER()::int AS _total,
          os.id, os.numero, os.chamado_id, os.condominio_id, os.tecnico_id,
          os.tipos_servico, os.servico_realizado, os.necessario_retorno,
          os.chegada_em, os.saida_em, os.criado_em, os.finalizada_em,
@@ -199,11 +209,21 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
        LEFT JOIN condominios c ON c.id = os.condominio_id
        LEFT JOIN tecnicos    t ON t.id = os.tecnico_id
        ${where}
-       ORDER BY os.criado_em DESC
-       LIMIT 200`,
+       ORDER BY os.criado_em DESC, os.id DESC
+       LIMIT $${pLimit} OFFSET $${pOffset}`,
       values
     );
-    return res.json(result.rows);
+    let total = result.rows.length ? result.rows[0]._total : null;
+    if (total == null) {
+      // Página vazia (offset além do fim): o total ainda precisa ser dito.
+      const c = await pool.query(
+        `SELECT count(*)::int AS n FROM ordens_servico os ${where}`,
+        values.slice(0, pLimit - 1)
+      );
+      total = c.rows[0].n;
+    }
+    res.set("X-Total-Count", String(total));
+    return res.json(result.rows.map(({ _total, ...o }) => o));
   } catch (err) {
     console.error("[ordens-servico] GET /:", err);
     return res.status(500).json({ error: "Erro ao listar O.S." });
