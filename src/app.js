@@ -28,6 +28,7 @@ const { telemetriaRouter } = require("./routes/telemetria.routes");
 // Rotas que ainda estavam no server.js (cliente/admin/status etc)
 const { clienteRouter } = require("./routes/cliente.routes");
 const { adminRouter } = require("./routes/admin.routes");
+const { notaFiscalRouter } = require("./routes/nota-fiscal.routes");
 const { leiturasRouter } = require("./routes/leituras.routes");
 const { statusRouter } = require("./routes/status.routes");
 const { jobsRouter } = require("./routes/jobs.routes");
@@ -523,6 +524,8 @@ app.use("/reservatorios", reservatoriosRouter);
 app.use("/cliente", clienteRouter);
 app.use("/relatorio", relatorioRouter);
 app.use("/relatorios", relatoriosRouter);
+// Nota fiscal pelo Omie (migration 090) — antes do adminRouter, mesmas regras de acesso.
+app.use("/admin", notaFiscalRouter);
 app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
 app.use("/status", statusRouter);

@@ -1488,6 +1488,10 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
               --  FECHA o template. Ver CLAUDE.md — e eu acabei de errar isso
               --  duas vezes hoje.)
               o.executado_em, ue.nome AS executado_por_nome,
+              -- A NOTA FISCAL pelo Omie (migration 090). So o resumo: o
+              -- trilho da ficha mostra situacao e numero; a previa completa
+              -- vem de GET /admin/orcamentos/avulsos/:id/nota ao abrir o modal.
+              o.nota_tipo, o.nota_status, o.nota_numero, o.nota_url, o.nota_erro,
               ch.id     AS chamado_id,
               ch.status AS chamado_status
        FROM orcamentos o

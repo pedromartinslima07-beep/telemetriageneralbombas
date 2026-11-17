@@ -9581,6 +9581,39 @@ body.role-viewer .viewer-only-hide-inline {
 .av-envio-to b { color: var(--text); font-weight: 600; }
 .av-envio .btn { width: 100%; justify-content: center; }
 
+/* Nota fiscal (migration 090). Mesmo esqueleto do bloco de envio, mas SEM o
+   âmbar: o trilho já tem o seu acento no "Enviar ao cliente", e dois blocos
+   amarelos empilhados disputam o olho. Fio neutro do campo escuro. */
+.av-nota { border-color: var(--border); background: rgba(255,255,255,.02); margin-top: 10px; }
+.av-nota .av-envio-t { color: var(--text-dim); }
+.av-nota .btn + .btn { margin-top: 6px; }
+.av-nota-erro { color: var(--danger); }
+
+/* Modal de emissão — PLACA CLARA: família de tinta, nunca --muted/--border. */
+.av-nota-tab { width: 100%; border-collapse: collapse; margin: 4px 0 8px; }
+.av-nota-tab td { padding: 8px 4px; border-bottom: 1px solid var(--fio-esc); vertical-align: middle; }
+.av-nota-desc { color: var(--tinta); font-size: .9rem; }
+.av-nota-desc i { display: block; font-style: normal; color: var(--tinta-2); font-size: .8rem; margin-top: 2px; }
+.av-nota-nat { width: 1%; white-space: nowrap; text-align: right; }
+.av-nota-nat .avModos { flex-wrap: nowrap; justify-content: flex-end; gap: 4px; }
+.av-nota-nat .avModo { padding: 5px 10px; font-size: .82rem; }
+.av-nota-sug { display: block; color: var(--tinta-2); font-size: .72rem; margin-top: 3px; }
+.av-nota-previa { border-top: 1px solid var(--fio-esc); margin-top: 6px; padding-top: 10px; }
+.av-nota-kv { display: flex; justify-content: space-between; gap: 12px; color: var(--tinta-2); font-size: .85rem; padding: 3px 0; }
+.av-nota-kv b { color: var(--tinta); font-weight: 600; text-align: right; }
+.av-nota-kv b i { display: block; font-style: normal; font-weight: 400; color: var(--tinta-2); font-size: .78rem; }
+.av-nota-total b { font-size: 1.05rem; }
+.av-nota-itens { list-style: none; margin: 6px 0; padding: 0; }
+.av-nota-itens li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; color: var(--tinta); font-size: .85rem; border-bottom: 1px dashed var(--fio-esc); }
+.av-nota-itens li b { white-space: nowrap; font-weight: 600; }
+.av-nota-bloq { background: rgba(200, 60, 40, .08); border: 1px solid rgba(200, 60, 40, .3); color: var(--tinta); border-radius: 7px; padding: 8px 10px; font-size: .85rem; margin-bottom: 8px; }
+.av-nota-aviso { margin-top: 8px; }
+@media (max-width: 560px) {
+  .av-nota-tab tr { display: block; padding: 6px 0; }
+  .av-nota-tab td { display: block; border: 0; padding: 2px 0; }
+  .av-nota-nat { text-align: left; }
+}
+
 /* Excluir sai do caminho, mas SEM `margin-top: auto`: empurrar pro pé abria um
    vão de ~280px no meio do trilho (visto no harness). Fica logo abaixo do
    envio, discreto, e o trilho termina onde o conteúdo termina. */

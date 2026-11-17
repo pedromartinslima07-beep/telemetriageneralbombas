@@ -24,6 +24,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Landing pública e captação de lead | [`landing-publica.md`](landing-publica.md) |
 | Painel do cliente ("Meu prédio") | [`painel-cliente.md`](painel-cliente.md) |
 | Envio do orçamento por e-mail (duas opções) | [`orcamentos-envio.md`](orcamentos-envio.md) |
+| Nota fiscal do orçamento pelo Omie (NFS-e; DANFE a seguir) | [`nota-fiscal.md`](nota-fiscal.md) |
 | Painel admin (operação interna) — 15 telas, 3 moldes | [`painel-admin.md`](painel-admin.md) |
 | Painel do operador (a fila do turno) | [`painel-operador.md`](painel-operador.md) |
 

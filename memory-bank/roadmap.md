@@ -922,26 +922,54 @@ bloco está lá desde o início, nunca foi usado.
 **Ordem sugerida:** fechar a 7J primeiro (o app precisa estar publicável e com o
 GPS validado); push é feature nova e não deve competir com o prazo de 31/08.
 
-## Nota fiscal (NFS-e) — planejado 📋
+## Nota fiscal pelo Omie — NFS-e ✅ (código) · DANFE 📋
 
-**Contexto:** emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) vinculada
-ao orçamento aprovado. Viável via gateway que abstrai as APIs municipais.
+O "como" está em [nota-fiscal.md](../docs/modulos/nota-fiscal.md); aqui fica a
+direção.
 
-**Como funcionaria no sistema:**
-- Botão "Emitir NFS-e" no orçamento aprovado → chama API do gateway → salva número, XML e PDF da nota vinculados ao orçamento/cliente.
-- Reenvio por e-mail junto com o PDF do orçamento (Resend já integrado).
-- Campo `nota_fiscal_numero`, `nota_fiscal_pdf_url`, `nota_fiscal_emitida_em` na tabela `orcamentos` (nova migration).
+**Decidido em 17/11/2026: emitir pelo Omie, não por gateway.** A General já
+emitia NFS-e e DANFE à mão no Omie, com prefeitura, certificado A1 e cadastros
+configurados lá. A integração automatiza isso sem custo por nota, a nota cai
+no financeiro que o contador já olha, e CBS/IBS ficam por conta do Omie.
+Gateways (Focus NFe, eNotas, NFe.io) foram descartados por isso. A calculadora
+aberta da Receita (11/2026) também é dispensável: o Omie já calcula na OS.
+Addon "APIs Omie" contratado no mesmo dia (R$ 49,90/mês).
 
-**Gateways candidatos:** Focus NFe, eNotas, NFe.io (~R$0,10–0,50/nota).
-Todos expõem REST simples; a integração no backend é de 1–2 dias após setup.
+**Regra (Pedro, 17/11/2026): uma nota por orçamento.** Só serviço gera NFS-e.
+Qualquer peça gera **só DANFE**, com o valor do serviço **embutido nas peças**
+por rateio proporcional, com prévia antes.
 
-**Pré-requisitos externos (fora do código):**
-1. CNPJ ativo com regime tributário definido (contador).
-2. Contratação e configuração do gateway (chave API + dados fiscais).
-3. Credenciais do município (alguns exigem login no portal da prefeitura).
+| Etapa | O quê | Estado |
+|---|---|---|
+| 1 | `omie.service.js` + migration 090 (natureza da linha, colunas `nota_*`, cache do cliente) | ✅ código · ⏳ 090 em prod |
+| 2 | NFS-e do orçamento só de serviço: modal com confirmação peça/serviço, prévia, OS no molde, `FaturarOS`, Atualizar | ✅ código · ⏳ primeira nota real |
+| 3 | DANFE: seletor de peça do Omie (`ListarProdutos`, 1.317 cadastrados, com cache), rateio do serviço nas peças, `IncluirPedido` + `FaturarPedidoVenda` | 📋 |
 
-**NF-e de produto:** possível no futuro se houver venda de peças além do
-serviço. Mais padronizada (SEFAZ federal) mas exige certificado digital A1.
+**Para a etapa 2 ir ao ar, nesta ordem:**
+1. Rodar a 090 em produção **antes** do push, porque a lista de orçamentos
+   lê as colunas `nota_*`.
+2. Push, que já é o deploy.
+3. `OMIE_EMISSAO=1` no Railway e emitir a **primeira nota acompanhada**, num
+   orçamento só de serviço que já seria faturado. Conferir no Omie se a OS
+   saiu igual às feitas à mão e se o `FaturarOS` transmitiu a NFS-e. Se algo
+   sair errado, cancelar no Omie, como já se faz hoje.
+
+**Antes da etapa 3:** ler pela API alguns pedidos de venda já faturados para
+copiar o molde (categoria, CFOP, conta), como foi feito com as OS. A doc
+indica que o item de pedido exige produto cadastrado, então peça nova se
+cadastra no Omie primeiro (NCM é assunto do contador), sem cadastro
+automático.
+
+**Fora, por ora:** orçamentos de limpeza de reservatório e dedetização usam
+outro código de serviço (dedetização é 07.13) e estão bloqueados com
+mensagem. Também fica para depois mandar a nota por e-mail junto com o
+orçamento.
+
+⚠️ **Lição do dia:** `FaturarOS` existe, mas mora em `/servicos/osp/`. Lendo
+só a página `/servicos/os/`, o roadmap chegou a afirmar "não existe
+`FaturarOS`, faturar = etapa 50". Antes de declarar que um método não existe
+na API do Omie, procurar no endpoint irmão (`os` → `osp`,
+`pedido` → `pedidovendafat`).
 
 ---
 

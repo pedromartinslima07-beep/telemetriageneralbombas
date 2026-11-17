@@ -92,6 +92,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
+| 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 089 | lixeira_registros_apagados | Tabela `registros_apagados` + trigger `trg_lixeira` (AFTER DELETE, por linha) em 12 tabelas de atendimento: toda linha apagada deixa cópia JSONB, por qualquer caminho. **Aplicada em teste e produção em 11/11/2026.** Ver a entrada de 11/11/2026 abaixo |
 | 088 | os_assinatura_refazer | `ordens_servico.assinatura_refazer_em` (o escritório pediu nova assinatura) e `assinatura_refeita_em` (quando ela chegou — impresso no PDF). Ver a entrada de 05/10/2026 abaixo |
 | 087 | chamado_competencia | `chamados.competencia` (dia 1) + índice parcial; preenche os existentes pelo mês de criação (o segundo chamado do mesmo plano no mesmo mês vai para o seguinte) e põe o mês no título dos abertos. Ver a entrada de 02/10/2026 abaixo |
@@ -17593,3 +17594,41 @@ Os contadores confirmam que nada foi apagado depois da investigação de 11/11:
   fim, filtro e parâmetro inválido. `admin.js?v=365`.
 
 Detalhe em [ordens-servico.md](modulos/ordens-servico.md).
+
+## Nota fiscal do orçamento pelo Omie — NFS-e (2026-11-17)
+
+*"chat isso pode ajudar minha empresa em algo"*, sobre a calculadora aberta da
+Receita para a Reforma Tributária. Não ajuda diretamente: a General emite pelo
+Omie, e o Omie já calcula CBS/IBS na OS. A conversa terminou na integração com
+o Omie, que tira a nota da emissão à mão. Etapas 1 e 2 de 3.
+
+- **Regra:** uma nota por orçamento. Só serviço gera NFS-e (implementado);
+  qualquer peça gera só a DANFE, com o serviço embutido nas peças (etapa 3,
+  ainda não implementada; hoje o modal bloqueia e explica).
+- **Base:** `src/services/omie.service.js` (transporte, erros do Omie que vêm
+  como HTTP 500 com `faultstring`, "não encontrado" = `Client-103`).
+- **Migration 090:** `orcamento_linhas.natureza`, as colunas `nota_*` e
+  `omie_os_codigo` em `orcamentos`, e `condominios.omie_cliente_codigo`.
+- **Regra e molde:** `src/services/nota-fiscal.service.js`. A OS copia as
+  OS que a General já fatura à mão: 140101 / 14.01 direto na linha, sem
+  apontar para o cadastro, categoria 1.01.02, conta 6109178168.
+- **Rotas** (`src/routes/nota-fiscal.routes.js`, em `/admin`, gestaoOnly):
+  `GET .../:id/nota` (prévia, não chama o Omie), `POST .../nota/emitir`,
+  `POST .../nota/atualizar`.
+- **Admin:** bloco "Nota fiscal" no trilho da ficha do orçamento aprovado e
+  modal de emissão, onde cada linha é confirmada como serviço ou peça, com a
+  prévia da nota (itens, total, cliente no Omie) e o aviso de nota real.
+  `admin.js?v=366`, `admin.css?v=274`.
+- **Kill-switch `OMIE_EMISSAO=1`:** o Omie não tem ambiente de teste; sem a
+  variável, emitir responde 503. Fica desligado em dev **sempre**.
+- **Retomável:** `cCodIntOS = ORC-<id>`. A tentativa seguinte acha a OS em vez
+  de criar outra, e a trava de status impede clique duplo.
+
+Testado contra as rotas de verdade no banco de teste, com o Omie simulado:
+bloqueio por peça, confirmação obrigatória, rateio do valor manual (soma
+exata), segunda emissão bloqueada, retomada sem segundo `IncluirOS`,
+kill-switch. Também o modal no navegador (dev). **Nenhuma nota real foi
+emitida.** A primeira em produção deve ser acompanhada, num orçamento que já
+seria faturado.
+
+Detalhe em [nota-fiscal.md](modulos/nota-fiscal.md).

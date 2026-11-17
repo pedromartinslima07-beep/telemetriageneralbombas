@@ -81,6 +81,18 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Nota fiscal pelo Omie — NFS-e (17/11/2026)
+
+O orçamento aprovado vira nota pela ficha, através da API do Omie (addon
+contratado). Regra: **uma nota por orçamento**. Só serviço gera NFS-e (pronto);
+com peça sai só DANFE (etapa 3, ainda bloqueada no modal). Cada linha precisa
+ser confirmada como serviço ou peça (`orcamento_linhas.natureza`, 090). A OS
+segue o **molde das notas feitas à mão** (140101 direto na linha), não o
+cadastro de serviços. **Emitir exige `OMIE_EMISSAO=1`**, porque o Omie não tem
+ambiente de teste. Em dev fica sempre desligado. ⏳ A 090 ainda não está em
+produção e nenhuma nota real foi emitida. Ver
+[`../docs/modulos/nota-fiscal.md`](../docs/modulos/nota-fiscal.md).
+
 ### ⚠️ Lista de O.S. paginada (13/11/2026)
 
 `GET /ordens-servico` aceita `limit` (até 500) e `offset` e devolve o total em

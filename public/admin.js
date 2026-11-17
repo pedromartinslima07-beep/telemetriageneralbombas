@@ -13654,6 +13654,12 @@ function _avRenderPainel() {
           </button>
         </div>
 
+        <!-- NOTA FISCAL PELO OMIE (migration 090). So aparece no aprovado, ou
+             quando ja existe nota — e ai fica mesmo que o status mude, porque
+             a nota existe na prefeitura de qualquer jeito. -->
+        ${o.status === "aprovado" || o.nota_status ? `
+        <div class="av-envio av-nota" id="avNotaWrap">${_avNotaRailHtml(o)}</div>` : ""}
+
         <span class="orc-form-msg" id="avFormMsg"></span>
 
         <div class="av-rail-danger">
@@ -14530,6 +14536,226 @@ async function _avAbrirEnvioEmail() {
     }
   });
 }
+// ── Nota fiscal pelo Omie (migration 090) ──────────────────────────────────
+// Regra (17/11/2026): UMA nota por orçamento. Só serviço → NFS-e; qualquer
+// peça → só DANFE (ainda não no sistema). O backend é a fonte da verdade da
+// regra; o modal só repete o bloqueio para o botão já nascer desabilitado.
+// Fluxo completo em docs/modulos/nota-fiscal.md.
+const _AV_NOTA_STATUS = {
+  processando: "Processando na prefeitura",
+  emitida: "Emitida",
+  erro: "Falhou",
+  cancelada: "Cancelada no Omie",
+};
+
+function _avNotaRailHtml(o) {
+  const st = o.nota_status;
+  const tipo = o.nota_tipo === "nfe" ? "DANFE" : "NFS-e";
+  if (!st) {
+    return `
+      <div class="av-envio-t">Nota fiscal</div>
+      <div class="av-envio-to">Emite pelo Omie, no mesmo molde das notas feitas à mão.</div>
+      <button class="btn btn-sm" data-av-action="nota-emitir">Emitir nota…</button>`;
+  }
+  const linhaNum = o.nota_numero
+    ? `<b>${tipo} nº ${_waEscaparHtml(o.nota_numero)}</b>`
+    : `<b>${tipo}</b>`;
+  return `
+    <div class="av-envio-t">Nota fiscal</div>
+    <div class="av-envio-to">
+      ${linhaNum} · ${_AV_NOTA_STATUS[st] || _waEscaparHtml(st)}
+      ${st === "erro" && o.nota_erro ? `<br><span class="av-nota-erro">${_waEscaparHtml(o.nota_erro)}</span>` : ""}
+    </div>
+    ${o.nota_url ? `<a class="btn btn-sm" href="${_waEscaparHtml(o.nota_url)}" target="_blank" rel="noopener">Ver nota</a>` : ""}
+    ${st === "processando" || st === "emitida" ? `<button class="btn btn-sm" data-av-action="nota-atualizar">Atualizar</button>` : ""}
+    ${st === "erro" ? `<button class="btn btn-sm" data-av-action="nota-emitir">Tentar de novo…</button>` : ""}`;
+}
+
+function _avAplicarNota(orc, nota) {
+  const campos = {
+    nota_tipo: nota.nota_tipo, nota_status: nota.nota_status, nota_numero: nota.nota_numero,
+    nota_url: nota.nota_url, nota_erro: nota.nota_erro,
+  };
+  Object.assign(orc, campos);
+  const idx = _avData.findIndex(x => x.id === orc.id);
+  if (idx !== -1) Object.assign(_avData[idx], campos);
+  const wrap = document.getElementById("avNotaWrap");
+  if (wrap) wrap.innerHTML = _avNotaRailHtml(orc);
+}
+
+async function _avAtualizarNota() {
+  const orc = _avSelecionado;
+  if (!orc?.id) return;
+  const fmsg = document.getElementById("avFormMsg");
+  if (fmsg) { fmsg.style.color = "var(--muted)"; fmsg.textContent = "Consultando o Omie…"; }
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/atualizar`, { method: "POST", headers: authHeaders() });
+    const j = await lerRespostaJson(r, "Atualizar nota");
+    if (!r.ok) throw new Error(j.error || "Erro ao consultar o Omie");
+    _avAplicarNota(orc, j);
+    if (fmsg) fmsg.textContent = "";
+  } catch (e) {
+    if (fmsg) { fmsg.style.color = "var(--danger)"; fmsg.textContent = e.message; }
+  }
+}
+
+async function _avAbrirNota() {
+  const orc = _avSelecionado;
+  if (!orc?.id) return;
+  // Alteração não salva na ficha mudaria o que vai para a nota sem a prévia
+  // saber: a prévia lê o BANCO.
+  if (_avSujo) {
+    const fmsg = document.getElementById("avFormMsg");
+    if (fmsg) { fmsg.style.color = "var(--danger)"; fmsg.textContent = "Salve o orçamento antes de emitir a nota."; }
+    return;
+  }
+
+  let p;
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota`, { headers: authHeaders() });
+    p = await lerRespostaJson(r, "Prévia da nota");
+    if (!r.ok) throw new Error(p.error || "Erro ao preparar a nota");
+  } catch (e) {
+    const fmsg = document.getElementById("avFormMsg");
+    if (fmsg) { fmsg.style.color = "var(--danger)"; fmsg.textContent = e.message; }
+    return;
+  }
+
+  // Estado local: a classificação de cada linha. Começa no que está gravado
+  // ou, sem nada gravado, na sugestão — marcada como sugestão até alguém
+  // clicar ou confirmar.
+  const nat = {};
+  for (const l of p.linhas) if (l.cobravel) nat[l.id] = l.natureza || l.natureza_sugerida;
+
+  const ov = document.createElement("div");
+  ov.className = "modalOverlay";
+  ov.style.display = "flex";
+  ov.innerHTML = `
+    <div class="modalBox" style="max-width:640px;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle">Emitir nota fiscal</div>
+          <div class="modalSub">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(p.cliente?.nome || "—")}</div>
+        </div>
+        <button class="btn btn-sm" id="avNotaFechar">Fechar</button>
+      </div>
+      <div class="modalBody">
+        <div class="modalTools"><div class="modalCount" id="avNotaMsg"></div></div>
+
+        <div class="f"><span>O que é cada linha</span></div>
+        <table class="av-nota-tab">
+          <tbody>
+            ${p.linhas.filter(l => l.cobravel).map(l => `
+              <tr>
+                <td class="av-nota-desc">${_waEscaparHtml(l.descricao)}
+                  <i>${l.quantidade} × ${_orcFmtValor(l.valor_unitario)}</i></td>
+                <td class="av-nota-nat">
+                  <div class="avModos" data-nota-linha="${l.id}">
+                    <button type="button" class="avModo" data-nat="servico">Serviço</button>
+                    <button type="button" class="avModo" data-nat="peca">Peça</button>
+                  </div>
+                  ${l.natureza ? "" : `<small class="av-nota-sug">sugerido</small>`}
+                </td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+        ${p.linhas.some(l => !l.cobravel) ? `<div class="hint">Linhas sem valor não entram na nota.</div>` : ""}
+
+        <div class="av-nota-previa" id="avNotaPrevia"></div>
+
+        <div class="formActions">
+          <button class="btn" type="button" id="avNotaCancelar">Cancelar</button>
+          <button class="btn btnAccent" type="button" id="avNotaConfirmar">Emitir nota</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const fechar = () => ov.remove();
+  ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
+  document.getElementById("avNotaFechar").addEventListener("click", fechar);
+  document.getElementById("avNotaCancelar").addEventListener("click", fechar);
+
+  // O bloqueio do servidor vale, EXCETO o de peça: esse depende da
+  // classificação, que é o que se está editando aqui. Recalcula localmente.
+  const BLOQ_PECA = /DANFE/;
+  function render() {
+    ov.querySelectorAll("[data-nota-linha]").forEach(g => {
+      const id = g.dataset.notaLinha;
+      g.querySelectorAll("[data-nat]").forEach(b => {
+        const on = nat[id] === b.dataset.nat;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-pressed", String(on));
+      });
+    });
+    const temPeca = Object.values(nat).includes("peca");
+    let bloqueio = p.bloqueio && !BLOQ_PECA.test(p.bloqueio) ? p.bloqueio : null;
+    if (!bloqueio && temPeca) bloqueio = "Orçamento com peça sai em DANFE (nota de produto), que ainda não está no sistema — por enquanto, emita no Omie.";
+    if (!bloqueio && !p.emissao_ligada) bloqueio = "Emissão desligada neste ambiente (OMIE_EMISSAO). A prévia abaixo é o que sairia.";
+
+    const itens = p.itens.map(i => `
+      <li><span>${_waEscaparHtml(i.descricao)}</span>
+          <b>${i.quantidade > 1 ? `${i.quantidade} × ${_orcFmtValor(i.valor_unitario)} = ` : ""}${_orcFmtValor(i.total)}</b></li>`).join("");
+    document.getElementById("avNotaPrevia").innerHTML = `
+      ${bloqueio ? `<div class="av-nota-bloq">${_waEscaparHtml(bloqueio)}</div>` : ""}
+      <div class="av-nota-kv"><span>Nota</span><b>${temPeca ? "DANFE (produto)" : "NFS-e — serviço 140101 (14.01)"}</b></div>
+      <div class="av-nota-kv"><span>Cliente</span><b>${_waEscaparHtml(p.cliente?.nome || "—")}
+        <i>${p.cliente?.omie_codigo ? "já vinculado no Omie" : "procurado no Omie pelo CNPJ (cadastrado se não existir)"}</i></b></div>
+      <ul class="av-nota-itens">${itens}</ul>
+      <div class="av-nota-kv av-nota-total"><span>Total da nota</span><b>${_orcFmtValor(p.total)}</b></div>
+      ${p.rateado ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as linhas, na proporção de cada uma.</div>` : ""}
+      <div class="hint av-nota-aviso">Isto gera uma <b>nota real</b> na prefeitura. Depois de emitida, cancelar é no Omie.</div>`;
+    document.getElementById("avNotaConfirmar").disabled = Boolean(bloqueio);
+  }
+  ov.querySelectorAll("[data-nota-linha] [data-nat]").forEach(b => {
+    b.addEventListener("click", () => {
+      const id = b.closest("[data-nota-linha]").dataset.notaLinha;
+      nat[id] = b.dataset.nat;
+      b.closest("td").querySelector(".av-nota-sug")?.remove();
+      render();
+    });
+  });
+  render();
+
+  document.getElementById("avNotaConfirmar").addEventListener("click", async () => {
+    const msg = document.getElementById("avNotaMsg");
+    const btn = document.getElementById("avNotaConfirmar");
+    btn.disabled = true;
+    if (msg) { msg.style.color = "var(--tinta-2)"; msg.textContent = "Emitindo no Omie… (pode levar alguns segundos)"; }
+    try {
+      const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/emitir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ naturezas: nat }),
+      });
+      const j = await lerRespostaJson(r, "Emitir nota");
+      if (!r.ok) {
+        // Mesmo motivo do envio de e-mail: o modal some, o console fica.
+        console.error(`[nota] FALHA orcamento=${orc.id} call=${j.call || "-"}\n${j.error || "sem detalhe"}`);
+        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao emitir"; }
+        btn.disabled = false;
+        // A falha pode ter deixado estado gravado (OS criada, status erro).
+        _avAtualizarNota();
+        return;
+      }
+      _avAplicarNota(orc, j);
+      fechar();
+      _avRenderTudo();
+      const fmsg = document.getElementById("avFormMsg");
+      if (fmsg) {
+        fmsg.style.color = "var(--ok)";
+        fmsg.textContent = j.nota_status === "emitida"
+          ? `✓ NFS-e nº ${j.nota_numero} emitida`
+          : "✓ Enviada ao Omie — a prefeitura está processando. Use Atualizar em instantes.";
+        setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 6000);
+      }
+    } catch (e) {
+      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
+      btn.disabled = false;
+    }
+  });
+}
+
 // O texto técnico (objeto/escopo/normas) agora é gerado como cláusulas fixas
 // no PDF (src/services/orcamento-pdf.service.js) — aqui só o valor do serviço.
 // `tipo_servico` (migration 068) é o que liga a linha à cláusula do PDF. Antes
@@ -14788,6 +15014,8 @@ async function _avAcao(acao) {
   if (acao === "del-linha") return; // handled via data-av-del-linha
 
   if (acao === "enviar-email") { _avAbrirEnvioEmail(); return; }
+  if (acao === "nota-emitir") { _avAbrirNota(); return; }
+  if (acao === "nota-atualizar") { _avAtualizarNota(); return; }
 
   if (acao === "gerar-pdf") {
     if (msg) msg.textContent = "Gerando PDF…";

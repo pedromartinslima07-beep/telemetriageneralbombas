@@ -1464,3 +1464,29 @@ desenho em camadas original continua válido.
   A segunda regra: **verificar não é reconferir a própria conta, é medir o
   resultado.** As três rodadas anteriores e as minhas duas todas "conferiam"
   aritmética; nenhuma tinha aberto a barra num telefone e perguntado ao layout.
+
+- **Nota fiscal pelo Omie, não por gateway (2026-11-17).** O plano antigo era
+  um gateway (Focus NFe, eNotas, NFe.io) cobrando por nota. Descartado porque
+  a General **já emitia tudo à mão no Omie**: prefeitura, certificado A1 e
+  cadastros já estavam lá, e o financeiro e o contador trabalham ali. Um
+  gateway tiraria a nota desse lugar. O addon de API (R$ 49,90/mês fixo) custa
+  menos que a emissão manual. A calculadora aberta da Receita (CBS/IBS) ficou
+  dispensável pelo mesmo motivo: o Omie já calcula na OS.
+  **Uma nota por orçamento** foi decisão do Pedro: com qualquer peça sai só
+  DANFE, com o serviço embutido nas peças. Isso evita duas notas para um
+  documento que o síndico aprovou como um só.
+  **Copiar o molde, não o cadastro.** O cadastro de serviços do Omie tem três
+  itens com 140101, mas 7 de 10 OS reais não usam nenhum deles e põem os
+  códigos direto na linha. A integração reproduz o que já sai hoje. Um molde
+  "mais correto" mudaria a nota do cliente sem ninguém ter pedido.
+  **Classificar peça × serviço é trabalho de gente.** A linha do orçamento é
+  texto livre ("Bomba Thebe 2cv" e "CONSERTO Mod: Bomba Thebe" diferem por uma
+  palavra). A heurística sugere e a pessoa confirma; sem confirmação, não
+  emite. Errar aqui é emitir o documento fiscal errado.
+  **Kill-switch `OMIE_EMISSAO`:** o Omie não tem sandbox. Com as chaves no
+  `.env`, o dev local emitiria nota real para orçamento de teste. Preparar e
+  conferir funcionam sem a variável; emitir não.
+  A regra que fica: **antes de dizer que um método não existe numa API,
+  procurar no endpoint irmão.** `FaturarOS` está em `/servicos/osp/`. Lendo só
+  `/servicos/os/`, o roadmap passou horas afirmando que faturar era "levar a
+  OS à etapa 50".

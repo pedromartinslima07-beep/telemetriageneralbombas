@@ -348,6 +348,27 @@ condominio_id IS NOT NULL` — cobre a listagem da tela do cliente.
 não tem condomínio não tem login, e a resposta dele continua vindo por fora.
 
 ✅ **Aplicada em produção em 24/08/2026.**
+
+090: **nota fiscal pelo Omie.** Fluxo em [nota-fiscal.md](modulos/nota-fiscal.md).
+
+- `orcamento_linhas.natureza` (`servico` | `peca` | NULL, CHECK). NULL quer
+  dizer que ninguém classificou ainda. A sugestão do modal **não** é gravada;
+  grava-se o que quem emitiu confirmou. Não confundir com `tipo_servico`
+  (068), que só marca as linhas de limpeza/dedetização que o PDF injeta em
+  cláusula. Linha de peça e linha de conserto são ambas NULL ali.
+- `orcamentos.nota_tipo` (`nfse` | `nfe`), `nota_status` (`processando` |
+  `emitida` | `erro` | `cancelada`), `nota_numero`, `nota_url` (consulta
+  pública), `nota_valor`, `nota_erro`, `nota_solicitada_em`,
+  `nota_emitida_em`, `nota_emitida_por` (FK `usuarios`, **SET NULL**, regra
+  de autoria da 073), `omie_os_codigo` (nCodOS). É uma nota por orçamento, e
+  por isso as colunas moram na linha do orçamento.
+  ⚠️ `processando` é estado real: a prefeitura processa o RPS depois do
+  faturamento, e quem completa o número é o "Atualizar".
+- `condominios.omie_cliente_codigo`: cache do código do cliente no Omie,
+  preenchido na primeira emissão.
+
+⏳ **Aplicada em teste em 17/11/2026. Falta produção** (rodar antes do push:
+`GET /admin/orcamentos/avulsos` lê as colunas `nota_*`).
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
 
 ### Equipamentos e etiqueta QR — migration 070
