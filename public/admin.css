@@ -11763,3 +11763,59 @@ a.os-link { color: var(--text); }
   [data-section="contratos"] .al-filters { flex-wrap: wrap; width: 100%; }
   [data-section="contratos"] #ctrsBusca { width: 100%; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   O ORÇAMENTO COMO PÁGINA (#/orcamentos/<id>), não modal (18/11/2026)
+   O #avModal é movido para .orc-pagina (ver _avMontarPagina). Aqui ele
+   deixa de flutuar: sem fundo escurecido, sem altura fixa (a página rola,
+   não a zona de itens), o cabeçalho com Voltar e a linha do tempo no topo,
+   e o trilho do total e das ações gruda ao rolar, como nas páginas de
+   orçamento dos sistemas de referência.
+   ⚠️ #avModal.is-pagina precisa vencer as regras de #avModal lá em cima
+   (posição fixa, padding, altura min(92vh, 880px)); por isso o id na regra.
+   ════════════════════════════════════════════════════════════════════════ */
+.orc-pagina { max-width: 1320px; width: 100%; margin: 0 auto; }
+#avModal.is-pagina {
+  position: static; inset: auto; z-index: auto;
+  padding: 0; overflow: visible; align-items: stretch;
+}
+#avModal.is-pagina .av-modal-backdrop { display: none; }
+#avModal.is-pagina .av-modal-dialog {
+  max-width: none; height: auto; overflow: visible;
+  clip-path: none; animation: none;
+  border: 1px solid var(--border); border-radius: 10px;
+}
+#avModal.is-pagina .av-modal-dialog > #avModalBody { display: block; }
+/* ⚠️ top NEGATIVO de propósito: o sticky mede a partir da borda INTERNA do
+   .content, que tem 22px de respiro em cima. Com top: 0 o cabeçalho grudava
+   22px abaixo da borda e o conteúdo rolado aparecia por cima dele. */
+#avModal.is-pagina .av-modal-head {
+  position: sticky; top: -22px; z-index: 5;
+  background: var(--chapa, #fff);
+  padding: 14px 22px; align-items: center;
+  border-radius: 10px 10px 0 0;
+}
+#avModal.is-pagina .av-voltar { flex-shrink: 0; }
+#avModal.is-pagina .av-modal-num { font-size: 19px; }
+#avModal.is-pagina .av-tempo { padding: 4px 22px 18px; border-bottom: 1px solid var(--border); }
+.av-tempo { grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); }
+#avModal.is-pagina .av-layout { align-items: start; }
+#avModal.is-pagina .av-itens-zone { min-height: 0; }
+#avModal.is-pagina .av-itens-scroll { overflow: visible; }
+#avModal.is-pagina .av-rail {
+  position: sticky; top: 62px; /* abaixo do cabeçalho grudado (76px - 22px + folga) */
+  max-height: calc(100vh - 160px);
+  border-radius: 0 0 10px 0;
+}
+@media (max-width: 1080px) {
+  #avModal.is-pagina { padding: 0; }
+  #avModal.is-pagina .av-rail { position: static; max-height: none; border-radius: 0 0 10px 10px; }
+}
+@media (max-width: 640px) {
+  #avModal.is-pagina .av-modal-head { position: static; flex-wrap: wrap; padding: 12px 14px; }
+  #avModal.is-pagina .av-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; padding: 4px 14px 16px; }
+  /* A tabela de itens tem 520px de mínimo: no celular ela rola sozinha, em
+     vez de empurrar a página inteira para o lado. */
+  #avModal.is-pagina .av-itens-scroll { overflow-x: auto; }
+  .av-tempo li:nth-child(2n)::before { right: auto; width: 12px; }
+}

@@ -691,7 +691,47 @@ nenhum, então a tela foi conferida com 4 contratos **montados só na tela**
 (ativo, vencendo, vencido, sem fim): frase, atalho para Vencidos, link do
 cliente para `#/condominios/13/contrato`, cartões no celular.
 
-**Próximo, se quiser chegar mais perto dos sistemas de referência:** o
-orçamento como **página própria** (`#/orcamentos/<id>`) com linha do tempo
-(criado → enviado → respondido → feito → nota), como a O.S. ganhou; e
-ordenar colunas clicando no cabeçalho.
+### O orçamento como página própria (18/11/2026)
+
+Era o modal de tela cheia; agora é a página `#/orcamentos/<id>`, no mesmo
+mecanismo da O.S.: o `#avModal` inteiro (mesmos ids) é **movido** para a
+seção `orcamento-detalhe` na primeira abertura (`_avMontarPagina`) e ganha a
+classe `is-pagina`, que tira o fundo escurecido e a altura fixa. Edição,
+itens, e-mail, PDF, nota fiscal e baixa da resposta não foram reescritos.
+Todo caminho de abrir passa por `_avRenderPainel` → `_avIrParaPagina`.
+
+- **Endereço:** voltar/avançar, F5 e link colado (`_avAbrirPelaRota`, lida
+  pelo roteador em `admin-condominio.js`). Orçamento novo mora em
+  `#/orcamentos/novo` e troca para o id no primeiro POST
+  (`_avGarantirRegistro`); F5 no "novo" cai na lista. O grupo Orçamentos do
+  menu acende.
+- **"← Voltar"** no lugar do ×: devolve de onde veio (lista, Solicitados,
+  ficha do condomínio); quem chegou pelo link cai na lista. Esc deixa de
+  fechar (numa página, Esc não é voltar).
+- **Linha do tempo** no topo: Criado (data · quem) → Enviado ao cliente
+  ("sem envio por e-mail" quando foi decidido sem envio) → Aprovado/Recusado
+  (data e hora · quem, ou "registrado pelo escritório") → Serviço feito
+  (marcado à mão ou pelo chamado) → Nota fiscal (nº, processando, erro).
+  Recusado para na resposta. "Validade venceu" aparece na etapa da resposta.
+- **Cabeçalho e trilho grudam** ao rolar no desktop; abaixo de 1080px o
+  trilho desce para baixo do formulário, abaixo de 640px nada gruda.
+
+⚠️ **Sair da página sem passar pelo Voltar** (menu, voltar do navegador) é
+possível numa página e não era num modal. `_avPodeSair`, chamada pelo
+embrulho do `showSection` em `admin-nav.js`, limpa o estado e, se houver
+alteração não salva, pergunta; cancelar devolve o endereço do orçamento.
+
+⚠️ **Sticky com `top: -22px`**, não 0: ele mede a partir da borda interna do
+`.content`, que tem 22px de respiro; com 0 o conteúdo rolado aparecia por cima
+do cabeçalho. A página da O.S. já tinha a mesma correção.
+
+**Testado (banco de teste):** lista → página → Voltar; avançar e voltar do
+navegador; F5 em `#/orcamentos/57`; Voltar depois do F5 (cai na lista);
+ficha do condomínio → orçamento → Voltar (volta à ficha); Solicitados →
+OR-000031 → Voltar; "Novo orçamento" → `#/orcamentos/novo` → Voltar sem
+criar nada; alteração não salva + menu e + voltar do navegador (cancelar
+fica, aceitar sai; nada foi gravado); cabeçalho e trilho grudando em
+1366×680; celular 375px sem rolagem lateral. Sem erro de JS.
+
+**Próximo, se quiser chegar ainda mais perto:** ordenar colunas clicando no
+cabeçalho das listas.

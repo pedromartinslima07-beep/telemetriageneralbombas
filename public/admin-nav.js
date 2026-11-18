@@ -38,7 +38,8 @@ const _NAV_GRUPOS = [
     tambem: ["os-detalhe"] },
   { id: "orcamentos", rotulo: "Orçamentos",
     icone: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
-    membros: [["orcamentos", "Orçamentos"]] },
+    membros: [["orcamentos", "Orçamentos"]],
+    tambem: ["orcamento-detalhe"] },
   { id: "financeiro", rotulo: "Financeiro",
     icone: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/>',
     membros: [["notas", "Notas fiscais"], ["contratos", "Contratos"]] },
@@ -165,8 +166,12 @@ function _navSincronizar() {
 (function _navEmbrulharShowSection() {
   const orig = window.showSection;
   if (typeof orig !== "function") return;
+  // Páginas de documento: não são subaba, acendem o grupo pelo "tambem".
+  const pagina = (n) => n === "condominio" || n === "os-detalhe" || n === "orcamento-detalhe";
   window.showSection = function (name, ...resto) {
-    if (name !== "condominio" && name !== "os-detalhe" && document.querySelector(".nav-grupos") && !_navSecaoVisivel(name)) {
+    // Sair da página do orçamento com alteração não salva pergunta antes.
+    if (typeof _avPodeSair === "function" && !_avPodeSair(name)) return;
+    if (!pagina(name) && document.querySelector(".nav-grupos") && !_navSecaoVisivel(name)) {
       const g = _navGrupoDe(name);
       const sub = g && _navMembrosVisiveis(g)[0]?.[0];
       const primeira = sub || _NAV_GRUPOS.map(x => _navMembrosVisiveis(x)[0]?.[0]).find(Boolean);
@@ -175,7 +180,7 @@ function _navSincronizar() {
     const r = orig.call(this, name, ...resto);
     _navAtual = name;
     const g = _navGrupoDe(name);
-    if (g && name !== "condominio" && name !== "os-detalhe") _navUltima[g.id] = name;
+    if (g && !pagina(name)) _navUltima[g.id] = name;
     _navSincronizar();
     // Menu mobile acompanha: acende o item da própria tela quando ele existe
     // (Alertas tem botão próprio lá embaixo); senão, o do grupo.

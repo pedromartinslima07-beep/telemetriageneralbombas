@@ -85,7 +85,9 @@ ESP32 (sonda 4-20mA + SCT-013)
 
 **Listas no molde da O.S.** (mesma branch): O.S. é página própria; Chamados
 mantém o painel ao lado; **Orçamentos deixou de agrupar por prédio** e é uma
-tabela da carteira nas duas abas; Contratos tem 5 colunas. Os cartões de
+tabela da carteira nas duas abas; Contratos tem 5 colunas. O **orçamento é página própria** em
+`#/orcamentos/<id>` (o `#avModal` é movido para a seção `orcamento-detalhe`),
+com linha do tempo e Voltar. Os cartões de
 números dessas telas viraram uma frase com atalho para a aba que pede ação.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 

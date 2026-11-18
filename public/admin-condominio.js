@@ -34,7 +34,9 @@ function _rotaPermitida(secao) {
   // O perfil operador não vê 10 das 15 seções (e as rotas delas dão 403).
   // A nav já esconde o que ele não vê; o endereço obedece a nav.
   // A ficha e a página da O.S. não têm item próprio: valem as da lista.
-  const alvo = secao === "condominio" ? "cadastros" : secao === "os-detalhe" ? "ordens-servico" : secao;
+  const alvo = secao === "condominio" ? "cadastros"
+    : secao === "os-detalhe" ? "ordens-servico"
+    : secao === "orcamento-detalhe" ? "orcamentos" : secao;
   const nav = document.querySelector(`.nav-item[data-section="${alvo}"]`);
   if (!nav) return false;
   return nav.style.display !== "none" && getComputedStyle(nav).display !== "none";
@@ -42,7 +44,7 @@ function _rotaPermitida(secao) {
 
 function _rotaAoMostrar(nome) {
   if (_rotaAplicando) return;
-  if (nome === "condominio" || nome === "os-detalhe") return; // escrevem o próprio endereço
+  if (nome === "condominio" || nome === "os-detalhe" || nome === "orcamento-detalhe") return; // escrevem o próprio endereço
   const novo = `#/${nome}`;
   if (location.hash !== novo) history.pushState(null, "", novo);
 }
@@ -52,6 +54,10 @@ function _rotaLer() {
   if (!partes.length) return null;
   if (partes[0] === "os" && partes[1]) {
     return { secao: "os-detalhe", osId: Number(partes[1]) };
+  }
+  // #/orcamentos/58 → página do orçamento. "novo" não tem o que reabrir.
+  if (partes[0] === "orcamentos" && partes[1]) {
+    return { secao: "orcamento-detalhe", orcId: partes[1] === "novo" ? null : Number(partes[1]) };
   }
   if (partes[0] === "condominios" && partes[1]) {
     return { secao: "condominio", condoId: Number(partes[1]), aba: partes[2] || "resumo" };
@@ -73,6 +79,19 @@ function _rotaAplicar() {
     if (!Number.isInteger(r.osId) || r.osId <= 0) return;
     const naPagina = document.querySelector('.section[data-section="os-detalhe"].is-active');
     if (!naPagina || _osSelecionadaId !== r.osId) abrirOSDetalhe(r.osId, { daRota: true });
+    return;
+  }
+  if (r.secao === "orcamento-detalhe") {
+    const naPagina = document.querySelector('.section[data-section="orcamento-detalhe"].is-active');
+    if (!Number.isInteger(r.orcId) || r.orcId <= 0) {
+      // F5 num orçamento novo que nunca foi gravado: não há o que reabrir.
+      if (naPagina) return;
+      history.replaceState(null, "", "#/orcamentos");
+      _rotaAplicando = true;
+      try { showSection("orcamentos"); } finally { _rotaAplicando = false; }
+      return;
+    }
+    if (!naPagina || _avSelecionado?.id !== r.orcId) _avAbrirPelaRota(r.orcId);
     return;
   }
   _rotaAplicando = true;

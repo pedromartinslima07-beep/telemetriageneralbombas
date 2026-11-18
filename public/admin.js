@@ -128,6 +128,7 @@ function escapeHtml(s) {
 const _sectionTitles = {
   inicio:           "Início",
   "os-detalhe":     "Ordem de Serviço",
+  "orcamento-detalhe": "Orçamento",
   agenda:           "Agenda",
   notas:            "Notas fiscais",
   dashboard:        "Painel",
@@ -12887,11 +12888,148 @@ function _avSituacaoTexto(o) {
   return "";
 }
 
+// ============================================================
+// PÁGINA DO ORÇAMENTO (era modal de tela cheia até 18/11/2026)
+// ============================================================
+//
+// ⚠️ O ORÇAMENTO TEM PÁGINA PRÓPRIA EM #/orcamentos/<id>, como a O.S. em
+// #/os/<id>. Nos sistemas de referência o orçamento é uma página com
+// endereço: dá para voltar, recarregar e mandar o link.
+// O #avModal inteiro (com os mesmos ids de sempre) é MOVIDO para a seção
+// "orcamento-detalhe" na primeira abertura. Edição, itens, envio por e-mail,
+// PDF, nota fiscal e baixa da resposta continuam sem reescrita: todos acham
+// seus elementos pelo id. Todo caminho de abrir (lista, Solicitados, aviso
+// de resposta, ficha do condomínio, novo) passa por _avRenderPainel, que
+// chama _avIrParaPagina.
+// Orçamento novo, ainda sem registro, mora em #/orcamentos/novo até o
+// primeiro POST (_avGarantirRegistro troca o endereço pelo id).
+let _avEmpurrouHistorico = false;
+let _avAbrindoPelaRota   = false;
+
+function _avNaPagina() {
+  return Boolean(document.querySelector('.section[data-section="orcamento-detalhe"].is-active'));
+}
+
+function _avMontarPagina() {
+  const pag = document.getElementById("orcPagina");
+  const m   = document.getElementById("avModal");
+  if (pag && m && m.parentElement !== pag) {
+    pag.appendChild(m);
+    m.classList.add("is-pagina");
+    m.removeAttribute("aria-modal");
+    m.setAttribute("role", "region");
+  }
+}
+
+function _avIrParaPagina(o) {
+  _avMontarPagina();
+  if (!_avNaPagina()) {
+    _rotaAplicando = true;
+    try { showSection("orcamento-detalhe"); } finally { _rotaAplicando = false; }
+    document.querySelector(".content")?.scrollTo?.(0, 0);
+    window.scrollTo?.(0, 0);
+  }
+  const destino = `#/orcamentos/${o.id ?? "novo"}`;
+  if (_avAbrindoPelaRota) { _avEmpurrouHistorico = false; return; }
+  if (location.hash === destino) return;
+  if (location.hash.startsWith("#/orcamentos/")) history.replaceState(null, "", destino);
+  else { history.pushState(null, "", destino); _avEmpurrouHistorico = true; }
+}
+
+// Chegou pelo endereço (F5, voltar/avançar, link colado).
+async function _avAbrirPelaRota(id) {
+  _avBindEventos();
+  try {
+    if (!Array.isArray(_avData) || !_avData.length || !_avCondos.length) await carregarAvulsos();
+  } catch (_) { /* a lista avisa sozinha */ }
+  const alvo = (_avData || []).find(o => o.id === id);
+  if (!alvo) {
+    history.replaceState(null, "", "#/orcamentos");
+    showSection("orcamentos");
+    return;
+  }
+  _avSelecionado = alvo;
+  _avAbrindoPelaRota = true;
+  try { _avRenderPainel(); } finally { _avAbrindoPelaRota = false; }
+  _avMarcarRespostaVista(alvo);
+}
+
+// ⚠️ SAIR DA PÁGINA POR QUALQUER CAMINHO (menu, voltar do navegador, link)
+// TEM DE LIMPAR O ESTADO. Era o "Fechar" do modal que fazia isso; numa
+// página dá para sair sem passar por ele. E o aviso de alteração não salva
+// vale aqui também: cancelar devolve a pessoa ao orçamento.
+// Chamada pelo embrulho do showSection (admin-nav.js). false = fica.
+function _avPodeSair(destino) {
+  if (destino === "orcamento-detalhe") return true;
+  if (!_avNaPagina() || !_avSelecionado) return true;
+  if (_avSujo && !confirm("Você tem alterações não salvas neste orçamento. Sair mesmo assim?")) {
+    const aqui = `#/orcamentos/${_avSelecionado.id ?? "novo"}`;
+    if (location.hash !== aqui) history.pushState(null, "", aqui);
+    return false;
+  }
+  _avSujo = false;
+  _avSelecionado = null;
+  _avEmpurrouHistorico = false;
+  const m = document.getElementById("avModal");
+  if (m) m.style.display = "none";
+  return true;
+}
+
+// A LINHA DO TEMPO do orçamento: criado → enviado → resposta → feito → nota,
+// com a data de cada etapa e a próxima como "a seguir". Recusado para na
+// resposta: não há serviço nem nota depois dele.
+function _avLinhaTempo(o) {
+  const decidido = o.status === "aprovado" || o.status === "rejeitado";
+  const hoje = new Date().toISOString().slice(0, 10);
+  const val  = o.valido_ate ? String(o.valido_ate).slice(0, 10) : null;
+  const etapas = [
+    { rot: "Criado", feito: Boolean(o.criado_em || o.id),
+      txt: o.criado_em ? _orcFmtData(o.criado_em) + (o.criado_por_nome ? ` · ${_waEscaparHtml(o.criado_por_nome)}` : "") : "agora" },
+    { rot: "Enviado ao cliente", feito: Boolean(o.enviado_em) || decidido,
+      txt: o.enviado_em ? _orcFmtData(o.enviado_em) : (decidido ? "sem envio por e-mail" : "") },
+  ];
+  if (o.respondido_em) {
+    etapas.push({ rot: o.status === "rejeitado" ? "Recusado" : "Aprovado", feito: true,
+      txt: `${_orcFmtDataHora(o.respondido_em)}${o.respondido_nome ? ` · ${_waEscaparHtml(o.respondido_nome)}` : ""}` });
+  } else if (decidido) {
+    etapas.push({ rot: o.status === "rejeitado" ? "Recusado" : "Aprovado", feito: true, txt: "registrado pelo escritório" });
+  } else {
+    etapas.push({ rot: "Resposta do cliente", feito: false,
+      txt: o.status === "enviado" && val && val < hoje ? `validade venceu em ${_orcFmtDataSemFuso(val)}` : "" });
+  }
+  if (o.status !== "rejeitado") {
+    let feitoTxt = "", feito = false;
+    if (o.executado_em) { feito = true; feitoTxt = _orcFmtData(o.executado_em) + (o.executado_por_nome ? ` · ${_waEscaparHtml(o.executado_por_nome)}` : ""); }
+    else if (o.chamado_id && o.chamado_status === "fechado") { feito = true; feitoTxt = `chamado #${o.chamado_id} fechado`; }
+    else if (o.chamado_id && o.chamado_status === "cancelado") { feitoTxt = `chamado #${o.chamado_id} cancelado`; }
+    else if (o.chamado_id) { feitoTxt = `chamado #${o.chamado_id} aberto`; }
+    etapas.push({ rot: "Serviço feito", feito, txt: feitoTxt });
+    const notaFeita = o.nota_status === "emitida";
+    const notaTxt = notaFeita ? (o.nota_numero ? `nº ${_waEscaparHtml(o.nota_numero)}` : "emitida")
+      : o.nota_status === "processando" ? "processando no Omie"
+      : o.nota_status === "erro" ? "erro na emissão"
+      : o.nota_status === "cancelada" ? "cancelada" : "";
+    etapas.push({ rot: "Nota fiscal", feito: notaFeita, txt: notaTxt });
+  }
+  const atual = etapas.findIndex(e => !e.feito);
+  return `<ol class="os-tempo av-tempo" style="--n:${etapas.length}" aria-label="Andamento do orçamento">${etapas.map((e, i) => {
+    const cls = e.feito ? "is-feito" : i === atual ? "is-atual" : "";
+    const txt = e.txt || (i === atual ? "a seguir" : "");
+    return `<li class="${cls}"><span class="os-tempo-rot">${e.rot}</span><span class="os-tempo-em">${txt}</span></li>`;
+  }).join("")}</ol>`;
+}
+
 function _avFecharModal() {
   const m = document.getElementById("avModal");
   if (m) m.style.display = "none";
-  document.body.style.overflow = "";
   _avSelecionado = null;
+  _avSujo = false;
+  // "Voltar" devolve a pessoa de onde ela veio (lista, Solicitados, ficha do
+  // condomínio, Início). Quem chegou pelo link cai na lista de orçamentos.
+  if (_avNaPagina()) {
+    if (_avEmpurrouHistorico) { _avEmpurrouHistorico = false; history.back(); }
+    else showSection("orcamentos");
+  }
   // Atualiza seleção visual na lista de orçamentos do painel
   document.querySelectorAll("#avCondoList .pro-row.is-selected").forEach(r => r.classList.remove("is-selected"));
   // ⚠️ A LISTA SE REDESENHA AO FECHAR (09/10/2026). Item adicionado ou
@@ -12930,15 +13068,12 @@ function _avRenderPainel() {
 
   if (!_avSelecionado) {
     modal.style.display = "none";
-    document.body.style.overflow = "";
     return;
   }
 
-  // Abre modal (sem re-animar se já estava aberto)
-  if (modal.style.display !== "flex") {
-    modal.style.display = "flex";
-    document.body.style.overflow = "hidden";
-  }
+  // ⚠️ É UMA PÁGINA, NÃO MAIS UM MODAL (18/11/2026). Ver _avIrParaPagina.
+  _avIrParaPagina(_avSelecionado);
+  if (modal.style.display !== "flex") modal.style.display = "flex";
 
   const o = _avSelecionado;
   // Render completo reconstrói o formulário a partir do estado — o que
@@ -12985,8 +13120,9 @@ function _avRenderPainel() {
           </div>
         </div>
       </div>
-      <button class="ap-close" data-av-action="fechar" title="Fechar">×</button>
+      <button type="button" class="btn btn-sm av-voltar" data-av-action="fechar">← Voltar</button>
     </div>
+    ${_avLinhaTempo(o)}
 
     <div class="av-layout">
       <div class="av-col-form">
@@ -14761,6 +14897,10 @@ async function _avGarantirRegistro() {
   // orçamento", então vale atualizar só ele, sem tocar no formulário.
   const numEl = document.getElementById("avModalTitulo");
   if (numEl && j.numero) numEl.textContent = j.numero;
+  // E o endereço deixa de ser "novo": F5 a partir daqui reabre este.
+  if (_avNaPagina() && location.hash === "#/orcamentos/novo") {
+    history.replaceState(null, "", `#/orcamentos/${j.id}`);
+  }
 
   return j.id;
 }
@@ -15079,7 +15219,7 @@ function _avBindEventos() {
   document.getElementById("avModalBackdrop")?.addEventListener("click", () => _avTentarFechar());
 
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && document.getElementById("avModal")?.style.display === "flex") {
+    if (e.key === "Escape" && !_avNaPagina() && document.getElementById("avModal")?.style.display === "flex") {
       _avTentarFechar();
     }
   });

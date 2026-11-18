@@ -17852,3 +17852,12 @@ Ver [agenda.md](modulos/agenda.md). Migration **092**, rota **`/agenda`**
   vigência, situação com a assinatura embaixo, ação "Ver"/"Editar" com nome).
 - Cartões no celular nas três listas. `admin.js?v=385`, `admin.css?v=305`,
   `admin-condominio.js?v=6`.
+- **O orçamento vira página própria em `#/orcamentos/<id>`**, como a O.S.:
+  voltar/avançar do navegador, F5 e link colado funcionam; "← Voltar" devolve
+  de onde a pessoa veio (lista, Solicitados, ficha do condomínio). Linha do
+  tempo no topo (Criado → Enviado ao cliente → Aprovado/Recusado → Serviço
+  feito → Nota fiscal), cabeçalho e trilho do total grudando ao rolar. Sair
+  com alteração não salva (menu ou voltar do navegador) pergunta antes.
+  Orçamento novo fica em `#/orcamentos/novo` até ganhar número. No celular a
+  tabela de itens rola sozinha. `admin.js?v=386`, `admin.css?v=308`,
+  `admin-condominio.js?v=7`, `admin-nav.js?v=6`.

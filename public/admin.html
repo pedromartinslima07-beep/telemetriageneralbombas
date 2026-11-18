@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=305">
+  <link rel="stylesheet" href="/static/admin.css?v=308">
 </head>
 <body>
   <div id="appLoader">
@@ -746,6 +746,13 @@
            abertura; ver _osMontarPagina em admin.js. -->
       <div class="section" data-section="os-detalhe">
         <div id="osPagina" class="os-pagina"></div>
+      </div>
+
+      <!-- Página do orçamento (18/11/2026). O #avModal mora lá embaixo no
+           HTML e é movido para cá na primeira abertura; ver _avMontarPagina
+           em admin.js. -->
+      <div class="section" data-section="orcamento-detalhe">
+        <div id="orcPagina" class="orc-pagina"></div>
       </div>
 
       <!-- ===== SECTION: ORÇAMENTOS ===== -->
@@ -2853,9 +2860,9 @@
 </div>
 
 
-<script src="/static/admin.js?v=385" defer></script>
-<script src="/static/admin-condominio.js?v=6" defer></script>
-<script src="/static/admin-nav.js?v=5" defer></script>
+<script src="/static/admin.js?v=386" defer></script>
+<script src="/static/admin-condominio.js?v=7" defer></script>
+<script src="/static/admin-nav.js?v=6" defer></script>
 <script src="/static/admin-carteira.js?v=2" defer></script>
 <script src="/static/admin-agenda.js?v=4" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
