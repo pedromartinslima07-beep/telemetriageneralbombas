@@ -60,7 +60,10 @@ const {
 // Devolve o chamado que está segurando o técnico, ou null se ele está livre.
 async function compromissoEmAberto(executor, tecnicoId, exceto) {
   const r = await executor.query(
-    `SELECT ch.id, ch.titulo, ch.status, c.nome AS condominio_nome
+    // Nome de tela é o fantasia (regra do projeto, ver nome-fantasia.test.js):
+    // é o que o técnico lê no celular para saber onde ficou preso.
+    `SELECT ch.id, ch.titulo, ch.status,
+            COALESCE(NULLIF(c.nome_fantasia, ''), c.nome) AS condominio_nome
        FROM chamados ch
        LEFT JOIN condominios c ON c.id = ch.condominio_id
       WHERE ch.tecnico_id = $1

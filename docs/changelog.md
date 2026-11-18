@@ -17890,3 +17890,32 @@ tirava a O.S. da fila, e nada tinha sido gravado.
   **antes** da correção, reproduziu o defeito (200 com `finalizada_em` nulo e
   chamado em atendimento); depois, 12/12.
 
+## Testes da trava de um-por-vez sem estado herdado (2026-11-18)
+
+`devolver-chamado` (19/24) e `um-atendimento-por-vez` (8/14) falhavam por
+**lixo no banco de teste**, não por código: os dois pegavam o primeiro técnico
+ativo (o Carlos do seed), que estava preso "em atendimento" no chamado #623
+(Preventiva de setembro) com a OS-2026-0035 rascunho desde 14/09. A trava de
+um atendimento por vez barrava o teste antes de ele começar. Confirmado
+rodando os dois sem a correção do `/finalizar`: mesmas falhas.
+
+- `scripts/testes/_tecnico-fixture.js`: técnico (e usuário sem login)
+  **só do teste**, criado no começo e apagado no `finally`. Se uma execução
+  morrer no meio, o próximo `criar` varre os de mais de uma hora. Os dois
+  testes passaram a usá-lo: 24/24 e 14/14, mesmo com o #623 ainda preso.
+- Banco de teste: o #623 devolvido para a fila **pela rota**
+  (`POST /chamados/623/devolver` como o Carlos), que descartou a OS-2026-0035;
+  apagados os chamados 972 e 973, sobra de uma execução interrompida hoje.
+
+Na mesma passada, a bateria inteira (38 testes) rodou: 36 de primeira, e os
+outros dois corrigidos:
+
+- `orc-linha-excluir`: lia `_orcRenderPainel`, que saiu quando Orçamentos
+  virou tabela única. Reescrito sobre `_orcRenderTudo`, com as mesmas
+  garantias (lixeira no pedido de O.S., nunca no da oficina; o clique na
+  lixeira não abre o documento) e mais uma ("Fazer orçamento" no pedido sem
+  orçamento). 8/8.
+- `nome-fantasia`: a mensagem da trava ("Você ainda está em atendimento em…")
+  usava a razão social desde 14/09. `compromissoEmAberto` em
+  `chamados.routes.js` passou a devolver o fantasia. 7/7.
+

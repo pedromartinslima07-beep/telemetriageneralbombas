@@ -28,11 +28,12 @@ app.use("/chamados", require("../../src/routes/chamados.routes").chamadosRouter)
 
 const r = [];
 const ok = (nome, cond) => r.push([nome, cond]);
+const { criarTecnicoDeTeste, apagarTecnicoDeTeste } = require("./_tecnico-fixture");
 
 (async () => {
   const server = app.listen(0);
   const base = "http://127.0.0.1:" + server.address().port;
-  const lixo = { chamados: [] };
+  const lixo = { chamados: [], tecnico: null };
 
   try {
     const condos = await pool.query("SELECT id FROM condominios ORDER BY id LIMIT 1");
@@ -51,21 +52,13 @@ const ok = (nome, cond) => r.push([nome, cond]);
       "Content-Type": "application/json",
     };
 
-    const tec = await pool.query(
-      `SELECT t.id, t.usuario_id FROM tecnicos t
-        JOIN usuarios u ON u.id = t.usuario_id AND u.role = 'tecnico'
-       WHERE t.ativo = true LIMIT 1`
-    );
-    if (!tec.rows.length) {
-      console.log("(pulado: nenhum técnico com login no banco de teste)");
-      server.close();
-      await pool.end();
-      return;
-    }
-    const tecnicoId = tec.rows[0].id;
+    // Técnico só deste teste: o do seed pode estar preso em outro chamado
+    // (ver _tecnico-fixture.js), e aí a trava de um-por-vez barra o teste.
+    lixo.tecnico = await criarTecnicoDeTeste(pool, "devolver-chamado");
+    const tecnicoId = lixo.tecnico.id;
     const HT = {
       Authorization: "Bearer " + jwt.sign(
-        { id: tec.rows[0].usuario_id, role: "tecnico" },
+        { id: lixo.tecnico.usuarioId, role: "tecnico" },
         process.env.JWT_SECRET, { expiresIn: "10m" }
       ),
       "Content-Type": "application/json",
@@ -188,6 +181,7 @@ const ok = (nome, cond) => r.push([nome, cond]);
       await pool.query("DELETE FROM ordens_servico WHERE chamado_id=$1", [id]).catch(() => {});
       await pool.query("DELETE FROM chamados WHERE id=$1", [id]).catch(() => {});
     }
+    await apagarTecnicoDeTeste(pool, lixo.tecnico);
     server.close();
     await pool.end();
   }

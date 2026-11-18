@@ -18,6 +18,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const { pool } = require("../../src/db");
 const { resolverDatabaseUrl } = require("../../src/db-url");
+const { criarTecnicoDeTeste, apagarTecnicoDeTeste } = require("./_tecnico-fixture");
 
 const { alvo } = resolverDatabaseUrl();
 if (alvo !== "TESTE") {
@@ -37,7 +38,7 @@ const ok = (nome, cond, extra) => {
 
 (async () => {
   const server = app.listen(0);
-  const lixo = { chamados: [] };
+  const lixo = { chamados: [], tecnico: null };
 
   try {
     const base = "http://127.0.0.1:" + server.address().port;
@@ -46,12 +47,11 @@ const ok = (nome, cond, extra) => {
     if (!condos.rows.length) throw new Error("preciso de 1 condomínio no banco de teste");
     const condoId = condos.rows[0].id;
 
-    const tec = await pool.query(
-      `SELECT id, usuario_id FROM tecnicos
-        WHERE usuario_id IS NOT NULL AND ativo = true ORDER BY id LIMIT 1`
-    );
-    if (!tec.rows.length) throw new Error("preciso de 1 técnico ativo com usuario_id (scripts/seed-teste.js)");
-    const tecnicoId = tec.rows[0].id;
+    // Técnico só deste teste. O teste AFIRMA "livre, ele aceita o primeiro":
+    // com o técnico do seed preso em outro chamado, a premissa era falsa e
+    // seis checagens caíam por estado herdado (ver _tecnico-fixture.js).
+    lixo.tecnico = await criarTecnicoDeTeste(pool, "um-atendimento-por-vez");
+    const tecnicoId = lixo.tecnico.id;
 
     const gestor = await pool.query(
       "SELECT id, role FROM usuarios WHERE role IN ('admin','gerente') ORDER BY id LIMIT 1"
@@ -65,7 +65,7 @@ const ok = (nome, cond, extra) => {
     };
     const HT = {
       Authorization: "Bearer " + jwt.sign(
-        { id: tec.rows[0].usuario_id, role: "tecnico" },
+        { id: lixo.tecnico.usuarioId, role: "tecnico" },
         process.env.JWT_SECRET, { expiresIn: "10m" }
       ),
       "Content-Type": "application/json",
@@ -167,6 +167,7 @@ const ok = (nome, cond, extra) => {
       await pool.query("DELETE FROM historico_chamados WHERE chamado_id = ANY($1)", [lixo.chamados]);
       await pool.query("DELETE FROM chamados WHERE id = ANY($1)", [lixo.chamados]);
     }
+    await apagarTecnicoDeTeste(pool, lixo.tecnico);
     server.close();
     await pool.end();
   }
