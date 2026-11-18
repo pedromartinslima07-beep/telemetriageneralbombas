@@ -103,6 +103,10 @@ gestão (cartões com borda e canto arredondado, abas de filtro segmentadas,
 selos em pílula, rótulos em texto normal). Tudo escopado no `.main`, modais e
 gaveta, no fim de `public/admin.css`; o app mobile não muda.
 
+Fase 5: a gaveta do condomínio e o modal antigo de KPIs saíram (a ficha e a
+tela WhatsApp cobrem o que faziam), e a ficha esconde do operador as abas que
+ele não lê.
+
 ### ⚠️ Nota fiscal pelo Omie — NFS-e e DANFE (17–18/11/2026)
 
 O orçamento aprovado vira nota pela ficha, através da API do Omie (addon

@@ -17778,3 +17778,20 @@ Fase 4 do [redesenho do admin](modulos/redesenho-admin.md), mesma branch
   viraram listener no JS ou CSS. Nenhum `on*=` restou no admin.
 - `DESIGN.md`: seção nova "O registro de gestão (painel admin)".
 - `admin.js?v=374`, `admin.css?v=289`.
+
+## Retirada da gaveta e do modal antigo; o operador na ficha (2026-11-18)
+
+Fase 5 do [redesenho do admin](modulos/redesenho-admin.md), autorizada pelo
+Pedro. Mesma branch, sem migration, sem endpoint novo.
+
+- **Saiu a gaveta do condomínio** (`#drawerPanel` e ~430 linhas de JS): a
+  ficha do condomínio faz tudo o que ela fazia. O card "Conversas recentes" do
+  Painel, último caminho até ela, abre a conversa na tela WhatsApp.
+- **Saiu o modal antigo de KPIs** (`#modalOverlay`), sem uso desde 31/07.
+- **Ficha para o operador:** sem as abas de O.S., Orçamentos, Notas, Contrato e
+  Equipamentos, sem o fato "Contrato" e sem "Editar cadastro". Ela fazia 5
+  pedidos que davam 403.
+- Operador: o boot não pede mais `/admin/orcamentos` (403), e o menu do
+  celular perde "Condomínios".
+- Tela WhatsApp no tema claro (painéis com preto translúcido à mão).
+- `admin.js?v=376`, `admin.css?v=290`, `admin-condominio.js?v=4`.

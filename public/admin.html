@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=289">
+  <link rel="stylesheet" href="/static/admin.css?v=290">
 </head>
 <body>
   <div id="appLoader">
@@ -2169,70 +2169,8 @@
   </div><!-- /main -->
 </div><!-- /layout -->
 
-<!-- ===== DRAWER: Detalhe do condomínio ===== -->
-<div id="drawerOverlay" class="drawer-overlay"></div>
-<div id="drawerPanel" class="drawer-panel">
-  <div class="drawer-head">
-    <h3 id="drawerTitle">Condomínio</h3>
-    <button class="btn btn-sm" id="btnFecharDrawer">Fechar</button>
-  </div>
-  <div class="drawer-tabs">
-    <button class="drawer-tab active" data-action="drawer-tab" data-tab="telemetria">Telemetria</button>
-    <button class="drawer-tab" data-action="drawer-tab" data-tab="chamados">
-      Chamados
-      <span class="drawer-tab-badge" id="drawerBadgeChamados"></span>
-    </button>
-    <button class="drawer-tab" data-action="drawer-tab" data-tab="whatsapp">
-      Atendimento
-      <span class="drawer-tab-badge" id="drawerBadgeWhatsapp"></span>
-    </button>
-    <button class="drawer-tab" data-action="drawer-tab" data-tab="os">O.S.</button>
-    <button class="drawer-tab" data-action="drawer-tab" data-tab="orcamentos">Orçamentos</button>
-  </div>
-  <div class="drawer-body">
-    <div class="drawer-pane is-active" id="drawerPaneTelemetria" data-pane="telemetria"></div>
-    <div class="drawer-pane" id="drawerPaneChamados" data-pane="chamados"></div>
-    <div class="drawer-pane" id="drawerPaneWhatsapp" data-pane="whatsapp"></div>
-    <div class="drawer-pane" id="drawerPaneOS" data-pane="os"></div>
-    <div class="drawer-pane" id="drawerPaneOrcamentos" data-pane="orcamentos"></div>
-  </div>
-</div>
-
 <!-- Tooltip -->
 <div id="cardTip" class="cardTip" style="display:none;"></div>
-
-<!-- Modal: resumo card details -->
-<div id="modalOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox">
-    <div class="modalHead">
-      <div>
-        <div id="modalTitle" class="modalTitle">Detalhes</div>
-        <div id="modalSub" class="modalSub">—</div>
-      </div>
-      <button class="btn btn-sm" id="btnFecharModal">Fechar</button>
-    </div>
-    <div class="modalBody">
-      <div class="modalTools">
-        <input id="modalBusca" class="modalBusca" placeholder="Buscar…" />
-        <span id="modalCount" class="modalCount">0 itens</span>
-      </div>
-      <div class="modalListWrap">
-        <table class="modalTable">
-          <thead>
-            <tr>
-              <th class="m-stat-th"></th>
-              <th>Condomínio</th>
-              <th id="modalThCol2">Device</th>
-              <th>Detalhe</th>
-              <th class="right">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="modalTbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Modal: detalhe de Ordem de Serviço -->
 <div id="osModalOverlay" class="modalOverlay" style="display:none;">
@@ -2925,8 +2863,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=374" defer></script>
-<script src="/static/admin-condominio.js?v=3" defer></script>
+<script src="/static/admin.js?v=376" defer></script>
+<script src="/static/admin-condominio.js?v=4" defer></script>
 <script src="/static/admin-nav.js?v=3" defer></script>
 <script src="/static/admin-carteira.js?v=2" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>

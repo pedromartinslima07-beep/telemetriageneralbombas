@@ -79,13 +79,29 @@ const _CF_ABAS = [
   { id: "telemetria",   rotulo: "Telemetria" },
   { id: "chamados",     rotulo: "Chamados" },
   { id: "atendimento",  rotulo: "WhatsApp", soComWhatsapp: true },
-  { id: "os",           rotulo: "O.S." },
-  { id: "orcamentos",   rotulo: "Orçamentos" },
-  { id: "notas",        rotulo: "Notas fiscais" },
-  { id: "contrato",     rotulo: "Contrato e plano" },
-  { id: "equipamentos", rotulo: "Equipamentos" },
+  { id: "os",           rotulo: "O.S.",             soGestao: true },
+  { id: "orcamentos",   rotulo: "Orçamentos",       soGestao: true },
+  { id: "notas",        rotulo: "Notas fiscais",    soGestao: true },
+  { id: "contrato",     rotulo: "Contrato e plano", soGestao: true },
+  { id: "equipamentos", rotulo: "Equipamentos",     soGestao: true },
   { id: "contatos",     rotulo: "Contatos" },
 ];
+
+// ⚠️ O PERFIL OPERADOR CHEGA NA FICHA (fase 5, 18/11/2026). Ele não tem a
+// tela Condomínios, mas os botões "ver condomínio" de Alertas, do mapa e da
+// ficha do chamado abrem a ficha. As rotas de O.S., orçamento, contrato,
+// plano e equipamento são `gestaoOnly` e respondem 403 para ele. Quem
+// escondia isso era a gaveta antiga, que saiu; agora é aqui: aba `soGestao`
+// some, a busca não sai, e o cabeçalho não afirma "Sem contrato" sobre um
+// dado que ele não pode ler.
+function _cfGestao() {
+  return typeof _isOperador === "undefined" || !_isOperador;
+}
+function _cfAbaVisivel(a) {
+  if (a.soComWhatsapp && !_cfTemWhatsapp()) return false;
+  if (a.soGestao && !_cfGestao()) return false;
+  return true;
+}
 
 let _cfCondoId = null;
 let _cfAba = "resumo";
@@ -137,8 +153,8 @@ async function _cfEsperarCadastro() {
 async function _cfMostrar(condoId, aba) {
   const trocouPredio = _cfCondoId !== condoId;
   _cfCondoId = condoId;
-  _cfAba = _CF_ABAS.some(a => a.id === aba) ? aba : "resumo";
-  if (_cfAba === "atendimento" && !_cfTemWhatsapp()) _cfAba = "resumo";
+  const pedida = _CF_ABAS.find(a => a.id === aba);
+  _cfAba = pedida && _cfAbaVisivel(pedida) ? aba : "resumo";
 
   _rotaAplicando = true;
   try { showSection("condominio"); } finally { _rotaAplicando = false; }
@@ -171,6 +187,11 @@ async function _cfGarantirDados({ forcar = false } = {}) {
   const id = _cfCondoId;
   if (!id) return;
   if (_cfBuscando === id && !forcar) return;
+  if (!_cfGestao()) {
+    // Operador: nada do que esta função busca é dele (ver _cfGestao).
+    _cfExtra = { condoId: id, contratos: [], planos: [], equipamentos: [], buscadoEm: Date.now() };
+    return;
+  }
   _cfBuscando = id;
   try {
     const tarefas = [];
@@ -304,8 +325,10 @@ function _cfRenderCabecalho(c, d) {
       ctrCls = dias != null && dias <= 30 ? "is-atencao" : "is-ok";
     }
   }
-  fatos.push(`<button class="cf-fato ${ctrCls}" data-cf-aba="contrato">
+  if (_cfGestao()) {
+    fatos.push(`<button class="cf-fato ${ctrCls}" data-cf-aba="contrato">
     <span class="cf-fato-lbl">Contrato</span><span class="cf-fato-val">${_cfEsc(ctrTxt)}</span></button>`);
+  }
 
   return `<header class="cf-head">
     <div class="cf-head-top">
@@ -315,7 +338,7 @@ function _cfRenderCabecalho(c, d) {
       </button>
       <div class="cf-head-acoes viewer-only-hide">
         <button class="btn btn-sm" data-cf-acao="novo-chamado">Abrir chamado</button>
-        <button class="btn btn-sm" data-action="editar-condominio" data-id="${c.id}">Editar cadastro</button>
+        ${_cfGestao() ? `<button class="btn btn-sm" data-action="editar-condominio" data-id="${c.id}">Editar cadastro</button>` : ""}
       </div>
     </div>
     <h1 class="cf-nome">${_cfEsc(nome)}${c.ativo === false ? ` <span class="cf-inativo">Inativo</span>` : ""}</h1>
@@ -325,7 +348,7 @@ function _cfRenderCabecalho(c, d) {
 }
 
 function _cfRenderAbas(d) {
-  const abas = _CF_ABAS.filter(a => !a.soComWhatsapp || _cfTemWhatsapp());
+  const abas = _CF_ABAS.filter(_cfAbaVisivel);
   return `<nav class="cf-abas wa-tabs" role="tablist" aria-label="Seções do condomínio">${abas.map(a => {
     const n = _cfContagem(d, a.id);
     const ativo = a.id === _cfAba;

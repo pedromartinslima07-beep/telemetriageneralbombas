@@ -24,6 +24,8 @@ outro público e outro sistema visual.
 > menu lateral marinho. O que esta nota diz sobre "superfície marinho",
 > chapa de duas camadas e etiqueta mono descreve o painel **antes** disso; o
 > CSS antigo continua lá embaixo e a fase 4 o sobrescreve no fim do arquivo.
+> Na fase 5 a **gaveta do condomínio** (`drawer-panel`) e o modal antigo de
+> KPIs saíram: onde esta nota fala deles, descreve o painel antes de 18/11.
 
 ---
 

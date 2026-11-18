@@ -8,11 +8,11 @@ aliases:
   - Admin por condomínio
   - Admin claro
 ---
-# Redesenho do painel admin — o condomínio como eixo (🟡 fases 1 a 4 prontas, 18/11/2026)
+# Redesenho do painel admin — o condomínio como eixo (✅ fases 1 a 5 prontas, 18/11/2026)
 
-Plano aprovado pelo Pedro em 18/11/2026. **Fases 1 a 4 implementadas na branch
-`feature/admin-condominio`** (sem merge, sem deploy) — ver as seções "O que
-foi implementado" no fim. A fase 5 continua planejada. O
+Plano aprovado pelo Pedro em 18/11/2026. **As cinco fases estão implementadas
+na branch `feature/admin-condominio`** (sem merge, sem deploy) — ver as seções
+"O que foi implementado" no fim. O
 estado atual do painel está em [painel-admin.md](painel-admin.md); o "porquê"
 das escolhas, em [decisions.md](../../memory-bank/decisions.md) (seção
 "Painel admin — o condomínio como eixo e fundo claro").
@@ -151,7 +151,7 @@ outros valores numa subárvore.
 | 2 | Ficha do condomínio. Gaveta do Dashboard e ficha de Clientes passam a abrir a ficha | Sim, só a ficha | ✅ 18/11 (branch) |
 | 3 | Menu novo + Início | Sim | ✅ 18/11 (branch) |
 | 4 | Tema claro (tokens no contêiner do painel) + forma de sistema de gestão | Sim, tudo | ✅ 18/11 (branch) |
-| 5 | Retirar as telas que sobrarem | **Só com autorização** | 📋 |
+| 5 | Retirar as telas que sobrarem | Só com autorização (dada em 18/11) | ✅ 18/11 (branch) |
 
 **Antes de começar:** fechar a branch `feature/nota-fiscal-omie` (090 e 091 em
 produção, merge, push — ver [active-work.md](../../memory-bank/active-work.md)),
@@ -442,3 +442,78 @@ Agora: listener de `input` no `admin.js`, `data-refazer` tratado no delegado
 `data-wa-action`, `data-sem-envio` com um `submit` delegado no `document`, e a
 classe `.ctrs-pick-item` com `:hover` no CSS. Depois disso o console carrega
 sem nenhum erro de CSP. `admin.js?v=374`, `admin.css?v=289`.
+
+---
+
+## O que foi implementado (fase 5, 18/11/2026)
+
+Autorizada pelo Pedro: *"faz a 5 e os testes em aberto"*. A regra usada para
+decidir o que sai: **só sai o que já existe em outro lugar**. Nenhuma
+informação ficou sem tela.
+
+### O que saiu
+
+| Peça | Onde ela continua | Linhas |
+|---|---|---|
+| **Gaveta do condomínio** (`#drawerPanel`, `abrirDrawer` e as 5 abas) | a ficha do condomínio (fase 2) e a tela WhatsApp | ~430 de JS, 30 de HTML |
+| **Modal antigo de KPIs** (`#modalOverlay`, `abrirModal`, `renderModalLista`) | os números do Painel já levam à tela filtrada desde 31/07 (`_DASH_DRILL`) | ~90 de JS, 30 de HTML |
+
+O último caminho que ainda abria a gaveta era o card **"Conversas recentes"**
+do Painel, que a usava só para mostrar o chat. Agora ele abre a tela WhatsApp
+com a conversa selecionada, onde também dá para responder, assumir e pedir à
+IA. `getListaPorKey` **ficou**: a prévia do hover dos números (`showTip`)
+ainda a usa.
+
+⚠️ **Uma função da gaveta era chamada de fora dela.** O
+`renderTelemetriaVisuais` chamava `atualizarGaugesDrawerSeAberto`, e sem ela a
+telemetria parava de atualizar ("Erro ao atualizar telemetria" no topo). Foi
+pego no teste e tirado. A conferência que pegou é a que vale repetir em toda
+retirada: listar as funções que sumiram e procurar cada nome no que sobrou.
+
+**O que ficou de propósito:**
+- O CSS da gaveta (`.drawer-*`) continua no `admin.css`. Ele é inofensivo e
+  aparece em seletores agrupados com o `.modalBox`; tirar é limpeza à parte.
+- A **nav antiga escondida** continua mandando no menu novo (ver fase 3). Ela
+  não é tela, é a fonte de perfil, badge e item ativo; trocá-la é reescrita,
+  não retirada.
+- A **faixa de números** no topo das telas continua: cada número é um atalho
+  para a lista filtrada, ou seja, função, não enfeite. Fica para decisão
+  própria.
+
+### O perfil operador e a ficha
+
+⚠️ **Achado no teste, e era defeito da fase 2.** O operador não tem a tela
+Condomínios, mas chega na ficha pelos botões "ver condomínio". A ficha fazia 5
+pedidos que o servidor recusa (403) e mostrava abas que ele não lê (O.S.,
+Orçamentos, Notas, Contrato, Equipamentos), "Sem contrato" sobre um dado que
+ele não pode ver e "Editar cadastro". Quem escondia isso antes era a gaveta.
+Agora as abas têm `soGestao` em `admin-condominio.js`: para o operador elas
+somem, a busca não sai, e o cabeçalho fica com Água e Chamados. "Abrir
+chamado" continua.
+
+Junto, dois defeitos antigos do operador: o boot pedia `/admin/orcamentos`
+(403 desde 02/09, por causa do badge) e o menu do celular mostrava
+"Condomínios", que para ele não leva a lugar nenhum. Os dois saíram.
+
+### Os testes que estavam em aberto
+
+| Teste | Como | Resultado |
+|---|---|---|
+| Perfil operador, desktop e celular | JWT da usuária 17 do seed | 4 grupos no menu, abre em Alertas, ficha com 4 abas, **nenhum 403 e nenhum erro** depois da correção |
+| Início com o WhatsApp ligado | item revelado + `fetch` dublado com uma conversa | Início abre normal; o card do Painel leva à conversa na tela WhatsApp |
+| "Refazer" da IA | o mesmo dublê, contando as chamadas | "Resumir" de novo usa o cache (1 chamada); "Refazer" pede de novo (2 chamadas, texto novo) |
+| Gravar pela ficha | "Abrir chamado" na ficha, no banco de teste | a ficha passou de "4 em aberto" para "5" sozinha, com a linha nova; cancelado, voltou a 4 |
+
+⚠️ **O WhatsApp não foi testado de verdade**: o banco de teste não tem
+conversa e o item do menu nasce escondido no HTML (a integração está pendente
+de configuração). O que foi provado é a tela e as ações com dado dublado.
+
+O chamado **#950** ("[TESTE fase 5] gancho da ficha") ficou **cancelado** no
+banco de teste.
+
+⚠️ **A tela WhatsApp estava fora da varredura visual da fase 4** (escondida) e
+saiu com painéis cinza: preto translúcido escrito à mão que escurecia o
+marinho. Corrigido no fim do `admin.css`. O cabeçalho do chat continua
+apertado (nome quebrando ao lado dos botões); é o layout de antes.
+
+Versões: `admin.js?v=376`, `admin.css?v=290`, `admin-condominio.js?v=4`.

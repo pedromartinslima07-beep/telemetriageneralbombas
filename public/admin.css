@@ -11189,3 +11189,29 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .ctrs-pick-item:hover,
 .ctrs-pick-item:focus-visible { background: var(--surface2); }
 :is(.main, .modalBox) .ctrs-pick-item { border-radius: var(--r-ctrl); }
+
+/* ── Peças que escureciam o marinho com preto translúcido ──────────────────
+   `rgba(0,0,0,.1–.18)` escrito à mão era um degrau abaixo no campo escuro;
+   no claro vira cinza de papel velho. Achadas ao ligar o WhatsApp no teste
+   (fase 5, 18/11/2026): a tela estava escondida na varredura da fase 4. */
+.main :is(.wa-list-head, .wa-list-foot, .wa-chat-head, .wa-chat-input) {
+  background: var(--placa);
+  border-color: var(--border);
+}
+.main .wa-chat-body { background: var(--campo); }
+.main .wa-info-col { background: var(--surface2); }
+.main .wa-info-section {
+  background: var(--placa);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.main .wa-msg { border-radius: 10px; color: var(--tinta); }
+.main .wa-msg.in { background: var(--placa); border: 1px solid var(--border); }
+.main .wa-msg.out {
+  background: color-mix(in srgb, var(--verde) 18%, #fff);
+  border: 1px solid color-mix(in srgb, var(--verde) 45%, #fff);
+}
+.main .wa-msg-date-sep { background: var(--surface3); color: var(--tinta-2); border-radius: 999px; }
+.main .wa-ia-result { background: var(--surface2); border-radius: 8px; }
+.main :is(.al-toolbar, .inner-table-wrap, .rel-seg) { background: var(--surface2); }
+.main .al-painel :is(.ap-banner, .ap-section) { background: var(--surface2); }

@@ -343,7 +343,6 @@ let _chamadosIdsAck  = new Set();
 let _alertasIdsAck   = new Set();
 
 // charts ApexCharts ativos no drawer (id reservatório → instance)
-let _drawerGauges = new Map();
 
 // ===== TELEMETRIA AVANÇADA — estado =====
 let _telFiltroCondominioId = "";
@@ -362,9 +361,6 @@ let _telHistReservatorioId = ""; // reservatório selecionado para PDF
 let _telHistFiltrosInicializados = false;
 
 // ===== estado do drawer =====
-let _drawerCondoId = null;
-let _drawerTab = "telemetria";
-let _drawerConversaId = null;
 
 const filtros = { texto: "", somenteAlertas: false, somenteOffline: false };
 
@@ -2918,7 +2914,6 @@ function renderTelemetriaVisuais() {
   renderMcMap();
   renderMcAlerts();
   renderMcTelemetria();
-  atualizarGaugesDrawerSeAberto();
   if (_telSecaoAtiva) renderTelemetriaAvancada();
 }
 
@@ -4232,7 +4227,8 @@ async function carregarTudo() {
       // é exatamente o que o badge existe para evitar. É uma requisição a
       // mais na carga inicial, e nenhuma no polling: `carregarTudo` roda no
       // boot e em ação do usuário, nunca em intervalo.
-      carregarOrcamentos().catch(() => {}),
+      // (Operador não lê orçamento: a rota é `gestaoOnly` e só daria 403.)
+      _isOperador ? null : carregarOrcamentos().catch(() => {}),
     ]);
     detectarChamadosNovos();
     renderTelemetriaVisuais();
@@ -6731,7 +6727,6 @@ async function fecharChamadoAction(id) {
   });
   if (!r.ok) { alert("Erro ao fechar chamado"); return; }
   await carregarTudo();
-  if (_drawerCondoId) renderDrawerChamados();
 }
 
 
@@ -6791,7 +6786,6 @@ async function confirmarCancelarChamado() {
     }
     fecharModalCancelarChamado();
     await carregarTudo();
-    if (_drawerCondoId) renderDrawerChamados();
   } finally {
     btn.disabled = false;
   }
@@ -6814,393 +6808,6 @@ async function reabrirChamadoAction(id) {
   });
   if (!r.ok) { alert("Erro ao reabrir chamado"); return; }
   await carregarTudo();
-  if (_drawerCondoId) renderDrawerChamados();
-}
-
-// ===== DRAWER =====
-function abrirDrawer(condoId, tabInicial) {
-  _drawerCondoId = condoId;
-  _drawerTab = tabInicial || "telemetria";
-  _drawerConversaId = null;
-  _drawerHistorico = null; // limpa cache do histórico
-
-  const item = (_statusData || []).find(g => Number(g.condominio?.id) === condoId);
-  const condoObj = (Array.isArray(_condominios) ? _condominios : []).find(c => Number(c.id) === condoId);
-  const nome = item?.condominio?.nome || condoObj?.nome || `Condomínio ${condoId}`;
-  document.getElementById("drawerTitle").textContent = nome;
-
-  const chamadosN = _chamadosData.filter(ch => Number(ch.condominio_id) === condoId && _chEmAberto(ch.status)).length;
-  const wzN       = _conversasData.filter(cv => Number(cv.condominio_id) === condoId && cv.status === "aberta").length;
-
-  const bCh = document.getElementById("drawerBadgeChamados");
-  if (bCh) { bCh.textContent = chamadosN; bCh.classList.toggle("vis", chamadosN > 0); }
-  const bWz = document.getElementById("drawerBadgeWhatsapp");
-  if (bWz) { bWz.textContent = wzN; bWz.classList.toggle("vis", wzN > 0); }
-
-  document.getElementById("drawerOverlay").classList.add("is-open");
-  document.getElementById("drawerPanel").classList.add("is-open");
-
-  switchDrawerTab(_drawerTab || "telemetria");
-}
-
-function fecharDrawer() {
-  document.getElementById("drawerOverlay").classList.remove("is-open");
-  document.getElementById("drawerPanel").classList.remove("is-open");
-  _drawerCondoId = null;
-  _drawerConversaId = null;
-  _drawerHistorico = null;
-  destruirGaugesDrawer();
-}
-
-function switchDrawerTab(tab) {
-  _drawerTab = tab;
-  _drawerConversaId = null;
-
-  document.querySelectorAll(".drawer-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
-  document.querySelectorAll(".drawer-pane").forEach(p => p.classList.toggle("is-active", p.dataset.pane === tab));
-
-  if (tab === "telemetria") renderDrawerTelemetria();
-  else if (tab === "chamados") renderDrawerChamados();
-  else if (tab === "whatsapp") renderDrawerWhatsapp();
-  else if (tab === "os") renderDrawerOS();
-  else if (tab === "orcamentos") renderDrawerOrcamentos();
-}
-
-function corGaugePorNivel(lvClass) {
-  switch (lvClass) {
-    case "lv-alto":        return "#22c55e";
-    case "lv-medio":       return "#60a5fa";
-    case "lv-baixo":       return "#fb923c";
-    case "lv-muito-baixo": return "#f87171";
-    default:               return "#9ca3af";
-  }
-}
-
-function destruirGaugesDrawer() {
-  for (const chart of _drawerGauges.values()) {
-    try { chart.destroy(); } catch (_) {}
-  }
-  _drawerGauges.clear();
-}
-
-function criarGaugeReservatorio(elId, pct, lvClass) {
-  const el = document.getElementById(elId);
-  if (!el || typeof ApexCharts === "undefined") return;
-  const cor = corGaugePorNivel(lvClass);
-  const chart = new ApexCharts(el, {
-    chart: { type: "radialBar", height: 200, sparkline: { enabled: true }, animations: { enabled: true, speed: 600 } },
-    series: [Math.round(pct)],
-    colors: [cor],
-    plotOptions: {
-      radialBar: {
-        startAngle: -135,
-        endAngle: 135,
-        hollow: { size: "62%", background: "transparent" },
-        track: { background: "rgba(255,255,255,.06)", strokeWidth: "100%", margin: 0 },
-        dataLabels: {
-          name: { show: true, color: "#9ca3af", offsetY: 22, fontSize: "11px", fontWeight: 600 },
-          value: {
-            show: true,
-            color: "#f5f5f5",
-            fontSize: "30px",
-            fontWeight: 800,
-            offsetY: -8,
-            formatter: (v) => v + "%",
-          },
-        },
-      },
-    },
-    fill: {
-      type: "gradient",
-      gradient: { shade: "dark", type: "horizontal", gradientToColors: [cor], stops: [0, 100], opacityFrom: 1, opacityTo: 1 },
-    },
-    stroke: { lineCap: "round" },
-    labels: ["Nível"],
-  });
-  chart.render();
-  _drawerGauges.set(elId, { chart, cor });
-}
-
-function renderDrawerTelemetria() {
-  const pane = document.getElementById("drawerPaneTelemetria");
-  if (!pane) return;
-
-  // sempre destrói gauges antigos antes de reconstruir o HTML
-  destruirGaugesDrawer();
-
-  const item = (_statusData || []).find(g => Number(g.condominio?.id) === _drawerCondoId);
-  if (!item) { pane.innerHTML = `<div style="color:var(--muted);">Dados não encontrados.</div>`; return; }
-
-  const reservs = Array.isArray(item.reservatorios) ? item.reservatorios : [];
-
-  if (reservs.length === 0) {
-    pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhum reservatório ativo neste condomínio.</div>`;
-    return;
-  }
-
-  const gaugesParaCriar = []; // {elId, pct, lvClass}
-
-  const btnTelFull = `<div style="margin-bottom:12px;">
-    <button class="btn btn-sm" type="button" data-action="ir-telemetria-condo" data-condo-id="${_drawerCondoId}"
-      style="width:100%;justify-content:center;">
-      📊 Ver telemetria completa
-    </button>
-  </div>`;
-
-  pane.innerHTML = btnTelFull + reservs.map(r => {
-    const u = r.ultima_leitura;
-    const pct = u?.nivel_pct ?? null;
-    const n = String(u?.nivel || "").toLowerCase();
-    const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "";
-    const offline = !!r.offline;
-    const mins = r.minutos_sem_atualizar;
-    const alertas = r.alertas_abertos_count ?? 0;
-    const bombaLabel = u?.bomba_ligada === true ? badge("LIGADA", "warn") : u?.bomba_ligada === false ? badge("DESLIGADA", "ok") : "-";
-    const offlineBadge = offline ? badge("OFFLINE", "bad") : badge("Online", "ok");
-
-    const gaugeId = `gauge-r-${r.id}`;
-    if (pct != null && lvClass) gaugesParaCriar.push({ elId: gaugeId, pct, lvClass });
-
-    const gaugeHtml = pct != null
-      ? `<div class="dp-gauge-wrap"><div id="${gaugeId}" class="dp-gauge"></div></div>`
-      : `<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sem dados de nível</div>`;
-
-    return `
-      <div class="dp-res">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <div class="dp-res-name">${r.nome || "Reservatório"}</div>
-          ${offlineBadge}
-        </div>
-        ${gaugeHtml}
-        <div class="dp-res-meta">
-          <span>Bomba: ${bombaLabel}</span>
-          <span>Tipo: ${r.tipo || "-"}</span>
-          <span>Device: <code style="font-size:11px;">${r.device_id || "-"}</code></span>
-          ${mins != null ? `<span>Sem atualizar: ${mins}min</span>` : ""}
-          ${alertas > 0 ? `<span style="color:#f87171;">${alertas} alerta${alertas > 1 ? "s" : ""} aberto${alertas > 1 ? "s" : ""}</span>` : ""}
-          <span>Última leitura: ${u?.criado_em ? fmtData(u.criado_em) : "-"}</span>
-        </div>
-      </div>`;
-  }).join("");
-
-  for (const g of gaugesParaCriar) criarGaugeReservatorio(g.elId, g.pct, g.lvClass);
-}
-
-// Atualiza os gauges abertos sem rebuild de HTML (chamado no tick de telemetria)
-function atualizarGaugesDrawerSeAberto() {
-  if (!_drawerCondoId || _drawerTab !== "telemetria") return;
-  if (_drawerGauges.size === 0) return;
-
-  const item = (_statusData || []).find(g => Number(g.condominio?.id) === _drawerCondoId);
-  if (!item) return;
-  const reservs = Array.isArray(item.reservatorios) ? item.reservatorios : [];
-
-  // Se conjunto de reservatórios mudou (criação/exclusão), refaz tudo
-  const idsAtuais = new Set(reservs.map(r => `gauge-r-${r.id}`));
-  let mudouEstrutura = false;
-  for (const id of _drawerGauges.keys()) {
-    if (!idsAtuais.has(id)) { mudouEstrutura = true; break; }
-  }
-  if (mudouEstrutura) { renderDrawerTelemetria(); return; }
-
-  for (const r of reservs) {
-    const u = r.ultima_leitura;
-    const pct = u?.nivel_pct;
-    if (pct == null) continue;
-    const n = String(u?.nivel || "").toLowerCase();
-    const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "";
-    if (!lvClass) continue;
-
-    const elId = `gauge-r-${r.id}`;
-    const entry = _drawerGauges.get(elId);
-    if (!entry) { renderDrawerTelemetria(); return; }
-
-    const novaCor = corGaugePorNivel(lvClass);
-    if (novaCor !== entry.cor) {
-      entry.chart.updateOptions({ colors: [novaCor], fill: { type: "gradient", gradient: { gradientToColors: [novaCor] } } }, false, true);
-      entry.cor = novaCor;
-    }
-    entry.chart.updateSeries([Math.round(pct)]);
-  }
-}
-
-function renderDrawerChamados() {
-  const pane = document.getElementById("drawerPaneChamados");
-  if (!pane) return;
-
-  const list = _chamadosData.filter(ch => Number(ch.condominio_id) === _drawerCondoId);
-  if (list.length === 0) {
-    pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhum chamado para este condomínio.</div>`;
-    return;
-  }
-
-  const prioLabel = { p4: "P4 Agendado", p3: "P3 Controlado", p2: "P2 Alta", p1: "P1 Crítico" };
-  const statusLbl = { aberto: "Aberto", em_atendimento: "Em atendimento", fechado: "Fechado", cancelado: "Cancelado" };
-
-  pane.innerHTML = list.map(ch => {
-    const prioClass = `prio-${ch.prioridade || "p3"}`;
-    const statusCls = `chamado-status-${ch.status || "aberto"}`;
-    const orcBloco = ch.orcamento_necessario ? `
-      <div class="orc-bloco">
-        <div class="orc-bloco-head">
-          <span class="orc-bloco-badge">💰 Orçamento solicitado pelo técnico</span>
-        </div>
-        <div class="orc-bloco-texto">${ch.orcamento_observacoes
-          ? escapeHtml(ch.orcamento_observacoes).replace(/\n/g, "<br>")
-          : "<em>Sem observações registradas — contate o técnico.</em>"}</div>
-      </div>` : "";
-    return `
-      <div class="dp-chamado${ch.orcamento_necessario ? " dp-chamado-orc" : ""}">
-        <div class="dp-chamado-titulo">${ch.titulo || "Chamado #" + ch.id}</div>
-        <div class="dp-chamado-meta">
-          <span class="prio-badge ${prioClass}">${prioLabel[ch.prioridade] || ch.prioridade}</span>
-          <span class="${statusCls}">${statusLbl[ch.status] || ch.status}</span>
-          ${ch.orcamento_necessario ? `<span class="orc-pill">💰 Orçamento</span>` : ""}
-          ${ch.plano_manutencao_id ? `<span class="orc-pill" style="background:rgba(99,102,241,.15);color:#a5b4fc;border-color:rgba(99,102,241,.35);" title="${_waEscaparHtml(ch.plano_titulo || "Plano de manutenção")}">🔄 Preventiva</span>` : ""}
-          <span style="color:var(--muted2);">#${ch.id} • ${fmtData(ch.criado_em)}</span>
-        </div>
-        ${ch.descricao ? `<div style="font-size:12px;color:var(--muted);line-height:1.5;">${ch.descricao.slice(0, 200)}${ch.descricao.length > 200 ? "…" : ""}</div>` : ""}
-        ${orcBloco}
-        ${_chEmAberto(ch.status) ? `
-        <div class="dp-chamado-actions viewer-only-hide">
-          <button class="btn btn-sm" data-action="fechar-chamado" data-id="${ch.id}">Fechar</button>
-        </div>` : ""}
-      </div>`;
-  }).join("");
-}
-
-function renderDrawerWhatsapp() {
-  const pane = document.getElementById("drawerPaneWhatsapp");
-  if (!pane) return;
-
-  if (_drawerConversaId) { renderConversaChat(_drawerConversaId); return; }
-
-  const list = _conversasData.filter(cv => Number(cv.condominio_id) === _drawerCondoId);
-  if (list.length === 0) {
-    pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhuma conversa para este condomínio.</div>`;
-    return;
-  }
-
-  pane.innerHTML = `<div class="wz-list">${list.map(cv => {
-    const nome = cv.cliente_nome || cv.telefone || "Desconhecido";
-    const ts = cv.ultima_mensagem_em ? fmtData(cv.ultima_mensagem_em) : fmtData(cv.criado_em);
-    const preview = cv.ultima_mensagem ? cv.ultima_mensagem.slice(0, 80) + (cv.ultima_mensagem.length > 80 ? "…" : "") : "(sem mensagens)";
-    const statusB = cv.status === "aberta" ? badge("aberta", "warn") : badge("fechada", "ok");
-    return `
-      <div class="wz-convo" data-action="ver-conversa" data-id="${cv.id}">
-        <div class="wz-convo-head">
-          <span class="wz-convo-name">${nome}</span>
-          ${statusB}
-          <span class="wz-convo-ts">${ts}</span>
-        </div>
-        <div class="wz-convo-last">${preview}</div>
-      </div>`;
-  }).join("")}</div>`;
-}
-
-async function renderConversaChat(conversaId) {
-  const pane = document.getElementById("drawerPaneWhatsapp");
-  if (!pane) return;
-  pane.innerHTML = `<button class="wz-back" data-action="voltar-conversas">← Voltar</button><div style="color:var(--muted);">Carregando…</div>`;
-
-  try {
-    const r = await fetch(`/whatsapp/conversas/${conversaId}`, { headers: authHeaders() });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Erro ao carregar");
-
-    const nome = data.cliente_nome || data.telefone || "Cliente";
-    const msgs = Array.isArray(data.mensagens) ? data.mensagens : [];
-    const statusB = data.status === "aberta" ? badge("aberta", "warn") : badge("fechada", "ok");
-
-    pane.innerHTML = `
-      <button class="wz-back" data-action="voltar-conversas">← Voltar</button>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">${nome} • ${data.telefone || ""} • ${statusB}</div>
-      <div class="wz-chat">
-        ${msgs.length === 0 ? `<div style="color:var(--muted);">Sem mensagens.</div>` :
-          msgs.map(m => `
-            <div class="wz-msg ${m.direcao === "entrada" ? "wz-in" : "wz-out"}">
-              ${m.conteudo || "(sem texto)"}
-              <span class="wz-ts">${fmtData(m.criado_em)}</span>
-            </div>`).join("")}
-      </div>`;
-  } catch (err) {
-    pane.innerHTML = `<button class="wz-back" data-action="voltar-conversas">← Voltar</button><div style="color:var(--danger);">Erro: ${err.message}</div>`;
-  }
-}
-
-// ─── Drawer: OS e Orçamentos ─────────────────────────────────────────────────
-let _drawerHistorico = null; // { condoId, os, orcamentos }
-
-async function _drawerCarregarHistorico() {
-  const id = _drawerCondoId;
-  if (!id) return null;
-  if (_drawerHistorico?.condoId === id) return _drawerHistorico;
-  try {
-    const r = await fetch(`/admin/condominios/${id}/historico`, { headers: authHeaders() });
-    if (!r.ok) return null;
-    const data = await r.json();
-    _drawerHistorico = { condoId: id, ...data };
-    return _drawerHistorico;
-  } catch (e) { console.error("_drawerCarregarHistorico:", e); return null; }
-}
-
-async function renderDrawerOS() {
-  const pane = document.getElementById("drawerPaneOS");
-  if (!pane) return;
-  pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Carregando…</div>`;
-
-  const hist = await _drawerCarregarHistorico();
-  if (!hist) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Erro ao carregar.</div>`; return; }
-
-  const { os } = hist;
-  const fmtD  = iso => iso ? new Date(iso).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"}) : "—";
-  const fmtV  = v  => Number(v) > 0 ? "R$ " + Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : null;
-  const sCor  = s  => s==="fechado"||s==="aprovado" ? "var(--ok)" : s==="rejeitado" ? "#f87171" : s==="rascunho"||s==="pendente" ? "var(--muted)" : "var(--warn)";
-  const sLbl  = s  => ({aberto:"Aberto",fechado:"Fechado",pendente:"Pendente",aprovado:"Aprovado",rejeitado:"Rejeitado"})[s] || s || "—";
-
-  if (!os.length) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhuma O.S. registrada.</div>`; return; }
-
-  pane.innerHTML = os.map(o => {
-    const status = o.finalizada_em ? "fechado" : "aberto";
-    const orcInfo = o.orcamento_necessario && o.orcamento_status
-      ? `<div class="dh-row-sub">Orç.: <span style="color:${sCor(o.orcamento_status)};font-weight:600;">${sLbl(o.orcamento_status)}</span>${fmtV(o.orcamento_valor) ? " · " + fmtV(o.orcamento_valor) : ""}</div>`
-      : "";
-    return `<div class="dh-item">
-      <div class="dh-row-main">
-        <span class="dh-num">OS #${_waEscaparHtml(o.numero || o.id)}</span>
-        <span class="dh-badge" style="color:${sCor(status)};">${sLbl(status)}</span>
-      </div>
-      <div class="dh-row-sub">${fmtD(o.criado_em)}${o.tecnico_nome ? " · " + _waEscaparHtml(o.tecnico_nome) : ""}${o.tipos_servico ? " · " + _waEscaparHtml(o.tipos_servico) : ""}</div>
-      ${orcInfo}
-    </div>`;
-  }).join("");
-}
-
-async function renderDrawerOrcamentos() {
-  const pane = document.getElementById("drawerPaneOrcamentos");
-  if (!pane) return;
-  pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Carregando…</div>`;
-
-  const hist = await _drawerCarregarHistorico();
-  if (!hist) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Erro ao carregar.</div>`; return; }
-
-  const { orcamentos } = hist;
-  const fmtD = iso => iso ? new Date(iso).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"}) : "—";
-  const fmtV = v  => "R$ " + Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
-  const sCor = s  => s==="aprovado" ? "var(--ok)" : s==="rejeitado" ? "#f87171" : s==="rascunho" ? "var(--muted)" : s==="enviado" ? "var(--warn)" : "var(--muted)";
-  const sLbl = s  => ({rascunho:"Rascunho",enviado:"Enviado",aprovado:"Aprovado",rejeitado:"Rejeitado"})[s] || s || "—";
-
-  if (!orcamentos.length) { pane.innerHTML = `<div style="color:var(--muted);font-size:13px;">Nenhum orçamento registrado.</div>`; return; }
-
-  pane.innerHTML = orcamentos.map(o => `
-    <div class="dh-item">
-      <div class="dh-row-main">
-        <span class="dh-num">${_waEscaparHtml(o.numero || "—")}</span>
-        <span class="dh-badge" style="color:${sCor(o.status)};">${sLbl(o.status)}</span>
-      </div>
-      <div class="dh-row-sub">${fmtD(o.criado_em)} · ${fmtV(o.valor_total)}</div>
-      ${o.os_id ? `<div class="dh-row-sub">Vinculado à <span style="color:var(--text);font-weight:600;">OS #${_waEscaparHtml(o.os_numero || o.os_id)}</span></div>` : ""}
-    </div>`).join("");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -7211,7 +6818,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("filtroSomenteOffline")?.addEventListener("change", aplicarFiltros);
 });
 
-let _modalKey = null;
 
 // Drill-down dos KPIs do dashboard.
 //
@@ -7419,104 +7025,11 @@ function hideTip() {
   tip.style.display = "none";
 }
 
-/* ===== Modal (click) ===== */
-// ⚠️ SEM USO desde 2026-07-31. Era o modal-tabela que os KPIs do dashboard
-// abriam; virou navegação direta pra seção filtrada (ver _DASH_DRILL). Ficou
-// aqui, junto com fecharModal/renderModalLista e o #modalOverlay do HTML, por
-// ser um componente inteiro — apagar é decisão à parte. Se ninguém religar até
-// a próxima limpeza, pode ir embora. `getListaPorKey` NÃO é órfã: continua
-// alimentando a prévia do hover em showTip().
-function abrirModal(key) {
-  _modalKey = key;
-
-  const titleMap = {
-    offline: "Dispositivos OFFLINE",
-    nivel_baixo: "Alertas • Nível Baixo",
-    nivel_muito_baixo: "Alertas • Nível MUITO Baixo",
-    com_alerta: "Condomínios com ALERTA",
-    ok: "Condomínios OK"
-  };
-
-  document.getElementById("modalTitle").textContent = titleMap[key] || "Detalhes";
-  document.getElementById("modalSub").textContent = "Use a busca para filtrar";
-  document.getElementById("modalBusca").value = "";
-
-  // Coluna 2 muda conforme o tipo: condomínio → Chamados; dispositivo → Device
-  const th2 = document.getElementById("modalThCol2");
-  if (th2) th2.textContent = (key === "com_alerta" || key === "ok") ? "Chamados" : "Device";
-
-  document.getElementById("modalOverlay").style.display = "flex";
-  renderModalLista();
-}
-
-function fecharModal() {
-  document.getElementById("modalOverlay").style.display = "none";
-  _modalKey = null;
-}
-
-// ⚠️ Era `oninput` no HTML, bloqueado pela CSP: a busca deste modal nunca
-// filtrou. Ligado aqui (o script é `defer`, o DOM já existe).
-document.getElementById("modalBusca")?.addEventListener("input", () => renderModalLista());
-
 // Formulários montados em template que só agrupam campos e nunca devem
 // enviar. Era `onsubmit="return false"`, que a CSP bloqueava: Enter num campo
 // enviava o formulário e recarregava o painel no meio do envio de e-mail.
 document.addEventListener("submit", (e) => {
   if (e.target.matches?.("form[data-sem-envio]")) e.preventDefault();
-});
-
-function renderModalLista() {
-  const busca = (document.getElementById("modalBusca").value || "").trim().toLowerCase();
-  let list = getListaPorKey(_modalKey);
-
-  if (busca) {
-    list = list.filter(it =>
-      String(it.nome || "").toLowerCase().includes(busca) ||
-      String(it.device_id || "").toLowerCase().includes(busca) ||
-      String(it.detalhe || "").toLowerCase().includes(busca)
-    );
-  }
-
-  document.getElementById("modalCount").textContent = `${list.length} itens`;
-
-  const tbody = document.getElementById("modalTbody");
-  tbody.innerHTML = "";
-
-  if (!list.length) {
-    tbody.innerHTML = `
-      <tr class="m-empty-row">
-        <td colspan="5">
-          <div class="m-empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
-            <p>${busca ? "Nada encontrado para essa busca." : "Nada por aqui."}</p>
-          </div>
-        </td>
-      </tr>`;
-    return;
-  }
-
-  for (const it of list) {
-    const kind = it.kind || "ok";
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td class="m-stat"><span class="m-dot m-dot-${kind}" title="${kind}"></span></td>
-      <td class="m-condo">${it.nome}</td>
-      <td class="mono m-device">${it.device_id}</td>
-      <td class="m-det">${it.detalhe}</td>
-      <td class="right">
-        ${it.condominio_id ? `<button class="btn btn-sm m-detail-btn" data-action="ver-condo-modal" data-condo-id="${it.condominio_id}">Ver detalhes<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>` : ""}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  }
-}
-
-// Fechar modal clicando fora
-document.addEventListener("click", (e) => {
-  const ov = document.getElementById("modalOverlay");
-  if (ov && ov.style.display !== "none" && e.target === ov) fecharModal();
 });
 
 // Mensagem de estado do modal de editar condomínio. Agora ela vive no trilho,
@@ -10833,15 +10346,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (el) el.style.display = "none";
     });
 
-    // A gaveta por condomínio não some com o Dashboard: ela também abre do
-    // popup do mapa e da ficha do chamado, as duas telas do perfil. Três das
-    // cinco abas dela batem em rota que agora responde 403 — esconder item de
-    // nav não alcança gaveta, e sem isto a restrição vira erro na cara de quem
-    // só queria olhar o prédio.
-    ["whatsapp", "os", "orcamentos"].forEach(t => {
-      const el = document.querySelector(`.drawer-tab[data-tab="${t}"]`);
-      if (el) el.style.display = "none";
-    });
+    // O menu do celular tem "Condomínios" (a lista), que ele não vê.
+    const _mobCondos = document.querySelector('.mob-nav-item[data-mob-section="cadastros"]');
+    if (_mobCondos) _mobCondos.style.display = "none";
+
+    // (A gaveta por condomínio, que precisava esconder três abas aqui, saiu
+    // na fase 5 do redesenho. Quem abre o prédio agora é a ficha, em
+    // admin-condominio.js, que esconde por conta própria o que o perfil não lê.)
 
     // A faixa financeira (MRR, contratos vencendo) vem de `/contratos`, que o
     // operador não alcança mais. Hoje é redundante — o Dashboard inteiro está
@@ -11172,10 +10683,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btnCriarCliente")?.addEventListener("click", criarCliente);
 
-  document.getElementById("btnFecharDrawer")?.addEventListener("click", fecharDrawer);
-  document.getElementById("drawerOverlay")?.addEventListener("click", fecharDrawer);
-
-  document.getElementById("btnFecharModal")?.addEventListener("click", fecharModal);
   document.getElementById("btnFecharModalEditar")?.addEventListener("click", fecharModalEditar);
   document.getElementById("btnCancelarEdicao")?.addEventListener("click", fecharModalEditar);
   document.getElementById("btnHardDeleteNoEdit")?.addEventListener("click", () => {
@@ -11220,7 +10727,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // a gaveta mostrava e o que ela não tinha (contrato, notas, equipamentos).
     if (action === "ver-condo") {
       const id = Number(btn.dataset.id);
-      if (id) { if (typeof fecharDrawer === "function") fecharDrawer(); abrirFichaCondominio(id); }
+      if (id) abrirFichaCondominio(id);
       return;
     }
 
@@ -11232,17 +10739,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "tel-ver-todos")        { _telAbrirVerTodos(); return; }
     if (action === "tel-ver-todos-fechar") { _telFecharVerTodos(); return; }
     if (action === "tel-hist-fechar")      { _telFecharHistorico(); return; }
-
-    if (action === "ver-condo-modal") {
-      const id = Number(btn.dataset.condoId);
-      if (id) { fecharModal(); abrirFichaCondominio(id); }
-      return;
-    }
-
-    if (action === "drawer-tab") {
-      switchDrawerTab(btn.dataset.tab);
-      return;
-    }
 
     if (action === "fechar-chamado") {
       const id = Number(btn.dataset.id);
@@ -11400,26 +10896,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (action === "ver-conversa") {
-      const id = Number(btn.dataset.id);
-      if (id) { _drawerConversaId = id; renderConversaChat(id); }
-      return;
-    }
-
-    if (action === "voltar-conversas") {
-      _drawerConversaId = null;
-      renderDrawerWhatsapp();
-      return;
-    }
-
+    // Conversa do card "Conversas recentes" do Painel abre na tela WhatsApp,
+    // com ela selecionada. Antes abria a gaveta do condomínio só para mostrar
+    // o chat, que a tela WhatsApp já mostra (e com resposta, IA e vínculo).
+    // A gaveta saiu na fase 5 do redesenho (18/11/2026).
     if (action === "ver-convo-section") {
       const id = Number(btn.dataset.id);
-      const cv = _conversasData.find(c => c.id === id);
-      if (cv && cv.condominio_id) {
-        abrirDrawer(cv.condominio_id);
-        _drawerConversaId = id;
-        switchDrawerTab("whatsapp");
-        renderConversaChat(id);
+      if (id) {
+        showSection("whatsapp");
+        _waSelecionar(id);
       }
       return;
     }
@@ -11433,20 +10918,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (action === "regen-res-key") {
       const id = Number(btn.dataset.id);
       if (id) regenerarDeviceKeyReservatorio(id);
-      return;
-    }
-
-    if (action === "ir-telemetria-condo") {
-      const condoId = Number(btn.dataset.condoId);
-      fecharDrawer();
-      showSection("telemetria");
-      setTimeout(() => {
-        _telFiltroCondominioId = String(condoId);
-        const sel = document.getElementById("telFiltroCondominio");
-        if (sel) sel.value = String(condoId);
-        renderTelTanques?.();
-        renderTelCriticos?.();
-      }, 0);
       return;
     }
 
@@ -11584,11 +11055,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Fechar modal clicando fora (você já tem, pode manter)
-  document.addEventListener("click", (e) => {
-    const ov = document.getElementById("modalOverlay");
-    if (ov && ov.style.display !== "none" && e.target === ov) fecharModal();
-  });
 
   document.addEventListener("click", (e) => {
     const ov = document.getElementById("editOverlay");
@@ -11597,7 +11063,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      fecharDrawer();
       fecharModalEditar();
       fecharModalEditarReservatorio();
     }
