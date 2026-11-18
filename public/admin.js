@@ -126,7 +126,9 @@ function escapeHtml(s) {
 
 // ===== NAVEGAÇÃO POR SEÇÕES =====
 const _sectionTitles = {
-  dashboard:        "Dashboard",
+  inicio:           "Início",
+  notas:            "Notas fiscais",
+  dashboard:        "Painel",
   telemetria:       "Telemetria",
   mapa:             "Mapa",
   alertas:          "Alertas",

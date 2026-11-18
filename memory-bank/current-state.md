@@ -91,6 +91,12 @@ já existia. Mora em `public/admin-condominio.js`, que roda depois do
 `feature/admin-condominio`, ainda não em produção. Ver
 [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
+Na mesma branch (fase 3): o menu virou **9 grupos** com subabas
+(`public/admin-nav.js`), montados a partir da nav antiga, que fica escondida
+e continua sendo a fonte de perfil, badge e item ativo. A tela de abertura
+passou a ser o **Início** (`public/admin-carteira.js`), com o que pede ação
+na carteira; há também uma lista geral de **notas fiscais** em Financeiro.
+
 ### ⚠️ Nota fiscal pelo Omie — NFS-e e DANFE (17–18/11/2026)
 
 O orçamento aprovado vira nota pela ficha, através da API do Omie (addon

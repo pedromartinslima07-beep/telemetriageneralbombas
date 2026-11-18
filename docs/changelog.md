@@ -17729,3 +17729,22 @@ Fases 1 e 2 do [redesenho do admin](modulos/redesenho-admin.md), na branch
   condomínio"), todo `ver-condo` do painel e o pin do mapa do Dashboard, que
   antes abriam a gaveta.
 - `admin.js?v=371`, `admin.css?v=277`, `admin-condominio.js?v=3`.
+
+## Menu em 9 grupos, tela Início e lista de notas fiscais (2026-11-18)
+
+Fase 3 do [redesenho do admin](modulos/redesenho-admin.md), mesma branch
+`feature/admin-condominio` (sem deploy). Sem migration, sem endpoint novo.
+
+- **Menu de 15 itens para 9 grupos** (`public/admin-nav.js`): Início, Agenda,
+  Condomínios, Chamados, O.S., Orçamentos, Financeiro, Relatórios,
+  Configurações. As telas que dividem um grupo viram subabas no topo. Nenhuma
+  tela saiu.
+- **Início** (`public/admin-carteira.js`) é a nova tela de abertura: o que pede
+  ação na carteira, por tipo (urgente, resposta de cliente sem baixa, aprovado
+  sem nota, nota com erro, O.S. a enviar, contrato vencendo). O Dashboard virou
+  a subaba "Painel".
+- **Notas fiscais** em Financeiro: todas as notas, por situação, e os
+  aprovados que ainda não têm nota.
+- Menu do celular: Início, Alertas, Condomínios, Chamados.
+- `admin.js?v=372`, `admin.css?v=281`, `admin-nav.js?v=3`,
+  `admin-carteira.js?v=2`.

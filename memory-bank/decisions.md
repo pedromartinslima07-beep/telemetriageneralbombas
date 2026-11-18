@@ -1263,6 +1263,19 @@ comum cancelado segue aparecendo, com o motivo. Para a equipe nada some.
 - **A ficha vive em arquivo próprio** (`public/admin-condominio.js`), no molde
   do `condo-picker.js`: o `admin.js` já tem ~17.900 linhas, e um arquivo
   separado deixa a fase 3 mexer na nav sem passar pelo meio dele.
+- **O menu de 9 grupos é desenhado POR CIMA da nav antiga, que continua
+  mandando (fase 3).** Reescrever a nav exigiria achar todo ponto do `admin.js`
+  que lê ou escreve nela: o recorte do operador (`style.display`), os 7
+  badges, o `.active` do `showSection`, a varredura de rótulo órfão. Manter a
+  nav antiga escondida como fonte da verdade e só LER dela deixou essas regras
+  intocadas, e por isso o operador saiu certo no primeiro teste.
+- **Tela que divide grupo vira subaba, e nenhuma sai.** "Nunca remova
+  funcionalidade sem autorização" vale para as telas que o Início absorve
+  (Dashboard, Alertas, Telemetria): elas continuam a um clique, como subabas.
+  Decidir se alguma sai é a fase 5.
+- **A tela de abertura passa a ser o Início, não o Dashboard.** O plano
+  aprovado diz que o Início é "a fila do que pede ação", e é o que o mercado
+  faz (ver redesenho-admin.md). O operador continua abrindo em Alertas.
 
 ## Decisões descartadas (e por quê)
 

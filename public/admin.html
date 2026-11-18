@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=277">
+  <link rel="stylesheet" href="/static/admin.css?v=281">
 </head>
 <body>
   <div id="appLoader">
@@ -44,6 +44,17 @@
       <nav class="nav">
 
         <span class="nav-section-label">Agora</span>
+        <!-- Início e Notas (fase 3, 18/11/2026). Esta nav antiga fica escondida
+             por admin-nav.js e continua sendo a fonte da verdade de perfil,
+             badge e item ativo; o menu visível é montado a partir dela. -->
+        <button class="nav-item" data-section="inicio" data-label="Início">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span class="nav-item-label">Início</span>
+        </button>
+        <button class="nav-item" data-section="notas" data-label="Notas fiscais">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          <span class="nav-item-label">Notas fiscais</span>
+        </button>
         <button class="nav-item" data-section="alertas" data-label="Alertas">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -214,7 +225,7 @@
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
       </button>
-      <h1 class="topbar-title" id="topbarTitleDesktop">Dashboard</h1>
+      <h1 class="topbar-title" id="topbarTitleDesktop">Início</h1>
 
       <div class="topbar-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -262,7 +273,18 @@
     <div class="content">
 
       <!-- ===== SECTION: DASHBOARD ===== -->
-      <div class="section is-active" data-section="dashboard">
+      <!-- Início: o que pede ação na carteira (admin-carteira.js). É a tela
+           de abertura desde a fase 3; o Dashboard virou a subaba "Painel". -->
+      <div class="section is-active" data-section="inicio">
+        <div class="ic" id="icRoot"></div>
+      </div>
+
+      <!-- Notas fiscais da carteira inteira (admin-carteira.js). -->
+      <div class="section" data-section="notas">
+        <div class="nf" id="nfRoot"></div>
+      </div>
+
+      <div class="section" data-section="dashboard">
 
         <!-- Stats -->
         <div id="resumoGrid" class="resumo-grid"></div>
@@ -2590,7 +2612,7 @@
 <!-- ===== MOBILE TOP BAR ===== -->
 <header class="mob-topbar">
   <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
-  <span class="mob-top-title" id="topbarTitle">Dashboard</span>
+  <span class="mob-top-title" id="topbarTitle">Início</span>
   <button class="mob-top-btn" id="mobBtnOffline" aria-label="Verificar Offline" title="Verificar Offline">
     <!-- wi-fi off: mesma arte do ICON_WIFI_OFF em admin.js -->
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2613,12 +2635,11 @@
 
 <!-- ===== MOBILE BOTTOM NAV ===== -->
 <nav class="mob-nav">
-  <button class="mob-nav-item active" data-mob-section="dashboard">
+  <button class="mob-nav-item active" data-mob-section="inicio">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
     </svg>
-    <span>Dashboard</span>
+    <span>Início</span>
   </button>
   <button class="mob-nav-item" data-mob-section="alertas">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -2630,10 +2651,10 @@
   </button>
   <button class="mob-nav-item" data-mob-section="cadastros">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
+      <rect x="4" y="2" width="16" height="20" rx="1"/><path d="M10 22v-4h4v4"/>
+      <line x1="9" y1="7" x2="9" y2="7.01"/><line x1="15" y1="7" x2="15" y2="7.01"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/>
     </svg>
-    <span>Cadastros</span>
+    <span>Condomínios</span>
   </button>
   <button class="mob-nav-item" data-mob-section="chamados">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -2904,8 +2925,10 @@
 </div>
 
 
-<script src="/static/admin.js?v=371" defer></script>
+<script src="/static/admin.js?v=372" defer></script>
 <script src="/static/admin-condominio.js?v=3" defer></script>
+<script src="/static/admin-nav.js?v=3" defer></script>
+<script src="/static/admin-carteira.js?v=2" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

@@ -13,11 +13,11 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-> 🟡 **Redesenho do admin: fases 1 e 2 prontas na branch
-> `feature/admin-condominio` (18/11/2026).** Endereço por tela e a ficha do
-> condomínio (orçamentos, contrato, O.S., notas etc. num lugar só). A branch
-> saiu da `feature/nota-fiscal-omie`, então **sobe depois dela**. Falta: menu
-> de 15 para 9 itens + Início (fase 3) e fundo claro (fase 4). Ver
+> 🟡 **Redesenho do admin: fases 1 a 3 prontas na branch
+> `feature/admin-condominio` (18/11/2026).** Endereço por tela, a ficha do
+> condomínio, o menu em 9 grupos, a tela Início (o que pede ação) e a lista de
+> notas fiscais. A branch saiu da `feature/nota-fiscal-omie`, então **sobe
+> depois dela**. Falta: fundo claro (fase 4). Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md) e
 > [roadmap.md](roadmap.md).
 

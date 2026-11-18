@@ -10639,3 +10639,136 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .cf-dl dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
 .cf-reps { list-style: none; margin: 0; padding: 0; }
 .cf-reps li { display: flex; flex-direction: column; padding: 8px 0; border-bottom: 1px solid var(--fio-fraco); }
+
+/* ============================================================
+   MENU EM GRUPOS, SUBABAS, INÍCIO E NOTAS — redesenho, fase 3 (18/11/2026)
+   ============================================================
+   admin-nav.js monta .nav-grupos a partir da nav antiga (escondida, com
+   `hidden`). Os itens novos usam a MESMA classe .nav-item, então herdam a
+   escada de densidade por altura e o modo recolhido sem regra nova.
+   Só tokens: a fase 4 remapeia. */
+
+.nav-antiga[hidden] { display: none !important; }
+
+/* Subabas do grupo: a mesma barra .wa-tabs das telas, no topo do conteúdo. */
+/* ⚠️ flex: none — o .content é coluna flex e a seção ativa tem flex: 1; com o
+   overflow-x do .wa-tabs a barra encolhia até 0 de altura e sumia. */
+.nav-sub { flex: none; margin: 0; }
+
+/* A subaba é NAVEGAÇÃO (troca de tela), as abas de dentro da tela são
+   FILTRO. Com a mesma placa as duas fileiras pareciam uma coisa só (visto em
+   Notas fiscais). A de navegação é texto com fio embaixo, sem placa. */
+.nav-sub {
+  gap: 22px;
+  margin-top: 0;
+  box-shadow: inset 0 -1px 0 var(--fio-fraco);
+}
+.nav-sub .wa-tab {
+  padding: 8px 0 10px;
+  border: 0;
+  cursor: pointer;
+  background: none;
+  box-shadow: none;
+  clip-path: none;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.nav-sub .wa-tab:hover { background: none; box-shadow: none; color: var(--text); }
+.nav-sub .wa-tab.is-active {
+  background: none;
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.nav-sub .wa-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nav-sub .wa-count { background: none; box-shadow: none; color: inherit; padding: 0 0 0 2px; }
+.nav-sub .wa-tab.is-active .wa-count { background: none; color: var(--amarelo); }
+.nav-sub[hidden] { display: none; }
+
+/* ----- Início ----- */
+.ic { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ic-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ic-resumo {
+  margin: 0;
+  font-family: var(--fonte);
+  font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+
+.ic-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.ic-grupo {
+  display: flex; flex-direction: column;
+  padding: 16px 18px 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+.ic-grupo-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.ic-h2 {
+  margin: 0;
+  font-family: var(--fonte);
+  font-size: 14.5px; font-weight: 700; letter-spacing: -.005em;
+  color: var(--text);
+}
+.ic-n { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ic-grupo.is-risco   .ic-n { color: var(--risco); }
+.ic-grupo.is-atencao .ic-n { color: var(--amarelo); }
+.ic-grupo.is-neutro  .ic-n { color: var(--text-dim); }
+/* Grupo sem nada recua: ocupa o lugar, mas não disputa atenção. */
+.ic-grupo.is-vazio { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); }
+.ic-grupo.is-vazio .ic-h2 { color: var(--muted); font-weight: 600; }
+
+.ic-lista { list-style: none; margin: 0; padding: 0; }
+.ic-item {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr) auto;
+  align-items: baseline; gap: 12px; width: 100%;
+  background: none; border: 0; border-top: 1px solid var(--fio-fraco);
+  padding: 9px 0; text-align: left; cursor: pointer;
+  font: inherit; font-size: 13px; line-height: 1.35; color: var(--text);
+}
+.ic-lista li:first-child .ic-item { border-top: 0; }
+.ic-item:hover .ic-txt { color: var(--accent-2); }
+.ic-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ic-predio { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ic-txt    { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ic-quando { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ic-vazio  { margin: 4px 0 8px; color: var(--muted); font-size: 13px; }
+.ic-mais {
+  align-self: flex-start; margin: 4px 0 6px;
+  background: none; border: 0; padding: 4px 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--muted);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.ic-mais:hover { color: var(--text); }
+
+@media (max-width: 640px) {
+  .ic-item { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; }
+  .ic-predio { grid-column: 1; }
+  .ic-txt    { grid-column: 1; white-space: normal; }
+  .ic-quando { grid-column: 2; grid-row: 1; }
+}
+
+/* ----- Notas fiscais ----- */
+.nf { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.nf-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.nf-barra .wa-tabs { margin-top: 0; }
+.nf-busca {
+  min-width: 240px; flex: 0 1 320px;
+  padding: 8px 12px;
+  background: var(--surface); color: var(--text);
+  border: 0; box-shadow: inset 0 0 0 1px var(--fio);
+  font: inherit; font-size: 13px;
+}
+.nf-busca::placeholder { color: var(--muted); }
+.nf-busca:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 640px) { .nf-busca { flex: 1 1 100%; min-width: 0; } }

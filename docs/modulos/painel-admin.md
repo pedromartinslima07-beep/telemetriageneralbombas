@@ -91,10 +91,12 @@ Detalhe e medidas no [changelog](../changelog.md).
 
 ## As 15 telas
 
-> 🟡 **Redesenho em andamento (18/11/2026).** Já existe uma 16ª seção,
-> `condominio` (a **ficha do condomínio**, fora da nav, aberta por
-> `#/condominios/ID`), e toda seção tem endereço `#/nome`. Ainda faltam o menu
-> de 9 itens e o fundo claro. Ver [redesenho-admin.md](redesenho-admin.md).
+> 🟡 **Redesenho em andamento (18/11/2026, branch sem deploy).** São 18
+> seções agora: as 15 abaixo, mais `condominio` (a ficha), `inicio` (a nova
+> tela de abertura) e `notas`. Toda seção tem endereço `#/nome`. **O menu
+> visível é de 9 grupos** (`admin-nav.js`); a nav descrita abaixo continua no
+> HTML, escondida, e é dela que o menu novo lê perfil, badge e item ativo.
+> Falta o fundo claro. Ver [redesenho-admin.md](redesenho-admin.md).
 
 Não há rota por tela: tudo é `showSection(nome)` alternando `.section` no mesmo
 documento. Os nomes abaixo são os `data-section` reais.

@@ -8,11 +8,11 @@ aliases:
   - Admin por condomínio
   - Admin claro
 ---
-# Redesenho do painel admin — o condomínio como eixo (🟡 fases 1 e 2 prontas, 18/11/2026)
+# Redesenho do painel admin — o condomínio como eixo (🟡 fases 1 a 3 prontas, 18/11/2026)
 
-Plano aprovado pelo Pedro em 18/11/2026. **Fases 1 e 2 implementadas na branch
-`feature/admin-condominio`** (sem merge, sem deploy) — ver "O que foi
-implementado" no fim. Fases 3–5 continuam planejadas. O
+Plano aprovado pelo Pedro em 18/11/2026. **Fases 1, 2 e 3 implementadas na branch
+`feature/admin-condominio`** (sem merge, sem deploy) — ver as seções "O que
+foi implementado" no fim. Fases 4 e 5 continuam planejadas. O
 estado atual do painel está em [painel-admin.md](painel-admin.md); o "porquê"
 das escolhas, em [decisions.md](../../memory-bank/decisions.md) (seção
 "Painel admin — o condomínio como eixo e fundo claro").
@@ -149,7 +149,7 @@ outros valores numa subárvore.
 |---|---|---|---|
 | 1 | Endereço por tela (hash) | Não | ✅ 18/11 (branch) |
 | 2 | Ficha do condomínio. Gaveta do Dashboard e ficha de Clientes passam a abrir a ficha | Sim, só a ficha | ✅ 18/11 (branch) |
-| 3 | Menu novo + Início | Sim | 📋 |
+| 3 | Menu novo + Início | Sim | ✅ 18/11 (branch) |
 | 4 | Tema claro (tokens no contêiner do painel) | Sim, tudo | 📋 |
 | 5 | Retirar as telas que sobrarem | **Só com autorização** | 📋 |
 
@@ -253,3 +253,106 @@ de O.S. abrem pela ficha; "Abrir chamado" já vem com o prédio; o pin do mapa e
 o botão da coluna de Clientes abrem a ficha. **Não testado:** o perfil
 operador (a regra só lê a nav) e salvar um documento pela ficha para ver o
 gancho redesenhar.
+
+---
+
+## O que foi implementado (fase 3, 18/11/2026)
+
+Mesma branch. Menu de 15 itens para **9 grupos**, tela **Início** e lista
+geral de **Notas fiscais**.
+
+### Arquivos
+
+| Arquivo | O quê |
+|---|---|
+| `public/admin-nav.js` (novo) | Monta o menu de 9 grupos e as subabas; embrulha o `showSection` |
+| `public/admin-carteira.js` (novo) | Telas Início e Notas fiscais (a carteira inteira) |
+| `public/admin.html` | Seções `inicio` (agora a de abertura, `is-active` no HTML) e `notas`; dois itens novos na nav antiga; menu mobile: Dashboard → Início, Cadastros → Condomínios |
+| `public/admin.js` | Só `_sectionTitles`: `inicio`, `notas`, e o Dashboard passa a se chamar "Painel" |
+| `public/admin.css` | `.nav-sub`, `.ic-*`, `.nf-*` no fim, só tokens |
+
+Versões: `admin.js?v=372`, `admin.css?v=281`, `admin-nav.js?v=3`,
+`admin-carteira.js?v=2`.
+
+### Os grupos
+
+| Grupo | Subabas |
+|---|---|
+| Início | Pede ação (nova) · Painel (o antigo Dashboard) · Alertas · Telemetria |
+| Agenda | Mapa · Preventivas |
+| Condomínios | Condomínios · Equipamentos (a ficha também acende o grupo) |
+| Chamados | Chamados · WhatsApp (quando ligado) |
+| O.S. | — |
+| Orçamentos | — |
+| Financeiro | Notas fiscais (nova) · Contratos |
+| Relatórios | — |
+| Configurações | Configurações · Colaboradores |
+
+**Nenhuma tela saiu.** Grupo com uma tela só não mostra subaba. Clicar no
+grupo volta à última subaba usada nele. O badge do grupo é a soma dos badges
+das subabas.
+
+### ⚠️ A nav antiga continua lá, escondida, e manda
+
+O `<nav class="nav">` original recebe `nav-antiga` + `hidden`, e o menu novo
+é montado **a partir dele**. O `admin.js` continua escrevendo nos itens
+antigos: o perfil operador esconde por `style.display`, os badges moram
+neles, o `showSection` marca `.active` neles. Um `MutationObserver` na nav
+antiga ressincroniza o menu novo (é como o WhatsApp aparece depois do boot).
+**Para esconder uma tela de um perfil, continue escondendo o item antigo**; o
+grupo some sozinho quando fica sem subaba visível.
+
+⚠️ Os itens novos têm `data-grupo`, **nunca** `data-section`: todo
+`.nav-item[data-section="x"]` do `admin.js` precisa continuar achando o item
+antigo.
+
+### ⚠️ O `showSection` agora tem dois embrulhos
+
+`admin-nav.js` e depois `admin-carteira.js` trocam `window.showSection`. O
+primeiro troca uma tela que o perfil não vê pela primeira visível do grupo (o
+menu mobile manda `inicio` para o operador, que cai em Alertas); o segundo
+carrega Início e Notas quando elas abrem. Chamada interna do `admin.js` passa
+pelos dois, porque o nome é resolvido no `window`.
+
+### Início
+
+"N coisas pedem ação na carteira", e um bloco por tipo, o mais antigo
+esperando primeiro, até 8 por bloco (o resto vai para a tela do tipo):
+
+| Bloco | Regra (a mesma do resto do admin) |
+|---|---|
+| Urgente | reservatório sem sinal ou abaixo de 20% + `_chamadosAlertaAbertos()` (P1/P2 ou fora do prazo) |
+| Cliente respondeu, falta dar baixa | `_avPendente` |
+| Aprovado, sem nota fiscal | `status = aprovado` e sem `nota_status` |
+| Nota com erro | `nota_status = erro` (só aparece quando tem) |
+| O.S. finalizada, não enviada | `_osFaltaEnviar` |
+| Contrato vencendo em 30 dias | `GET /contratos?vencendo_em_dias=30` |
+
+O nome do prédio leva à ficha (no caso do reservatório, à aba Telemetria); o
+resto abre o documento. Redesenha no polling (`carregarTelemetria`,
+`carregarAtendimento`) e depois de gravar (mesmos ganchos da ficha).
+
+### Notas fiscais
+
+A nota mora no orçamento (uma por orçamento), então a lista é `_avData`
+filtrado: abas Emitidas e em andamento · Emitidas · Processando · Com erro ·
+Aprovados sem nota, mais busca por número da nota, do orçamento ou nome do
+prédio. A linha abre a ficha do orçamento, onde a nota é emitida.
+
+### Perfil operador
+
+Vê 4 grupos: Início (só Alertas e Telemetria), Agenda (só Mapa), Chamados
+(sem WhatsApp) e Configurações (só Conta). As duas telas novas ficam
+escondidas para ele, porque leem rotas `gestaoOnly`. Endereço de tela que ele
+não vê (`#/orcamentos`) é ignorado.
+
+### Testado (banco de teste, 18/11/2026)
+
+Admin no desktop 1440×900 e no celular 375×812 (sem rolagem horizontal);
+operador no desktop. Conferido: Início abre como tela inicial e o endereço é
+substituído, não empilhado; subabas trocam de tela e lembram a última; a ficha
+acende "Condomínios"; voltar do navegador entre ficha e lista; o menu mobile
+acende um item só. **Corrigido no teste:** a subaba nascia com 0 de altura
+(coluna flex, ver o comentário no CSS) e herdava a borda de botão do
+navegador; "Aprovado sem nota" mostrava "· —" em orçamento sem valor.
+**Não testado:** a tela Início com o WhatsApp ligado, e o operador no celular.

@@ -993,7 +993,7 @@ o "porquê" em [`decisions.md`](decisions.md).
 | 0 | Fechar `feature/nota-fiscal-omie` (ou partir da `main`) | ⏳ |
 | 1 | Endereço por tela (hash), sem mudança visual | ✅ 18/11 (branch `feature/admin-condominio`, sem deploy) |
 | 2 | Ficha do condomínio (abas: Resumo, Telemetria, Chamados, O.S., Orçamentos, Notas, Contrato e plano, Equipamentos, Contatos) | ✅ 18/11 (mesma branch) |
-| 3 | Menu de 15 para 9 itens + tela Início (fila do que pede ação) | 📋 |
+| 3 | Menu de 15 para 9 itens + tela Início (fila do que pede ação) + lista de notas | ✅ 18/11 (mesma branch) |
 | 4 | Tema claro no painel (app mobile fica como está) | 📋 |
 | 5 | Retirar telas antigas — **só com autorização** | 📋 |
 
