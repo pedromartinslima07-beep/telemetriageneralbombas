@@ -17475,6 +17475,7 @@ uma assinatura com pixels (`scripts/testes/_assinatura-fixture.js`) — o
 com usuário inexistente), ele engole o erro, a transação fica abortada e o
 `COMMIT` vira `ROLLBACK` calado — a rota responde **200 sem ter finalizado**.
 Em produção o usuário sempre existe, mas o padrão merece um SAVEPOINT.
+(✅ Corrigido em 18/11/2026; ver o fim deste arquivo.)
 
 ## Pedidos de orçamento das O.S.: um amarelo só (2026-10-05)
 
@@ -17867,3 +17868,25 @@ Ver [agenda.md](modulos/agenda.md). Migration **092**, rota **`/agenda`**
   trabalho da tela. Seta na coluna ativa, `aria-sort`, vazio sempre no fim,
   escolha lembrada no navegador. Na O.S. ordena antes de paginar e volta à
   página 1. `admin.js?v=387`, `admin.css?v=309`.
+
+## O `/finalizar` não diz mais 200 sem ter finalizado (2026-11-18)
+
+O achado de 05/10/2026: o `POST /ordens-servico/:id/finalizar` grava o
+`historico_chamados` dentro da transação, e o `registrarMudancas` engolia o
+próprio erro. No Postgres o comando que falha aborta a transação, e o `COMMIT`
+do fim vira `ROLLBACK` **sem levantar erro**: a rota respondia 200, o app
+tirava a O.S. da fila, e nada tinha sido gravado.
+
+- `chamado-historico.service.js`: `registrarCriacao` e `registrarMudancas`
+  gravam atrás de um **SAVEPOINT** quando recebem o `client` de uma transação
+  (`_gravarIsolado`). A falha volta só até ele; a operação principal segue.
+  Com o pool, ou um client sem `BEGIN` (SAVEPOINT dá `25P01`), grava direto.
+  Vale para as 20 chamadas, em 8 arquivos (chamados, operador, cliente,
+  WhatsApp, IA, job de planos).
+- `/finalizar`: se o `COMMIT` voltar como `ROLLBACK` (o node-pg devolve
+  `command: "ROLLBACK"`), a rota responde 500 em vez de 200. Trava para
+  qualquer outro erro engolido dentro da transação no futuro.
+- Teste novo `scripts/testes/finalizar-historico-falha.test.js`: rodado
+  **antes** da correção, reproduziu o defeito (200 com `finalizada_em` nulo e
+  chamado em atendimento); depois, 12/12.
+

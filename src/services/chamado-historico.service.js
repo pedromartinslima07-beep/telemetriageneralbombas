@@ -17,6 +17,39 @@ const CAMPOS_AUDITADOS = [
   "condominio_id",
 ];
 
+// ⚠️ O HISTÓRICO GRAVA ATRÁS DE UM SAVEPOINT (18/11/2026). As duas funções
+// daqui engolem o próprio erro ("audit log não bloqueia a operação"), e quase
+// sempre rodam com o `client` de uma transação aberta pela rota. Só que no
+// Postgres um comando que falha ABORTA a transação: tudo depois falha, e o
+// COMMIT do fim vira ROLLBACK sem levantar erro. Engolir o erro ali era
+// desfazer a operação principal em silêncio. O caso real: POST
+// /ordens-servico/:id/finalizar respondia 200 com a O.S. ainda aberta
+// (FK de alterado_por com usuário inexistente), e o app tirava a O.S. da fila.
+// Ver scripts/testes/finalizar-historico-falha.test.js.
+//
+// Com o savepoint, a falha volta só até ele, e a transação segue viva.
+// Sem transação (o pool, ou um client sem BEGIN), SAVEPOINT dá 25P01 e não há
+// o que proteger: um comando avulso que falha não contamina nada.
+async function _gravarIsolado(c, sql, params) {
+  if (c === pool) return c.query(sql, params);
+  let comSavepoint = true;
+  try {
+    await c.query("SAVEPOINT historico_chamados");
+  } catch (e) {
+    if (e.code !== "25P01") throw e; // 25P01 = no_active_sql_transaction
+    comSavepoint = false;
+  }
+  if (!comSavepoint) return c.query(sql, params);
+  try {
+    const r = await c.query(sql, params);
+    await c.query("RELEASE SAVEPOINT historico_chamados");
+    return r;
+  } catch (e) {
+    await c.query("ROLLBACK TO SAVEPOINT historico_chamados");
+    throw e;
+  }
+}
+
 function _norm(v) {
   if (v === undefined || v === null) return null;
   if (v instanceof Date) return v.toISOString();
@@ -35,7 +68,7 @@ function _norm(v) {
 async function registrarCriacao({ client, chamadoId, alteradoPor }) {
   const c = client || pool;
   try {
-    await c.query(
+    await _gravarIsolado(c,
       `INSERT INTO historico_chamados
          (chamado_id, campo_alterado, valor_anterior, valor_novo, alterado_por)
        VALUES ($1, 'criado', NULL, NULL, $2)`,
@@ -73,7 +106,7 @@ async function registrarMudancas({ client, chamadoId, antes, depois, alteradoPor
 
   try {
     // Multi-row insert via unnest pra um único round-trip.
-    await c.query(
+    await _gravarIsolado(c,
       `INSERT INTO historico_chamados
          (chamado_id, campo_alterado, valor_anterior, valor_novo, alterado_por)
        SELECT * FROM UNNEST(

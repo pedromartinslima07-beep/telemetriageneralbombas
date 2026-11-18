@@ -1024,7 +1024,16 @@ router.post("/:id/finalizar", authRequired, osDonoOuAdmin({ forWrite: true }), a
       }
     }
 
-    await client.query("COMMIT");
+    // ⚠️ COMMIT DE TRANSAÇÃO ABORTADA NÃO DÁ ERRO: o Postgres responde
+    // ROLLBACK e o node-pg devolve sucesso. Foi assim que esta rota disse 200
+    // sem ter finalizado (ver chamado-historico.service.js). O savepoint de lá
+    // fecha aquele caminho; esta trava pega qualquer outro erro engolido
+    // dentro da transação no futuro. Melhor 500 do que o app tirar da fila uma
+    // O.S. que não foi gravada.
+    const fim = await client.query("COMMIT");
+    if (fim.command === "ROLLBACK") {
+      throw new Error("COMMIT virou ROLLBACK: algum comando falhou dentro da transação");
+    }
 
     // Dispara geração de PDF em background — não bloqueia o response.
     // Falha aqui não impede a finalização; GET /:id/pdf regenera on-demand.

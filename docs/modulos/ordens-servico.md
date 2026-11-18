@@ -124,6 +124,22 @@ PNG e exige **0,3% dos pixels com tinta e 15% de extensão** — corte medido na
 ⚠️ **O corte mora em dois lugares** — o serviço e o `_assinaturaTemTinta` do
 app. Mudou num, muda no outro.
 
+### ⚠️ O histórico do chamado não pode desfazer a finalização (18/11/2026)
+
+O `/finalizar` fecha o chamado e grava o `historico_chamados` **dentro da
+mesma transação**. O registro de histórico é "não bloqueante" (engole o
+próprio erro), e isso só é seguro atrás de um **SAVEPOINT**: sem ele, o
+comando que falha aborta a transação e o `COMMIT` vira `ROLLBACK` calado. A
+rota respondia 200 sem ter finalizado, e o app tirava a O.S. da fila.
+
+- O savepoint mora no serviço (`_gravarIsolado` em
+  `chamado-historico.service.js`), então vale para toda rota que grava
+  histórico em transação.
+- O `/finalizar` confere o resultado do `COMMIT`: se voltar `ROLLBACK`,
+  responde 500.
+- Prova: `scripts/testes/finalizar-historico-falha.test.js` (histórico
+  forçado a falhar com um usuário inexistente na FK `alterado_por`).
+
 ### Recolher a assinatura de O.S. já finalizada (migration 088)
 
 O.S. finalizada continua só leitura para o técnico. Ao lado disso há uma porta

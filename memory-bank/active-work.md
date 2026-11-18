@@ -59,10 +59,14 @@ aliases:
 >    ⚠️ Pedir só depois do APK novo: o botão "Recolher assinatura" não existe
 >    no app antigo.
 >
-> ⚠️ **Achado à parte, sem conserto ainda:** no `/finalizar`, se o
-> `registrarMudancas` falhar dentro da transação, ele engole o erro, o `COMMIT`
-> vira `ROLLBACK` calado e a rota responde **200 sem finalizar**. Visto no teste
-> com usuário inexistente (FK de `alterado_por`). Precisa de SAVEPOINT.
+> ✅ **Corrigido em 18/11/2026 (branch `feature/admin-condominio`, sem
+> deploy):** o `/finalizar` respondia **200 sem finalizar** quando o
+> `registrarMudancas` falhava dentro da transação (erro engolido → transação
+> abortada → `COMMIT` vira `ROLLBACK` calado). Agora o histórico grava atrás de
+> um SAVEPOINT (vale para as 20 chamadas, em 8 arquivos) e a rota recusa com
+> 500 se o `COMMIT` voltar como `ROLLBACK`. Teste:
+> `scripts/testes/finalizar-historico-falha.test.js` (reproduziu antes, 12/12
+> depois). Ver [ordens-servico.md](../docs/modulos/ordens-servico.md).
 
 > ✅ **Schema de produção em dia até a 086** — conferido em **15/09/2026**
 > lendo o `information_schema` do banco de prod: 075, 079, 080, 081 (as duas),
