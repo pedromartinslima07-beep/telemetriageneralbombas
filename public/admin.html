@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=308">
+  <link rel="stylesheet" href="/static/admin.css?v=309">
 </head>
 <body>
   <div id="appLoader">
@@ -647,9 +647,10 @@
                          saiu da tela — Condomínio e Categoria desceram para a
                          linha de apoio, e as duas colunas que sobravam viraram
                          largura para o título, que era o que vinha truncado. -->
-                    <th style="width:84px">Nº</th>
-                    <th>Chamado</th>
-                    <th style="width:320px">Situação</th>
+                    <!-- Cabeçalhos ordenam ao clicar (ver _ordenar em admin.js). -->
+                    <th style="width:84px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="chamados" data-ord-chave="numero" data-ord-padrao="desc" title="Ordenar por nº">Nº<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="chamados" data-ord-chave="chamado" data-ord-padrao="asc" title="Ordenar por chamado">Chamado<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th style="width:320px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="chamados" data-ord-chave="situacao" data-ord-padrao="asc" title="Ordenar por situação">Situação<span class="ord-seta" aria-hidden="true"></span></button></th>
                   </tr>
                 </thead>
                 <tbody id="chTableBody"></tbody>
@@ -713,10 +714,10 @@
               <thead>
                 <tr>
                   <th style="width:36px"><input type="checkbox" id="osChkAll" class="viewer-only-hide" aria-label="Selecionar as que podem ser enviadas"></th>
-                  <th style="width:150px">O.S.</th>
-                  <th>Condomínio e técnico</th>
+                  <th style="width:150px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="os" data-ord-chave="numero" data-ord-padrao="desc" title="Ordenar por o.s.">O.S.<span class="ord-seta" aria-hidden="true"></span></button></th>
+                  <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="os" data-ord-chave="condo" data-ord-padrao="asc" title="Ordenar por condomínio e técnico">Condomínio e técnico<span class="ord-seta" aria-hidden="true"></span></button></th>
                   <th>Serviço</th>
-                  <th style="width:260px">Situação</th>
+                  <th style="width:260px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="os" data-ord-chave="situacao" data-ord-padrao="asc" title="Ordenar por situação">Situação<span class="ord-seta" aria-hidden="true"></span></button></th>
                   <th style="width:90px" class="right"><span class="sr-only">Ação</span></th>
                 </tr>
               </thead>
@@ -918,10 +919,10 @@
                          serviço e periodicidade embaixo do cliente, início e
                          vencimento numa coluna de vigência, e a assinatura
                          embaixo da situação. -->
-                    <th>Cliente</th>
-                    <th style="width:130px" class="pro-val">Valor por mês</th>
-                    <th style="width:190px">Vigência</th>
-                    <th style="width:230px">Situação</th>
+                    <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="contratos" data-ord-chave="cliente" data-ord-padrao="asc" title="Ordenar por cliente">Cliente<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th style="width:130px" class="pro-val" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="contratos" data-ord-chave="valor" data-ord-padrao="desc" title="Ordenar por valor por mês">Valor por mês<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th style="width:190px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="contratos" data-ord-chave="vigencia" data-ord-padrao="asc" title="Ordenar por vigência">Vigência<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th style="width:230px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="contratos" data-ord-chave="situacao" data-ord-padrao="asc" title="Ordenar por situação">Situação<span class="ord-seta" aria-hidden="true"></span></button></th>
                     <th style="width:90px"></th>
                   </tr>
                 </thead>
@@ -2860,7 +2861,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=386" defer></script>
+<script src="/static/admin.js?v=387" defer></script>
 <script src="/static/admin-condominio.js?v=7" defer></script>
 <script src="/static/admin-nav.js?v=6" defer></script>
 <script src="/static/admin-carteira.js?v=2" defer></script>

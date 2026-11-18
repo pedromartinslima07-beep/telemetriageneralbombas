@@ -17861,3 +17861,9 @@ Ver [agenda.md](modulos/agenda.md). Migration **092**, rota **`/agenda`**
   Orçamento novo fica em `#/orcamentos/novo` até ganhar número. No celular a
   tabela de itens rola sozinha. `admin.js?v=386`, `admin.css?v=308`,
   `admin-condominio.js?v=7`, `admin-nav.js?v=6`.
+- **Ordenar pela coluna** em O.S., Chamados, Orçamentos (as duas abas) e
+  Contratos: clicar no cabeçalho ordena (data e valor do maior para o menor,
+  nome de A a Z), o segundo clique inverte, o terceiro volta à ordem de
+  trabalho da tela. Seta na coluna ativa, `aria-sort`, vazio sempre no fim,
+  escolha lembrada no navegador. Na O.S. ordena antes de paginar e volta à
+  página 1. `admin.js?v=387`, `admin.css?v=309`.

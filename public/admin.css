@@ -11819,3 +11819,23 @@ a.os-link { color: var(--text); }
   #avModal.is-pagina .av-itens-scroll { overflow-x: auto; }
   .av-tempo li:nth-child(2n)::before { right: auto; width: 12px; }
 }
+
+/* ── Cabeçalho que ordena (18/11/2026, ver _ordenar em admin.js) ──────────
+   O rótulo vira botão sem cara de botão. A seta aparece ao passar o mouse
+   (cinza) e fica na coluna ativa (escura, ▲ ou ▼). Sem seta = ordem de
+   trabalho da tela. */
+.ord-btn {
+  appearance: none; border: 0; background: none; padding: 0; margin: 0;
+  font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+  white-space: nowrap;
+}
+.ord-btn:hover { color: var(--text); }
+.ord-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.ord-seta { width: 8px; display: inline-block; font-size: 9px; line-height: 1; opacity: 0; }
+.ord-seta::before { content: "▲"; }
+.ord-btn:hover .ord-seta { opacity: .45; }
+.ord-btn.is-asc, .ord-btn.is-desc { color: var(--text); font-weight: 700; }
+.ord-btn.is-asc .ord-seta, .ord-btn.is-desc .ord-seta { opacity: 1; }
+.ord-btn.is-desc .ord-seta::before { content: "▼"; }
+.pro-val .ord-btn { flex-direction: row-reverse; }

@@ -733,5 +733,28 @@ criar nada; alteração não salva + menu e + voltar do navegador (cancelar
 fica, aceitar sai; nada foi gravado); cabeçalho e trilho grudando em
 1366×680; celular 375px sem rolagem lateral. Sem erro de JS.
 
-**Próximo, se quiser chegar ainda mais perto:** ordenar colunas clicando no
-cabeçalho das listas.
+### Ordenar pela coluna (18/11/2026)
+
+Um ordenador só (`_ordenar`, `_ordemTh`, `_ordemMarcar` em `admin.js`), ligado
+em cinco tabelas:
+
+| Lista | Colunas que ordenam |
+|---|---|
+| O.S. | O.S. (data), Condomínio e técnico, Situação (em andamento → falta enviar → enviada) |
+| Chamados | Nº (data), Chamado (prédio e título), Situação (prioridade, P1 primeiro) |
+| Orçamentos | Nº (data), Condomínio, Situação (resposta sem baixa primeiro), Valor |
+| Solicitados | O.S. (data), Condomínio, Situação (sem orçamento primeiro) |
+| Contratos | Cliente, Valor por mês, Vigência (vence antes primeiro; sem fim no fim), Situação (vencido primeiro) |
+
+- **Ciclo de três cliques:** direção natural da coluna (data e valor: maior
+  primeiro; texto: A→Z), invertida, e **desligada**, que devolve a ordem de
+  trabalho que a tela monta (pendência primeiro, pedido sem orçamento
+  primeiro). Sem o terceiro, quem ordenasse uma vez perderia a fila.
+- Vazio vai para o fim nas duas direções; empate mantém a ordem anterior.
+- A escolha fica no `localStorage` (`ordem:<lista>`) de cada navegador; sem
+  ele, a tela abre na ordem de trabalho.
+- Na O.S. a ordem vale **antes** da paginação e volta à página 1.
+- **No celular** as linhas são cartões e o cabeçalho some, então não há como
+  ordenar ali; a ordem escolhida no computador continua valendo.
+
+Testado nas cinco (Contratos com dados montados só na tela), sem erro de JS.

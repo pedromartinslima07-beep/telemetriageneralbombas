@@ -4480,6 +4480,95 @@ function _chIdade(iso, status) {
   return { texto, cls: "is-ok" };
 }
 
+// ============================================================
+// ORDENAR PELA COLUNA (18/11/2026)
+// ============================================================
+//
+// Clicar no cabeçalho ordena, como nos sistemas de referência. Um ciclo de
+// três: o primeiro clique ordena na direção natural da coluna (data e valor:
+// maior primeiro; nome: A→Z), o segundo inverte, o terceiro DESLIGA e devolve
+// a ordem de trabalho da tela (pendência primeiro, pedido sem orçamento
+// primeiro...). Sem o terceiro, quem ordenasse uma vez perderia para sempre
+// a fila que a tela monta.
+// Vazio vai sempre para o fim, nas duas direções. Empate mantém a ordem de
+// antes (sort estável). A escolha fica no navegador de cada pessoa
+// (localStorage, conveniência: sem ele a tela só abre na ordem de trabalho).
+const _ordem = {};        // lista → { chave, dir } | null
+const _ordemRender = {};  // lista → função que redesenha a tabela
+
+function _ordemLer(lista) {
+  if (!(lista in _ordem)) {
+    let v = null;
+    try { v = JSON.parse(localStorage.getItem("ordem:" + lista) || "null"); } catch (_) { v = null; }
+    _ordem[lista] = v && v.chave && (v.dir === "asc" || v.dir === "desc") ? v : null;
+  }
+  return _ordem[lista];
+}
+
+function _ordenar(lista, itens, chaves) {
+  const o = _ordemLer(lista);
+  const f = o && chaves[o.chave];
+  if (!f) return itens;
+  const m = o.dir === "desc" ? -1 : 1;
+  const vazio = (v) => v == null || v === "" || (typeof v === "number" && !Number.isFinite(v));
+  return itens.map((x, i) => [x, i, f(x)]).sort((a, b) => {
+    const va = a[2], vb = b[2];
+    if (vazio(va) || vazio(vb)) return vazio(va) === vazio(vb) ? a[1] - b[1] : (vazio(va) ? 1 : -1);
+    const c = (typeof va === "number" && typeof vb === "number")
+      ? va - vb
+      : String(va).localeCompare(String(vb), "pt-BR", { numeric: true, sensitivity: "base" });
+    return c * m || a[1] - b[1];
+  }).map(p => p[0]);
+}
+
+// Data para ordenar: número (ms), ou nulo.
+function _ordemData(iso) {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+// O cabeçalho clicável. `padrao` é a direção do primeiro clique.
+function _ordemTh(lista, chave, rotulo, { padrao = "asc", cls = "", style = "" } = {}) {
+  const o = _ordemLer(lista);
+  const ativo = o && o.chave === chave;
+  const aria = ativo ? (o.dir === "asc" ? "ascending" : "descending") : "none";
+  return `<th${cls ? ` class="${cls}"` : ""}${style ? ` style="${style}"` : ""} aria-sort="${aria}">` +
+    `<button type="button" class="ord-btn${ativo ? " is-" + o.dir : ""}" data-ord-lista="${lista}" data-ord-chave="${chave}" data-ord-padrao="${padrao}"` +
+    ` title="Ordenar por ${rotulo.toLowerCase()}">${rotulo}<span class="ord-seta" aria-hidden="true"></span></button></th>`;
+}
+
+// Para cabeçalho que mora no HTML: acerta seta e aria-sort pelo estado.
+function _ordemMarcar(lista) {
+  const o = _ordemLer(lista);
+  document.querySelectorAll(`.ord-btn[data-ord-lista="${lista}"]`).forEach(b => {
+    const ativo = o && o.chave === b.dataset.ordChave;
+    b.classList.toggle("is-asc", Boolean(ativo && o.dir === "asc"));
+    b.classList.toggle("is-desc", Boolean(ativo && o.dir === "desc"));
+    b.closest("th")?.setAttribute("aria-sort", ativo ? (o.dir === "asc" ? "ascending" : "descending") : "none");
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".ord-btn[data-ord-lista]");
+  if (!b) return;
+  e.stopPropagation();
+  const lista = b.dataset.ordLista, chave = b.dataset.ordChave;
+  const padrao = b.dataset.ordPadrao === "desc" ? "desc" : "asc";
+  const atual = _ordemLer(lista);
+  let novo;
+  if (!atual || atual.chave !== chave) novo = { chave, dir: padrao };
+  else if (atual.dir === padrao) novo = { chave, dir: padrao === "asc" ? "desc" : "asc" };
+  else novo = null; // terceiro clique: volta à ordem de trabalho
+  _ordem[lista] = novo;
+  try {
+    if (novo) localStorage.setItem("ordem:" + lista, JSON.stringify(novo));
+    else localStorage.removeItem("ordem:" + lista);
+  } catch (_) { /* sem storage, vale só nesta aba */ }
+  _ordemRender[lista]?.();
+  _ordemMarcar(lista);
+}, true);
+
 function renderChKpis() {
   const el = document.getElementById("chKpiGrid");
   if (!el) return;
@@ -4548,7 +4637,13 @@ function renderChTabela() {
   // "quanto falta" — que é a única pergunta que ele responde.
   set("chCtPrev",     data.filter(ch => _chEhPreventiva(ch) && _chEmAberto(ch.status)).length);
 
-  const lista = _chFiltrados();
+  // Ordem pela coluna, se escolhida (ver _ordenar). Prioridade: p1 antes.
+  const lista = _ordenar("chamados", _chFiltrados(), {
+    numero:   ch => _ordemData(ch.criado_em),
+    chamado:  ch => `${ch.condominio_nome || ""} ${ch.titulo || ""}`.trim(),
+    situacao: ch => ch.prioridade || null,
+  });
+  _ordemMarcar("chamados");
   if (!lista.length) {
     // O vazio precisa dizer QUAL vazio é: "nenhum chamado" na aba de
     // preventivas soa como defeito quando o certo é "o mês está em dia".
@@ -5807,13 +5902,21 @@ async function _ctrsCarregar() {
 function _ctrsRender() {
   const q = _ctrsBuscaStr.toLowerCase();
 
-  const lista = _ctrsLista.filter(ct => {
+  const _ctrsRank = { vencido: 0, vencendo: 1, ativo: 2, inativo: 3 };
+  const filtrados = _ctrsLista.filter(ct => {
     const sk = _ctrsGetStatusKey(ct);
     if (_ctrsTabAtual !== "todos" && sk !== _ctrsTabAtual) return false;
     if (_ctrsTipoFiltro && ct.servico_tipo !== _ctrsTipoFiltro) return false;
     if (q && !(ct.condominio_nome || "").toLowerCase().includes(q)) return false;
     return true;
   });
+  const lista = _ordenar("contratos", filtrados, {
+    cliente:  ct => ct.condominio_nome || null,
+    valor:    ct => Number(ct.valor_mensal),
+    vigencia: ct => _ordemData(ct.fim_em),
+    situacao: ct => _ctrsRank[_ctrsGetStatusKey(ct)],
+  });
+  _ordemMarcar("contratos");
 
   const count = key => _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === key).length;
   document.getElementById("ctrsCtTodos").textContent    = _ctrsLista.length;
@@ -11419,7 +11522,13 @@ function _osRenderTabela() {
   set("osCtRascunho", data.filter(o => !o.finalizada_em).length);
   set("osCtAEnviar",  data.filter(_osFaltaEnviar).length);
 
-  const lista = _osFiltrados();
+  // Ordena ANTES de paginar: ordenar só a página da vista seria mentir.
+  const lista = _ordenar("os", _osFiltrados(), {
+    numero:   o => _ordemData(o.criado_em),
+    condo:    o => o.condominio_nome || null,
+    situacao: o => !o.finalizada_em ? 0 : _osFaltaEnviar(o) ? 1 : 2,
+  });
+  _ordemMarcar("os");
 
   // Paginação da tabela: corta só o que se desenha. A seleção do lote continua
   // valendo entre páginas (é podada pela lista filtrada, lá embaixo).
@@ -12812,6 +12921,14 @@ function _avRenderTudo() {
     }
     return new Date(b.criado_em) - new Date(a.criado_em);
   });
+  // A coluna escolhida ganha da fila; o terceiro clique devolve a fila.
+  const _avRank = { rascunho: 1, enviado: 2, aprovado: 3, rejeitado: 4 };
+  const listaOrd = _ordenar("orc-av", lista, {
+    numero:   o => _ordemData(o.criado_em),
+    condo:    o => o.condominio_nome || null,
+    situacao: o => _avPendente(o) ? 0 : (_avRank[o.status] ?? 5),
+    valor:    o => Number(o.valor_total) || 0,
+  });
 
   if (!lista.length) {
     listEl.innerHTML = "";
@@ -12820,7 +12937,7 @@ function _avRenderTudo() {
   }
   if (empty) empty.style.display = "none";
 
-  const linhas = lista.map(o => {
+  const linhas = listaOrd.map(o => {
     const selc = _avSelecionado?.id === o.id ? " is-selected" : "";
     const pend = _avPendente(o);
     const tipoLbl = _avTipoLabels[o.tipo];
@@ -12856,10 +12973,10 @@ function _avRenderTudo() {
   listEl.innerHTML = `
     <table class="orc-table pro-table">
       <thead><tr>
-        <th style="width:130px">Nº</th>
-        <th>Condomínio</th>
-        <th style="width:340px">Situação</th>
-        <th style="width:130px" class="pro-val">Valor</th>
+        ${_ordemTh("orc-av", "numero", "Nº", { padrao: "desc", style: "width:130px" })}
+        ${_ordemTh("orc-av", "condo", "Condomínio")}
+        ${_ordemTh("orc-av", "situacao", "Situação", { style: "width:340px" })}
+        ${_ordemTh("orc-av", "valor", "Valor", { padrao: "desc", cls: "pro-val", style: "width:130px" })}
       </tr></thead>
       <tbody>${linhas}</tbody>
     </table>`;
@@ -15434,6 +15551,12 @@ function _orcRenderTudo() {
     if (pa !== pb) return pa - pb;
     return new Date(b.finalizada_em || b.criado_em) - new Date(a.finalizada_em || a.criado_em);
   });
+  const _orcRank = { rascunho: 1, enviado: 2, aprovado: 3, rejeitado: 4, expirado: 5 };
+  const listaOrd = _ordenar("orc-os", lista, {
+    os:       o => _ordemData(o.finalizada_em || o.criado_em),
+    condo:    o => o.condominio_nome || null,
+    situacao: o => _orcSolicitado(o) ? 0 : (_orcRank[o.orcamento_status] ?? 6),
+  });
 
   if (!lista.length) {
     listEl.innerHTML = "";
@@ -15442,7 +15565,7 @@ function _orcRenderTudo() {
   }
   if (empty) empty.style.display = "none";
 
-  const linhas = lista.map(o => {
+  const linhas = listaOrd.map(o => {
     const aberto = _orcSolicitado(o);
     const daBancada = o.fonte === "bancada";
     const nome = _waEscaparHtml(o.condominio_nome || "Sem condomínio");
@@ -15490,10 +15613,10 @@ function _orcRenderTudo() {
   listEl.innerHTML = `
     <table class="orc-table pro-table">
       <thead><tr>
-        <th style="width:130px">O.S.</th>
-        <th style="width:26%">Condomínio</th>
+        ${_ordemTh("orc-os", "os", "O.S.", { padrao: "desc", style: "width:130px" })}
+        ${_ordemTh("orc-os", "condo", "Condomínio", { style: "width:26%" })}
         <th>Pedido do técnico</th>
-        <th style="width:190px">Situação</th>
+        ${_ordemTh("orc-os", "situacao", "Situação", { style: "width:190px" })}
         <th style="width:170px"></th>
       </tr></thead>
       <tbody>${linhas}</tbody>
@@ -17640,3 +17763,12 @@ async function _orcAbrirDaBancada(orcamentoId) {
     alert("Erro ao abrir o orçamento: " + err.message);
   }
 }
+
+// Quem redesenha cada tabela quando a ordem muda (ver _ordenar).
+// A O.S. volta à página 1: ordenar e continuar na página 4 mostraria outra
+// fatia sem aviso.
+_ordemRender.chamados   = () => renderChTabela();
+_ordemRender.os         = () => { _osPagina = 1; _osRenderTabela(); };
+_ordemRender["orc-av"]  = () => _avRenderTudo();
+_ordemRender["orc-os"]  = () => _orcRenderTudo();
+_ordemRender.contratos  = () => _ctrsRender();
