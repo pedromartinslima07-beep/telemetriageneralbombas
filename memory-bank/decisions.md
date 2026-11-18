@@ -1588,3 +1588,20 @@ desenho em camadas original continua válido.
   coisa é ("Cola para tubo pvc", "Zeolita… Limpeza…"). Palavra solta no meio
   enganava as duas sugestões. Conferido nas 507 linhas de produção antes de
   trocar.
+
+## Agenda da empresa (18/11/2026)
+
+- **A agenda acompanha o faturamento do Omie; não emite.** Conferido pela API:
+  as notas das preventivas saem do faturamento de contratos do próprio Omie
+  (151 contratos lá, 71 notas no mesmo dia em 03/11). A fase "emitir em lote"
+  que eu tinha proposto foi descartada: daria nota em dobro.
+- **A cópia do Omie vive no banco, atualizada por job.** O Omie recusa a mesma
+  consulta repetida em menos de ~1 min ("Consumo redundante"); ler a API a cada
+  clique na agenda quebraria na segunda pessoa que abrisse a tela.
+- **Pagamento de funcionário é compromisso repetido, não dado do Omie.** O Pedro
+  confirmou que ele não está lançado como conta a pagar.
+- **O financeiro é só do admin** (pagamento, financeiro e o faturamento do
+  Omie). Decisão do Pedro. Quem filtra é a rota, não a tela.
+- **Compromissos ficam numa tabela; o resto é lido de onde já mora.** Retorno
+  de O.S., contrato e preventiva não são copiados para `compromissos`: copiar
+  criaria duas verdades para manter em dia.

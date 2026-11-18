@@ -27,6 +27,7 @@ const CHAVES = {
   "alertas.email_destinatario":  { tipo: "string", maxLen: 500 }, // múltiplos emails separados por vírgula
   "jobs.offline_intervalo_min":  { tipo: "int", min: 1, max: 60 },
   "gps.retencao_horas":          { tipo: "int", min: 1, max: 720 }, // Fase 7F — 1h a 30 dias
+  "omie.faturamento_intervalo_min": { tipo: "int", min: 15, max: 1440 }, // agenda: de quanto em quanto tempo copia o faturamento do Omie (default 60)
   "gps.frequencia_segundos":     { tipo: "int", min: 30, max: 300 }, // Fase 7I — app pinga GPS a cada N segundos (default 60)
   "gps.expediente_inicio":       { tipo: "int", min: 0, max: 23 },   // hora em que o GPS liga (default 8)
   "gps.expediente_fim":          { tipo: "int", min: 1, max: 24 },   // hora em que desliga (default 18; 0 e 24 = sem janela)

@@ -49,6 +49,8 @@ const { leadsRouter } = require("./routes/leads.routes");
 const { startOfflineScheduler } = require("./jobs/offline.job");
 const { startPlanosManutencaoScheduler } = require("./jobs/planos-manutencao.job");
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
+const { startOmieFaturamentoScheduler } = require("./jobs/omie-faturamento.job");
+const agendaRouter = require("./routes/agenda.routes");
 const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job");
 const { startAlertasCleanupScheduler } = require("./jobs/alertas-cleanup.job");
 const { startConversasCleanupScheduler } = require("./jobs/conversas-cleanup.job");
@@ -537,6 +539,7 @@ app.use("/tecnicos", tecnicosRouter);
 app.use("/ordens-servico", ordensServicoRouter);
 app.use("/planos-manutencao", planosManutencaoRouter);
 app.use("/contratos", contratosRouter);
+app.use("/agenda", agendaRouter);
 app.use("/assinar", assinaturaRouter);
 app.use("/equipamentos", equipamentosRouter);
 app.use("/operador", operadorRouter);
@@ -573,6 +576,7 @@ app.use((err, req, res, next) => {
 
 startOfflineScheduler();
 startGpsCleanupScheduler();
+startOmieFaturamentoScheduler();
 startLeiturasCleanupScheduler();
 startAlertasCleanupScheduler();
 startConversasCleanupScheduler();

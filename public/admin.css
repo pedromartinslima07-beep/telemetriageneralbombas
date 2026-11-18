@@ -11215,3 +11215,377 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .main .wa-ia-result { background: var(--surface2); border-radius: 8px; }
 .main :is(.al-toolbar, .inner-table-wrap, .rel-seg) { background: var(--surface2); }
 .main .al-painel :is(.ap-banner, .ap-section) { background: var(--surface2); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PILOTO DO REDESENHO DE TELA: ORDENS DE SERVIÇO (18/11/2026)
+   ────────────────────────────────────────────────────────────────────────
+   O molde que as outras listas vão seguir (Chamados, Orçamentos, Contratos):
+     · uma frase-resumo no lugar da faixa de números;
+     · uma coluna de SITUAÇÃO no lugar de três selos;
+     · a segunda informação da célula em linha de apoio (.os-sub), em vez de
+       coluna própria (data embaixo do número, técnico embaixo do prédio);
+     · uma ação com nome por linha, só quando há o que fazer;
+     · o nome de outra coisa (prédio, chamado) é link para ela.
+   ════════════════════════════════════════════════════════════════════════ */
+.os-resumo {
+  margin: 0;
+  padding: 12px 18px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.os-resumo-acao {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-left: 4px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+}
+.os-resumo-acao:hover { text-decoration: underline; }
+
+.os-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.os-sub-ok      { color: var(--ok); }
+.os-sub-atencao { color: var(--accent); font-weight: 600; }
+
+.os-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+.os-link:hover { text-decoration-color: currentColor; }
+a.os-link { color: var(--text); }
+
+.os-td-chk { width: 36px; }
+.os-td-num strong { white-space: nowrap; }
+.os-td-condo { font-weight: 600; }
+.os-sit-linha { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.main .os-row:hover td { background: rgba(6,16,51,.035); }
+.os-acoes-cell .btn { padding: 5px 12px; font-size: 12.5px; }
+
+/* ── a ficha ── */
+.os-modal-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#osModalOverlay .modalSub .os-link { font-weight: 600; color: var(--tinta); }
+.os-view-body { display: flex; flex-direction: column; gap: 18px; }
+.os-aviso {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--amarelo) 16%, #fff);
+  border: 1px solid color-mix(in srgb, var(--amarelo) 55%, #fff);
+  color: var(--tinta);
+  font-size: 13px;
+}
+.os-aviso strong { font-size: 14px; }
+.os-secoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px 28px;
+}
+.os-faltando {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+/* Tipos de serviço, título de seção e observação: texto, não etiqueta gravada. */
+:is(.main, .modalBox) .os-chip {
+  font-family: var(--fonte);
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--surface2);
+  box-shadow: none;
+  color: var(--tinta-2);
+}
+.modalBox .os-chip-lg { font-size: 12.5px; padding: 3px 11px; background: #fff; box-shadow: inset 0 0 0 1px var(--fio-esc); }
+.os-vsec-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--tinta);
+}
+.os-veredito .os-obs { box-shadow: none; background: none; }
+/* No celular a linha da O.S. vira cartão: rolar a tabela de lado escondia
+   justamente a Situação, que é a coluna que responde à pergunta. */
+@media (max-width: 640px) {
+  .os-table-wrap table, .os-table-wrap tbody { display: block; min-width: 0; width: 100%; }
+  .os-table-wrap thead { display: none; }
+  .os-table-wrap tr.os-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    grid-template-areas: "chk num acao" "chk condo acao" "chk sit sit" "chk tipos tipos";
+    gap: 6px 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .os-table-wrap tr.os-row td { display: block; padding: 0; border: 0; background: none !important; }
+  .os-table-wrap .os-td-chk { grid-area: chk; }
+  .os-table-wrap .os-td-num { grid-area: num; }
+  .os-table-wrap .os-td-condo { grid-area: condo; }
+  .os-table-wrap .os-td-sit { grid-area: sit; }
+  .os-table-wrap tr.os-row td:nth-child(4) { grid-area: tipos; }
+  .os-table-wrap .os-acoes-cell { grid-area: acao; align-self: start; }
+  .os-table-wrap .os-sub { white-space: normal; }
+}
+
+/* ── A O.S. como PÁGINA (#/os/<id>), não modal ──────────────────────────────
+   A caixa #osFicha é a mesma do antigo modal (mesmos ids, ver
+   _osMontarPagina). Aqui ela deixa de flutuar: ocupa a área de trabalho,
+   o cabeçalho com as ações gruda no topo ao rolar, e o conteúdo vai em duas
+   colunas — o trabalho à esquerda, o atendimento (quando, onde, quem) à
+   direita, como nas páginas de serviço dos sistemas de referência. */
+.os-pagina { max-width: 1180px; width: 100%; margin: 0 auto; }
+.os-pagina .os-ficha {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  clip-path: none;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.os-pagina .modalHead {
+  position: sticky;
+  top: -22px;              /* encosta no topo da área que rola (.content tem 22px de respiro) */
+  z-index: 5;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+  border-radius: 10px 10px 0 0;
+  padding: 16px 22px;
+}
+.os-pagina .modalTitle { font-size: 19px; }
+.os-pagina .modalBody { padding: 0; }
+.os-pagina .modalHead > div:first-child { flex: 1 1 auto; min-width: 0; }
+.os-pagina .modalSub .os-link { font-weight: 600; color: var(--tinta); }
+.os-pagina .os-view-body { padding: 20px 22px 26px; }
+
+/* linha do tempo */
+.os-tempo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  counter-reset: etapa;
+}
+.os-tempo li {
+  position: relative;
+  padding: 18px 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* o trilho e o ponto de cada etapa */
+.os-tempo li::before {
+  content: "";
+  position: absolute;
+  top: 6px; left: 0; right: 0;
+  height: 2px;
+  background: var(--surface3);
+}
+.os-tempo li::after {
+  content: "";
+  position: absolute;
+  top: 1px; left: 0;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--surface3);
+}
+.os-tempo li.is-feito::before { background: var(--ok-t); }
+.os-tempo li.is-feito::after  { background: var(--ok-t); box-shadow: none; }
+.os-tempo li.is-atual::after  { box-shadow: inset 0 0 0 2px var(--atencao-t); background: color-mix(in srgb, var(--amarelo) 30%, #fff); }
+.os-tempo li:last-child::before { right: auto; width: 12px; }
+.os-tempo-rot { font-size: 13px; font-weight: 700; color: var(--tinta); }
+.os-tempo li:not(.is-feito):not(.is-atual) .os-tempo-rot { color: var(--muted); font-weight: 600; }
+.os-tempo-em  { font-size: 12px; color: var(--muted); }
+.os-tempo li.is-atual .os-tempo-em { color: var(--atencao-t); font-weight: 600; }
+
+/* duas colunas */
+.os-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 28px;
+  align-items: start;
+}
+.os-col-trabalho { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.os-col-lado {
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--surface2, #f1f4f8);
+}
+.os-col-lado .os-row-info { grid-template-columns: 1fr; gap: 1px; }
+.os-col-trabalho .os-secoes { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+@media (max-width: 900px) {
+  .os-colunas { grid-template-columns: 1fr; }
+  .os-col-lado { order: -1; }
+}
+@media (max-width: 640px) {
+  .os-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+  .os-pagina .modalHead { flex-wrap: wrap; top: -16px; }
+}
+/* Dentro do .modalBox o --surface2 é a chapa escura do modal; na página o
+   lado e o cabeçalho de tabela usam o cinza claro do campo. */
+.os-pagina .os-col-lado { background: #f4f6fa; }
+.os-pagina table th { background: #f7f8fb; color: var(--muted); }
+/* No celular o cabeçalho tem os quatro botões em duas linhas; grudado, ele
+   ocuparia um terço da tela o tempo todo. */
+@media (max-width: 640px) {
+  .os-pagina .modalHead { position: static; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   AGENDA DA EMPRESA (092, 18/11/2026) — public/admin-agenda.js
+   Semana (padrão no desktop), Mês e Lista (padrão no celular). Cada tipo
+   tem UMA cor, no fio à esquerda do item e na legenda; o amarelo fica para
+   o botão "Novo compromisso", como em todo o painel.
+   ════════════════════════════════════════════════════════════════════════ */
+.main {
+  --ag-reuniao:    #2456b8;
+  --ag-visita:     #00838c;
+  --ag-financeiro: #8a3d9e;
+  --ag-retorno:    #b45309;
+  --ag-preventiva: #1f7a43;
+  --ag-contrato:   #56648a;
+  --ag-outro:      #7783a3;
+}
+.ag-card { padding: 0; }
+.ag-barra {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.ag-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ag-seta { min-width: 32px; justify-content: center; font-size: 15px; }
+.ag-periodo { margin: 0 0 0 8px; font-size: 16px; font-weight: 700; color: var(--text); }
+.ag-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.main .ag-vistas { margin-top: 0; }
+.ag-legenda { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 18px 0; font-size: 12px; color: var(--muted); }
+.ag-leg { display: inline-flex; align-items: center; gap: 6px; }
+.ag-leg::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--ag-cor, var(--ag-outro)); }
+.ag-corpo { padding: 12px 18px 18px; }
+
+.ag-t-reuniao    { --ag-cor: var(--ag-reuniao); }
+.ag-t-visita     { --ag-cor: var(--ag-visita); }
+.ag-t-financeiro { --ag-cor: var(--ag-financeiro); }
+.ag-t-retorno    { --ag-cor: var(--ag-retorno); }
+.ag-t-preventiva { --ag-cor: var(--ag-preventiva); }
+.ag-t-contrato   { --ag-cor: var(--ag-contrato); }
+.ag-t-outro      { --ag-cor: var(--ag-outro); }
+
+/* o item */
+.ag-item {
+  appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; text-align: left; cursor: pointer; font: inherit;
+  padding: 6px 8px 6px 10px; margin: 0 0 6px;
+  border: 1px solid var(--border); border-left: 3px solid var(--ag-cor, var(--ag-outro));
+  border-radius: 6px; background: #fff; color: var(--text);
+}
+.ag-item:hover { background: #f4f6fa; border-color: var(--border-strong); border-left-color: var(--ag-cor); }
+.ag-item.is-concluido .ag-tit { color: var(--muted); }
+.ag-hora { font-size: 11.5px; font-weight: 700; color: var(--ag-cor, var(--muted)); font-variant-numeric: tabular-nums; }
+.ag-tit  { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+.ag-onde { font-size: 11.5px; color: var(--muted); }
+.ag-vazio { color: var(--muted2); font-size: 12px; }
+
+/* semana */
+.ag-semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.ag-col { min-width: 0; border-radius: 8px; background: #f7f8fb; padding: 8px; min-height: 360px; }
+.ag-col.is-hoje { background: #eef3fc; box-shadow: inset 0 0 0 1px #c9d7f3; }
+.ag-col-cab { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+.ag-col-dow { font-size: 12px; color: var(--muted); text-transform: capitalize; }
+.ag-col-num { font-size: 18px; font-weight: 700; color: var(--text); }
+.ag-col.is-hoje .ag-col-num { color: var(--ag-reuniao); }
+.ag-mais {
+  appearance: none; margin-left: auto; width: 24px; height: 24px; border-radius: 6px; cursor: pointer;
+  border: 1px solid transparent; background: none; color: var(--muted); font-size: 16px; line-height: 1;
+}
+.ag-col:hover .ag-mais, .ag-mais:focus-visible { border-color: var(--border); background: #fff; color: var(--text); }
+
+/* mês */
+.ag-mes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+.ag-mes-dow { padding: 6px 8px; font-size: 12px; color: var(--muted); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: #f7f8fb; }
+.ag-mes-dia { min-height: 108px; padding: 6px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; min-width: 0; }
+.ag-mes-dia.is-fora { background: #fafbfc; }
+.ag-mes-dia.is-fora .ag-mes-num { color: var(--muted2); }
+.ag-mes-num { display: inline-block; font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
+.ag-mes-dia.is-hoje .ag-mes-num { background: var(--ag-reuniao); color: #fff; border-radius: 999px; padding: 0 7px; }
+.ag-mes-dia .ag-item { padding: 3px 6px 3px 8px; margin-bottom: 3px; }
+.ag-mes-dia .ag-tit { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+.ag-mes-dia .ag-hora { font-size: 10.5px; }
+.ag-mes-mais { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; color: var(--muted); cursor: pointer; }
+.ag-mes-mais:hover { color: var(--text); text-decoration: underline; }
+
+/* lista */
+.ag-lista { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }
+.ag-lista-dia h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--text); }
+.ag-lista-vazia { margin: 0; padding: 24px 0; color: var(--muted); font-size: 13px; }
+
+/* formulário */
+.ag-form { width: min(640px, 96vw); }
+.ag-form .modalBody { padding: 18px 20px; overflow-y: auto; }
+.ag-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.ag-f-largo { grid-column: 1 / -1; }
+.ag-form .f { display: flex; flex-direction: column; gap: 5px; }
+.ag-f-check { flex-direction: row !important; align-items: center; gap: 8px !important; align-self: end; padding-bottom: 8px; font-size: 13px; }
+.ag-form-msg { grid-column: 1 / -1; margin: 0; min-height: 18px; font-size: 12.5px; color: var(--risco); }
+.ag-form-pe { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--rasgo); background: var(--chapa-es); }
+.ag-form-pe > div { display: flex; gap: 8px; }
+.modalBox .ag-apagar { color: var(--risco-t); }
+
+/* faturamento */
+.ag-fat { width: min(760px, 96vw); }
+.ag-fat .modalBody { padding: 18px 20px; overflow-y: auto; }
+.ag-fat-resumo { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; font-size: 14px; color: var(--tinta); }
+.ag-fat-barra { height: 8px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--fio-esc); overflow: hidden; }
+.ag-fat-barra span { display: block; height: 100%; background: var(--ok-t); border-radius: 999px; }
+.ag-fat-valor { font-size: 12.5px; color: var(--tinta-2); }
+.ag-fat-h { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--tinta); }
+.ag-fat-tab { width: 100%; border-collapse: collapse; font-size: 12.5px; background: #fff; border-radius: 8px; overflow: hidden; }
+.ag-fat-tab th, .ag-fat-tab td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--fio-esc); }
+.ag-fat-ok { margin: 0; color: var(--ok-t); font-weight: 600; }
+.ag-fat-pe { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.ag-fat-sinc { font-size: 12px; color: var(--tinta-2); }
+
+@media (max-width: 1100px) {
+  .ag-semana { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .ag-semana { grid-template-columns: 1fr; }
+  .ag-col { min-height: 0; }
+  .ag-mes-dia { min-height: 64px; padding: 4px; }
+  .ag-mes-dia .ag-item { display: none; }
+  .ag-mes-dia:has(.ag-item)::after { content: "•"; color: var(--ag-reuniao); font-size: 18px; line-height: 1; }
+  .ag-periodo { margin-left: 0; width: 100%; order: 5; }
+  .ag-form-grid { grid-template-columns: 1fr; }
+}
+.ag-carregando { margin-left: 6px; font-size: 12px; color: var(--muted); }
+.ag-form .f.ag-f-check { flex-direction: row; justify-content: flex-start; align-items: center; }
+.ag-form .ag-f-check span { font-family: var(--fonte); text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--tinta); }
+.ag-form .ag-f-check input { width: 16px; height: 16px; accent-color: var(--mar-700); }

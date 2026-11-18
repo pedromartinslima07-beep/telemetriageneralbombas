@@ -569,6 +569,44 @@ OU foto).
 
 ---
 
+### Agenda e cópia do faturamento do Omie — migration 092
+
+Ver [agenda.md](modulos/agenda.md).
+
+**`compromissos`** — o que se lança à mão na agenda.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `titulo` | VARCHAR(160) | obrigatório |
+| `tipo` | VARCHAR(20) | `reuniao`, `visita`, `pagamento`, `financeiro`, `outro` |
+| `inicio` / `fim` | TIMESTAMPTZ | `fim` opcional; dia inteiro guarda 00:00 de SP |
+| `dia_inteiro` | BOOLEAN | |
+| `repeticao` | VARCHAR(10) | `nenhuma`, `semanal`, `mensal` (dia 29–31 cai no último dia do mês curto) |
+| `repete_ate` | DATE | opcional |
+| `condominio_id` | FK condominios, SET NULL | opcional |
+| `responsavel_id` | FK usuarios, SET NULL | opcional |
+| `descricao` | TEXT | |
+| `so_admin` | BOOLEAN | `pagamento` e `financeiro` nascem `TRUE`; a rota esconde do gerente |
+| `criado_por` | FK usuarios, SET NULL | |
+| `criado_em` / `atualizado_em` / `apagado_em` | TIMESTAMPTZ | apagar é marcar |
+
+**`omie_contratos`** — cópia de `servicos/contrato` `ListarContratos`:
+`omie_codigo` (PK, nCodCtr), `numero` (cNumCtr), `omie_cliente`, `situacao`
+(cCodSit, `10` = ativo), `valor_mensal`, `dia_faturamento`, `vigencia_inicio`,
+`vigencia_fim`, `atualizado_em`.
+
+**`omie_contrato_notas`** — NFS-e de contrato (`servicos/nfse` `ListarNFSEs`):
+`omie_nfse` (PK, nCodNF), `omie_contrato` (OrdemServico.nCodigoContrato),
+`numero_nfse`, `competencia` ('AAAA-MM' da emissão), `emitida_em`, `valor`,
+`status` (cStatusNFSe; `C` = cancelada, ignorada no retrato).
+
+**`omie_sincronizacoes`** — `nome` (PK, `faturamento_contratos`), `ultima_em`,
+`ultimo_erro`, `detalhe` (JSONB com as contagens).
+
+⚠️ As três tabelas `omie_*` são **cópia**: quem manda é o Omie. Nada daqui
+volta para lá.
+
 ## Remoção de usuário — regra das FKs de autoria
 
 `DELETE /admin/usuarios/:id` só funciona se **nenhuma** FK que aponta para

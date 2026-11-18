@@ -23,7 +23,7 @@ const _NAV_GRUPOS = [
     membros: [["inicio", "Pede ação"], ["dashboard", "Painel"], ["alertas", "Alertas"], ["telemetria", "Telemetria"]] },
   { id: "agenda", rotulo: "Agenda",
     icone: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-    membros: [["mapa", "Mapa"], ["planos", "Preventivas"]] },
+    membros: [["agenda", "Agenda"], ["mapa", "Mapa"], ["planos", "Preventivas"]] },
   { id: "condominios", rotulo: "Condomínios",
     icone: '<rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M10 22v-4h4v4"/>',
     membros: [["cadastros", "Condomínios"], ["equipamentos", "Equipamentos"]],
@@ -34,7 +34,8 @@ const _NAV_GRUPOS = [
     membros: [["chamados", "Chamados"], ["whatsapp", "WhatsApp"]] },
   { id: "os", rotulo: "O.S.",
     icone: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
-    membros: [["ordens-servico", "O.S."]] },
+    membros: [["ordens-servico", "O.S."]],
+    tambem: ["os-detalhe"] },
   { id: "orcamentos", rotulo: "Orçamentos",
     icone: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     membros: [["orcamentos", "Orçamentos"]] },
@@ -165,7 +166,7 @@ function _navSincronizar() {
   const orig = window.showSection;
   if (typeof orig !== "function") return;
   window.showSection = function (name, ...resto) {
-    if (name !== "condominio" && document.querySelector(".nav-grupos") && !_navSecaoVisivel(name)) {
+    if (name !== "condominio" && name !== "os-detalhe" && document.querySelector(".nav-grupos") && !_navSecaoVisivel(name)) {
       const g = _navGrupoDe(name);
       const sub = g && _navMembrosVisiveis(g)[0]?.[0];
       const primeira = sub || _NAV_GRUPOS.map(x => _navMembrosVisiveis(x)[0]?.[0]).find(Boolean);
@@ -174,7 +175,7 @@ function _navSincronizar() {
     const r = orig.call(this, name, ...resto);
     _navAtual = name;
     const g = _navGrupoDe(name);
-    if (g && name !== "condominio") _navUltima[g.id] = name;
+    if (g && name !== "condominio" && name !== "os-detalhe") _navUltima[g.id] = name;
     _navSincronizar();
     // Menu mobile acompanha: acende o item da própria tela quando ele existe
     // (Alertas tem botão próprio lá embaixo); senão, o do grupo.
@@ -187,10 +188,11 @@ function _navSincronizar() {
 })();
 
 document.addEventListener("DOMContentLoaded", () => {
-  // As duas seções novas não existem para o operador: Início e Notas leem
-  // orçamentos, O.S. e contratos, que respondem 403 para ele.
+  // As seções novas que não existem para o operador: Início e Notas leem
+  // orçamentos, O.S. e contratos, que respondem 403 para ele; a Agenda é
+  // `gestaoOnly` na rota (src/routes/agenda.routes.js).
   if (typeof _isOperador !== "undefined" && _isOperador) {
-    ["inicio", "notas"].forEach(s => { const el = _navItemAntigo(s) || document.querySelector(`.nav-item[data-section="${s}"]`); if (el) el.style.display = "none"; });
+    ["inicio", "notas", "agenda"].forEach(s => { const el = _navItemAntigo(s) || document.querySelector(`.nav-item[data-section="${s}"]`); if (el) el.style.display = "none"; });
   }
   _navMontar();
   // A tela de abertura passa a ser o Início (o HTML ainda nasce no Dashboard).

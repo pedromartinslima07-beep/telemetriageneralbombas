@@ -517,3 +517,84 @@ marinho. Corrigido no fim do `admin.css`. O cabeçalho do chat continua
 apertado (nome quebrando ao lado dos botões); é o layout de antes.
 
 Versões: `admin.js?v=376`, `admin.css?v=290`, `admin-condominio.js?v=4`.
+
+---
+
+## Piloto de tela: Ordens de Serviço (✅ 18/11/2026)
+
+Pedido do Pedro depois da fase 5: *"por mais que você tenha feito um trabalho
+visual, as telas continuam iguais, com as informações, funcionalidades e
+botões do mesmo jeito"*. As fases 1 a 5 mudaram navegação e pele; o piloto
+muda a **estrutura** de uma tela, para virar o molde de Chamados, Orçamentos e
+Contratos. Nenhuma informação saiu da tela.
+
+### Lista
+
+| Antes | Agora |
+|---|---|
+| Faixa de 5 números em cima | Uma frase: total, quantas abertas no mês, quantas em andamento; e "N finalizadas esperando envio ao cliente →", que leva à aba |
+| 10 colunas | 6: seleção, O.S. (data embaixo), condomínio (técnico embaixo), serviço, situação, ação |
+| Resultado, Status e E-mail em 3 colunas | Uma coluna **Situação**: "Em andamento / técnico chegou 14/09" ou "Finalizada 27/07 · Paliativo / Falta enviar ao cliente" |
+| Três ícones por linha (olho, documento, envelope) | Uma ação com nome quando há o que fazer: "Enviar" (falta enviar) ou "PDF"; a linha abre a ficha |
+| Nome do prédio em texto | Link para a ficha do condomínio |
+| Abas "Em rascunho" e "A enviar" | "Em andamento" e "A enviar ao cliente" |
+| Subtítulo "Documentos finalizados pelos técnicos" sobre uma lista com rascunho | "O técnico preenche no app; o escritório confere e envia ao cliente" |
+| No celular, a tabela rolava de lado e escondia a situação | A linha vira cartão |
+
+### Ficha (modal)
+
+- O **estado** fica ao lado do número, em selo; antes era o fim do subtítulo.
+- O.S. em andamento abre com um aviso: "O técnico ainda não finalizou esta
+  O.S.", com a hora de chegada e por que ela ainda não pode ser enviada.
+- **Só aparece a seção que tem conteúdo.** O que falta vira uma linha:
+  "Ainda sem registro de tipo de serviço, verificações, peças, fotos e
+  assinatura." Antes eram seis seções, cinco dizendo "nada".
+- A coordenada crua vira "ver no mapa" (link); "sem GPS" continua dito.
+- Prédio e chamado são links (ficha do condomínio, chamado selecionado).
+- Botões com nome e na ordem da tarefa: "Enviar ao cliente" (primário),
+  "Baixar PDF", "Editar". Antes "Editar" era o amarelo.
+
+### Testado (banco de teste, 18/11/2026)
+
+Desktop e celular 375px: lista, ficha em andamento e finalizada, links do
+prédio e do chamado, atalho da frase para a aba, Editar → Cancelar, e o modal
+de envio abrindo (fechado sem enviar). Sem erro de JS. `admin.js?v=378`,
+`admin.css?v=294`.
+
+### Segunda rodada: a O.S. vira página (18/11/2026)
+
+Os três pontos que faltavam para o padrão dos sistemas de referência:
+
+1. **Página própria em `#/os/<id>`**, não modal. Voltar e avançar do
+   navegador, F5 e link colado funcionam. "Voltar" devolve a pessoa de onde
+   ela veio (lista, ficha do condomínio, Início); quem chegou por link cai na
+   lista. O grupo "O.S." do menu acende.
+2. **Linha do tempo no topo**: Aberta → Técnico chegou → Finalizada → Enviada
+   ao cliente, com a data de cada etapa; a próxima aparece como "a seguir" (ou
+   "prédio sem e-mail").
+3. **Cabeçalho com as ações gruda no topo** ao rolar (no desktop), e o
+   conteúdo vai em duas colunas: o trabalho à esquerda, o atendimento (quando,
+   onde, quem recebeu, chamado) à direita. Abaixo de 900px vira uma coluna.
+
+⚠️ **Como foi feito sem reescrever a edição.** A caixa do antigo modal
+(`#osFicha`) é **movida** para a seção `os-detalhe` na primeira abertura
+(`_osMontarPagina`). Edição, envio por e-mail, PDF e pedido de assinatura
+acham seus elementos pelo id, então continuaram funcionando. O
+`#osModalOverlay` fica no HTML, vazio.
+
+⚠️ **O GET `/ordens-servico/:id` não traz o e-mail do prédio**, e a primeira
+versão da linha do tempo dizia "prédio sem e-mail" numa O.S. que a lista
+marcava "Falta enviar". A página empresta o campo da lista; aberta direto pelo
+link (lista ainda não carregada), ela só diz "a seguir".
+
+Também corrigido de passagem: a ficha da O.S. aberta pela ficha do condomínio
+ou pelo Início, sem a lista ter sido aberta antes, ficava com os botões do
+cabeçalho sem ação (`_osBindEventos` só rodava ao entrar na lista).
+
+Testado: lista → página → Voltar; avançar/voltar do navegador; F5 em
+`#/os/1`; link do prédio e volta; abrir pela ficha do condomínio e voltar para
+ela; Editar → Cancelar na página; cabeçalho grudando ao rolar; celular 375px
+sem rolagem lateral. Sem erro de JS. Versões: `admin.js?v=380`,
+`admin.css?v=297`, `admin-condominio.js?v=5`, `admin-nav.js?v=4`.
+
+**Próximo:** levar o molde para Chamados, Orçamentos e Contratos.

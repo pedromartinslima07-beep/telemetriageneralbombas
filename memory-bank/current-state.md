@@ -1381,3 +1381,11 @@ registrava era o escritório.
 > ⚠️ Há **duas** pastas de migrations: `migrations/` (numeradas 001-044, atuais)
 > e `database/migrations/` (datadas, do schema original de 2026-03/04). As ativas
 > são as numeradas.
+
+### 🟡 Agenda da empresa, fase A (18/11/2026)
+
+Na mesma branch do redesenho. `#/agenda` junta compromissos lançados à mão
+(com repetição), retornos de O.S., contratos terminando, preventivas do mês e o
+faturamento dos contratos do Omie, que é só acompanhado (o Omie já emite as
+notas). Migration 092 aplicada só em teste. Ver
+[agenda.md](../docs/modulos/agenda.md).

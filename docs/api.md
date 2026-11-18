@@ -269,6 +269,20 @@ externa — ver seção "Assinatura de contratos" abaixo).
 
 ---
 
+## Agenda (`/agenda`) — gestão
+
+Ver [agenda.md](modulos/agenda.md). `authRequired` + `gestaoOnly` em tudo;
+faturamento só `masterAdminOnly`.
+
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/agenda?de=&ate=` | itens do período (até 100 dias): compromissos expandidos, retornos de O.S., contratos terminando, preventivas, faturamento Omie (admin) |
+| POST | `/agenda/compromissos` | cria; `pagamento`/`financeiro` só admin |
+| PATCH | `/agenda/compromissos/:id` | edita |
+| DELETE | `/agenda/compromissos/:id` | marca apagado |
+| GET | `/agenda/faturamento?competencia=AAAA-MM` | retrato do faturamento dos contratos do Omie |
+| POST | `/agenda/faturamento/atualizar` | copia de novo do Omie (intervalo mínimo 2 min) |
+
 ## Assinatura de contratos
 
 Rotas públicas (sem JWT) em `/assinar`. Fluxo próprio de assinatura eletrônica

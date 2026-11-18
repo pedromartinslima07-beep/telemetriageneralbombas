@@ -94,6 +94,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
+| 092 | agenda | tabelas **`compromissos`** (agenda da empresa, com repetição semanal/mensal e `so_admin`), **`omie_contratos`** e **`omie_contrato_notas`** (cópia dos contratos de serviço do Omie e das NFS-e de cada um) e **`omie_sincronizacoes`**. **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push que levar a agenda** (a rota e o job leem as tabelas). Ver [agenda.md](modulos/agenda.md) |
 | 089 | lixeira_registros_apagados | Tabela `registros_apagados` + trigger `trg_lixeira` (AFTER DELETE, por linha) em 12 tabelas de atendimento: toda linha apagada deixa cópia JSONB, por qualquer caminho. **Aplicada em teste e produção em 11/11/2026.** Ver a entrada de 11/11/2026 abaixo |
 | 088 | os_assinatura_refazer | `ordens_servico.assinatura_refazer_em` (o escritório pediu nova assinatura) e `assinatura_refeita_em` (quando ela chegou — impresso no PDF). Ver a entrada de 05/10/2026 abaixo |
 | 087 | chamado_competencia | `chamados.competencia` (dia 1) + índice parcial; preenche os existentes pelo mês de criação (o segundo chamado do mesmo plano no mesmo mês vai para o seguinte) e põe o mês no título dos abertos. Ver a entrada de 02/10/2026 abaixo |
@@ -17795,3 +17796,38 @@ Pedro. Mesma branch, sem migration, sem endpoint novo.
   celular perde "Condomínios".
 - Tela WhatsApp no tema claro (painéis com preto translúcido à mão).
 - `admin.js?v=376`, `admin.css?v=290`, `admin-condominio.js?v=4`.
+
+## Piloto de tela: a lista e a ficha de O.S. (2026-11-18)
+
+Primeira tela com a estrutura refeita, não só a pele (ver
+[redesenho-admin.md](modulos/redesenho-admin.md), "Piloto de tela"). Sem
+migration, sem endpoint novo.
+
+- Faixa de 5 números → uma frase, com atalho para "A enviar ao cliente".
+- Resultado, Status e E-mail → uma coluna "Situação"; três ícones → uma ação
+  com nome; prédio vira link para a ficha; no celular a linha vira cartão.
+- Ficha: estado ao lado do número, aviso em O.S. em andamento, só as seções
+  com conteúdo (o resto numa linha "Ainda sem registro de..."), coordenada
+  vira "ver no mapa", prédio e chamado viram links, "Enviar ao cliente" é o
+  botão primário.
+- `admin.js?v=378`, `admin.css?v=294`.
+- **A O.S. virou página** (`#/os/<id>`): linha do tempo no topo (aberta →
+  chegou → finalizada → enviada), cabeçalho com as ações grudado no topo,
+  trabalho e atendimento em duas colunas. Voltar, F5 e link funcionam.
+  `admin.js?v=380`, `admin.css?v=297`, `admin-condominio.js?v=5`,
+  `admin-nav.js?v=4`.
+
+## Agenda da empresa, fase A (2026-11-18)
+
+Ver [agenda.md](modulos/agenda.md). Migration **092**, rota **`/agenda`**
+(nova, na lista network-first do `sw.js`), job **`omie-faturamento`**, config
+**`omie.faturamento_intervalo_min`**.
+
+- Tela `#/agenda` (Semana, Mês, Lista), primeira subaba do grupo Agenda.
+- Compromissos à mão com repetição; retornos de O.S., contratos terminando e
+  preventivas do mês entram sozinhos.
+- Faturamento dos contratos do Omie acompanhado (só leitura, só admin):
+  "77 de 81 com nota" e a lista do que falta.
+- Teste `scripts/testes/agenda.test.js` 21/21.
+- `admin.js?v=381`, `admin.css?v=301`, `admin-nav.js?v=5`,
+  `admin-agenda.js?v=4`, `sw.js` `telemetria-v62`, `register-sw.js?v=52`.

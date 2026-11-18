@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=290">
+  <link rel="stylesheet" href="/static/admin.css?v=301">
 </head>
 <body>
   <div id="appLoader">
@@ -50,6 +50,10 @@
         <button class="nav-item" data-section="inicio" data-label="Início">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
           <span class="nav-item-label">Início</span>
+        </button>
+        <button class="nav-item" data-section="agenda" data-label="Agenda">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="nav-item-label">Agenda</span>
         </button>
         <button class="nav-item" data-section="notas" data-label="Notas fiscais">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
@@ -280,6 +284,11 @@
       </div>
 
       <!-- Notas fiscais da carteira inteira (admin-carteira.js). -->
+      <!-- Agenda da empresa (092, 18/11/2026): ver admin-agenda.js -->
+      <div class="section" data-section="agenda">
+        <div id="agRoot"></div>
+      </div>
+
       <div class="section" data-section="notas">
         <div class="nf" id="nfRoot"></div>
       </div>
@@ -662,8 +671,6 @@
 
       <!-- ===== SECTION: ORDENS DE SERVIÇO ===== -->
       <div class="section" data-section="ordens-servico">
-        <!-- KPIs -->
-        <div class="resumo-grid" id="osKpiGrid" style="margin-bottom:16px;"></div>
 
         <section class="card" style="min-height:calc(100vh - 220px);">
           <div class="cardHead">
@@ -675,19 +682,23 @@
               </svg>
               Ordens de Serviço
             </h2>
-            <span class="hint">Documentos finalizados pelos técnicos no campo</span>
+            <span class="hint">O técnico preenche no app; o escritório confere e envia ao cliente</span>
           </div>
+          <!-- A faixa de cinco números virou esta frase (piloto do redesenho,
+               18/11/2026): ela diz o total e o mês, e o que pede ação vira
+               botão para a aba. Ver _osRenderKpis. -->
+          <p class="os-resumo" id="osResumo"></p>
 
           <div class="os-toolbar">
             <div class="wa-tabs" role="tablist">
               <button class="wa-tab is-active" data-os-tab="todas" type="button">Todas <span class="wa-count" id="osCtTodas">0</span></button>
               <button class="wa-tab" data-os-tab="finalizadas" type="button">Finalizadas <span class="wa-count" id="osCtFinal">0</span></button>
-              <button class="wa-tab" data-os-tab="rascunho" type="button">Em rascunho <span class="wa-count" id="osCtRascunho">0</span></button>
+              <button class="wa-tab" data-os-tab="rascunho" type="button">Em andamento <span class="wa-count" id="osCtRascunho">0</span></button>
               <!-- ⚠️ "A enviar" é a pergunta que o escritório faz de verdade
                    no fim da semana: finalizada, com e-mail no cadastro, e que
                    ainda não foi para o cliente. Sem esta aba isso só se
                    responde abrindo uma O.S. por vez. -->
-              <button class="wa-tab" data-os-tab="a-enviar" type="button">A enviar <span class="wa-count" id="osCtAEnviar">0</span></button>
+              <button class="wa-tab" data-os-tab="a-enviar" type="button">A enviar ao cliente <span class="wa-count" id="osCtAEnviar">0</span></button>
             </div>
             <input id="osBusca" class="input" placeholder="Buscar por número, condomínio, técnico…" />
           </div>
@@ -703,16 +714,12 @@
             <table>
               <thead>
                 <tr>
-                  <th style="width:32px"><input type="checkbox" id="osChkAll" class="viewer-only-hide"></th>
-                  <th style="width:120px">Número</th>
-                  <th style="width:120px">Criada em</th>
-                  <th>Condomínio</th>
-                  <th style="width:160px">Técnico</th>
-                  <th style="white-space:nowrap">Tipos de serviço</th>
-                  <th style="width:120px">Resultado</th>
-                  <th style="width:96px">Status</th>
-                  <th style="width:132px">E-mail</th>
-                  <th style="width:110px" class="right">Ações</th>
+                  <th style="width:36px"><input type="checkbox" id="osChkAll" class="viewer-only-hide" aria-label="Selecionar as que podem ser enviadas"></th>
+                  <th style="width:150px">O.S.</th>
+                  <th>Condomínio e técnico</th>
+                  <th>Serviço</th>
+                  <th style="width:260px">Situação</th>
+                  <th style="width:90px" class="right"><span class="sr-only">Ação</span></th>
                 </tr>
               </thead>
               <tbody id="osTableBody"></tbody>
@@ -735,6 +742,13 @@
           </div>
         </section>
       </div><!-- /section ordens-servico -->
+
+      <!-- Página da O.S. (piloto do redesenho, 18/11/2026). A caixa #osFicha
+           mora no #osModalOverlay no HTML e é movida para cá na primeira
+           abertura; ver _osMontarPagina em admin.js. -->
+      <div class="section" data-section="os-detalhe">
+        <div id="osPagina" class="os-pagina"></div>
+      </div>
 
       <!-- ===== SECTION: ORÇAMENTOS ===== -->
       <div class="section" data-section="orcamentos">
@@ -2174,19 +2188,19 @@
 
 <!-- Modal: detalhe de Ordem de Serviço -->
 <div id="osModalOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="width:min(1000px, 96vw);">
+  <div class="modalBox os-ficha" id="osFicha">
     <div class="modalHead">
       <div>
-        <div id="osModalTitle" class="modalTitle">Ordem de Serviço</div>
+        <div class="os-modal-titulo"><span id="osModalTitle" class="modalTitle">Ordem de Serviço</span><span id="osModalEstado"></span></div>
         <div id="osModalSub" class="modalSub">—</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-sm" id="osBtnPdf" type="button">📄 PDF</button>
-        <button class="btn btn-sm" id="osBtnEmail" type="button">✉️ E-mail</button>
-        <button class="btn btn-sm btnAccent" id="osBtnEditar" type="button">Editar</button>
+        <button class="btn btn-sm btnAccent" id="osBtnEmail" type="button">Enviar ao cliente</button>
+        <button class="btn btn-sm" id="osBtnPdf" type="button">Baixar PDF</button>
+        <button class="btn btn-sm" id="osBtnEditar" type="button">Editar</button>
         <button class="btn btn-sm" id="osBtnSalvar" type="button" style="display:none;">Salvar</button>
         <button class="btn btn-sm" id="osBtnCancelarEdicao" type="button" style="display:none;">Cancelar</button>
-        <button class="btn btn-sm" id="osBtnFechar" type="button">Fechar</button>
+        <button class="btn btn-sm" id="osBtnFechar" type="button">Voltar</button>
       </div>
     </div>
     <div class="modalBody" id="osModalBody">
@@ -2863,11 +2877,12 @@
 </div>
 
 
-<script src="/static/admin.js?v=376" defer></script>
-<script src="/static/admin-condominio.js?v=4" defer></script>
-<script src="/static/admin-nav.js?v=3" defer></script>
+<script src="/static/admin.js?v=381" defer></script>
+<script src="/static/admin-condominio.js?v=5" defer></script>
+<script src="/static/admin-nav.js?v=5" defer></script>
 <script src="/static/admin-carteira.js?v=2" defer></script>
+<script src="/static/admin-agenda.js?v=4" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
-<script src="/static/register-sw.js?v=51" defer></script>
+<script src="/static/register-sw.js?v=52" defer></script>
 </body>
 </html>

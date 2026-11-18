@@ -127,6 +127,8 @@ function escapeHtml(s) {
 // ===== NAVEGAÇÃO POR SEÇÕES =====
 const _sectionTitles = {
   inicio:           "Início",
+  "os-detalhe":     "Ordem de Serviço",
+  agenda:           "Agenda",
   notas:            "Notas fiscais",
   dashboard:        "Painel",
   telemetria:       "Telemetria",
@@ -11214,37 +11216,62 @@ async function renderSecaoOS() {
   _osBindEventos();
 }
 
+// ⚠️ A FAIXA DE 5 NÚMEROS VIROU UMA FRASE (piloto do redesenho, 18/11/2026).
+// Total, Finalizadas, Em rascunho e A enviar repetiam as contagens das abas
+// logo abaixo. O que não se repetia ("este mês") está na frase, e o que pede
+// ação (O.S. esperando envio) virou botão que leva à aba. Nenhum número saiu.
 function _osRenderKpis() {
-  const el = document.getElementById("osKpiGrid");
+  const el = document.getElementById("osResumo");
   if (!el) return;
   const data = Array.isArray(_osData) ? _osData : [];
 
-  const total      = data.length;
-  const finaliz    = data.filter(o => o.finalizada_em).length;
-  const rascunho   = total - finaliz;
-
+  const total    = data.length;
+  const rascunho = data.filter(o => !o.finalizada_em).length;
   const inicioMes = new Date();
   inicioMes.setDate(1);
   inicioMes.setHours(0, 0, 0, 0);
   const esteMes = data.filter(o => o.criado_em && new Date(o.criado_em) >= inicioMes).length;
   const aEnviar = data.filter(_osFaltaEnviar).length;
+  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 
-  const kpi = (icon, val, hint, kindCls) => kpiCard(icon, val, hint, kindCls);
+  const partes = [
+    `${pl(total, "O.S.", "O.S.")} no total, ${esteMes ? `${esteMes} ${esteMes === 1 ? "aberta" : "abertas"} este mês` : "nenhuma aberta este mês"}`,
+    rascunho ? `${pl(rascunho, "em andamento", "em andamento")} com os técnicos` : "",
+  ].filter(Boolean).join(" · ");
 
-  el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-        total, "Total de O.S.", "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-        finaliz, "Finalizadas", finaliz > 0 ? "rc-ok" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        rascunho, "Em rascunho", rascunho > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-        esteMes, "Este mês", "rc-neutral") +
-    // ⚠️ O QUE O ESCRITÓRIO AINDA DEVE AO CLIENTE. Finalizada, com e-mail no
-    // cadastro e nunca enviada — a única das quatro contas acima que aponta
-    // para trabalho parado, e por isso ela acende.
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
-        aEnviar, "A enviar ao cliente", aEnviar > 0 ? "rc-warn" : "rc-ok");
+  el.innerHTML = `<span>${partes}.</span>${aEnviar
+    ? ` <button type="button" class="os-resumo-acao" data-os-ir-aba="a-enviar">${pl(aEnviar, "finalizada esperando", "finalizadas esperando")} envio ao cliente →</button>`
+    : ""}`;
+}
+
+// A situação da O.S. numa célula só. Antes eram três colunas (Resultado,
+// Status, E-mail) respondendo à mesma pergunta: em que ponto ela está.
+function _osSituacao(o) {
+  if (!o.finalizada_em) {
+    return `<span class="os-sit-linha"><span class="os-status-pill os-status-rascunho">Em andamento</span></span>
+      <span class="os-sub">${o.chegada_em ? `técnico chegou ${_osFmtDataCurta(o.chegada_em)}` : "técnico ainda não chegou"}</span>`;
+  }
+  const res = _OS_RESULTADOS[o.servico_realizado];
+  const resHtml = res ? ` <span class="os-result-pill ${res.cls}">${res.label}</span>` : "";
+  let envio;
+  if (o.enviado_em) {
+    envio = `<span class="os-sub os-sub-ok" title="Enviada para ${_waEscaparHtml(o.enviado_para || "")}">Enviada ao cliente em ${_osFmtDataCurta(o.enviado_em)}</span>`;
+  } else if (_osDestinoDoCadastro(o).length) {
+    envio = `<span class="os-sub os-sub-atencao">Falta enviar ao cliente</span>`;
+  } else {
+    envio = `<span class="os-sub" title="Cadastre o e-mail do condomínio na ficha dele">Prédio sem e-mail cadastrado</span>`;
+  }
+  return `<span class="os-sit-linha"><span class="os-status-pill os-status-final">Finalizada ${_osFmtDataCurta(o.finalizada_em)}</span>${resHtml}</span>${envio}`;
+}
+
+// Uma ação por linha, com nome, e só quando há o que fazer. A linha inteira
+// continua abrindo a ficha (que tem todas as ações).
+function _osAcaoLinha(o) {
+  if (!o.finalizada_em) return "";
+  if (_osFaltaEnviar(o)) {
+    return `<button class="btn btn-sm btnAccent os-btn-email viewer-only-hide" data-os-id="${o.id}" type="button">Enviar</button>`;
+  }
+  return `<button class="btn btn-sm os-btn-pdf" data-os-id="${o.id}" type="button">PDF</button>`;
 }
 
 // ⚠️ O QUE "PODE IR EM LOTE" É REGRA, E ELA MORA AQUI (10/09/2026).
@@ -11334,47 +11361,24 @@ function _osRenderTabela() {
         (tipos.length > 2 ? `<span class="os-chip os-chip-more">+${tipos.length - 2}</span>` : "")
       : `<span class="os-muted">—</span>`;
 
-    const resultado = o.servico_realizado
-      ? `<span class="os-result-pill ${_OS_RESULTADOS[o.servico_realizado]?.cls || ""}">${_OS_RESULTADOS[o.servico_realizado]?.label || o.servico_realizado}</span>`
-      : `<span class="os-muted">—</span>`;
-
-    const status = o.finalizada_em
-      ? `<span class="os-status-pill os-status-final">Finalizada</span>`
-      : `<span class="os-status-pill os-status-rascunho">Rascunho</span>`;
-
-    // ⚠️ O SELO DE E-MAIL É A RESPOSTA DE "JÁ MANDEI ESTA?", e por isso ele
-    // diz três coisas diferentes em vez de duas. "Não enviada" num rascunho
-    // seria cobrança de algo que ainda nem pode sair; "sem e-mail" é o único
-    // estado que exige ir a outra tela (Clientes) para resolver.
-    const email = !o.finalizada_em
-      ? `<span class="os-muted">—</span>`
-      : o.enviado_em
-        ? `<span class="os-mail-pill os-mail-ok" title="Enviada para ${_waEscaparHtml(o.enviado_para || "")}">✓ ${_osFmtDataCurta(o.enviado_em)}</span>`
-        : _osDestinoDoCadastro(o).length
-          ? `<span class="os-mail-pill os-mail-pend">Não enviada</span>`
-          : `<span class="os-mail-pill os-mail-sem" title="Cadastre o e-mail do condomínio em Clientes">Sem e-mail</span>`;
-
     // Só entra na seleção o que pode de fato ser enviado — marcar o que vai
     // falhar é convite para um relatório cheio de erro previsível.
     const podeLote = _osPodeEnviarLote(o);
+    const nomeCondo = _waEscaparHtml(o.condominio_nome || "—");
 
     return `<tr class="os-row" data-os-id="${o.id}">
-      <td>${podeLote
-        ? `<input type="checkbox" class="os-chk viewer-only-hide" data-os-chk="${o.id}" ${_osSelecionadas.has(o.id) ? "checked" : ""}>`
+      <td class="os-td-chk">${podeLote
+        ? `<input type="checkbox" class="os-chk viewer-only-hide" data-os-chk="${o.id}" aria-label="Selecionar ${_waEscaparHtml(o.numero || "")}" ${_osSelecionadas.has(o.id) ? "checked" : ""}>`
         : ""}</td>
-      <td><strong>${_waEscaparHtml(o.numero || "—")}</strong></td>
-      <td>${_osFmtDataCurta(o.criado_em)}</td>
-      <td>${_waEscaparHtml(o.condominio_nome || "—")}</td>
-      <td>${_waEscaparHtml(o.tecnico_nome || "—")}</td>
+      <td class="os-td-num"><strong>${_waEscaparHtml(o.numero || "—")}</strong>
+        <span class="os-sub">aberta ${_osFmtDataCurta(o.criado_em)}</span></td>
+      <td class="os-td-condo">${o.condominio_id
+          ? `<button type="button" class="os-link" data-os-condo="${o.condominio_id}" title="Abrir a ficha do condomínio">${nomeCondo}</button>`
+          : nomeCondo}
+        <span class="os-sub">${_waEscaparHtml(o.tecnico_nome || "Sem técnico")}</span></td>
       <td><div class="os-tipos-cell">${tiposHtml}</div></td>
-      <td>${resultado}</td>
-      <td>${status}</td>
-      <td>${email}</td>
-      <td class="right os-acoes-cell">
-        <button class="btn btn-sm os-btn-ver" data-os-id="${o.id}" type="button" title="Ver detalhes">👁</button>
-        ${o.finalizada_em ? `<button class="btn btn-sm os-btn-pdf" data-os-id="${o.id}" type="button" title="Baixar PDF">📄</button>` : ""}
-        ${o.finalizada_em ? `<button class="btn btn-sm os-btn-email" data-os-id="${o.id}" type="button" title="Enviar por e-mail">✉️</button>` : ""}
-      </td>
+      <td class="os-td-sit">${_osSituacao(o)}</td>
+      <td class="right os-acoes-cell">${_osAcaoLinha(o)}</td>
     </tr>`;
   }).join("");
 
@@ -11451,7 +11455,16 @@ function _osBindEventos() {
   });
 
   // Delegação no tbody (botões dinâmicos)
+  // A frase-resumo leva à aba do que pede ação.
+  document.getElementById("osResumo")?.addEventListener("click", (e) => {
+    const ir = e.target.closest("[data-os-ir-aba]");
+    if (ir) document.querySelector(`.wa-tab[data-os-tab="${ir.dataset.osIrAba}"]`)?.click();
+  });
+
   document.getElementById("osTableBody")?.addEventListener("click", (e) => {
+    // O nome do prédio abre a ficha dele, não a O.S.
+    const condo = e.target.closest("[data-os-condo]");
+    if (condo) { abrirFichaCondominio(Number(condo.dataset.osCondo)); return; }
     const ver = e.target.closest(".os-btn-ver");
     const pdf = e.target.closest(".os-btn-pdf");
     const mail = e.target.closest(".os-btn-email");
@@ -11494,8 +11507,13 @@ function _osBindEventos() {
   document.getElementById("osBtnSalvar")?.addEventListener("click", _osSalvarEdicao);
   document.getElementById("osBtnCancelarEdicao")?.addEventListener("click", _osCancelarEdicao);
 
-  document.getElementById("osModalOverlay")?.addEventListener("click", (e) => {
-    if (e.target.id === "osModalOverlay") fecharOSModal();
+  // O prédio e o chamado da ficha levam aonde eles moram. Não fecha a
+  // página da O.S.: o "voltar" do navegador devolve a pessoa a ela.
+  document.getElementById("osFicha")?.addEventListener("click", (e) => {
+    const condo = e.target.closest("[data-os-ficha-condo]");
+    if (condo) { abrirFichaCondominio(Number(condo.dataset.osFichaCondo)); return; }
+    const ch = e.target.closest("[data-os-ficha-chamado]");
+    if (ch) { _cfAbrirChamado(Number(ch.dataset.osFichaChamado)); }
   });
   document.getElementById("osFotoLightboxClose")?.addEventListener("click", () => {
     const lb = document.getElementById("osFotoLightbox");
@@ -11511,28 +11529,55 @@ function _osBindEventos() {
     if (e.key !== "Escape") return;
     const lb = document.getElementById("osFotoLightbox");
     if (lb && lb.style.display !== "none") { lb.style.display = "none"; return; }
-    const ov = document.getElementById("osModalOverlay");
-    if (ov && ov.style.display !== "none") fecharOSModal();
   });
 }
 
 // ============================================================
-// MODAL DE DETALHE
+// PÁGINA DA O.S. (era modal até 18/11/2026)
 // ============================================================
+//
+// ⚠️ A O.S. TEM PÁGINA PRÓPRIA EM #/os/<id> (piloto do redesenho). Nos
+// sistemas de referência o serviço é uma página com endereço, não um modal
+// sobre a lista: dá para voltar, recarregar e mandar o link.
+// A caixa do antigo modal (#osFicha, com os mesmos ids de sempre) é MOVIDA
+// para a seção "os-detalhe" na primeira abertura. Assim edição, envio por
+// e-mail, PDF e pedido de assinatura continuam funcionando sem reescrita:
+// todos acham seus elementos pelo id, onde quer que eles morem.
+// O #osModalOverlay continua no HTML, vazio e escondido.
+let _osEmpurrouHistorico = false;
 
-async function abrirOSDetalhe(id) {
+function _osMontarPagina() {
+  const pag = document.getElementById("osPagina");
+  const box = document.getElementById("osFicha");
+  if (pag && box && box.parentElement !== pag) pag.appendChild(box);
+}
+
+async function abrirOSDetalhe(id, { daRota = false } = {}) {
   if (!id) return;
+  _osBindEventos(); // a ficha pode abrir sem a lista nunca ter sido aberta
+  const jaNaPagina = document.querySelector('.section[data-section="os-detalhe"].is-active');
   _osSelecionadaId = id;
   _osModoEdicao = false;
   _osEdits = null;
 
-  const ov   = document.getElementById("osModalOverlay");
   const body = document.getElementById("osModalBody");
   const sub  = document.getElementById("osModalSub");
   const tit  = document.getElementById("osModalTitle");
-  if (!ov || !body) return;
+  _osMontarPagina();
+  if (!body) return;
 
-  ov.style.display = "flex";
+  if (!jaNaPagina) {
+    _rotaAplicando = true;
+    try { showSection("os-detalhe"); } finally { _rotaAplicando = false; }
+    document.querySelector(".content")?.scrollTo?.(0, 0);
+  }
+  const destino = `#/os/${id}`;
+  if (daRota) _osEmpurrouHistorico = false; // chegou pelo endereço (F5, voltar, link)
+  else if (location.hash !== destino) {
+    history.pushState(null, "", destino);
+    _osEmpurrouHistorico = true;
+  }
+
   body.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;">Carregando…</div>`;
   if (sub) sub.textContent = "Carregando…";
   if (tit) tit.textContent = "Ordem de Serviço";
@@ -11551,13 +11596,17 @@ async function abrirOSDetalhe(id) {
   }
 }
 
+// "Voltar" da página: volta para onde a pessoa estava (lista, ficha do
+// condomínio, Início). Se ela chegou pelo link colado, não há de onde voltar
+// e cai na lista de O.S.
 function fecharOSModal() {
-  const ov = document.getElementById("osModalOverlay");
-  if (ov) ov.style.display = "none";
   _osSelecionadaId = null;
   _osSelecionada = null;
   _osModoEdicao = false;
   _osEdits = null;
+  if (!document.querySelector('.section[data-section="os-detalhe"].is-active')) return;
+  if (_osEmpurrouHistorico) { _osEmpurrouHistorico = false; history.back(); return; }
+  showSection("ordens-servico");
 }
 
 function _osAtualizarBotoesHeader() {
@@ -11595,13 +11644,21 @@ function _osRenderModal() {
   const os = _osSelecionada;
 
   if (tit) tit.textContent = os.numero || "O.S.";
+  // O estado é a primeira coisa da ficha, ao lado do número. Antes ele era o
+  // último pedaço do subtítulo, em cinza ("Rascunho (não finalizada)").
+  const estado = document.getElementById("osModalEstado");
+  if (estado) {
+    estado.innerHTML = os.finalizada_em
+      ? `<span class="os-status-pill os-status-final">Finalizada</span>`
+      : `<span class="os-status-pill os-status-rascunho">Em andamento</span>`;
+  }
   if (sub) {
-    const cond = os.condominio_nome || "—";
-    const tec  = os.tecnico_nome || "Sem técnico";
-    const status = os.finalizada_em
-      ? `Finalizada em ${_osFmtData(os.finalizada_em)}`
-      : "Rascunho (não finalizada)";
-    sub.innerHTML = `${_waEscaparHtml(cond)} · ${_waEscaparHtml(tec)} · ${status}`;
+    const cond = _waEscaparHtml(os.condominio_nome || "—");
+    const tec  = _waEscaparHtml(os.tecnico_nome || "Sem técnico");
+    const condHtml = os.condominio_id
+      ? `<button type="button" class="os-link" data-os-ficha-condo="${os.condominio_id}" title="Abrir a ficha do condomínio">${cond}</button>`
+      : cond;
+    sub.innerHTML = `${condHtml} · ${tec}`;
   }
 
   _osAtualizarBotoesHeader();
@@ -11709,64 +11766,113 @@ function _osRenderView(os) {
     ? `<div class="os-muted" style="margin-top:6px;">Colhida de novo em ${_osFmtData(os.assinatura_refeita_em)}, após o atendimento.</div>`
     : "";
 
-  // ⚠️ Número, Condomínio, Técnico e "Finalizada" NÃO entram no corpo: o
-  // cabeçalho do modal já os exibe (`osModalTitle` = número, `osModalSub` =
-  // condomínio · técnico · status). Eram 4 das 7 linhas de "Identificação"
-  // repetindo o que estava 40px acima.
-  return `
-    <div class="os-view-body">
+  // ⚠️ PILOTO DO REDESENHO (18/11/2026): SÓ APARECE A SEÇÃO QUE TEM O QUE
+  // MOSTRAR. Numa O.S. em andamento a ficha antiga era seis seções, cinco
+  // delas dizendo "nada" ("Nada verificado", "Nenhuma peça", "Nenhuma
+  // foto"...). Agora o que falta vira UMA linha, "Ainda sem registro de ...",
+  // e nenhuma informação some: o que existe continua com a seção própria.
+  // Número, condomínio, técnico e estado ficam no cabeçalho do modal.
+  const temTipos   = tipos.length > 0;
+  const temVerif   = itensVerif.length > 0;
+  const temCorr    = !!(os.correntes && typeof os.correntes === "object");
+  const temPecas   = pecas.length > 0;
+  const temFotos   = fotos.length > 0;
+  const temAssin   = !!(os.assinatura_b64 || os.tem_assinatura);
+  const faltando = [
+    !temTipos && "tipo de serviço",
+    !os.servico_realizado && os.finalizada_em && "resultado",
+    !temVerif && "verificações",
+    !temCorr && "correntes elétricas",
+    !temPecas && "peças",
+    !temFotos && "fotos",
+    !(temAssin || assinAcao) && "assinatura",
+  ].filter(Boolean);
+  const listaPt = (xs) => xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " e " + xs[xs.length - 1];
 
-      <!-- O veredito primeiro. Estava na 5ª seção, depois de "itens
-           verificados" e "correntes elétricas" — mas ao abrir uma O.S. o que
-           se quer saber é se deu certo, se precisa voltar e se precisa
-           orçamento. Isso decide o próximo passo; o resto é registro. -->
-      <div class="os-veredito">
+  // A coordenada crua (-23.55060, -46.63330) vira "no local", com link para
+  // o mapa. "sem GPS" continua dito em voz alta (ver _osFmtGeo).
+  const geo = (lat, lng) => (lat == null || lng == null)
+    ? ` <span class="os-muted">· sem GPS</span>`
+    : ` · <a class="os-link" href="https://www.google.com/maps?q=${Number(lat)},${Number(lng)}" target="_blank" rel="noopener">ver no mapa</a>`;
+
+  const linha = (k, v) => `<div class="os-row-info"><span class="os-key">${k}</span><span class="os-val">${v}</span></div>`;
+  const atendimento = [
+    linha("Aberta em", _osFmtData(os.criado_em)),
+    linha("Chegada", os.chegada_em ? _osFmtData(os.chegada_em) + geo(os.chegada_lat, os.chegada_lng) : `<span class="os-muted">o técnico ainda não chegou</span>`),
+    os.saida_em ? linha("Saída", _osFmtData(os.saida_em) + (os.saida_lat != null ? geo(os.saida_lat, os.saida_lng) : "")) : "",
+    os.recebido_nome ? linha("Recebido por", `${_waEscaparHtml(os.recebido_nome)}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}`) : "",
+    linha("Endereço", _waEscaparHtml(endereco)),
+    os.chamado_id ? linha("Chamado", `<button type="button" class="os-link" data-os-ficha-chamado="${os.chamado_id}">#${os.chamado_id}, abrir</button>`) : "",
+  ].join("");
+
+  const aviso = os.finalizada_em
+    ? ""
+    : `<div class="os-aviso">
+        <strong>O técnico ainda não finalizou esta O.S.</strong>
+        <span>${os.chegada_em ? `Ele chegou ao prédio em ${_osFmtData(os.chegada_em)}.` : "Ele ainda não registrou a chegada."} O documento só pode ser enviado ao cliente depois de finalizado no app.</span>
+      </div>`;
+
+  const veredito = (os.servico_realizado || os.necessario_retorno || os.orcamento_necessario || temTipos || os.observacoes || os.orcamento_observacoes)
+    ? `<div class="os-veredito">
         <div class="os-result-row">
-          ${resultado}
+          ${os.servico_realizado ? resultado : ""}
           ${os.necessario_retorno ? `<span class="os-status-pill os-status-rascunho">Necessita retorno${os.retorno_sugerido_em ? ` em ${_osFmtDataCurta(os.retorno_sugerido_em)}` : ""}</span>` : ""}
           ${os.orcamento_necessario ? `<span class="os-status-pill os-status-rascunho">Orçamento necessário</span>` : ""}
-          <span class="os-chips-wrap os-chips-inline">${tiposHtml}</span>
+          ${temTipos ? `<span class="os-chips-wrap os-chips-inline">${tiposHtml}</span>` : ""}
         </div>
         ${os.observacoes ? `<p class="os-obs">${_waEscaparHtml(os.observacoes)}</p>` : ""}
         ${os.orcamento_observacoes ? `<p class="os-obs"><strong>Orçamento:</strong> ${_waEscaparHtml(os.orcamento_observacoes)}</p>` : ""}
-      </div>
+      </div>`
+    : "";
 
-      <div class="os-view-cols">
-        <div>
-          <div class="os-vsec-title">Atendimento</div>
-          <div class="os-rows">
-            <div class="os-row-info"><span class="os-key">Criada em</span><span class="os-val">${_osFmtData(os.criado_em)}</span></div>
-            <div class="os-row-info"><span class="os-key">Chegada</span><span class="os-val">${_osFmtData(os.chegada_em)}${_osFmtGeo(os.chegada_lat, os.chegada_lng)}</span></div>
-            <div class="os-row-info"><span class="os-key">Saída</span><span class="os-val">${_osFmtData(os.saida_em)}${os.saida_lat ? ` · ${Number(os.saida_lat).toFixed(5)}, ${Number(os.saida_lng).toFixed(5)}` : ""}</span></div>
-            <div class="os-row-info"><span class="os-key">Recebido por</span><span class="os-val">${_waEscaparHtml(os.recebido_nome || "—")}${os.recebido_tipo ? ` (${_OS_RECEBIDO_TIPOS[os.recebido_tipo] || os.recebido_tipo})` : ""}</span></div>
-            <div class="os-row-info"><span class="os-key">Endereço</span><span class="os-val">${_waEscaparHtml(endereco)}</span></div>
-            <div class="os-row-info"><span class="os-key">Chamado</span><span class="os-val">${os.chamado_id ? `#${os.chamado_id}` : "—"}</span></div>
+  const secao = (titulo, html) => `<div class="os-secao"><div class="os-vsec-title">${titulo}</div>${html}</div>`;
+  const secoes = [
+    temVerif ? secao("Verificações", itensHtml) : "",
+    temCorr ? secao("Correntes elétricas", correntesHtml) : "",
+    temPecas ? secao("Peças usadas", pecasHtml) : "",
+    temFotos ? secao(`Fotos (${fotos.length})`, fotosHtml) : "",
+    (temAssin || assinAcao) ? secao("Assinatura de quem recebeu", assin + assinRefeita + assinAcao) : "",
+  ].filter(Boolean);
+
+  // A LINHA DO TEMPO: as quatro etapas por que toda O.S. passa, com a data de
+  // cada uma. Antes isso estava espalhado em linhas de "Atendimento" e no
+  // selo de e-mail da lista.
+  // ⚠️ O GET /ordens-servico/:id não traz o e-mail do prédio; a lista traz.
+  // Sem este empréstimo a página dizia "prédio sem e-mail" para a mesma O.S.
+  // que a lista marcava "Falta enviar ao cliente".
+  const daLista = (Array.isArray(_osData) ? _osData : []).find(o => o.id === os.id);
+  const emailPredio = os.condominio_email ?? daLista?.condominio_email;
+  const semEmail = os.finalizada_em && !os.enviado_em
+    && emailPredio !== undefined && !_osDestinoDoCadastro({ condominio_email: emailPredio }).length;
+  const etapas = [
+    { rot: "Aberta",            em: os.criado_em },
+    { rot: "Técnico chegou",    em: os.chegada_em },
+    { rot: "Finalizada",        em: os.finalizada_em },
+    { rot: "Enviada ao cliente", em: os.enviado_em, nota: semEmail ? "prédio sem e-mail" : "" },
+  ];
+  const atual = etapas.findIndex(e => !e.em);
+  const linhaTempo = `<ol class="os-tempo" aria-label="Andamento da O.S.">${etapas.map((e, i) => {
+    const cls = e.em ? "is-feito" : i === atual ? "is-atual" : "";
+    const quando = e.em ? _osFmtData(e.em) : (e.nota || (i === atual ? "a seguir" : ""));
+    return `<li class="${cls}"><span class="os-tempo-rot">${e.rot}</span><span class="os-tempo-em">${quando}</span></li>`;
+  }).join("")}</ol>`;
+
+  return `
+    <div class="os-view-body">
+      ${linhaTempo}
+      ${aviso}
+      <div class="os-colunas">
+        <div class="os-col-trabalho">
+          ${veredito}
+          ${secoes.length ? `<div class="os-secoes">${secoes.join("")}</div>` : ""}
+          ${faltando.length ? `<p class="os-faltando">Ainda sem registro de ${listaPt(faltando)}.</p>` : ""}
+        </div>
+        <aside class="os-col-lado">
+          <div class="os-secao">
+            <div class="os-vsec-title">Atendimento</div>
+            <div class="os-rows">${atendimento}</div>
           </div>
-        </div>
-        <div>
-          <div class="os-vsec-title">Verificações</div>
-          ${itensHtml}
-          <div class="os-vsec-title" style="margin-top:16px;">Correntes elétricas</div>
-          ${correntesHtml}
-        </div>
-      </div>
-
-      <div>
-        <div class="os-vsec-title">Peças usadas</div>
-        ${pecasHtml}
-      </div>
-
-      <div class="os-view-cols">
-        <div>
-          <div class="os-vsec-title">Fotos${fotos.length ? ` (${fotos.length})` : ""}</div>
-          ${fotosHtml}
-        </div>
-        <div>
-          <div class="os-vsec-title">Assinatura de quem recebeu</div>
-          ${assin}
-          ${assinRefeita}
-          ${assinAcao}
-        </div>
+        </aside>
       </div>
     </div>`;
 }

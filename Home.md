@@ -57,6 +57,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`nota-fiscal.md`](docs/modulos/nota-fiscal.md) — nota do orçamento aprovado pelo Omie: uma nota por orçamento, molde copiado das notas feitas à mão, kill-switch `OMIE_EMISSAO` `#fluxo`
 - [`painel-admin.md`](docs/modulos/painel-admin.md) — painel de operação: as 15 telas, os 3 moldes, os defeitos medidos e a direção proposta `#fluxo`
 - [`redesenho-admin.md`](docs/modulos/redesenho-admin.md) — 📋 plano aprovado: o condomínio como eixo do admin, menu de 15 para 9, fundo claro `#fluxo`
+- [`agenda.md`](docs/modulos/agenda.md) — agenda da empresa: compromissos, retornos, contratos, preventivas e o faturamento dos contratos do Omie (só leitura) `#fluxo`
 - [`painel-operador.md`](docs/modulos/painel-operador.md) — painel do turno: a fila ordenada pelo SLA que estoura primeiro, com a evidência dentro do item `#fluxo`
 
 ## ⚙️ Convenções

@@ -33,7 +33,8 @@ let _rotaAplicando = false;
 function _rotaPermitida(secao) {
   // O perfil operador não vê 10 das 15 seções (e as rotas delas dão 403).
   // A nav já esconde o que ele não vê; o endereço obedece a nav.
-  const alvo = secao === "condominio" ? "cadastros" : secao;
+  // A ficha e a página da O.S. não têm item próprio: valem as da lista.
+  const alvo = secao === "condominio" ? "cadastros" : secao === "os-detalhe" ? "ordens-servico" : secao;
   const nav = document.querySelector(`.nav-item[data-section="${alvo}"]`);
   if (!nav) return false;
   return nav.style.display !== "none" && getComputedStyle(nav).display !== "none";
@@ -41,7 +42,7 @@ function _rotaPermitida(secao) {
 
 function _rotaAoMostrar(nome) {
   if (_rotaAplicando) return;
-  if (nome === "condominio") return; // a ficha escreve o próprio endereço
+  if (nome === "condominio" || nome === "os-detalhe") return; // escrevem o próprio endereço
   const novo = `#/${nome}`;
   if (location.hash !== novo) history.pushState(null, "", novo);
 }
@@ -49,6 +50,9 @@ function _rotaAoMostrar(nome) {
 function _rotaLer() {
   const partes = (location.hash || "").replace(/^#\/?/, "").split("/").filter(Boolean);
   if (!partes.length) return null;
+  if (partes[0] === "os" && partes[1]) {
+    return { secao: "os-detalhe", osId: Number(partes[1]) };
+  }
   if (partes[0] === "condominios" && partes[1]) {
     return { secao: "condominio", condoId: Number(partes[1]), aba: partes[2] || "resumo" };
   }
@@ -63,6 +67,12 @@ function _rotaAplicar() {
   if (r.secao === "condominio") {
     if (!Number.isInteger(r.condoId) || r.condoId <= 0) return;
     _cfMostrar(r.condoId, r.aba);
+    return;
+  }
+  if (r.secao === "os-detalhe") {
+    if (!Number.isInteger(r.osId) || r.osId <= 0) return;
+    const naPagina = document.querySelector('.section[data-section="os-detalhe"].is-active');
+    if (!naPagina || _osSelecionadaId !== r.osId) abrirOSDetalhe(r.osId, { daRota: true });
     return;
   }
   _rotaAplicando = true;

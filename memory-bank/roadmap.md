@@ -1026,3 +1026,14 @@ depois. Nenhum é bloqueante.
 - App nas lojas com push nativo.
 - Possível: multi-empresa white-label, health do device (qualidade de sinal),
   múltiplas sondas por reservatório (itens do roadmap original do README).
+
+## Agenda da empresa 🟡
+
+Pedido do Pedro em 18/11/2026. Ver [agenda.md](../docs/modulos/agenda.md).
+
+| Fase | O quê | Status |
+|---|---|---|
+| A | Agenda no painel: compromissos à mão com repetição, retornos de O.S., contratos, preventivas, faturamento dos contratos do Omie (só leitura, só admin) | ✅ 18/11 (branch `feature/admin-condominio`; ⏳ 092 em produção antes do push) |
+| B | Dia e técnico marcados na preventiva e no chamado; técnico vê a semana no app | 📋 falta decidir se o técnico vê |
+| C | Contas a pagar e a receber do Omie | 📋 |
+| D | Emitir as notas das preventivas | ❌ descartada: o Omie já fatura os contratos (seria nota em dobro) |
