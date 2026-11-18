@@ -19,6 +19,12 @@ linhas) — sem build e sem framework, servida pelo Express.
 Não confundir com o [painel do cliente](painel-cliente.md), que é outra folha,
 outro público e outro sistema visual.
 
+> 🟡 **Desde a fase 4 do [redesenho](redesenho-admin.md) (18/11/2026, branch
+> `feature/admin-condominio`)** a área de trabalho é clara e sem chanfro, com o
+> menu lateral marinho. O que esta nota diz sobre "superfície marinho",
+> chapa de duas camadas e etiqueta mono descreve o painel **antes** disso; o
+> CSS antigo continua lá embaixo e a fase 4 o sobrescreve no fim do arquivo.
+
 ---
 
 ## ⚠️ Ação que grava redesenha a LISTA, não só o modal (09/10/2026)

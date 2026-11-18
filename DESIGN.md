@@ -239,6 +239,17 @@ components:
 > [decisions.md](memory-bank/decisions.md); as evidências medidas, em
 > [painel-admin.md](docs/modulos/painel-admin.md).
 >
+> ⚠️ **E em 18/11/2026 o admin SAIU da forma do Chapa, mantendo a marca.** Na
+> fase 4 do [redesenho do admin](docs/modulos/redesenho-admin.md) o Pedro pediu
+> fundo claro e *"deixa como é nos sistemas profissionais"*. O painel admin
+> agora é o **registro de gestão**: área de trabalho clara, menu marinho, sem
+> chanfro, cartão com borda e canto arredondado, rótulo em texto normal. Ficam
+> a paleta, os tokens, a fonte e as regras de cor (Preenchimento Cru, Dois
+> Campos de Estado, Amarelo Cego). O que vale para ele está em
+> **"O registro de gestão (painel admin)"**, no fim deste arquivo; onde o resto
+> do documento falar do admin em marinho, chanfro ou etiqueta mono, descreve o
+> painel antes de 18/11.
+>
 > O **app mobile do técnico** (`app/public/app.css`) continua fora **por decisão
 > de escopo, não por princípio**: ele tem cópia própria dos tokens com
 > `--accent: #f0b014`. Enquanto não migrar, é a quarta identidade do produto —
@@ -271,15 +282,19 @@ components:
 > uma declaração com `color-mix` cai inteira num Chrome anterior ao 111. Ver
 > [app-mobile.md](docs/modulos/app-mobile.md).
 >
-> **O admin não é uma quinta cópia do mesmo registro.** Ele usa o Chapa em
-> **registro de operação**, e as diferenças são deliberadas:
+> **O admin não é uma quinta cópia do mesmo registro.** Desde 18/11/2026 ele
+> usa a marca do Chapa em **registro de gestão**, e as diferenças são
+> deliberadas:
 >
-> | | Cliente / landing | Admin |
+> | | Cliente / landing | Admin (registro de gestão) |
 > |---|---|---|
 > | Corpo | 17px, medida de linha em `ch` | 13px, sem limite de medida |
 > | Rampa | fluida (`clamp`) | fixa em `px`/`rem` |
 > | Gestos retóricos | revelação por corte, engrenagens, inversão de campo | nenhum |
 > | Densidade | uma leitura por tela | tabela de 40 linhas |
+> | Campo | marinho, placa clara pousada | claro (`#f3f5f9`), menu marinho |
+> | Forma | chanfro de 45° | canto arredondado (10px cartão, 6px controle) |
+> | Rótulo | mono em caixa alta | texto normal; mono só em número e código |
 >
 > As seis superfícies **duplicam os tokens de propósito** (`landing.css`,
 > `login.css`, `cliente.css`, `admin.css`, `operador.css` e
@@ -669,7 +684,10 @@ interna. É essa construção que permite ao instrumento trocar a cor do anel po
 estado sem trocar a moldura.
 
 **A Regra da Superfície.** Tirada da tela de login, que está em produção
-desde 11/08: **marinho é moldura; placa clara é onde se lê e se edita.** Ao
+desde 11/08: **marinho é moldura; placa clara é onde se lê e se edita.**
+(⚠️ O admin inverteu esta regra em 18/11/2026: área de trabalho clara, e o que
+abre por cima um degrau mais escuro. Ver "O registro de gestão", no fim. O
+histórico abaixo continua valendo para operador, cliente e landing.) Ao
 aplicar isso ao admin (21/08) a regra precisou de uma fronteira mais afiada,
 porque "formulário" sozinho levaria o painel inteiro para o claro:
 
@@ -735,8 +753,8 @@ property é substituído no elemento onde ela é **declarada**, não onde é usa
 pronto. Redeclarar `--ch` num componente só teria efeito se ele redeclarasse
 `--corte` junto.
 
-Ou seja: hoje cada superfície tem **um** chanfro (landing 22px, cliente e admin
-10, operador 10 desde 27/08 — era 8), e a escada de tamanhos por componente não
+Ou seja: hoje cada superfície tem **um** chanfro (landing 22px, cliente 10,
+operador 10 desde 27/08 — era 8; o admin não tem chanfro desde 18/11), e a escada de tamanhos por componente não
 existe em lugar nenhum. Isso é o **estado**, não descuido novo: as declarações
 locais estão escritas em todas as folhas e documentam a intenção. Consertar é
 mudar as cinco de uma vez — fazer numa só transformaria justamente aquela na
@@ -937,9 +955,12 @@ congelado no momento que importa — o alerta crítico já aberto.
   Dois Campos de Estado.
 - **Don't** encolher o corpo de texto no mobile do painel. As quebras são
   estruturais; o tamanho é requisito de público.
-- **Don't** tratar o `public/admin.css` como sistema estrangeiro: desde
-  21/08/2026 ele É este sistema, em registro de operação. O que continua fora
-  é o `app/public/app.css` (app do técnico), e por escopo, não por princípio.
+- **Don't** tratar o `public/admin.css` como sistema estrangeiro: ele usa a
+  marca e os tokens deste sistema, em registro de gestão desde 18/11/2026. E
+  **don't** levar a forma de gestão (canto arredondado, rótulo sem mono) de
+  volta para landing, login, cliente ou operador: lá o chanfro continua sendo
+  a forma. O que continua fora é o `app/public/app.css` (app do técnico), e
+  por escopo, não por princípio.
 - **Don't** preencher selo de CATEGORIA (tipo de serviço, papel de usuário,
   origem, categoria de chamado). Preenchimento é reservado a estado que pede
   ação — ver A Regra do Selo.
@@ -951,8 +972,8 @@ congelado no momento que importa — o alerta crítico já aberto.
 - **Don't** dar `clip-path` a um contêiner que hospede `position: fixed`
   (modal, mapa em tela cheia). `clip-path` faz do elemento bloco de contenção
   para descendentes fixos, e eles passam a se posicionar — e a ser recortados
-  — em relação a ele. É por isso que a moldura do admin é esquadrada e só as
-  peças são cortadas.
+  — em relação a ele. É por isso que a moldura do operador é esquadrada e só
+  as peças são cortadas (no admin, desde 18/11, nada é cortado).
 - **Don't** escrever `:has()` com descendente solto para detectar estado
   vazio. `:has()` ignora `display: none` e casa com o que está no DOM: um
   placeholder escondido em outra coluna dispara a regra. Use caminho exato
@@ -988,3 +1009,80 @@ congelado no momento que importa — o alerta crítico já aberto.
   defeito central que este redesenho desfez: toda evolução do painel de
   operação caía no painel do síndico sem revisão. Ver
   [Painel do cliente](docs/modulos/painel-cliente.md).
+
+## O registro de gestão (painel admin, desde 18/11/2026)
+
+O `/admin/painel` é ferramenta de oito horas por dia para quem cuida da
+carteira inteira. Ele leva a **marca** do Chapa (marinho, amarelo, Archivo) e
+deixa a **forma** de peça de venda (chanfro, etiqueta gravada, marinho
+corrido). O "porquê" está em [decisions.md](memory-bank/decisions.md), seção
+"Painel admin — o condomínio como eixo e fundo claro"; o que mudou, em
+[redesenho-admin.md](docs/modulos/redesenho-admin.md).
+
+**Onde mora:** dois blocos no fim de `public/admin.css` ("FASE 4 DO
+REDESENHO" e "A FORMA DOS SISTEMAS DE GESTÃO"), que remapeiam tokens no
+`.main` e sobrescrevem a forma. O CSS de marinho acima deles continua no
+arquivo e é o que eles sobrescrevem.
+
+### Campos
+
+| Camada | Valor | Token no `.main` |
+|---|---|---|
+| Área de trabalho | `#f3f5f9` | `--campo`, `--bg` |
+| Cartão, topo, tabela | `#ffffff` | `--placa`, `--surface` |
+| Cabeçalho de tabela | `#f7f8fb` | (literal na regra do `th`) |
+| Fundo secundário, trilho de aba | `#f1f4f8` / `#e4e9f1` | `--surface2`, `--surface3` |
+| Linha escolhida | `#e3eaf7` | `--selecao` |
+| Modal, gaveta | `#e8ebf2` | `--chapa` (um degrau abaixo do campo) |
+| Menu lateral | `#050f38` | `--mar-800` |
+| Borda | `rgba(6,16,51,.12)` | `--border`, `--fio` |
+
+Texto: `--text` = `--tinta` (`#061033`), secundário `--muted` (`#56648a`).
+Estado é sempre a família `-t` (`--ok-t`, `--atencao-t`, `--risco-t`).
+
+### A Regra do Amarelo Só para Ação
+
+O amarelo preenchido é **o botão primário e nada mais que chame a vez**. Aba
+aberta, item de menu aberto e linha escolhida **não** são amarelos: o menu
+acende um degrau de claro com o ícone em âmbar; a aba aberta é branca no
+trilho; a linha escolhida é azul-acinzentada. Amarelo como texto vira
+`--accent`, que no `.main` vale `--atencao-t`. Fundo amarelo é sempre
+`var(--amarelo)`, nunca `var(--accent)`.
+
+### Forma
+
+- **Sem chanfro:** `--corte` e `--corte-p` valem `none` no `:root` do admin.
+- **Cartão:** fundo `--placa`, borda de 1px, canto de 10px, sem sombra. A
+  construção de duas camadas (anel no fundo, placa no `::before`) está
+  desligada. A faixa de números são cartões soltos com 12px de vão.
+- **Botão:** branco com borda de 1px e canto de 6px; primário amarelo sólido
+  com tinta marinho; destrutivo `--risco-t` com texto branco.
+- **Campo:** branco, borda de 1px, canto de 6px; foco em borda `--mar-700`.
+- **Abas de filtro** (dentro da tela): controle segmentado, trilho
+  `--surface3`, aba aberta branca. **Abas de navegação** (subabas do topo):
+  texto com sublinhado de 2px em `--mar-700`.
+- **Selo:** pílula, sem caixa alta.
+- **Modal e gaveta:** canto de 12px.
+
+⚠️ O `body *:not(...) { border-radius: 0 }` do começo do `admin.css` continua
+lá. Regra nova de raio precisa de dois seletores de classe para passar por
+cima dele, ou a peça sai quadrada.
+
+### Tipo
+
+Archivo em tudo que é nome: título, cabeçalho de coluna, rótulo, aba, selo.
+Martian Mono só em **número e código** (valor de KPI, `CH-0018`, hora). Rótulo
+escrito em CAIXA ALTA no HTML ou no JS é defeito: a caixa alta era do CSS.
+
+### Do / Don't do registro de gestão
+
+- **Do** mudar cor de superfície por token no contêiner (`.main`), como os
+  modais já faziam.
+- **Do** conferir contraste por script em todas as telas depois de mexer em
+  cor: as cores escritas à mão para o marinho (`#fcd34d`, `#7fb2ff`,
+  `#9ca0bf`) foram as únicas a reprovar na fase 4.
+- **Don't** escrever handler inline (`onclick=`, `oninput=`, `onsubmit=`) no
+  HTML ou em template: a CSP do helmet (`script-src-attr 'none'`) bloqueia sem
+  aviso visível. Em 18/11 eram seis no admin, três deles defeitos de verdade.
+- **Don't** usar `opacity`, sombra projetada ou gradiente para destacar peça:
+  destaque é borda mais forte ou o amarelo da ação.

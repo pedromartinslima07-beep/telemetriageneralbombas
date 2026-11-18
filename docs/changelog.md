@@ -17748,3 +17748,33 @@ Fase 3 do [redesenho do admin](modulos/redesenho-admin.md), mesma branch
 - Menu do celular: Início, Alertas, Condomínios, Chamados.
 - `admin.js?v=372`, `admin.css?v=281`, `admin-nav.js?v=3`,
   `admin-carteira.js?v=2`.
+
+## Área de trabalho clara e a forma dos sistemas de gestão (2026-11-18)
+
+Fase 4 do [redesenho do admin](modulos/redesenho-admin.md), mesma branch
+`feature/admin-condominio` (sem deploy). Sem migration, sem endpoint novo.
+
+- **Fundo claro no `.main`** por remapeamento de tokens (`--text`, `--border`,
+  `--surface`, família de estado → `-t`, `--accent` como tinta → âmbar escuro).
+  O menu lateral continua marinho; modais e gaveta continuam na placa
+  `--chapa`, que agora fica um degrau mais escura que o campo (`#f3f5f9`).
+- **Preenchimento amarelo usa o cru:** as 13 regras `background: var(--accent)`
+  passaram a `var(--amarelo)` (no `:root` os dois valem o mesmo).
+- **A forma mudou junto, a pedido do Pedro** ("deixa como é nos sistemas
+  profissionais"): sem chanfro (`--corte: none`), cartão com borda de 1px e
+  canto de 10px, botão de uma peça, abas de filtro como controle segmentado,
+  selos em pílula, cabeçalho de tabela e rótulos em texto normal (o mono em
+  caixa alta ficou para medição). No menu, o item aberto deixou de ser placa
+  amarela.
+- Faixas de números da Telemetria e do Painel: rótulos em CAIXA ALTA no
+  `admin.js` viraram texto normal.
+- Mapa: o filtro que escurecia o basemap vira só dessaturação.
+- **Defeito antigo corrigido:** abaixo de 640px os filtros da Telemetria
+  saíam com 115px de altura cada (`flex-basis` valendo na coluna).
+- **Handlers inline bloqueados pela CSP** (antigos, achados nesta fase):
+  busca do modal antigo, "Refazer" da IA do WhatsApp (devolvia a resposta em
+  cache), `onsubmit="return false"` de 3 formulários de envio de e-mail (Enter
+  recarregava o painel) e o hover do seletor de cliente do contrato. Todos
+  viraram listener no JS ou CSS. Nenhum `on*=` restou no admin.
+- `DESIGN.md`: seção nova "O registro de gestão (painel admin)".
+- `admin.js?v=374`, `admin.css?v=289`.

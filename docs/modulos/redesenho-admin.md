@@ -8,11 +8,11 @@ aliases:
   - Admin por condomínio
   - Admin claro
 ---
-# Redesenho do painel admin — o condomínio como eixo (🟡 fases 1 a 3 prontas, 18/11/2026)
+# Redesenho do painel admin — o condomínio como eixo (🟡 fases 1 a 4 prontas, 18/11/2026)
 
-Plano aprovado pelo Pedro em 18/11/2026. **Fases 1, 2 e 3 implementadas na branch
+Plano aprovado pelo Pedro em 18/11/2026. **Fases 1 a 4 implementadas na branch
 `feature/admin-condominio`** (sem merge, sem deploy) — ver as seções "O que
-foi implementado" no fim. Fases 4 e 5 continuam planejadas. O
+foi implementado" no fim. A fase 5 continua planejada. O
 estado atual do painel está em [painel-admin.md](painel-admin.md); o "porquê"
 das escolhas, em [decisions.md](../../memory-bank/decisions.md) (seção
 "Painel admin — o condomínio como eixo e fundo claro").
@@ -150,7 +150,7 @@ outros valores numa subárvore.
 | 1 | Endereço por tela (hash) | Não | ✅ 18/11 (branch) |
 | 2 | Ficha do condomínio. Gaveta do Dashboard e ficha de Clientes passam a abrir a ficha | Sim, só a ficha | ✅ 18/11 (branch) |
 | 3 | Menu novo + Início | Sim | ✅ 18/11 (branch) |
-| 4 | Tema claro (tokens no contêiner do painel) | Sim, tudo | 📋 |
+| 4 | Tema claro (tokens no contêiner do painel) + forma de sistema de gestão | Sim, tudo | ✅ 18/11 (branch) |
 | 5 | Retirar as telas que sobrarem | **Só com autorização** | 📋 |
 
 **Antes de começar:** fechar a branch `feature/nota-fiscal-omie` (090 e 091 em
@@ -356,3 +356,89 @@ acende um item só. **Corrigido no teste:** a subaba nascia com 0 de altura
 (coluna flex, ver o comentário no CSS) e herdava a borda de botão do
 navegador; "Aprovado sem nota" mostrava "· —" em orçamento sem valor.
 **Não testado:** a tela Início com o WhatsApp ligado, e o operador no celular.
+
+---
+
+## O que foi implementado (fase 4, 18/11/2026)
+
+Mesma branch. Tudo em `public/admin.css`, em dois blocos no fim do arquivo
+("FASE 4 DO REDESENHO" e "A FORMA DOS SISTEMAS DE GESTÃO"), mais os rótulos
+das faixas de número no `admin.js`. Versões: `admin.js?v=373`,
+`admin.css?v=288`.
+
+### A cor
+
+| Camada | Valor |
+|---|---|
+| Campo (`.main`) | `#f3f5f9` |
+| Cartão, topo, tabela | branco, borda `rgba(6,16,51,.12)` |
+| Modal e gaveta | `--chapa` (`#e8ebf2`), um degrau mais escuro que o campo |
+| Menu lateral | marinho, como antes |
+| Linha selecionada | `#e3eaf7` (azul-acinzentado), não marinho nem âmbar |
+
+O `.main` redeclara os mesmos tokens que o `.modalBox` já redeclarava. Os
+modais moram fora do `.main` no HTML (só o `#cfgModalOverlay` mora dentro, e o
+`.modalBox` ganha dele), então eles não mudaram de cor.
+
+⚠️ **Preenchimento amarelo agora é `var(--amarelo)`, não `var(--accent)`.**
+Dentro do `.main` o `--accent` vira tinta âmbar escura (`--atencao-t`), para o
+amarelo continuar legível como texto. Regra nova que pinta FUNDO amarelo usa
+`--amarelo`; texto e borda usam `--accent`. Era a regra do preenchimento cru,
+que a fase aplicou às 13 regras que a descumpriam.
+
+### A forma
+
+Pedido do Pedro no meio da fase: *"fica a vontade para fazer mudanças
+significativas, me incomoda como está hoje, deixa como é nos sistemas
+profissionais"*.
+
+- `--corte` e `--corte-p` valem `none` no `:root`: o chanfro some do admin
+  inteiro, inclusive do menu e dos modais.
+- Cartão (`.card`, `.rc`, colunas de Chamados): uma peça com borda de 1px e
+  canto de 10px. A construção de duas camadas (anel no fundo, placa no
+  `::before`) ficou desligada por `display: none` no `::before`.
+- Botão: fundo branco, borda fina, canto de 6px; o primário é amarelo sólido.
+- Abas de filtro dentro da tela (`.wa-tabs` fora da `.nav-sub`): controle
+  segmentado (trilho cinza, aba aberta em branco). As subabas do topo, que são
+  navegação, continuam texto sublinhado, agora em marinho.
+- Selos de estado em pílula, sem caixa alta.
+- Cabeçalho de tabela, `.lbl` e rótulos de faixa em Archivo, sem caixa alta. O
+  Martian Mono ficou para número e código.
+- Menu: o item aberto é um degrau de claro com o ícone em âmbar, em vez da
+  placa amarela.
+
+⚠️ O raio passa por cima do `body *:not(...) { border-radius: 0 }` do começo
+do arquivo porque toda regra nova tem dois seletores de classe. Regra nova com
+um seletor só sai quadrada.
+
+### Testado (banco de teste, 18/11/2026)
+
+Desktop 1440×900 nas 17 telas e celular 375×812 (Telemetria, Chamados, ficha
+do condomínio), sem rolagem horizontal. Varredura de contraste por script em
+todas as telas: **nenhum texto abaixo de 3,2:1** sobre o fundo real (a
+primeira passada achou 9, todos cor escrita à mão para o marinho). Modal de
+O.S. aberto pela lista. **Não testado:** o perfil operador e o WhatsApp
+ligado.
+
+O [DESIGN.md](../../DESIGN.md) ganhou a seção "O registro de gestão (painel
+admin)" com os valores acima, e as passagens que davam o admin como marinho
+com chanfro foram marcadas como anteriores a 18/11.
+
+### Handlers inline que a CSP bloqueava (achado na fase 4)
+
+O console mostrava um erro de CSP (`script-src-attr 'none'`) a cada
+carregamento. O diff confirmou que a fase 4 não os criou: eram seis handlers
+inline de março a setembro, todos bloqueados pelo helmet desde que existem.
+Três eram defeito de verdade:
+
+| Onde | O que fazia | Efeito do bloqueio |
+|---|---|---|
+| `oninput` da busca do `#modalOverlay` | filtrar a lista | a busca nunca filtrou (modal sem uso desde 31/07) |
+| `onclick` do "Refazer" da IA no WhatsApp | apagar o cache antes de pedir de novo | "Refazer" devolvia a mesma resposta |
+| `onsubmit="return false"` em 3 formulários de envio de e-mail (O.S., lote de O.S., orçamento) | impedir o envio | Enter num campo enviava o formulário e recarregava o painel |
+| `onmouseover`/`onmouseout` no seletor de cliente do contrato | hover | o hover nunca acendeu |
+
+Agora: listener de `input` no `admin.js`, `data-refazer` tratado no delegado
+`data-wa-action`, `data-sem-envio` com um `submit` delegado no `document`, e a
+classe `.ctrs-pick-item` com `:hover` no CSS. Depois disso o console carrega
+sem nenhum erro de CSP. `admin.js?v=374`, `admin.css?v=289`.

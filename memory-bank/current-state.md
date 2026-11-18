@@ -97,6 +97,12 @@ e continua sendo a fonte de perfil, badge e item ativo. A tela de abertura
 passou a ser o **Início** (`public/admin-carteira.js`), com o que pede ação
 na carteira; há também uma lista geral de **notas fiscais** em Financeiro.
 
+Fase 4, na mesma branch: a **área de trabalho é clara** (`#f3f5f9`) com o
+menu lateral marinho, e a forma deixou o chanfro do Chapa pela de sistema de
+gestão (cartões com borda e canto arredondado, abas de filtro segmentadas,
+selos em pílula, rótulos em texto normal). Tudo escopado no `.main`, modais e
+gaveta, no fim de `public/admin.css`; o app mobile não muda.
+
 ### ⚠️ Nota fiscal pelo Omie — NFS-e e DANFE (17–18/11/2026)
 
 O orçamento aprovado vira nota pela ficha, através da API do Omie (addon

@@ -1313,11 +1313,11 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
    coisa que o botão faz ao ser apontado. Sem escala, sem translado, sem
    sombra. */
 .btnAccent {
-  background: var(--accent);
+  background: var(--amarelo);
   color: var(--mar-900);
   font-weight: 700;
 }
-.btnAccent::before { background: var(--accent); }
+.btnAccent::before { background: var(--amarelo); }
 .btnAccent::after {
   content: '';
   position: absolute;
@@ -1328,8 +1328,8 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   transition: transform .42s var(--saida);
   z-index: -1;   /* depois do ::before na ordem da árvore, logo por cima dele */
 }
-.btnAccent:hover        { background: var(--accent); color: var(--mar-900); }
-.btnAccent:hover::before{ background: var(--accent); }
+.btnAccent:hover        { background: var(--amarelo); color: var(--mar-900); }
+.btnAccent:hover::before{ background: var(--amarelo); }
 .btnAccent:hover::after { transform: translateX(115%); }
 .btnAccent:disabled::after, .btnAccent[disabled]::after { transform: translateX(-115%); }
 
@@ -1617,7 +1617,7 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   margin-left: 8px;
 }
 .rc-trend.up   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent);    color: var(--ok); }
-.rc-trend.down { background: var(--risco); color: var(--mar-900); }
+.rc-trend.down { background: var(--vermelho); color: var(--mar-900); }
 .rc-trend.flat { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 .rc-trend svg  { width: 10px; height: 10px; }
 
@@ -1645,8 +1645,8 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
    o que exige alguém salta sozinho. */
 .rc-ok      .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
 .rc-neutral .rc-icon { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text-dim); }
-.rc-warn    .rc-icon { background: var(--warn);  color: var(--mar-900); }
-.rc-bad     .rc-icon { background: var(--risco); color: var(--mar-900); }
+.rc-warn    .rc-icon { background: var(--amarelo);  color: var(--mar-900); }
+.rc-bad     .rc-icon { background: var(--vermelho); color: var(--mar-900); }
 /* ⚠️ Herdados do Mission Control e ainda usados pela telemetria e pelo mapa.
    Ficam neutros até a passada dessas telas — violeta e ciano não pertencem a
    este sistema, e o lugar deles é a paleta categórica de gráfico, que ainda
@@ -2314,7 +2314,7 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
   padding: 3px 10px; border-radius: 999px;
 }
 .tel-resv-badge.on  { background: rgba(34,197,94,.13);  color: #4ade80; }
-.tel-resv-badge.off { background: rgba(122,126,156,.16); color: #9ca0bf; }
+.tel-resv-badge.off { background: rgba(122,126,156,.16); color: var(--muted); }
 .tel-resv-pct {
   font-family: var(--mono);
   font-size: 42px; font-weight: 800; letter-spacing: -2px; line-height: 1.05; margin-top: 8px;
@@ -2636,7 +2636,7 @@ td, th, .mono, [class*="valor"], [class*="total"], [class*="count"] {
 }
 .tel-crit-pct.bad  { color: #f87171; }
 .tel-crit-pct.warn { color: #fbbf24; }
-.tel-crit-pct.off  { color: #9ca0bf; }
+.tel-crit-pct.off  { color: var(--muted); }
 
 /* Tabela de bombas/reservatórios — REUTILIZADA pelo painel do cliente
    (cliente.html/cliente.js carregam admin.css). Não remover mesmo que o admin
@@ -3344,7 +3344,7 @@ select option { background: #050f38; color: #f2f5ff; }
 }
 /* Botão Gerar do filter bar fica destacado em amber */
 .filter-bar [data-rel-action^="gerar-"] {
-  background: var(--accent);
+  background: var(--amarelo);
   color: #000;
   border-color: var(--accent);
   font-weight: 600;
@@ -6071,7 +6071,7 @@ body.mp-fs-active { overflow: hidden; }
 }
 .al-ia-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .al-ia-badge {
-  background: var(--accent);
+  background: var(--amarelo);
   color: var(--mar-900);
   font-family: var(--mono);
   font-size: 8.5px; font-weight: 500; letter-spacing: .06em;
@@ -6216,7 +6216,7 @@ body.mp-fs-active { overflow: hidden; }
 /* A aba aberta usa a MESMA forma do item de navegação aberto: placa amarela
    com tinta marinho. Uma língua só para "você está aqui" no painel todo. */
 .wa-tab.is-active {
-  background: var(--accent);
+  background: var(--amarelo);
   box-shadow: none;
   color: var(--mar-900);
   font-weight: 700;
@@ -6642,7 +6642,7 @@ body.mp-fs-active { overflow: hidden; }
   white-space: nowrap;
 }
 .ch-st-aberto         { box-shadow: inset 0 0 0 1px var(--fio-forte); color: var(--text); }
-.ch-st-em_atendimento { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent); color: var(--amarelo); }
+.ch-st-em_atendimento { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
 .ch-st-fechado        { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
 /* ⚠️ CANCELADO É O SELO MAIS APAGADO DOS QUATRO, e não o mais vermelho.
    Vermelho é a cor de "isto exige alguém agora" nesta tela (P1, SLA
@@ -6922,7 +6922,7 @@ body.mp-fs-active { overflow: hidden; }
   white-space: nowrap;
 }
 .rel-prazo.is-estourado { background: var(--vermelho); color: var(--mar-900); }
-.rel-prazo.is-risco     { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 60%, transparent); color: var(--amarelo); }
+.rel-prazo.is-risco     { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent); color: var(--accent); }
 .rel-prazo.is-nd        { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); font-weight: 400; }
 
 /* Card "Painel ao vivo".
@@ -7006,7 +7006,7 @@ body.mp-fs-active { overflow: hidden; }
 .rel-prog-fill {
   height: 100%;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--amarelo);
   transition: width .5s cubic-bezier(.4,0,.2,1);
 }
 
@@ -7911,7 +7911,7 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .ch-tl-step-done .ch-tl-dot { background: #22c55e; border-color: #22c55e; }
 .ch-tl-step-curr .ch-tl-dot {
-  background: var(--accent);
+  background: var(--amarelo);
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(240,176,20,.15);
   animation: chTlPulse 2.4s ease-in-out infinite;
@@ -8687,7 +8687,7 @@ body.role-viewer .viewer-only-hide-inline {
   box-shadow: inset 0 0 0 1px var(--fio-forte);
 }
 .av-selo-pend.is-vista {
-  background: transparent; color: var(--amarelo); font-weight: 600;
+  background: transparent; color: var(--accent); font-weight: 600;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent);
 }
 .av-orc-item-main { flex: 1; min-width: 0; }
@@ -8715,7 +8715,7 @@ body.role-viewer .viewer-only-hide-inline {
 /* Quem respondeu pesa mais que uma data de criação: é a linha que separa o
    "aprovado pelo síndico" do "aprovado no escritório" sem abrir a ficha. */
 .av-orc-item-sub.is-resposta { color: var(--text-dim); }
-.av-orc-item.is-pendente .av-orc-item-sub.is-resposta { color: var(--amarelo); }
+.av-orc-item.is-pendente .av-orc-item-sub.is-resposta { color: var(--accent); }
 .av-orc-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .av-orc-item-val  { font-size: 12.5px; font-weight: 700; color: var(--text); }
 
@@ -9412,7 +9412,7 @@ body.role-viewer .viewer-only-hide-inline {
   content: '';
   width: 3px;
   align-self: stretch;
-  background: var(--accent);
+  background: var(--amarelo);
   opacity: .55;
   flex-shrink: 0;
 }
@@ -9448,7 +9448,7 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .av-tipo.is-on .av-tipo-dot { border-color: var(--accent); }
 .av-tipo.is-on .av-tipo-dot::after {
-  content: ''; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--accent);
+  content: ''; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--amarelo);
 }
 .av-tipo b {
   font-size: 12.5px; font-weight: 600; min-width: 0;
@@ -10049,7 +10049,7 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .pm-selo[data-e="sem"]   { color: var(--accent); border: 1px solid rgba(251,179,41,.42); }
 .pm-selo[data-e="dono"]  { color: var(--text);   border: 1px solid var(--border); }
-.pm-selo[data-e="campo"] { color: #7fb2ff;       border: 1px solid rgba(127,178,255,.38); }
+.pm-selo[data-e="campo"] { color: var(--crista);      border: 1px solid rgba(127,178,255,.38); }
 .pm-selo[data-e="feita"] { color: var(--ok);     border: 1px solid rgba(99,216,160,.38); }
 .pm-selo[data-e="off"]   { color: var(--muted);  border: 1px solid var(--border); }
 
@@ -10063,7 +10063,7 @@ body.role-viewer .viewer-only-hide-inline {
   margin-left: 6px; padding: 1px 5px; border-radius: 3px;
   color: var(--muted); border: 1px solid var(--border);
 }
-.pm-origem.is-escala { color: var(--mar-900, #030a26); background: var(--accent); border-color: var(--accent); }
+.pm-origem.is-escala { color: var(--mar-900, #030a26); background: var(--amarelo); border-color: var(--accent); }
 
 /* Convite a despachar: aparece só onde não há ninguém, que é onde a ação cabe. */
 .pm-despachar {
@@ -10178,8 +10178,8 @@ body.role-viewer .viewer-only-hide-inline {
 }
 
 .pm-table input[type="checkbox"]:checked,
-.pm-table input[type="checkbox"]:indeterminate {
-  background: var(--accent);
+
+  background: var(--amarelo);
   border-color: var(--accent);
 }
 .pm-table input[type="checkbox"]:checked:hover,
@@ -10509,7 +10509,7 @@ button.cf-fato:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .cf-fato-lbl { font-size: 11.5px; color: var(--muted); }
 .cf-fato-val { font-size: 14.5px; font-weight: 600; }
 .cf-fato.is-ok      .cf-fato-val { color: var(--text); }
-.cf-fato.is-atencao .cf-fato-val { color: var(--amarelo); }
+.cf-fato.is-atencao .cf-fato-val { color: var(--accent); }
 .cf-fato.is-risco   .cf-fato-val { color: var(--risco); }
 .cf-fato.is-neutro  .cf-fato-val { color: var(--muted); font-weight: 500; }
 
@@ -10594,7 +10594,7 @@ button.cf-fato:focus-visible { outline: 2px solid var(--accent); outline-offset:
   box-shadow: inset 0 0 0 1px currentColor;
 }
 .cf-selo.is-ok      { color: var(--ok); }
-.cf-selo.is-atencao { color: var(--amarelo); }
+.cf-selo.is-atencao { color: var(--accent); }
 .cf-selo.is-risco   { color: var(--risco); }
 .cf-selo.is-neutro  { color: var(--muted); box-shadow: inset 0 0 0 1px var(--fio); }
 
@@ -10608,7 +10608,7 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .cf-linha:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .cf-l1 { color: var(--text); }
 .cf-l2 { color: var(--muted); font-size: 12px; margin-top: 2px; }
-.cf-l2.is-atencao { color: var(--amarelo); }
+.cf-l2.is-atencao { color: var(--accent); }
 
 /* ----- telemetria ----- */
 .cf-res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
@@ -10620,7 +10620,7 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .cf-res-nome { font-weight: 600; font-size: 13.5px; }
 .cf-res-nivel { font-family: var(--fonte); font-size: 2rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .cf-res-nivel.is-ok      { color: var(--text); }
-.cf-res-nivel.is-atencao { color: var(--amarelo); }
+.cf-res-nivel.is-atencao { color: var(--accent); }
 .cf-res-nivel.is-risco   { color: var(--risco); }
 .cf-res-nivel.is-neutro  { color: var(--muted); }
 .cf-res-barra { height: 6px; background: var(--fio-fraco); overflow: hidden; }
@@ -10721,7 +10721,7 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 }
 .ic-n { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .ic-grupo.is-risco   .ic-n { color: var(--risco); }
-.ic-grupo.is-atencao .ic-n { color: var(--amarelo); }
+.ic-grupo.is-atencao .ic-n { color: var(--accent); }
 .ic-grupo.is-neutro  .ic-n { color: var(--text-dim); }
 /* Grupo sem nada recua: ocupa o lugar, mas não disputa atenção. */
 .ic-grupo.is-vazio { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); }
@@ -10772,3 +10772,420 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .nf-busca::placeholder { color: var(--muted); }
 .nf-busca:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (max-width: 640px) { .nf-busca { flex: 1 1 100%; min-width: 0; } }
+
+/* ════════════════════════════════════════════════════════════════════════
+   FASE 4 DO REDESENHO — A ÁREA DE TRABALHO CLARA (18/11/2026)
+   ────────────────────────────────────────────────────────────────────────
+   Decisão do Pedro (ver memory-bank/decisions.md, "Painel admin — o
+   condomínio como eixo e fundo claro"): o marinho corrido lia como pesado
+   para quem passa o dia no painel. Agora:
+     · área de trabalho  — branco levemente acinzentado, nunca branco puro;
+     · menu lateral      — continua marinho, é onde a marca fica;
+     · modal e gaveta    — a placa `--chapa`, um degrau MAIS ESCURA que o
+                           campo, para mostrar que está por cima;
+     · âmbar             — só ação e atenção; verde/laranja/vermelho só estado.
+
+   ⚠️ É O MESMO REMAPEAMENTO DOS MODAIS, aplicado ao `.main`. As regras lá de
+   cima continuam dizendo `var(--text)`, `var(--border)`, `var(--surface)`;
+   aqui elas ganham outros valores. Nada de paleta paralela.
+
+   ⚠️ O que NÃO é remapeado, e por quê (a mesma regra do `.modalBox`):
+     · `--amarelo`, `--vermelho`, `--verde` são crus. Todo PREENCHIMENTO que
+       dizia `var(--accent)` passou a dizer `var(--amarelo)` nesta fase — no
+       `:root` os dois valem o mesmo, então no marinho nada mudou.
+     · `--mar-800/900` continuam marinho: são a tinta de quem pousa sobre o
+       amarelo. As ~20 regras que usavam o marinho como FUNDO de peça (placa,
+       campo, cabeçalho de tabela, linha selecionada) ganham regra própria
+       logo abaixo, escopada em `.main`.
+   ⚠️ O app mobile não carrega este arquivo (tem cópia própria dos tokens em
+   `app/public/app.css`), então ele não muda. Os modais moram fora do `.main`
+   no HTML e já eram claros; o `#cfgModalOverlay` mora dentro, e o
+   `.modalBox` redeclara os próprios tokens, então ganha dos daqui.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* A moldura: o menu encosta na borda e o campo claro vai até a outra. A faixa
+   marinho de 14px em volta de um campo claro lia como passe-partout. */
+.layout { padding: 0; gap: 0; background: var(--mar-800); }
+.sidebar-inner { border: none; border-right: 1px solid var(--rasgo); }
+
+.main {
+  /* ─ o campo ─ */
+  --campo:         #f3f5f9;
+  --bg:            var(--campo);
+  --bg-soft:       #eceff5;
+
+  /* ─ as placas que pousam no campo ─
+     Uma camada só: a placa é branca e o campo é quem separa as áreas. O fio
+     existe, mas fraco — com fundo diferente ele não precisa gritar. */
+  --surface:       #ffffff;
+  --surface2:      #f1f4f8;
+  --surface3:      #e4e9f1;
+  --placa:         #ffffff;
+  --placa-hover:   #f4f6fa;
+  --selecao:       #e3eaf7;   /* linha escolhida: azul-acinzentado, não âmbar */
+  --selecao-hover: #d8e1f2;
+
+  /* ─ texto ─ */
+  --text:          var(--tinta);
+  --text-dim:      var(--tinta-2);
+  --muted:         #56648a;
+  --muted2:        #7783a3;
+  --sobre-2:       var(--tinta-2);
+
+  /* ─ fios ─ */
+  --border:        rgba(6, 16, 51, .12);
+  --border2:       rgba(6, 16, 51, .07);
+  --border-strong: rgba(6, 16, 51, .30);
+  --fio:           rgba(6, 16, 51, .12);
+  --fio-fraco:     rgba(6, 16, 51, .07);
+  --fio-forte:     rgba(6, 16, 51, .30);
+  --rasgo:         rgba(6, 16, 51, .10);
+  --luz:           rgba(255, 255, 255, .9);
+
+  /* ─ estado vira tinta escura (família `-t`) ─ */
+  --ok:     var(--ok-t);
+  --normal: var(--normal-t);
+  --warn:   var(--warn-t);
+  --danger: var(--danger-t);
+  --risco:  var(--risco-t);
+
+  /* ─ séries de gráfico re-degrauadas para claro ─ */
+  --serie-1: var(--serie-1-claro);
+  --serie-2: var(--serie-2-claro);
+  --serie-3: var(--serie-3-claro);
+
+  /* ─ o amarelo como TINTA vira âmbar escuro (Regra do Amarelo Cego) ─ */
+  --accent:   var(--atencao-t);
+  --accent-2: #a06400;
+
+  color-scheme: light;
+  color: var(--text);
+  background: var(--campo);
+  border: none;
+}
+
+/* ── O que usava marinho como FUNDO ───────────────────────────────────── */
+.main .content-header { background: var(--placa); border-bottom: 1px solid var(--border); }
+.main .content { scrollbar-color: rgba(6,16,51,.22) transparent; }
+.main .content::-webkit-scrollbar-thumb { background: rgba(6,16,51,.18); }
+.main * { scrollbar-color: rgba(6,16,51,.24) transparent; }
+.main *::-webkit-scrollbar-thumb { background: rgba(6,16,51,.2); background-clip: content-box; }
+
+/* A placa, a faixa de números e o botão: ver "A FORMA DOS SISTEMAS DE
+   GESTÃO", no fim do arquivo. */
+
+/* Botão de fio: anel escuro, placa clara (o mesmo do modal). */
+.main .btn { background: var(--fio-forte); color: var(--tinta); }
+.main .btn::before { background: var(--placa); }
+.main .btn:hover { background: rgba(6,16,51,.5); color: var(--tinta); }
+.main .btn:hover::before { background: var(--placa-hover); }
+.main .btnAccent,
+.main .btnAccent::before,
+.main .btnAccent:hover,
+.main .btnAccent:hover::before { background: var(--amarelo); color: var(--mar-900); }
+.main .btnAccent::after { background: #ffcb60; }
+.main .btnDanger,
+.main .btnDanger::before { background: var(--risco-t); color: #fff; }
+.main .btnDanger:hover,
+.main .btnDanger:hover::before { background: #8f1c13; }
+
+/* Campo: branco, contorno por dentro — o mesmo do formulário do modal. */
+.main .input,
+.main .select,
+.main textarea,
+.main input[type="text"],
+.main input[type="search"],
+.main input[type="email"],
+.main input[type="number"],
+.main input[type="date"],
+.main input[type="password"] {
+  background-color: #fff;
+  color: var(--tinta);
+  border: 1px solid rgba(6,16,51,.2);
+  box-shadow: none;
+  caret-color: var(--mar-700);
+}
+.main .input:hover:not(:focus),
+.main .select:hover:not(:focus) { border-color: rgba(6,16,51,.36); }
+.main .input:focus,
+.main .select:focus,
+.main textarea:focus {
+  background-color: #fff;
+  border-color: var(--mar-700);
+  box-shadow: inset 0 0 0 1px var(--mar-700);
+}
+.main .input::placeholder,
+.main textarea::placeholder { color: var(--muted2); }
+.main select option,
+.main .select option { background: #fff; color: var(--tinta); }
+
+/* Tabela: cabeçalho claro e opaco (é sticky), zebra e hover em tinta. */
+.main th {
+  background: var(--surface2);
+  color: var(--tinta-2);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+}
+.main tbody tr:hover td { background: rgba(6,16,51,.035); }
+.main tbody tr:nth-child(even) td { background: transparent; }
+.main tbody tr:nth-child(even):hover td { background: rgba(6,16,51,.035); }
+.main .inner-table tbody tr:hover td { background: rgba(6,16,51,.03); }
+
+/* Linha escolhida: azul-acinzentado com tinta. O marinho com texto branco
+   era o "você está aqui" do campo escuro; no claro ele virava um buraco. */
+.main .al-table tbody tr.is-selected td,
+.main .ch-row.is-selected td { background: var(--selecao); color: var(--tinta); }
+.main .al-table tbody tr.is-selected:hover td,
+.main .ch-row.is-selected:hover td { background: var(--selecao-hover); }
+.main .wa-conv-row.is-selected { background: var(--selecao); }
+.main .gs-item:hover,
+.main .gs-item.is-active { background: var(--selecao); }
+
+/* Placas que tinham o marinho escrito à mão. */
+.main .rel-card-vivo::before { background: var(--selecao); }
+.main .mp-map-card.is-fullscreen { background: var(--campo); }
+.main .topbar-search { background: var(--surface2); border-color: var(--border); }
+.main .topbar-search:focus-within { background: #fff; border-color: var(--mar-700); }
+.main .gs-dropdown { background: var(--placa); border-color: var(--border-strong); }
+.main .mc-fin-item { background: var(--surface2); }
+.main .ch-list-col::before,
+.main .ch-detail-col::before { background: var(--placa); }
+.main .ctr-more-menu { background: var(--placa); border-color: var(--border-strong); }
+.main .leaflet-container { background: #e9edf3 !important; }
+
+/* Peças que escreviam cor de campo escuro à mão (achadas pela varredura de
+   contraste da fase 4: tudo abaixo de 3:1 sobre a placa branca). */
+.main { --crista: #2456b8; }
+.main .mc-live { color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.main .mp-alert-badge.critico { color: var(--risco); }
+.main .mp-alert-badge.alta,
+.main .mp-alert-badge.media { color: var(--atencao-t); }
+/* O mapa: o basemap (Esri Topo) já é claro; quem o escurecia era o filtro de
+   `.map-tiles-dark`. No campo claro ele só perde cor, para os pinos de estado
+   continuarem sendo a única coisa colorida em cima dele. */
+.main .map-tiles-dark { filter: saturate(35%) brightness(102%) contrast(92%); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   A FORMA DOS SISTEMAS DE GESTÃO (fase 4, 18/11/2026)
+   ────────────────────────────────────────────────────────────────────────
+   Pedido do Pedro junto com o fundo claro: *"fica a vontade para fazer
+   mudanças significativas, me incomoda como está hoje, deixa como é nos
+   sistemas profissionais"*. Então, além da cor, a forma muda no painel:
+     · sem chanfro: `--corte`/`--corte-p` viram `none` e as peças ganham
+       canto arredondado (cartão 10px, controle 6px, selo em pílula);
+     · a "chapa de duas camadas" (anel no fundo + placa no ::before) vira uma
+       peça só, com borda de 1px — o fundo é quem separa as áreas;
+     · rótulo volta a ser texto: Martian Mono em caixa alta fica só para
+       medição (número, código), nunca para nome de coluna ou etiqueta;
+     · abas de FILTRO dentro da tela viram controle segmentado; as de
+       NAVEGAÇÃO (subabas do topo) continuam texto sublinhado;
+     · o amarelo sai do "onde você está" (menu, aba) e fica para a ação.
+   ⚠️ O raio passa por cima do `body *:not(...) { border-radius: 0 }` lá do
+   começo porque toda regra daqui tem dois seletores de classe (0,2,0).
+   O app mobile não carrega este arquivo (cópia própria em app/public/app.css).
+   ════════════════════════════════════════════════════════════════════════ */
+:root {
+  --corte: none;
+  --corte-p: none;
+  --r-cartao: 10px;
+  --r-ctrl: 6px;
+}
+
+/* ── Cartão ── */
+.main .card {
+  background: var(--placa);
+  border: 1px solid var(--border);
+  border-radius: var(--r-cartao);
+}
+.main .card::before { display: none; }
+.main .cardHead {
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+  padding: 14px 18px;
+}
+.main .cardHead h2 { font-size: 14px; font-weight: 700; letter-spacing: -.005em; }
+.main .cardHead h2 .head-icon,
+.modalBox .cardHead h2 .head-icon {
+  width: 20px; height: 20px; padding: 0;
+  background: none;
+  color: var(--muted);
+}
+.main .ch-list-col,
+.main .ch-detail-col { border: 1px solid var(--border); border-radius: var(--r-cartao); }
+.main .ch-list-col::before,
+.main .ch-detail-col::before { border-radius: var(--r-cartao); }
+
+/* ── Faixa de números: cartões soltos em vez de grade com sulco ── */
+.main .resumo-grid { background: none; padding: 0; gap: 12px; }
+.main .rc,
+.main .rc-static {
+  background: var(--placa);
+  border: 1px solid var(--border);
+  border-radius: var(--r-cartao);
+  box-shadow: none;
+  height: 60px;
+  padding: 0 14px;
+}
+.main .rc:hover { background: var(--placa-hover); border-color: var(--border-strong); }
+.main .rc-static:hover { background: var(--placa); }
+.main .rc-icon {
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--tinta-2);
+}
+.main .rc-warn .rc-icon { background: color-mix(in srgb, var(--amarelo) 22%, #fff); color: var(--atencao-t); }
+.main .rc-bad  .rc-icon { background: color-mix(in srgb, var(--vermelho) 16%, #fff); color: var(--risco-t); }
+.main .rc-ok   .rc-icon { background: color-mix(in srgb, var(--verde) 20%, #fff); color: var(--ok-t); }
+
+/* ── Rótulos: texto, não etiqueta gravada ── */
+.main table th,
+.modalBox table th,
+.drawer-panel table th {
+  font-family: var(--fonte);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  background: #f7f8fb;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.modalBox table th,
+.drawer-panel table th { background: var(--chapa-es); color: var(--tinta-2); }
+.main .rc-label, .main .mc-fin-label, .main .al-medida-lbl, .main .mp-barras-total,
+.main .lbl, .modalBox .lbl, .drawer-panel .lbl,
+.main .al-origem, .main .pm-selo, .main .pm-origem, .main .ch-cat-badge, .main .os-chip {
+  font-family: var(--fonte);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.main .rc-label, .main .mc-fin-label { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.main .lbl, .modalBox .lbl, .drawer-panel .lbl { font-size: 12.5px; font-weight: 600; }
+
+/* ── Tabela: mais respiro ── */
+.main table td { padding-top: 12px; padding-bottom: 12px; }
+
+/* ── Botões: uma peça, borda fina ── */
+:is(.main, .modalBox, .drawer-panel) .btn {
+  background: #fff;
+  border: 1px solid rgba(6,16,51,.18);
+  border-radius: var(--r-ctrl);
+  color: var(--tinta);
+}
+:is(.main, .modalBox, .drawer-panel) .btn::before,
+:is(.main, .modalBox, .drawer-panel) .btn::after { display: none; }
+:is(.main, .modalBox, .drawer-panel) .btn:hover { background: #f4f6fa; border-color: rgba(6,16,51,.32); color: var(--tinta); }
+:is(.main, .modalBox, .drawer-panel) .btnAccent { background: var(--amarelo); border-color: #e5a01d; color: var(--mar-900); }
+:is(.main, .modalBox, .drawer-panel) .btnAccent:hover { background: #ffc246; border-color: #e5a01d; color: var(--mar-900); }
+:is(.main, .modalBox, .drawer-panel) .btnDanger { background: var(--risco-t); border-color: var(--risco-t); color: #fff; }
+:is(.main, .modalBox, .drawer-panel) .btnDanger:hover { background: #8f1c13; border-color: #8f1c13; color: #fff; }
+:is(.main, .modalBox, .drawer-panel) .btn-sm { border-radius: 5px; }
+
+/* ── Campos ── */
+:is(.main, .modalBox, .drawer-panel) :is(.input, .select, textarea,
+  input[type="text"], input[type="search"], input[type="email"],
+  input[type="number"], input[type="date"], input[type="password"]) { border-radius: var(--r-ctrl); }
+
+/* ── Abas de FILTRO: controle segmentado ── */
+.main .wa-tabs:not(.nav-sub) {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface3);
+  border-radius: 8px;
+}
+.main .wa-tabs:not(.nav-sub) .wa-tab {
+  box-shadow: none;
+  background: none;
+  border-radius: var(--r-ctrl);
+  color: var(--tinta-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 5px 11px;
+}
+.main .wa-tabs:not(.nav-sub) .wa-tab:hover { background: rgba(255,255,255,.6); color: var(--tinta); box-shadow: none; }
+.main .wa-tabs:not(.nav-sub) .wa-tab.is-active {
+  background: #fff;
+  color: var(--tinta);
+  box-shadow: 0 0 0 1px rgba(6,16,51,.10);
+}
+.main .wa-tabs:not(.nav-sub) .wa-count {
+  font-family: var(--fonte);
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: none;
+  background: rgba(6,16,51,.08);
+  color: var(--tinta-2);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.main .wa-tabs:not(.nav-sub) .wa-tab.is-active .wa-count { background: var(--mar-700); color: #fff; }
+.main .nav-sub .wa-tab.is-active { box-shadow: inset 0 -2px 0 var(--mar-700); }
+.main .nav-sub .wa-tab.is-active .wa-count { color: var(--tinta-2); }
+.main :is(.orc-main-tab, .rel-seg-btn, .tel-range-btn) { border-radius: var(--r-ctrl); }
+
+/* ── Selos: pílula ── */
+.main :is(.badge, .ch-cat-badge, .ch-prio, .ch-st, .ch-sla-badge, .ch-sla-ttr-badge,
+  .os-status-pill, .os-chip, .os-result-pill, .os-mail-pill, .orc-status-pill,
+  .rel-prazo, .rel-chip, .al-origem, .al-sev, .al-tel-tag, .pm-selo, .pm-origem) {
+  border-radius: 999px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.main .badge { font-size: 11.5px; font-weight: 600; }
+.main :is(.al-act-btn, .mp-kpis, .mp-barra-trilho, .mp-barra-fill) { border-radius: var(--r-ctrl); }
+
+/* ── Modal e gaveta: canto em vez de chanfro ── */
+.modalBox, .av-modal-dialog { border-radius: 12px; overflow: hidden; }
+
+/* ── Menu lateral: marinho, e o "você está aqui" deixa de ser amarelo ──
+   Amarelo agora é ação. O item aberto ganha um degrau de claro e o ícone em
+   âmbar — continua inequívoco sem gritar mais alto que o botão primário. */
+.sidebar .nav-item { border-radius: var(--r-ctrl); }
+.sidebar .nav-item:hover { background: rgba(255,255,255,.06); border-color: transparent; }
+.sidebar .nav-item.active,
+.sidebar .nav-item.active:hover {
+  background: rgba(255,255,255,.11);
+  color: #fff;
+  font-weight: 600;
+}
+.sidebar .nav-item.active svg { color: var(--amarelo); }
+.sidebar .nav-item.active .nav-badge { background: var(--vermelho); color: #fff; }
+.sidebar .nav-badge { border-radius: 999px; font-family: var(--fonte); font-size: 10.5px; padding: 1px 7px; }
+
+/* Ajustes da primeira olhada (fase 4) */
+.main .ch-list-col,
+.main .ch-detail-col { background: var(--placa); overflow: hidden; }
+.main .ch-list-col::before,
+.main .ch-detail-col::before { display: none; }
+.main .wa-tabs:not(.nav-sub) .wa-tab { border: 0; }
+.main .rc-label { font-size: 12px; }
+/* O rótulo da faixa: os que vinham em CAIXA ALTA no admin.js viraram texto
+   normal na fonte, e o corpo de 12px cabe sem reticências a 1440px. */
+.main .rc-head { min-width: 0; }
+.main .rc-hint { color: var(--muted); }
+/* O trilho do controle segmentado tem a largura do conteúdo, não da linha.
+   Quebra e rolagem continuam sendo as do `.wa-tabs` (quebra no desktop,
+   rola na barra estreita, pela @container lá de cima). */
+.main .wa-tabs:not(.nav-sub) { display: flex; width: fit-content; }
+
+/* ⚠️ Defeito antigo, achado no celular nesta fase: abaixo de 640px a
+   `.tel-filtros` vira coluna, e o `flex: 1 1 115px` dos selects passava a
+   valer na ALTURA — cada filtro saía com 115px. Era igual no marinho. */
+@media (max-width: 640px) {
+  .tel-filtros .tel-select { flex: 0 0 auto; }
+}
+
+/* Item do seletor de cliente do contrato. Era estilo inline + hover por
+   `onmouseover`, que a CSP bloqueava (o hover nunca acendeu). */
+.ctrs-pick-item {
+  display: block; width: 100%; text-align: left;
+  padding: 9px 10px; border: none; background: transparent;
+  color: var(--text); font-size: 13px; cursor: pointer;
+}
+.ctrs-pick-item:hover,
+.ctrs-pick-item:focus-visible { background: var(--surface2); }
+:is(.main, .modalBox) .ctrs-pick-item { border-radius: var(--r-ctrl); }

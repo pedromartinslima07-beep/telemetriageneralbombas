@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=281">
+  <link rel="stylesheet" href="/static/admin.css?v=289">
 </head>
 <body>
   <div id="appLoader">
@@ -1758,7 +1758,7 @@
               </div>
               <div class="cfg-actions" style="margin-top:12px;">
                 <span></span>
-                <button class="btn btn-sm" data-cfg-action="sair-todos" style="border-color:rgba(248,113,113,.4);color:#f87171;">Sair de todos os dispositivos</button>
+                <button class="btn btn-sm" data-cfg-action="sair-todos" style="border-color:color-mix(in srgb, var(--danger) 45%, transparent);color:var(--danger);">Sair de todos os dispositivos</button>
               </div>
             </div>
           </div>
@@ -2213,7 +2213,7 @@
     </div>
     <div class="modalBody">
       <div class="modalTools">
-        <input id="modalBusca" class="modalBusca" placeholder="Buscar…" oninput="renderModalLista()" />
+        <input id="modalBusca" class="modalBusca" placeholder="Buscar…" />
         <span id="modalCount" class="modalCount">0 itens</span>
       </div>
       <div class="modalListWrap">
@@ -2925,7 +2925,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=372" defer></script>
+<script src="/static/admin.js?v=374" defer></script>
 <script src="/static/admin-condominio.js?v=3" defer></script>
 <script src="/static/admin-nav.js?v=3" defer></script>
 <script src="/static/admin-carteira.js?v=2" defer></script>

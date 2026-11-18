@@ -616,11 +616,11 @@ function renderResumo() {
   // Com a unidade ao lado, o rótulo pode largar o prefixo "COND." e voltar a
   // dizer o estado em vez de dizer a unidade.
   const cards = [
-    { titulo: "OFFLINE",     valor: offlineTotal,   unid: "disp.",  kind: offlineTotal > 0 ? "bad" : "ok",     key: "offline" },
-    { titulo: "NÍVEL BAIXO", valor: baixo,          unid: "res.",   kind: baixo > 0 ? "warn" : "ok",           key: "nivel_baixo" },
-    { titulo: "MUITO BAIXO", valor: muitoBaixo,     unid: "res.",   kind: muitoBaixo > 0 ? "bad" : "ok",       key: "nivel_muito_baixo" },
-    { titulo: "COM ALERTA",  valor: condsComAlerta, unid: "cond.",  kind: condsComAlerta > 0 ? "warn" : "ok",  key: "com_alerta" },
-    { titulo: "EM ORDEM",    valor: condsOk,        unid: "cond.",  kind: "ok",                                key: "ok" },
+    { titulo: "Offline",     valor: offlineTotal,   unid: "disp.",  kind: offlineTotal > 0 ? "bad" : "ok",     key: "offline" },
+    { titulo: "Nível baixo", valor: baixo,          unid: "res.",   kind: baixo > 0 ? "warn" : "ok",           key: "nivel_baixo" },
+    { titulo: "Muito baixo", valor: muitoBaixo,     unid: "res.",   kind: muitoBaixo > 0 ? "bad" : "ok",       key: "nivel_muito_baixo" },
+    { titulo: "Com alerta",  valor: condsComAlerta, unid: "cond.",  kind: condsComAlerta > 0 ? "warn" : "ok",  key: "com_alerta" },
+    { titulo: "Em ordem",    valor: condsOk,        unid: "cond.",  kind: "ok",                                key: "ok" },
   ];
 
   grid.innerHTML = cards.map(c => resumoCard(c.titulo, c.valor, c.kind, c.key, c.unid)).join("");
@@ -1177,12 +1177,12 @@ function renderTelKpis() {
   // livre para dizer o estado: "OFFLINE · disp." aqui é exatamente o mesmo
   // par do Dashboard, que é o ponto.
   const cards = [
-    { key: "monitorados", label: "MONITORADOS", unid: "res.",  value: total,                                kind: "neutral", icon: "monitorados" },
-    { key: "nivel",       label: "NÍVEL MÉDIO", value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
+    { key: "monitorados", label: "Monitorados", unid: "res.",  value: total,                                kind: "neutral", icon: "monitorados" },
+    { key: "nivel",       label: "Nível médio", value: nivelMedio != null ? nivelMedio + "%" : "—", kind: nivelMedio == null ? "neutral" : nivelMedio < 30 ? "bad" : nivelMedio < 50 ? "warn" : "ok", icon: "nivel" },
     // Sempre exibe um número (0 quando nenhuma bomba ligada), nunca traço.
-    { key: "bombas",      label: "BOMBAS",  value: bombasAtivas, hint: bombasConhecidas > 0 ? `de ${bombasConhecidas} monitoradas` : "sem dados de bomba", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
-    { key: "alertas",     label: "ALERTAS ATIVOS", unid: "abertos", value: alertas,                         kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
-    { key: "offline",     label: "OFFLINE",     unid: "disp.", value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
+    { key: "bombas",      label: "Bombas",  value: bombasAtivas, hint: bombasConhecidas > 0 ? `de ${bombasConhecidas} monitoradas` : "sem dados de bomba", kind: bombasAtivas > 0 ? "ok" : "neutral", icon: "bombas" },
+    { key: "alertas",     label: "Alertas ativos", unid: "abertos", value: alertas,                         kind: alertas > 0 ? "bad" : "ok",  icon: "alertas" },
+    { key: "offline",     label: "Offline",     unid: "disp.", value: offline,                              kind: offline > 0 ? "bad" : "ok",  icon: "offline" },
   ];
 
   grid.innerHTML = cards.map(c => {
@@ -5875,8 +5875,7 @@ function _ctrsRenderPickerList(q) {
   }
   list.innerHTML = items.map(c => `
     <button type="button" data-ctrs-pick="${c.id}"
-      style="display:block;width:100%;text-align:left;padding:9px 10px;border:none;background:transparent;color:var(--text);font-size:13px;border-radius:6px;cursor:pointer;"
-      onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+      class="ctrs-pick-item">
       ${_waEscaparHtml(c.nome)}
     </button>`).join("");
 }
@@ -6475,7 +6474,7 @@ function _waIaRenderResultado(acao, { texto }) {
         </button>` : ""}
       <button class="btn btn-sm" type="button" style="margin-top:4px;width:100%;font-size:10px;opacity:.6;"
         data-wa-action="${acao === "resumir" ? "resumir" : "sugerir-resposta"}" data-conv-id="${convId}"
-        onclick="this.closest('#waIaResult').innerHTML=''; _waIaCache && _waIaCache.delete('${convId}-${acao === "resumir" ? "resumir" : "sugerir-resposta"}');">
+        data-refazer="1">
         Refazer
       </button>
     </div>`;
@@ -7454,6 +7453,17 @@ function fecharModal() {
   document.getElementById("modalOverlay").style.display = "none";
   _modalKey = null;
 }
+
+// ⚠️ Era `oninput` no HTML, bloqueado pela CSP: a busca deste modal nunca
+// filtrou. Ligado aqui (o script é `defer`, o DOM já existe).
+document.getElementById("modalBusca")?.addEventListener("input", () => renderModalLista());
+
+// Formulários montados em template que só agrupam campos e nunca devem
+// enviar. Era `onsubmit="return false"`, que a CSP bloqueava: Enter num campo
+// enviava o formulário e recarregava o painel no meio do envio de e-mail.
+document.addEventListener("submit", (e) => {
+  if (e.target.matches?.("form[data-sem-envio]")) e.preventDefault();
+});
 
 function renderModalLista() {
   const busca = (document.getElementById("modalBusca").value || "").trim().toLowerCase();
@@ -11102,10 +11112,17 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (action === "cancelar-vincular") {
       const cached = _waConversaCache.get(_waSelecionadaId);
       if (cached) _waRenderInfo(cached);
-    } else if (action === "resumir" && convId) {
-      await _waIaAcao(convId, "resumir");
-    } else if (action === "sugerir-resposta" && convId) {
-      await _waIaAcao(convId, "sugerir-resposta");
+    } else if ((action === "resumir" || action === "sugerir-resposta") && convId) {
+      // "Refazer" (data-refazer) joga fora o resultado guardado antes de pedir
+      // de novo. ⚠️ Isto era um `onclick` inline, que a CSP do helmet
+      // (`script-src-attr 'none'`) bloqueava calado desde maio: o cache nunca
+      // era limpo e "Refazer" devolvia a mesma resposta. Achado em 18/11/2026.
+      if (btn.dataset.refazer) {
+        _waIaCache.delete(`${convId}-${action}`);
+        const res = document.getElementById("waIaResult");
+        if (res) res.innerHTML = "";
+      }
+      await _waIaAcao(convId, action);
     } else if (action === "usar-sugestao") {
       const texto = btn.dataset.texto;
       const input = document.getElementById("waMsgInput");
@@ -12450,7 +12467,7 @@ async function _osAbrirEnvioLote() {
         <div class="modalTools"><div class="modalCount" id="osLoteMsg">${
           reenvios ? `${reenvios} já ${reenvios === 1 ? "tinha sido enviada" : "tinham sido enviadas"} antes.` : ""
         }</div></div>
-        <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
+        <form class="formGrid" style="grid-template-columns:1fr;" data-sem-envio>
 
           <div class="f">
             <span>Vai assim</span>
@@ -12589,7 +12606,7 @@ async function _osAbrirEnvioEmail() {
       </div>
       <div class="modalBody">
         <div class="modalTools"><div class="modalCount" id="osEnvioMsg">${_waEscaparHtml(jaEnviado)}</div></div>
-        <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
+        <form class="formGrid" style="grid-template-columns:1fr;" data-sem-envio>
 
           <label class="f">
             <span>Para <small style="font-weight:400;color:var(--tinta-2);">(separe vários por vírgula)</small></span>
@@ -14332,7 +14349,7 @@ async function _avAbrirEnvioEmail() {
       </div>
       <div class="modalBody">
         <div class="modalTools"><div class="modalCount" id="avEnvioMsg"></div></div>
-        <form class="formGrid" style="grid-template-columns:1fr;" onsubmit="return false;">
+        <form class="formGrid" style="grid-template-columns:1fr;" data-sem-envio>
 
           <div class="f">
             <span>Como enviar</span>

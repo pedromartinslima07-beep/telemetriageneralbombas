@@ -982,7 +982,7 @@ na API do Omie, procurar no endpoint irmão (`os` → `osp`,
 
 ---
 
-## Redesenho do admin — o condomínio como eixo e fundo claro 📋
+## Redesenho do admin — o condomínio como eixo e fundo claro 🟡
 
 Aprovado pelo Pedro em 18/11/2026. Plano completo em
 [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md);
@@ -994,7 +994,7 @@ o "porquê" em [`decisions.md`](decisions.md).
 | 1 | Endereço por tela (hash), sem mudança visual | ✅ 18/11 (branch `feature/admin-condominio`, sem deploy) |
 | 2 | Ficha do condomínio (abas: Resumo, Telemetria, Chamados, O.S., Orçamentos, Notas, Contrato e plano, Equipamentos, Contatos) | ✅ 18/11 (mesma branch) |
 | 3 | Menu de 15 para 9 itens + tela Início (fila do que pede ação) + lista de notas | ✅ 18/11 (mesma branch) |
-| 4 | Tema claro no painel (app mobile fica como está) | 📋 |
+| 4 | Tema claro no painel (app mobile fica como está) + forma de sistema de gestão (sem chanfro, cartões, abas segmentadas) | ✅ 18/11 (mesma branch) |
 | 5 | Retirar telas antigas — **só com autorização** | 📋 |
 
 ---

@@ -1273,6 +1273,18 @@ comum cancelado segue aparecendo, com o motivo. Para a equipe nada some.
   funcionalidade sem autorização" vale para as telas que o Início absorve
   (Dashboard, Alertas, Telemetria): elas continuam a um clique, como subabas.
   Decidir se alguma sai é a fase 5.
+- **O admin deixa o chanfro e a etiqueta mono (fase 4, 18/11).** Pedido do
+  Pedro: *"deixa como é nos sistemas profissionais"*. O Chapa nasceu como
+  linguagem de peça de venda (landing, login, painel do cliente); no admin, que
+  é ferramenta de oito horas por dia, o chanfro em cada botão e selo e o mono
+  em caixa alta em todo rótulo eram justamente o "pesado visualmente" do
+  pedido de origem. Ficam a marca (marinho no menu, amarelo na ação) e os
+  tokens; saem o corte e a etiqueta gravada. **Só no admin:** landing, login e
+  painel do cliente continuam Chapa.
+- **"Onde você está" deixa de ser amarelo.** Menu e aba aberta usavam a placa
+  amarela, a mesma do botão primário. Com o amarelo em tudo ele parou de dizer
+  "olhe aqui" (diagnóstico do plano). Agora é um degrau de claro no menu e
+  branco no controle segmentado; o amarelo é só ação e atenção.
 - **A tela de abertura passa a ser o Início, não o Dashboard.** O plano
   aprovado diz que o Início é "a fila do que pede ação", e é o que o mercado
   faz (ver redesenho-admin.md). O operador continua abrindo em Alertas.
