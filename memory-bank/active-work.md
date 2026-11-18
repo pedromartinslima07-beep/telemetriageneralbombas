@@ -13,12 +13,15 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-> ⏳ **Nota fiscal pelo Omie: NFS-e pronta no código, falta subir (17/11/2026).**
-> Em ordem: (1) `node scripts/migrate.js 090_nota_fiscal_omie.sql --prod`
-> **antes** do push; (2) push; (3) `OMIE_EMISSAO=1` no Railway e a primeira
-> nota **acompanhada**, num orçamento só de serviço que já seria faturado,
-> conferindo no Omie que a OS saiu igual às feitas à mão. Depois vem a etapa
-> 3 (DANFE). Ver [roadmap.md](roadmap.md) e
+> ⏳ **Nota fiscal pelo Omie: NFS-e e DANFE prontas no código, falta subir
+> (17–18/11/2026).** Em ordem: (1) `node scripts/migrate.js
+> 090_nota_fiscal_omie.sql --prod` e `node scripts/migrate.js
+> 091_nota_fiscal_danfe.sql --prod`, **antes** do push; (2) merge da branch
+> `feature/nota-fiscal-omie` na main e push; (3) abrir o modal uma vez para o
+> catálogo do Omie carregar (~1 min); (4) `OMIE_EMISSAO=1` no Railway e a
+> primeira nota de **cada tipo acompanhada**, em orçamentos que já seriam
+> faturados, conferindo no Omie que a OS e o pedido saíram iguais aos feitos à
+> mão. Ver [roadmap.md](roadmap.md) e
 > [nota-fiscal.md](../docs/modulos/nota-fiscal.md).
 
 > ⏳ **Assinatura em branco — falta subir (05/10/2026).** Código e testes

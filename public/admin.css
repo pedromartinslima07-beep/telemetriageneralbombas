@@ -9608,10 +9608,41 @@ body.role-viewer .viewer-only-hide-inline {
 .av-nota-itens li b { white-space: nowrap; font-weight: 600; }
 .av-nota-bloq { background: rgba(200, 60, 40, .08); border: 1px solid rgba(200, 60, 40, .3); color: var(--tinta); border-radius: 7px; padding: 8px 10px; font-size: .85rem; margin-bottom: 8px; }
 .av-nota-aviso { margin-top: 8px; }
+.av-nota-itens li span i { display: block; font-style: normal; color: var(--tinta-2); font-size: .75rem; }
+
+/* DANFE: o produto do Omie de cada peça. A linha da peça fica em cima; o
+   seletor mora na linha de baixo, sem borda entre as duas. */
+.av-nota-tab tr:has(+ .av-nota-prod-row) td { border-bottom: 0; padding-bottom: 2px; }
+.av-nota-prod-row td { padding-top: 0; }
+.av-nota-prod { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-left: 2px solid var(--fio-esc); }
+.av-nota-prod.is-on { flex-direction: row; align-items: center; gap: 10px; border-left-color: var(--accent); }
+.av-nota-prod.is-on .btn { margin-left: auto; flex: none; }
+.av-nota-prod-t { color: var(--tinta-2); font-size: .78rem; }
+.av-nota-cod { font-family: var(--mono, ui-monospace, monospace); font-size: .78rem; color: var(--tinta-2); white-space: nowrap; }
+.av-nota-pdesc { color: var(--tinta); font-size: .85rem; min-width: 0; }
+.av-nota-pdesc i { display: block; font-style: normal; color: var(--tinta-2); font-size: .74rem; margin-top: 1px; }
+.av-nota-opc { display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left; background: transparent;
+  border: 1px solid var(--fio-esc); border-radius: 6px; padding: 6px 8px; cursor: pointer; font: inherit; }
+.av-nota-opc:hover, .av-nota-opc:focus-visible { border-color: var(--accent); }
+.av-nota-busca { width: 100%; margin-top: 2px; }
+.av-nota-res { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+.av-nota-res:empty { display: none; }
+.av-nota-cat { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Parcelas: quantidade no seletor; com 2 ou mais, um vencimento editável por
+   parcela (o padrão é o calendário das notas feitas à mão). */
+.av-nota-pag { align-items: center; margin-top: 6px; }
+.av-nota-pag .select { width: auto; min-width: 140px; padding: 4px 8px; }
+.av-nota-parcelas { list-style: none; margin: 4px 0 6px; padding: 0; }
+.av-nota-parcelas li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+  padding: 4px 0; font-size: .85rem; color: var(--tinta-2); border-bottom: 1px dashed var(--fio-esc); }
+.av-nota-parcelas li input { width: auto; padding: 4px 6px; }
+.av-nota-parcelas li b { color: var(--tinta); font-weight: 600; min-width: 90px; text-align: right; }
 @media (max-width: 560px) {
   .av-nota-tab tr { display: block; padding: 6px 0; }
   .av-nota-tab td { display: block; border: 0; padding: 2px 0; }
   .av-nota-nat { text-align: left; }
+  .av-nota-prod.is-on { flex-wrap: wrap; }
 }
 
 /* Excluir sai do caminho, mas SEM `margin-top: auto`: empurrar pro pé abria um

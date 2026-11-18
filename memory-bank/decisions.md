@@ -1490,3 +1490,34 @@ desenho em camadas original continua válido.
   procurar no endpoint irmão.** `FaturarOS` está em `/servicos/osp/`. Lendo só
   `/servicos/os/`, o roadmap passou horas afirmando que faturar era "levar a
   OS à etapa 50".
+
+- **DANFE: o sistema sugere o produto, quem emite escolhe (2026-11-18).** A
+  NF-e só aceita produto cadastrado no Omie, e a linha do orçamento é texto
+  livre. Antes de construir, cruzamos os 97 itens dos orçamentos aprovados com
+  os 1.318 produtos: a maioria existe, mas "Adaptador com rosca" bateu 100% com
+  três produtos de NCM diferente, e "Cotovelo 60mm" com um cotovelo de 75 mm.
+  Casar sozinho poria NCM errado em documento fiscal. Ficou: sugestão
+  ordenada pelo que a General **já fatura**, busca, e a escolha lembrada pela
+  descrição para a próxima vez.
+  **Descartado:** cadastrar produto novo no Omie pelo sistema (o NCM é com o
+  contador); casar automaticamente acima de um limiar de semelhança (o
+  exemplo do adaptador tinha 100%).
+  **Quantidade não vira 1 na DANFE.** Na NFS-e, a linha cujo total rateado não
+  divide pela quantidade vai como 1 unidade com o texto "N un.". Na NF-e o
+  item é o produto do cadastro e 26 válvulas são 26: a linha vira dois itens
+  do mesmo produto, (q−1) a u e 1 a u + o resto. Unitário de 3+ casas
+  dependeria de uma configuração do Omie que não dá para testar sem emitir.
+  **CFOP pelo histórico, não pelo cadastro:** o campo `cfop` do produto está
+  vazio nos 1.318, e quem fatura escolhe (5.405 nos itens com ST). O sistema
+  repete o último CFOP com que o produto saiu.
+  **Parcelas pelo código 999, não 002/003 (18/11/2026).** À mão a General usa
+  002/003 e edita as datas na tela. Pela API, a documentação diz que só o 999
+  aceita lista de vencimentos; com os outros o Omie calcula as datas sozinho,
+  e a 1ª parcela em 5 dias (o costume da casa) se perderia. A quantidade vem
+  do texto livre do orçamento só como ponto de partida — o texto não é
+  contrato ("até 03 vezes").
+  **Sugestão pelo começo da linha (18/11/2026).** Tanto em peça × serviço
+  quanto em qual produto: o português do orçamento põe primeiro o que a
+  coisa é ("Cola para tubo pvc", "Zeolita… Limpeza…"). Palavra solta no meio
+  enganava as duas sugestões. Conferido nas 507 linhas de produção antes de
+  trocar.

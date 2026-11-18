@@ -129,6 +129,72 @@ async function nfsePorOs(nCodigoOS) {
   }
 }
 
+// ── Produtos (catálogo para a DANFE) ────────────────────────────────────────
+
+// O Omie corta em 100 por página mesmo pedindo mais: ~1.300 itens
+// (18/11/2026) = 14 chamadas de ~1 s. A descrição vem com entidade HTML
+// (`&quot;`, `&apos;`) — quem consome decodifica.
+async function listarProdutos(pagina) {
+  return chamar("geral/produtos/", "ListarProdutos", {
+    pagina, registros_por_pagina: 100, apenas_importado_api: "N", filtrar_apenas_omiepdv: "N",
+  });
+}
+
+// ── Pedido de venda (vira NF-e / DANFE) ─────────────────────────────────────
+
+// Só os faturados (etapa 60), 50 por página: cada página leva ~3,5 s (vem
+// com os itens), e 100 por página encosta no timeout. Medido em 18/11/2026:
+// 773 pedidos, 16 páginas. ⚠️ O Omie aceita UMA requisição por método de cada
+// vez ("Já existe uma requisição desse método sendo executada") e recusa a
+// mesma chamada repetida em menos de 60 s ("Consumo redundante") — por isso
+// a paginação é em série e a sincronização roda uma de cada vez.
+async function listarPedidos(pagina) {
+  return chamar("produtos/pedido/", "ListarPedidos", { pagina, registros_por_pagina: 50, apenas_importado_api: "N", etapa: "60" });
+}
+
+async function consultarPedidoPorIntegracao(codigo_pedido_integracao) {
+  try {
+    const j = await chamar("produtos/pedido/", "ConsultarPedido", { codigo_pedido_integracao });
+    return j.pedido_venda_produto || null;
+  } catch (e) {
+    if (e.naoEncontrado) return null;
+    throw e;
+  }
+}
+
+async function incluirPedido(payload) {
+  return chamar("produtos/pedido/", "IncluirPedido", payload);
+}
+
+// ⚠️ FATURAR MORA EM OUTRO ENDPOINT (de novo): /produtos/pedidovendafat/,
+// com os nomes de campo curtos (`nCodPed`), e não os longos do /pedido/.
+// Responde 200 com `cCodStatus`; diferente de "0" é recusa.
+async function faturarPedido(nCodPed) {
+  const j = await chamar("produtos/pedidovendafat/", "FaturarPedidoVenda", { nCodPed });
+  if (j && j.cCodStatus != null && String(j.cCodStatus) !== "0") {
+    throw new OmieErro(String(j.cDescStatus || `FaturarPedidoVenda recusou (status ${j.cCodStatus}).`).trim(), { call: "FaturarPedidoVenda" });
+  }
+  return j;
+}
+
+// A NF-e do pedido. Não existe até o faturamento gerar a nota — aí o Omie
+// responde Client-107 "NF não cadastrada para o pedido", que é resposta, não
+// falha. `nIdPedido` só existe no ConsultarNF; o ListarNF não filtra por
+// pedido (lido em 18/11/2026 contra o pedido 879 → NF 794).
+async function nfPorPedido(nIdPedido) {
+  try {
+    return await chamar("produtos/nfconsultar/", "ConsultarNF", { nIdPedido });
+  } catch (e) {
+    if (e.naoEncontrado) return null;
+    throw e;
+  }
+}
+
+// `cPdf` = link da DANFE; `cLinkPortal` = página pública da nota.
+async function documentosNfe(nIdNfe) {
+  return chamar("produtos/dfedocs/", "ObterNfe", { nIdNfe });
+}
+
 module.exports = {
   OmieErro,
   chamar,
@@ -139,4 +205,11 @@ module.exports = {
   faturarOs,
   statusOs,
   nfsePorOs,
+  listarProdutos,
+  listarPedidos,
+  consultarPedidoPorIntegracao,
+  incluirPedido,
+  faturarPedido,
+  nfPorPedido,
+  documentosNfe,
 };

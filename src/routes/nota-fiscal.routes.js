@@ -5,13 +5,17 @@
 // src/services/nota-fiscal.service.js; fluxo em docs/modulos/nota-fiscal.md.
 //
 //   GET  /admin/orcamentos/avulsos/:id/nota            prévia (não fala com o Omie)
+//   POST /admin/orcamentos/avulsos/:id/nota/previa     prévia com o que está marcado no modal
 //   POST /admin/orcamentos/avulsos/:id/nota/emitir     emite (exige OMIE_EMISSAO=1)
 //   POST /admin/orcamentos/avulsos/:id/nota/atualizar  relê o status no Omie
+//   GET  /admin/omie/produtos?q=                       busca no catálogo local (DANFE)
+//   POST /admin/omie/produtos/sincronizar              recarrega o catálogo do Omie (só leitura lá)
 
 const express = require("express");
 const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const nota = require("../services/nota-fiscal.service");
+const catalogo = require("../services/omie-produtos.service");
 
 const router = express.Router();
 
@@ -19,6 +23,19 @@ function _id(req, res) {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: "id inválido" }); return null; }
   return id;
+}
+
+function _obj(v) {
+  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
+// { parcelas: 1..12, vencimentos?: ["AAAA-MM-DD", ...] } — o resto é validado
+// em montarPagamento (datas em ordem, nenhuma antes de hoje).
+function _pagamento(v) {
+  if (!v || typeof v !== "object") return null;
+  const parcelas = Number(v.parcelas);
+  const vencimentos = Array.isArray(v.vencimentos) ? v.vencimentos.slice(0, 12).map(x => String(x).slice(0, 10)) : null;
+  return Number.isInteger(parcelas) ? { parcelas, vencimentos } : null;
 }
 
 function _falha(res, rota, err) {
@@ -34,11 +51,21 @@ router.get("/orcamentos/avulsos/:id/nota", authRequired, gestaoOnly, async (req,
   } catch (err) { return _falha(res, "GET nota", err); }
 });
 
+// Prévia com a classificação e os produtos marcados no modal e ainda não
+// gravados. POST só porque leva corpo; não grava nada.
+router.post("/orcamentos/avulsos/:id/nota/previa", authRequired, gestaoOnly, async (req, res) => {
+  const id = _id(req, res); if (!id) return;
+  try {
+    const b = req.body || {};
+    return res.json(await nota.preparar(id, _obj(b.naturezas), _obj(b.produtos), _pagamento(b.pagamento)));
+  } catch (err) { return _falha(res, "POST nota/previa", err); }
+});
+
 router.post("/orcamentos/avulsos/:id/nota/emitir", authRequired, gestaoOnly, async (req, res) => {
   const id = _id(req, res); if (!id) return;
   try {
-    const naturezas = req.body && typeof req.body.naturezas === "object" ? req.body.naturezas : {};
-    const r = await nota.emitir(id, req.user.id, naturezas);
+    const b = req.body || {};
+    const r = await nota.emitir(id, req.user.id, _obj(b.naturezas), _obj(b.produtos), _pagamento(b.pagamento));
     console.log(`[nota] orcamento=${id} emitir usuario=${req.user.id} -> ${r.nota_status} ${r.nota_numero || ""}`);
     return res.json(r);
   } catch (err) { return _falha(res, "POST nota/emitir", err); }
@@ -49,6 +76,19 @@ router.post("/orcamentos/avulsos/:id/nota/atualizar", authRequired, gestaoOnly, 
   try {
     return res.json(await nota.atualizar(id));
   } catch (err) { return _falha(res, "POST nota/atualizar", err); }
+});
+
+router.get("/omie/produtos", authRequired, gestaoOnly, async (req, res) => {
+  try {
+    const q = String(req.query.q || "").slice(0, 120);
+    return res.json({ produtos: await catalogo.buscar(q, 15), catalogo: await catalogo.estado() });
+  } catch (err) { return _falha(res, "GET omie/produtos", err); }
+});
+
+router.post("/omie/produtos/sincronizar", authRequired, gestaoOnly, async (req, res) => {
+  try {
+    return res.json(await catalogo.sincronizar());
+  } catch (err) { return _falha(res, "POST omie/produtos/sincronizar", err); }
 });
 
 module.exports = { notaFiscalRouter: router };

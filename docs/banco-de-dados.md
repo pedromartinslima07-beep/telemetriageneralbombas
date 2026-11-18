@@ -368,7 +368,29 @@ não tem condomínio não tem login, e a resposta dele continua vindo por fora.
   preenchido na primeira emissão.
 
 ⏳ **Aplicada em teste em 17/11/2026. Falta produção** (rodar antes do push:
-`GET /admin/orcamentos/avulsos` lê as colunas `nota_*`).
+`GET /admin/orcamentos/avulsos` lê as colunas `nota_*`). Conferido em
+18/11/2026 no `information_schema` de produção: nenhuma coluna da 090 lá.
+
+091: **DANFE pelo Omie** (etapa 3). Fluxo em [nota-fiscal.md](modulos/nota-fiscal.md).
+
+- `orcamento_linhas.omie_produto_codigo` (BIGINT): o produto do Omie
+  escolhido para a linha de **peça**. NULL = ninguém escolheu. A NF-e só
+  aceita produto cadastrado, e a linha é texto livre.
+- `orcamentos.omie_pedido_codigo` (pedido de venda, o equivalente do
+  `omie_os_codigo`) e `orcamentos.omie_nf_codigo` (`nIdNF` da NF-e gerada).
+- **`omie_produtos`**: cópia local do catálogo do Omie (PK `codigo_produto`;
+  `codigo`, `descricao`, `ncm` VARCHAR(20) porque há NCM com sufixo
+  `8413.91.90.01`, `unidade`, `valor_unitario`, `inativo`), mais o uso real
+  tirado dos pedidos faturados: `vezes_faturado`, `ultimo_cfop`,
+  `ultimo_faturado_em`. Produto que some do Omie vira `inativo`, nunca é
+  apagado (uma linha antiga pode apontar para ele).
+- **`omie_produto_vinculos`** (PK `descricao_norm`; `codigo_produto`,
+  `vezes`): a memória "esta descrição já foi este produto". Gravada só quando
+  o Omie aceita o pedido.
+
+⏳ **Aplicada em teste em 18/11/2026. Falta produção**, e roda **antes do
+push** junto com a 090: a ficha do orçamento (`_carregar` da nota) lê
+`omie_produto_codigo`, e a emissão de NFS-e também passa por ali.
 > A tabela `orcamento_itens` (025) foi migrada e **removida** em 030.
 
 ### Equipamentos e etiqueta QR — migration 070

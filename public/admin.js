@@ -14621,17 +14621,42 @@ async function _avAbrirNota() {
     return;
   }
 
-  // Estado local: a classificação de cada linha. Começa no que está gravado
-  // ou, sem nada gravado, na sugestão — marcada como sugestão até alguém
-  // clicar ou confirmar.
+  // Estado local. `nat`: a classificação de cada linha — começa no que está
+  // gravado ou, sem nada gravado, na sugestão. `prod`: o produto do Omie de
+  // cada peça (DANFE) — começa no gravado ou no lembrado da última vez; a
+  // sugestão comum NÃO é escolhida sozinha (nome genérico casa com vários
+  // produtos de NCM diferente; ver omie-produtos.service.js).
   const nat = {};
-  for (const l of p.linhas) if (l.cobravel) nat[l.id] = l.natureza || l.natureza_sugerida;
+  const prod = {};
+  const naoConfirmada = new Set();
+  // Parcelas: o servidor sugere pelo texto do orçamento e pelo calendário das
+  // notas feitas à mão; aqui fica o que está na tela, mandado a cada prévia.
+  let pag = null;
+  const sincPag = () => {
+    if (p.pagamento) pag = { parcelas: p.pagamento.parcelas, vencimentos: p.pagamento.parcelas > 1 ? p.pagamento.lista.map(x => x.vencimento) : null };
+  };
+  sincPag();
+  const iniciar = () => {
+    for (const l of p.linhas) {
+      if (!l.cobravel) continue;
+      if (!(l.id in nat)) {
+        nat[l.id] = l.natureza || l.natureza_sugerida;
+        if (!l.natureza) naoConfirmada.add(String(l.id));
+      }
+      if (!(l.id in prod)) {
+        const lemb = (l.sugestoes || []).find(s => s.lembrado);
+        if (l.produto?.descricao) prod[l.id] = l.produto;
+        else if (lemb) prod[l.id] = lemb;
+      }
+    }
+  };
+  iniciar();
 
   const ov = document.createElement("div");
   ov.className = "modalOverlay";
   ov.style.display = "flex";
   ov.innerHTML = `
-    <div class="modalBox" style="max-width:640px;">
+    <div class="modalBox" style="max-width:720px;">
       <div class="modalHead">
         <div>
           <div class="modalTitle">Emitir nota fiscal</div>
@@ -14643,22 +14668,7 @@ async function _avAbrirNota() {
         <div class="modalTools"><div class="modalCount" id="avNotaMsg"></div></div>
 
         <div class="f"><span>O que é cada linha</span></div>
-        <table class="av-nota-tab">
-          <tbody>
-            ${p.linhas.filter(l => l.cobravel).map(l => `
-              <tr>
-                <td class="av-nota-desc">${_waEscaparHtml(l.descricao)}
-                  <i>${l.quantidade} × ${_orcFmtValor(l.valor_unitario)}</i></td>
-                <td class="av-nota-nat">
-                  <div class="avModos" data-nota-linha="${l.id}">
-                    <button type="button" class="avModo" data-nat="servico">Serviço</button>
-                    <button type="button" class="avModo" data-nat="peca">Peça</button>
-                  </div>
-                  ${l.natureza ? "" : `<small class="av-nota-sug">sugerido</small>`}
-                </td>
-              </tr>`).join("")}
-          </tbody>
-        </table>
+        <table class="av-nota-tab"><tbody id="avNotaLinhas"></tbody></table>
         ${p.linhas.some(l => !l.cobravel) ? `<div class="hint">Linhas sem valor não entram na nota.</div>` : ""}
 
         <div class="av-nota-previa" id="avNotaPrevia"></div>
@@ -14676,46 +14686,235 @@ async function _avAbrirNota() {
   document.getElementById("avNotaFechar").addEventListener("click", fechar);
   document.getElementById("avNotaCancelar").addEventListener("click", fechar);
 
-  // O bloqueio do servidor vale, EXCETO o de peça: esse depende da
-  // classificação, que é o que se está editando aqui. Recalcula localmente.
-  const BLOQ_PECA = /DANFE/;
-  function render() {
-    ov.querySelectorAll("[data-nota-linha]").forEach(g => {
-      const id = g.dataset.notaLinha;
-      g.querySelectorAll("[data-nat]").forEach(b => {
-        const on = nat[id] === b.dataset.nat;
-        b.classList.toggle("is-on", on);
-        b.setAttribute("aria-pressed", String(on));
-      });
-    });
-    const temPeca = Object.values(nat).includes("peca");
-    let bloqueio = p.bloqueio && !BLOQ_PECA.test(p.bloqueio) ? p.bloqueio : null;
-    if (!bloqueio && temPeca) bloqueio = "Orçamento com peça sai em DANFE (nota de produto), que ainda não está no sistema — por enquanto, emita no Omie.";
+  const esc = _waEscaparHtml;
+  const produtosDoModal = () => {
+    const out = {};
+    for (const l of p.linhas) if (l.cobravel && nat[l.id] === "peca") out[l.id] = prod[l.id]?.codigo_produto || null;
+    return out;
+  };
+
+  function prodHtml(x, extra = "") {
+    const meta = [
+      x.ncm ? `NCM ${esc(x.ncm)}` : "",
+      x.unidade ? esc(x.unidade) : "",
+      x.vezes_faturado ? `faturado ${x.vezes_faturado}×` : "nunca faturado",
+    ].filter(Boolean).join(" · ");
+    return `<span class="av-nota-cod">${esc(x.codigo || x.codigo_produto)}</span>
+      <span class="av-nota-pdesc">${esc(x.descricao || "")}<i>${meta}${extra}</i></span>`;
+  }
+
+  function slotProduto(l) {
+    const x = prod[l.id];
+    if (x) {
+      return `
+        <div class="av-nota-prod is-on">
+          ${prodHtml(x, x.lembrado ? " · usado da última vez" : "")}
+          <button type="button" class="btn btn-sm" data-prod-trocar="${l.id}">Trocar</button>
+        </div>`;
+    }
+    const sug = (l.sugestoes || []).filter(s => !s.lembrado);
+    return `
+      <div class="av-nota-prod">
+        <div class="av-nota-prod-t">Qual produto do Omie é esta peça?</div>
+        ${sug.map(s => `
+          <button type="button" class="av-nota-opc" data-prod-usar="${l.id}" data-cod="${s.codigo_produto}">
+            ${prodHtml(s)}
+          </button>`).join("")}
+        <input class="av-nota-busca" type="text" data-prod-busca="${l.id}" placeholder="Buscar outro produto — nome ou código" autocomplete="off">
+        <div class="av-nota-res" data-prod-res="${l.id}"></div>
+      </div>`;
+  }
+
+  function renderLinhas() {
+    document.getElementById("avNotaLinhas").innerHTML = p.linhas.filter(l => l.cobravel).map(l => {
+      const ePeca = nat[l.id] === "peca";
+      return `
+        <tr>
+          <td class="av-nota-desc">${esc(l.descricao)}
+            <i>${l.quantidade} × ${_orcFmtValor(l.valor_unitario)}</i></td>
+          <td class="av-nota-nat">
+            <div class="avModos" data-nota-linha="${l.id}">
+              <button type="button" class="avModo${nat[l.id] === "servico" ? " is-on" : ""}" data-nat="servico" aria-pressed="${nat[l.id] === "servico"}">Serviço</button>
+              <button type="button" class="avModo${ePeca ? " is-on" : ""}" data-nat="peca" aria-pressed="${ePeca}">Peça</button>
+            </div>
+            ${naoConfirmada.has(String(l.id)) ? `<small class="av-nota-sug">sugerido</small>` : ""}
+          </td>
+        </tr>
+        ${ePeca && p.tipo === "nfe" ? `<tr class="av-nota-prod-row"><td colspan="2">${slotProduto(l)}</td></tr>` : ""}`;
+    }).join("");
+  }
+
+  function renderPrevia() {
+    const nfe = p.tipo === "nfe";
+    let bloqueio = p.bloqueio;
     if (!bloqueio && !p.emissao_ligada) bloqueio = "Emissão desligada neste ambiente (OMIE_EMISSAO). A prévia abaixo é o que sairia.";
 
     const itens = p.itens.map(i => `
-      <li><span>${_waEscaparHtml(i.descricao)}</span>
+      <li><span>${nfe && i.codigo ? `<span class="av-nota-cod">${esc(i.codigo)}</span> ` : ""}${esc(i.descricao)}
+            ${nfe ? `<i>${i.ncm ? `NCM ${esc(i.ncm)} · ` : ""}CFOP ${esc(i.cfop)}</i>` : ""}</span>
           <b>${i.quantidade > 1 ? `${i.quantidade} × ${_orcFmtValor(i.valor_unitario)} = ` : ""}${_orcFmtValor(i.total)}</b></li>`).join("");
+    const cat = p.catalogo;
+    const catTxt = !nfe || !cat ? "" : cat.total === 0
+      ? `Carregando o catálogo do Omie — leva cerca de 1 minuto. Enquanto isso, use a busca pelo nome.`
+      : `Catálogo do Omie: ${cat.total} produtos${cat.atualizado_em ? `, de ${new Date(cat.atualizado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : ""}${cat.sincronizando ? " (atualizando…)" : ""}.`;
+
     document.getElementById("avNotaPrevia").innerHTML = `
-      ${bloqueio ? `<div class="av-nota-bloq">${_waEscaparHtml(bloqueio)}</div>` : ""}
-      <div class="av-nota-kv"><span>Nota</span><b>${temPeca ? "DANFE (produto)" : "NFS-e — serviço 140101 (14.01)"}</b></div>
-      <div class="av-nota-kv"><span>Cliente</span><b>${_waEscaparHtml(p.cliente?.nome || "—")}
+      ${bloqueio ? `<div class="av-nota-bloq">${esc(bloqueio)}</div>` : ""}
+      <div class="av-nota-kv"><span>Nota</span><b>${nfe ? "DANFE — NF-e de produto" : "NFS-e — serviço 140101 (14.01)"}</b></div>
+      <div class="av-nota-kv"><span>Cliente</span><b>${esc(p.cliente?.nome || "—")}
         <i>${p.cliente?.omie_codigo ? "já vinculado no Omie" : "procurado no Omie pelo CNPJ (cadastrado se não existir)"}</i></b></div>
       <ul class="av-nota-itens">${itens}</ul>
       <div class="av-nota-kv av-nota-total"><span>Total da nota</span><b>${_orcFmtValor(p.total)}</b></div>
-      ${p.rateado ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as linhas, na proporção de cada uma.</div>` : ""}
-      <div class="hint av-nota-aviso">Isto gera uma <b>nota real</b> na prefeitura. Depois de emitida, cancelar é no Omie.</div>`;
+      ${pagamentoHtml()}
+      ${nfe && p.servico_embutido > 0 ? `<div class="hint">O serviço (${_orcFmtValor(p.servico_embutido)}) não sai como linha: está embutido no preço das peças, na proporção do valor de cada uma.</div>` : ""}
+      ${!nfe && p.rateado ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as linhas, na proporção de cada uma.</div>` : ""}
+      ${nfe && p.rateado && !(p.servico_embutido > 0) ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as peças, na proporção de cada uma.</div>` : ""}
+      ${catTxt ? `<div class="hint av-nota-cat">${catTxt} <button type="button" class="btn btn-sm" data-cat-sync>Atualizar catálogo</button></div>` : ""}
+      <div class="hint av-nota-aviso">Isto gera uma <b>nota real</b> ${nfe ? "na SEFAZ" : "na prefeitura"}. Depois de emitida, cancelar é no Omie.</div>`;
     document.getElementById("avNotaConfirmar").disabled = Boolean(bloqueio);
   }
-  ov.querySelectorAll("[data-nota-linha] [data-nat]").forEach(b => {
-    b.addEventListener("click", () => {
-      const id = b.closest("[data-nota-linha]").dataset.notaLinha;
-      nat[id] = b.dataset.nat;
-      b.closest("td").querySelector(".av-nota-sug")?.remove();
+
+  function pagamentoHtml() {
+    const pg = p.pagamento;
+    if (!pg) return "";
+    const opcoes = Array.from({ length: 12 }, (_, k) => k + 1)
+      .map(n => `<option value="${n}"${n === pg.parcelas ? " selected" : ""}>${n === 1 ? "À vista" : n + "x no boleto"}</option>`).join("");
+    const doOrc = pg.forma_pagamento
+      ? `no orçamento: ${esc(pg.forma_pagamento)}${pg.parcelas !== pg.do_orcamento ? " — alterado aqui" : ""}`
+      : "o orçamento não diz a forma de pagamento";
+    return `
+      <div class="av-nota-kv av-nota-pag"><span>Pagamento</span>
+        <b><select class="select" data-pag-qtd aria-label="Quantidade de parcelas">${opcoes}</select><i>${doOrc}</i></b></div>
+      ${pg.parcelas > 1 ? `
+        <ul class="av-nota-parcelas">
+          ${pg.lista.map(x => `
+            <li><span>${x.numero}ª parcela</span>
+              <input type="date" data-pag-venc="${x.numero - 1}" value="${esc(x.vencimento)}" aria-label="Vencimento da parcela ${x.numero}">
+              <b>${_orcFmtValor(x.valor)}</b></li>`).join("")}
+        </ul>` : ""}`;
+  }
+
+  function render() { renderLinhas(); renderPrevia(); }
+
+  // A prévia é do servidor (rateio, bloqueios, sugestões): toda mudança de
+  // classificação ou de produto pede de novo, com o que está marcado aqui.
+  let seq = 0;
+  async function atualizarPrevia() {
+    const meu = ++seq;
+    const msg = document.getElementById("avNotaMsg");
+    if (msg) { msg.style.color = "var(--tinta-2)"; msg.textContent = "Atualizando a prévia…"; }
+    try {
+      const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/previa`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ naturezas: nat, produtos: produtosDoModal(), pagamento: pag }),
+      });
+      const j = await lerRespostaJson(r, "Prévia da nota");
+      if (!r.ok) throw new Error(j.error || "Erro ao atualizar a prévia");
+      if (meu !== seq) return;
+      p = j;
+      sincPag();
+      iniciar();
       render();
-    });
+      if (msg) msg.textContent = "";
+    } catch (e) {
+      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = e.message; }
+    }
+  }
+
+  // Resultados da busca ficam guardados pelo código, para o clique em
+  // "usar" achar o produto sem nova consulta.
+  const vistos = new Map();
+  for (const l of p.linhas) for (const s of l.sugestoes || []) vistos.set(String(s.codigo_produto), s);
+
+  ov.addEventListener("click", async e => {
+    const bNat = e.target.closest("[data-nota-linha] [data-nat]");
+    if (bNat) {
+      const id = bNat.closest("[data-nota-linha]").dataset.notaLinha;
+      nat[id] = bNat.dataset.nat;
+      naoConfirmada.delete(String(id));
+      render();
+      atualizarPrevia();
+      return;
+    }
+    const bUsar = e.target.closest("[data-prod-usar]");
+    if (bUsar) {
+      const x = vistos.get(String(bUsar.dataset.cod)) ||
+        (p.linhas.flatMap(l => l.sugestoes || [])).find(s => String(s.codigo_produto) === bUsar.dataset.cod);
+      if (x) { prod[bUsar.dataset.prodUsar] = x; render(); atualizarPrevia(); }
+      return;
+    }
+    const bTrocar = e.target.closest("[data-prod-trocar]");
+    if (bTrocar) {
+      prod[bTrocar.dataset.prodTrocar] = null;
+      render();
+      atualizarPrevia();
+      return;
+    }
+    const bSync = e.target.closest("[data-cat-sync]");
+    if (bSync) {
+      bSync.disabled = true;
+      bSync.textContent = "Atualizando… (cerca de 1 min)";
+      try {
+        const r = await fetch(`/admin/omie/produtos/sincronizar`, { method: "POST", headers: authHeaders() });
+        const j = await lerRespostaJson(r, "Atualizar catálogo");
+        if (!r.ok) throw new Error(j.error || "Erro ao atualizar o catálogo");
+        atualizarPrevia();
+      } catch (err) {
+        const msg = document.getElementById("avNotaMsg");
+        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = err.message; }
+        bSync.disabled = false;
+        bSync.textContent = "Atualizar catálogo";
+      }
+    }
   });
+
+  ov.addEventListener("change", e => {
+    const qtd = e.target.closest("[data-pag-qtd]");
+    if (qtd) {
+      // Outra quantidade: o servidor refaz o calendário padrão.
+      pag = { parcelas: Number(qtd.value), vencimentos: null };
+      atualizarPrevia();
+      return;
+    }
+    const venc = e.target.closest("[data-pag-venc]");
+    if (venc && pag?.vencimentos) {
+      pag.vencimentos[Number(venc.dataset.pagVenc)] = venc.value;
+      atualizarPrevia();
+    }
+  });
+
+  let tBusca = null;
+  ov.addEventListener("input", e => {
+    const inp = e.target.closest("[data-prod-busca]");
+    if (!inp) return;
+    const lid = inp.dataset.prodBusca;
+    const res = ov.querySelector(`[data-prod-res="${lid}"]`);
+    clearTimeout(tBusca);
+    const q = inp.value.trim();
+    if (q.length < 2) { if (res) res.innerHTML = ""; return; }
+    tBusca = setTimeout(async () => {
+      if (res) res.innerHTML = `<div class="hint">Buscando…</div>`;
+      try {
+        const r = await fetch(`/admin/omie/produtos?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+        const j = await lerRespostaJson(r, "Buscar produto");
+        if (!r.ok) throw new Error(j.error || "Erro na busca");
+        if (inp.value.trim() !== q || !res) return;
+        for (const x of j.produtos) vistos.set(String(x.codigo_produto), x);
+        res.innerHTML = j.produtos.length
+          ? j.produtos.map(x => `
+              <button type="button" class="av-nota-opc" data-prod-usar="${lid}" data-cod="${x.codigo_produto}">${prodHtml(x)}</button>`).join("")
+          : `<div class="hint">Nenhum produto com esse nome no catálogo. Se a peça é nova, cadastre-a no Omie (o NCM é com o contador) e use Atualizar catálogo.</div>`;
+      } catch (err) {
+        if (res) res.innerHTML = `<div class="hint" style="color:var(--danger)">${esc(err.message)}</div>`;
+      }
+    }, 250);
+  });
+
   render();
+  // O lembrado da última vez entra já escolhido; a prévia do servidor
+  // precisa saber disso para tirar o bloqueio "escolha o produto".
+  if (Object.values(prod).some(Boolean)) atualizarPrevia();
 
   document.getElementById("avNotaConfirmar").addEventListener("click", async () => {
     const msg = document.getElementById("avNotaMsg");
@@ -14726,7 +14925,7 @@ async function _avAbrirNota() {
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/emitir`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ naturezas: nat }),
+        body: JSON.stringify({ naturezas: nat, produtos: produtosDoModal(), pagamento: pag }),
       });
       const j = await lerRespostaJson(r, "Emitir nota");
       if (!r.ok) {
@@ -14734,7 +14933,7 @@ async function _avAbrirNota() {
         console.error(`[nota] FALHA orcamento=${orc.id} call=${j.call || "-"}\n${j.error || "sem detalhe"}`);
         if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao emitir"; }
         btn.disabled = false;
-        // A falha pode ter deixado estado gravado (OS criada, status erro).
+        // A falha pode ter deixado estado gravado (OS/pedido criado, status erro).
         _avAtualizarNota();
         return;
       }
@@ -14743,10 +14942,11 @@ async function _avAbrirNota() {
       _avRenderTudo();
       const fmsg = document.getElementById("avFormMsg");
       if (fmsg) {
+        const rot = j.nota_tipo === "nfe" ? "DANFE" : "NFS-e";
         fmsg.style.color = "var(--ok)";
         fmsg.textContent = j.nota_status === "emitida"
-          ? `✓ NFS-e nº ${j.nota_numero} emitida`
-          : "✓ Enviada ao Omie — a prefeitura está processando. Use Atualizar em instantes.";
+          ? `✓ ${rot} nº ${j.nota_numero} emitida`
+          : `✓ Enviada ao Omie — ${j.nota_tipo === "nfe" ? "a SEFAZ" : "a prefeitura"} está processando. Use Atualizar em instantes.`;
         setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 6000);
       }
     } catch (e) {

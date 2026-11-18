@@ -93,6 +93,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
+| 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
 | 089 | lixeira_registros_apagados | Tabela `registros_apagados` + trigger `trg_lixeira` (AFTER DELETE, por linha) em 12 tabelas de atendimento: toda linha apagada deixa cópia JSONB, por qualquer caminho. **Aplicada em teste e produção em 11/11/2026.** Ver a entrada de 11/11/2026 abaixo |
 | 088 | os_assinatura_refazer | `ordens_servico.assinatura_refazer_em` (o escritório pediu nova assinatura) e `assinatura_refeita_em` (quando ela chegou — impresso no PDF). Ver a entrada de 05/10/2026 abaixo |
 | 087 | chamado_competencia | `chamados.competencia` (dia 1) + índice parcial; preenche os existentes pelo mês de criação (o segundo chamado do mesmo plano no mesmo mês vai para o seguinte) e põe o mês no título dos abertos. Ver a entrada de 02/10/2026 abaixo |
@@ -17632,3 +17633,83 @@ emitida.** A primeira em produção deve ser acompanhada, num orçamento que já
 seria faturado.
 
 Detalhe em [nota-fiscal.md](modulos/nota-fiscal.md).
+
+## Orçamento com peça vira DANFE pelo Omie (2026-11-18)
+
+*"n entendi como o omie vai entender qual a peça se é tudo escrito livremente"*
+e, em seguida, *"faz a parte 3 entao pra mim, daria para ler os orçamentos
+aprovados, ver peças comuns e procurar se esta cadastrado no omie hj?"*. A
+NF-e só aceita produto cadastrado no Omie; a linha do orçamento é texto livre.
+Etapa 3 de 3.
+
+- **Levantamento antes de construir** (só leitura, produção e Omie): os 97
+  itens dos 47 orçamentos aprovados × os 1.318 produtos do Omie. A maioria das
+  peças existe, muitas com o nome exato. Mas o nome genérico casa com vários
+  produtos de NCM diferente ("Adaptador com rosca" → três). Por isso **sugerir
+  e deixar escolher**, nunca casar sozinho.
+- **Molde do pedido** copiado de 77 pedidos faturados à mão: o mesmo cenário
+  fiscal em todos (o Omie calcula o imposto), categoria 1.01.02, conta
+  6109178168, vendedor dos pedidos recentes, sem frete, sem baixar estoque,
+  CFOP 5.102 ou o último com que o produto saiu (5.405 nos itens com ST).
+- **Migration 091:** produto escolhido por linha, código do pedido e da NF, o
+  catálogo local (`omie_produtos`) e a memória das escolhas
+  (`omie_produto_vinculos`).
+- **`src/services/omie-produtos.service.js`** (novo): sincroniza o catálogo
+  (`ListarProdutos` + `ListarPedidos` faturados, em série, ~1 min 10 s, em
+  segundo plano quando passa de 24 h), busca, sugestão (IDF + o que já foi
+  faturado + penalidade de medida diferente) e memória.
+- **`omie.service.js`:** `ConsultarPedido`, `IncluirPedido`,
+  `FaturarPedidoVenda` (em `/produtos/pedidovendafat/`), `ConsultarNF` por
+  `nIdPedido`, `ObterNfe` (PDF da DANFE).
+- **`nota-fiscal.service.js`:** `ratearNfe` (serviço embutido só nas peças;
+  quantidade que não divide em centavos vira dois itens do mesmo produto, em
+  vez de quantidade 1), `montarPedido`, o `emitir` dividido em NFS-e e
+  DANFE, `atualizar` lendo a NF-e. Bloqueios novos: peça sem produto,
+  produto inativo, fora de SP, e OS/pedido de tentativa anterior do outro
+  tipo (seria a segunda nota).
+- **Rotas:** `POST .../nota/previa` (prévia com o que está marcado no modal),
+  `GET /admin/omie/produtos?q=`, `POST /admin/omie/produtos/sincronizar`.
+- **Admin:** no modal, cada peça ganha "Qual produto do Omie é esta peça?",
+  com até 3 sugestões (código, NCM, unidade, quantas vezes foi faturado), busca
+  e "usado da última vez". A prévia da DANFE mostra código, NCM e CFOP por item
+  e quanto de serviço foi embutido. `admin.js?v=368`, `admin.css?v=275`.
+
+Testado: `scripts/testes/nota-fiscal-danfe.test.js`, 40/40, no banco de
+teste, pelas rotas (Express + JWT), com o Omie dublê. Cobre o rateio, os
+bloqueios, prévia → emitir → atualizar, o molde, a memória, a retomada sem
+segundo pedido, a NFS-e pelo caminho de sempre e o kill-switch. O modal foi
+exercitado no navegador (dev) num orçamento montado com as linhas do
+OR-000234 real. O caminho de leitura da NF-e foi conferido no Omie de verdade
+(pedido 879 → NF 794). **Nenhum pedido nem nota foi criado no Omie.** A
+primeira DANFE em produção deve ser acompanhada.
+
+Detalhe em [nota-fiscal.md](modulos/nota-fiscal.md).
+
+## Nota parcelada e sugestões que erravam menos (2026-11-18)
+
+*"n da para resolver essas coisas"*, sobre as três pontas soltas da DANFE.
+
+- **Parcelas, na NFS-e e na DANFE.** A quantidade sai do texto livre do
+  orçamento ("parcelado em 2x", "em duas vezes", "até 03 vezes"); o calendário
+  padrão é o das notas feitas à mão (1ª em 5 dias, depois mensal), e tudo é
+  editável no modal. 2+ parcelas vão com o código `999` e a lista
+  (`Parcelas` na OS, `lista_parcelas` no pedido), em boleto. À vista segue
+  `000`. `parcelasDoTexto`, `vencimentosPadrao` e `montarPagamento` em
+  `nota-fiscal.service.js`.
+- **Peça × serviço pelo começo da linha**, não por uma palavra em qualquer
+  lugar. A zeolita ("…Limpeza…") e a fita teste de cloro passam a peça;
+  "Pressostato — reparo", "Emissão de ART" e "Repressurização…" a serviço.
+  Conferido nas 507 linhas de produção: 7 mudaram, todas para o lado certo.
+- **Sugestão de produto:** a primeira palavra da linha pesa o triplo, produto
+  que é peça de outra coisa (rotor, bracket, tampa) perde 40%, plural e
+  abreviação do cadastro casam. "Cola para tubo pvc" deixa de sugerir tubos;
+  "Cotovelo 60mm" acha o COTOVELOS DE 60MM; "Redução 85/75mm" acha o REDUCAO
+  85X75.
+- **Admin:** bloco Pagamento no modal (quantidade + vencimento por parcela).
+  `admin.js?v=369`, `admin.css?v=276`.
+
+Teste: `scripts/testes/nota-fiscal-danfe.test.js` passou de 40 para **81**
+verificações (textos de pagamento reais, calendário, centavos, bloqueios de
+data, OS e pedido parcelados pelas rotas, casos de natureza e de sugestão).
+O banco de teste voltou ao que era: o OR-000057 com a linha única "teste" e o
+condomínio DEMO sem CNPJ.

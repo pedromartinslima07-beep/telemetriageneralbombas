@@ -922,7 +922,7 @@ bloco está lá desde o início, nunca foi usado.
 **Ordem sugerida:** fechar a 7J primeiro (o app precisa estar publicável e com o
 GPS validado); push é feature nova e não deve competir com o prazo de 31/08.
 
-## Nota fiscal pelo Omie — NFS-e ✅ (código) · DANFE 📋
+## Nota fiscal pelo Omie — NFS-e ✅ (código) · DANFE ✅ (código)
 
 O "como" está em [nota-fiscal.md](../docs/modulos/nota-fiscal.md); aqui fica a
 direção.
@@ -943,7 +943,7 @@ por rateio proporcional, com prévia antes.
 |---|---|---|
 | 1 | `omie.service.js` + migration 090 (natureza da linha, colunas `nota_*`, cache do cliente) | ✅ código · ⏳ 090 em prod |
 | 2 | NFS-e do orçamento só de serviço: modal com confirmação peça/serviço, prévia, OS no molde, `FaturarOS`, Atualizar | ✅ código · ⏳ primeira nota real |
-| 3 | DANFE: seletor de peça do Omie (`ListarProdutos`, 1.317 cadastrados, com cache), rateio do serviço nas peças, `IncluirPedido` + `FaturarPedidoVenda` | 📋 |
+| 3 | DANFE: seletor de produto do Omie por peça (catálogo local de 1.318, sugestão + busca + memória), rateio do serviço nas peças, pedido no molde, `IncluirPedido` + `FaturarPedidoVenda`, leitura da NF-e. Migration 091 | ✅ código (18/11/2026) · ⏳ 091 em prod · ⏳ primeira DANFE real |
 
 **Para a etapa 2 ir ao ar, nesta ordem:**
 1. Rodar a 090 em produção **antes** do push, porque a lista de orçamentos
@@ -954,11 +954,20 @@ por rateio proporcional, com prévia antes.
    saiu igual às feitas à mão e se o `FaturarOS` transmitiu a NFS-e. Se algo
    sair errado, cancelar no Omie, como já se faz hoje.
 
-**Antes da etapa 3:** ler pela API alguns pedidos de venda já faturados para
-copiar o molde (categoria, CFOP, conta), como foi feito com as OS. A doc
-indica que o item de pedido exige produto cadastrado, então peça nova se
-cadastra no Omie primeiro (NCM é assunto do contador), sem cadastro
-automático.
+**Para a etapa 3 ir ao ar:** a 091 roda em produção **junto com a 090, antes
+do push** (a nota lê `omie_produto_codigo`). Depois do deploy, abrir o modal
+uma vez para o catálogo carregar (~1 min, em segundo plano). A primeira DANFE
+também é acompanhada: um orçamento com peça que já seria faturado, conferindo
+no Omie se o pedido saiu igual aos feitos à mão (cenário, CFOP, conta) e se a
+NF-e foi autorizada.
+
+**Parcelas** (18/11/2026): NFS-e e DANFE saem parceladas pelo texto do
+orçamento, com o calendário das notas feitas à mão e vencimentos editáveis.
+A primeira nota parcelada em produção confirma o código `999`.
+
+**Depois, se pedirem:** venda para fora de SP (CFOP 6.xxx) e orçamentos de
+limpeza/dedetização. Peça nova continua sendo cadastrada no Omie à mão (NCM é
+com o contador).
 
 **Fora, por ora:** orçamentos de limpeza de reservatório e dedetização usam
 outro código de serviço (dedetização é 07.13) e estão bloqueados com
