@@ -982,6 +982,23 @@ na API do Omie, procurar no endpoint irmão (`os` → `osp`,
 
 ---
 
+## Redesenho do admin — o condomínio como eixo e fundo claro 📋
+
+Aprovado pelo Pedro em 18/11/2026. Plano completo em
+[`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md);
+o "porquê" em [`decisions.md`](decisions.md).
+
+| # | Fase | Status |
+|---|---|---|
+| 0 | Fechar `feature/nota-fiscal-omie` (ou partir da `main`) | ⏳ |
+| 1 | Endereço por tela (hash), sem mudança visual | ✅ 18/11 (branch `feature/admin-condominio`, sem deploy) |
+| 2 | Ficha do condomínio (abas: Resumo, Telemetria, Chamados, O.S., Orçamentos, Notas, Contrato e plano, Equipamentos, Contatos) | ✅ 18/11 (mesma branch) |
+| 3 | Menu de 15 para 9 itens + tela Início (fila do que pede ação) | 📋 |
+| 4 | Tema claro no painel (app mobile fica como está) | 📋 |
+| 5 | Retirar telas antigas — **só com autorização** | 📋 |
+
+---
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para

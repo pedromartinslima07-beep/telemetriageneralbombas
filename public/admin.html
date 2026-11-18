@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=276">
+  <link rel="stylesheet" href="/static/admin.css?v=277">
 </head>
 <body>
   <div id="appLoader">
@@ -569,6 +569,12 @@
       </div><!-- /section cadastros -->
 
       <!-- ===== SECTION: CHAMADOS ===== -->
+      <!-- Ficha do condomínio (redesenho 18/11/2026). Desenhada por
+           admin-condominio.js; aberta por #/condominios/ID[/aba]. -->
+      <div class="section" data-section="condominio">
+        <div class="cf" id="cfRoot"></div>
+      </div>
+
       <div class="section" data-section="chamados">
         <!-- KPIs -->
         <div class="resumo-grid" id="chKpiGrid" style="margin-bottom:16px;"></div>
@@ -2898,7 +2904,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=369" defer></script>
+<script src="/static/admin.js?v=371" defer></script>
+<script src="/static/admin-condominio.js?v=3" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=51" defer></script>
 </body>

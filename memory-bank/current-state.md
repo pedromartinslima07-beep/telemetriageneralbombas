@@ -81,6 +81,16 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Ficha do condomínio e endereço por tela (18/11/2026, branch sem deploy)
+
+O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma
+**ficha do condomínio** que junta chamados, O.S., orçamentos, notas, contrato,
+planos, equipamentos e contatos do prédio, abrindo cada documento no modal que
+já existia. Mora em `public/admin-condominio.js`, que roda depois do
+`admin.js` e se redesenha por ganchos nas funções de lista dele. Na branch
+`feature/admin-condominio`, ainda não em produção. Ver
+[`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
+
 ### ⚠️ Nota fiscal pelo Omie — NFS-e e DANFE (17–18/11/2026)
 
 O orçamento aprovado vira nota pela ficha, através da API do Omie (addon

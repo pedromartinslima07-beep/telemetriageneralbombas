@@ -17713,3 +17713,19 @@ verificações (textos de pagamento reais, calendário, centavos, bloqueios de
 data, OS e pedido parcelados pelas rotas, casos de natureza e de sugestão).
 O banco de teste voltou ao que era: o OR-000057 com a linha única "teste" e o
 condomínio DEMO sem CNPJ.
+
+## Ficha do condomínio e endereço por tela (2026-11-18)
+
+Fases 1 e 2 do [redesenho do admin](modulos/redesenho-admin.md), na branch
+`feature/admin-condominio` (sem deploy). Sem migration.
+
+- **Endereço por tela:** `#/ordens-servico`, `#/condominios/13/orcamentos`.
+  Voltar, F5 e link passam a funcionar no painel.
+- **Ficha do condomínio** (`public/admin-condominio.js`, novo): um prédio com
+  Resumo (pede atenção + histórico), Telemetria, Chamados, WhatsApp, O.S.,
+  Orçamentos, Notas fiscais, Contrato e plano, Equipamentos e Contatos. Cada
+  linha abre o modal que já existia.
+- **Quem abre a ficha:** o botão da coluna de Clientes ("Abrir ficha do
+  condomínio"), todo `ver-condo` do painel e o pin do mapa do Dashboard, que
+  antes abriam a gaveta.
+- `admin.js?v=371`, `admin.css?v=277`, `admin-condominio.js?v=3`.

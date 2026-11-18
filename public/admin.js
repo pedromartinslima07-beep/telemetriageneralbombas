@@ -141,6 +141,7 @@ const _sectionTitles = {
   equipamentos:     "Equipamentos",
   relatorios:       "Relatórios",
   config:           "Configurações",
+  condominio:       "Condomínio",
 };
 
 function showSection(name) {
@@ -210,6 +211,9 @@ function showSection(name) {
   if (name === "dashboard" && _mcMap) {
     setTimeout(() => _mcMap.invalidateSize(), 0);
   }
+  // Endereço por tela (admin-condominio.js): grava #/secao no histórico, para
+  // voltar, recarregar e mandar link funcionarem.
+  if (typeof _rotaAoMostrar === "function") _rotaAoMostrar(name);
 }
 
 function logout() {
@@ -800,7 +804,7 @@ function renderMcMap() {
     if (!marker) {
       marker = L.marker([c.lat, c.lng], { icon: _mcPinIcon(kind) }).addTo(_mcMap);
       marker.bindTooltip(tooltip, { direction: "top", offset: [0, -8] });
-      marker.on("click", () => abrirDrawer(c.id));
+      marker.on("click", () => abrirFichaCondominio(c.id));
       _mcMarkers.set(c.id, marker);
     } else {
       marker.setLatLng([c.lat, c.lng]);
@@ -3315,8 +3319,8 @@ function renderCliDetalhe(c) {
     </div>
 
     <div class="ch-det-acoes">
-      <button class="btn btn-sm" data-action="ver-condo" data-id="${c.id}" style="width:100%;justify-content:center;">
-        Ver histórico completo
+      <button class="btn btn-sm btnAccent" data-action="ver-condo" data-id="${c.id}" style="width:100%;justify-content:center;">
+        Abrir ficha do condomínio
       </button>
       <button class="btn btn-sm viewer-only-hide" data-action="editar-condominio" data-id="${c.id}">Editar</button>
       ${c.ativo
@@ -11067,7 +11071,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const convId  = Number(btn.dataset.convId);
 
     if (action === "ver-condo" && condoId) {
-      abrirDrawer(condoId);
+      abrirFichaCondominio(condoId, "telemetria");
     } else if (action === "abrir-chamado" && condoId) {
       showSection("chamados");
     } else if (action === "abrir-chamado-sem-condo") {
@@ -11193,9 +11197,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Ver um condomínio abre a FICHA (redesenho, 18/11/2026), que reúne o que
+    // a gaveta mostrava e o que ela não tinha (contrato, notas, equipamentos).
     if (action === "ver-condo") {
       const id = Number(btn.dataset.id);
-      if (id) abrirDrawer(id);
+      if (id) { if (typeof fecharDrawer === "function") fecharDrawer(); abrirFichaCondominio(id); }
       return;
     }
 
@@ -11210,7 +11216,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (action === "ver-condo-modal") {
       const id = Number(btn.dataset.condoId);
-      if (id) { fecharModal(); abrirDrawer(id); }
+      if (id) { fecharModal(); abrirFichaCondominio(id); }
       return;
     }
 

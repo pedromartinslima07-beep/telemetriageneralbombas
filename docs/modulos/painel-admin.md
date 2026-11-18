@@ -91,6 +91,11 @@ Detalhe e medidas no [changelog](../changelog.md).
 
 ## As 15 telas
 
+> 🟡 **Redesenho em andamento (18/11/2026).** Já existe uma 16ª seção,
+> `condominio` (a **ficha do condomínio**, fora da nav, aberta por
+> `#/condominios/ID`), e toda seção tem endereço `#/nome`. Ainda faltam o menu
+> de 9 itens e o fundo claro. Ver [redesenho-admin.md](redesenho-admin.md).
+
 Não há rota por tela: tudo é `showSection(nome)` alternando `.section` no mesmo
 documento. Os nomes abaixo são os `data-section` reais.
 

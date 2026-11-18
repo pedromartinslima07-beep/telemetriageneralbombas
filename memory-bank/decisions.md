@@ -1222,6 +1222,48 @@ visita que ACONTECEU. `visivelAoCliente` em `src/routes/cliente.routes.js`
 corta a preventiva cancelada da lista, do detalhe e das mensagens; chamado
 comum cancelado segue aparecendo, com o motivo. Para a equipe nada some.
 
+## Painel admin — o condomínio como eixo e fundo claro (18/11/2026)
+
+📋 Planejado, não implementado. O "o quê" está em
+[redesenho-admin.md](../docs/modulos/redesenho-admin.md).
+
+- **O sujeito do painel é o condomínio, não o tipo de documento.** Pedido do
+  Pedro: *"selecionando um condomínio você teria acesso a todos os orçamentos,
+  contrato, O.S., NF"*. A medição confirmou que o prédio já existia em três
+  fichas parciais (gaveta do Dashboard, coluna de Clientes, lista de
+  Orçamentos), e nenhuma era inteira.
+- **A lista da carteira fica, ao lado da ficha.** Ele pediu para imitar os
+  sistemas profissionais, e os quatro olhados (Jobber, ServiceTitan, Auvo,
+  Field Control) mantêm os dois: o cliente como registro central **e** uma lista
+  por tipo de documento no menu. A pergunta que só a lista responde é "quais
+  orçamentos foram aprovados esta semana e ainda não têm nota", sem abrir prédio
+  por prédio. **As duas são o mesmo componente**, uma com filtro de prédio. Não
+  duplicar lógica é o que faz a ficha caber num `admin.js` de 17.900 linhas.
+- **⚠️ Revisão da regra de superfície de agosto.** A regra do Chapa no admin
+  era "marinho é moldura; placa clara é o que ABRE POR CIMA" (seção "Painel
+  admin — aproximar do Chapa", acima). O Pedro inverteu em 18/11: **área de
+  trabalho clara**, e o que abre por cima (gaveta, ficha, modal) **um degrau
+  mais escuro**, *"pra não ficar tudo em um branco chapado"*. Motivo dele: o
+  painel escuro lê como pesado e pouco profissional para quem passa o dia nele.
+  O menu lateral continua marinho, e a técnica continua a mesma: remapear
+  tokens no contêiner, não reescrever regras.
+- **O app mobile fica de fora do tema claro, por enquanto.** Ele herda os tokens
+  de `public/admin.css`; trocar o valor global levaria o app junto sem decisão
+  sobre ele. Os tokens claros entram escopados no contêiner do painel. Não é
+  paleta paralela: mesmos nomes, outros valores, numa subárvore.
+- **Nada sai do menu sem autorização.** A fase de retirar telas antigas é a
+  última, e separada.
+- **A ficha desenha linhas próprias em vez de reusar as tabelas das telas
+  (18/11, na implementação).** O plano dizia "o mesmo componente com filtro".
+  As tabelas de O.S., Orçamentos e Contratos são presas aos KPIs, abas, busca
+  e lote da própria tela, e parametrizá-las mexeria nas ~80 ações que gravam.
+  O que importa não duplicar é **dado e regra**: a ficha lê as mesmas coleções
+  (`_osData`, `_avData`, `_chamadosData`) e abre os mesmos modais. O HTML da
+  linha, mais simples, é o único repetido.
+- **A ficha vive em arquivo próprio** (`public/admin-condominio.js`), no molde
+  do `condo-picker.js`: o `admin.js` já tem ~17.900 linhas, e um arquivo
+  separado deixa a fase 3 mexer na nav sem passar pelo meio dele.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

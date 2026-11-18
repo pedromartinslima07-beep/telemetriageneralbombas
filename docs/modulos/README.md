@@ -27,6 +27,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Nota fiscal do orçamento pelo Omie (NFS-e; DANFE a seguir) | [`nota-fiscal.md`](nota-fiscal.md) |
 | Painel admin (operação interna) — 15 telas, 3 moldes | [`painel-admin.md`](painel-admin.md) |
 | Painel do operador (a fila do turno) | [`painel-operador.md`](painel-operador.md) |
+| Redesenho do admin — o condomínio como eixo (📋 planejado) | [`redesenho-admin.md`](redesenho-admin.md) |
 
 Referências cruzadas: [`../banco-de-dados.md`](../banco-de-dados.md),
 [`../api.md`](../api.md), [`../arquitetura.md`](../arquitetura.md).
