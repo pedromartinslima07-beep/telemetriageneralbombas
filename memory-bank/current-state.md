@@ -83,6 +83,12 @@ ESP32 (sonda 4-20mA + SCT-013)
 
 ### ⚠️ Ficha do condomínio e endereço por tela (18/11/2026, branch sem deploy)
 
+**Listas no molde da O.S.** (mesma branch): O.S. é página própria; Chamados
+mantém o painel ao lado; **Orçamentos deixou de agrupar por prédio** e é uma
+tabela da carteira nas duas abas; Contratos tem 5 colunas. Os cartões de
+números dessas telas viraram uma frase com atalho para a aba que pede ação.
+Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
+
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma
 **ficha do condomínio** que junta chamados, O.S., orçamentos, notas, contrato,
 planos, equipamentos e contatos do prédio, abrindo cada documento no modal que

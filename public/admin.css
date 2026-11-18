@@ -4721,8 +4721,8 @@ select option { background: #050f38; color: #f2f5ff; }
   border: 1px solid transparent;
 }
 
-.cc-res-bomba.on  { background: rgba(245,158,11,.12); color: #fbbf24; border-color: rgba(245,158,11,.25); }
-.cc-res-bomba.off { background: rgba(34,197,94,.08);  color: #4ade80; border-color: rgba(34,197,94,.2); }
+.cc-res-bomba.on  { background: rgba(245,158,11,.12); color: #b45309; border-color: rgba(245,158,11,.25); }
+.cc-res-bomba.off { background: rgba(34,197,94,.08);  color: #15803d; border-color: rgba(34,197,94,.2); }
 .cc-res-bomba.uk  { color: var(--muted2); border-color: var(--border); }
 
 .cc-level-row { display: flex; align-items: center; gap: 8px; }
@@ -4731,7 +4731,7 @@ select option { background: #050f38; color: #f2f5ff; }
   flex: 1;
   height: 5px;
   border-radius: 999px;
-  background: rgba(255,255,255,.07);
+  background: var(--border2);
   overflow: hidden;
 }
 
@@ -4745,7 +4745,7 @@ select option { background: #050f38; color: #f2f5ff; }
 .cc-level-fill.lv-medio       { background: linear-gradient(to right, #1e40af, #60a5fa); }
 .cc-level-fill.lv-baixo       { background: linear-gradient(to right, #9a3412, #fb923c); }
 .cc-level-fill.lv-muito-baixo { background: linear-gradient(to right, #7f1d1d, #f87171); }
-.cc-level-fill.lv-unknown     { background: rgba(255,255,255,.15); }
+.cc-level-fill.lv-unknown     { background: var(--border); }
 
 .cc-level-pct {
   font-size: 10.5px;
@@ -11589,3 +11589,177 @@ a.os-link { color: var(--text); }
 .ag-form .f.ag-f-check { flex-direction: row; justify-content: flex-start; align-items: center; }
 .ag-form .ag-f-check span { font-family: var(--fonte); text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--tinta); }
 .ag-form .ag-f-check input { width: 16px; height: 16px; accent-color: var(--mar-700); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   CHAMADOS NO MOLDE DA O.S. (18/11/2026)
+   Lista e painel ao lado continuam (escolher e agir rápido é o trabalho
+   desta tela, e o operador vive nela); entra o resto do molde: frase-resumo,
+   uma coluna de situação, prédio como link, painel com estado e ações no
+   topo e a linha do tempo.
+   ⚠️ .ch-layout é usado por outras telas (Alertas, WhatsApp...). Tudo aqui é
+   escopado em [data-section="chamados"].
+   ════════════════════════════════════════════════════════════════════════ */
+[data-section="chamados"] .ch-resumo { padding: 12px 16px 0; }
+[data-section="chamados"] .ch-id-cell { white-space: nowrap; }
+[data-section="chamados"] .ch-titulo-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+[data-section="chamados"] .ch-titulo-sub .os-link { font-weight: 600; color: var(--text); }
+[data-section="chamados"] .ch-sit-cell .os-sub { white-space: normal; }
+.ch-sem-tec { color: var(--accent); font-weight: 600; }
+[data-section="chamados"] .ch-row.is-selected .ch-sem-tec { color: var(--atencao-t); }
+
+/* o painel */
+/* ⚠️ Só o painel COM chamado ganha largura. Fixar 400px em todos passava por
+   cima do recolhimento do painel vazio (.ch-detail-col:has(> .ch-detail-empty))
+   e deixava um vão de 400px ao lado da lista espremida. */
+[data-section="chamados"] .ch-detail-col:not(:has(> .ch-detail-empty)) { width: 420px; }
+[data-section="chamados"] .ch-detail-col:has(> .ch-detail-empty) { width: 0; border: 0; padding: 0; }
+.ch-det-topo { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+[data-section="chamados"] .ch-det-head { justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+[data-section="chamados"] .ch-det-id { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); margin-right: 2px; }
+[data-section="chamados"] .ch-det-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.ch-det-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+.ch-det-sub .os-link { font-weight: 600; color: var(--text); }
+[data-section="chamados"] .ch-det-acoes-topo { border-top: 0; padding-top: 0; margin-top: 0; }
+[data-section="chamados"] .ch-det-sec-title { font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--text); }
+[data-section="chamados"] .ch-met-lbl { color: var(--muted); }
+
+/* a linha do tempo na coluna estreita: duas por linha */
+.ch-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; margin: 14px 0 4px; }
+.ch-tempo li:nth-child(2)::before,
+.ch-tempo li:nth-child(4)::before { right: auto; width: 12px; }
+@media (max-width: 1100px) {
+  .ch-tempo { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ch-tempo li:nth-child(2)::before { right: 0; width: auto; }
+  [data-section="chamados"] .ch-detail-col { width: 100%; }
+}
+
+/* No celular a linha do chamado vira cartão, como a da O.S. */
+@media (max-width: 640px) {
+  [data-section="chamados"] .ch-table-wrap table,
+  [data-section="chamados"] .ch-table-wrap tbody { display: block; min-width: 0; width: 100%; }
+  [data-section="chamados"] .ch-table-wrap thead { display: none; }
+  [data-section="chamados"] .ch-table-wrap tr.ch-row { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  [data-section="chamados"] .ch-table-wrap tr.ch-row td { display: block; padding: 0; border: 0; }
+  [data-section="chamados"] .ch-id-cell { order: 0; font-size: 12px; color: var(--muted); }
+  [data-section="chamados"] .ch-id-cell .os-sub { display: inline; margin-left: 6px; }
+  .ch-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+[data-section="chamados"] .ch-id-cell .os-sub { font-family: var(--fonte); font-size: 12px; font-weight: 400; }
+/* Barra de Chamados: busca e "Novo chamado" na primeira linha, as abas
+   inteiras embaixo. Na mesma linha, as 7 abas quebravam em três. */
+[data-section="chamados"] .ch-toolbar { padding: 10px 16px 12px; gap: 10px; row-gap: 10px; }
+[data-section="chamados"] .ch-toolbar #chBusca { flex: 1 1 260px; max-width: 420px; order: 1; }
+[data-section="chamados"] .ch-toolbar #btnNovoChamado { order: 2; margin-left: auto; }
+[data-section="chamados"] .ch-toolbar .wa-tabs {
+  order: 3; flex: 1 1 100%;
+  flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+}
+[data-section="chamados"] .ch-toolbar .wa-tabs .wa-tab { flex: 0 0 auto; }
+[data-section="chamados"] .ch-sit-cell .os-sit-linha { flex-wrap: wrap; row-gap: 4px; }
+[data-section="chamados"] tbody td { padding-top: 14px; padding-bottom: 14px; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   ORÇAMENTOS E CONTRATOS NO MOLDE DA O.S. (18/11/2026)
+   Uma tabela da carteira por documento, como nos sistemas de referência
+   (Jobber, ServiceTitan, Field Control): o cliente numa coluna e link para a
+   ficha dele, a situação numa coluna só com a linha de apoio embaixo, o valor
+   alinhado à direita, uma ação com nome. Orçamentos deixou de ser lista de
+   prédios com painel ao lado; a visão por prédio é a ficha do condomínio.
+   ════════════════════════════════════════════════════════════════════════ */
+.orc-resumo, .ctrs-resumo { padding: 12px 16px 0; }
+[data-section="contratos"] .ctrs-resumo { padding: 0 18px 12px; }
+#avCondoList, #orcCondoList { display: block; }
+
+.pro-table { width: 100%; border-collapse: collapse; }
+.main .pro-table th {
+  background: var(--surface2, #f6f7fb);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.main .pro-table td {
+  padding: 13px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.main .pro-row { cursor: pointer; }
+.main .pro-row:hover td { background: rgba(6,16,51,.035); }
+.main .pro-row.is-selected td { background: color-mix(in srgb, var(--amarelo) 10%, #fff); }
+.main .pro-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* O que espera alguém (resposta sem baixa, pedido sem orçamento): fio
+   amarelo à esquerda, o mesmo sinal do item antigo do painel. */
+.main .pro-row.is-pendente td:first-child { box-shadow: inset 3px 0 0 var(--amarelo); }
+
+.pro-id .mono { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.pro-cli-nome { font-weight: 600; color: var(--text); }
+.pro-cli .os-link { font-weight: 600; color: var(--text); }
+.pro-cli .orc-origem-pill { margin-left: 6px; vertical-align: 1px; }
+.pro-sit .os-sub { white-space: normal; }
+.pro-sit .os-sub.is-resposta { color: var(--text-dim, var(--text)); }
+.pro-row.is-pendente .pro-sit .os-sub.is-resposta { color: var(--accent); font-weight: 600; }
+.main .pro-table .pro-val { text-align: right; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pro-vig { white-space: nowrap; }
+.pro-obs {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--text);
+  line-height: 1.45;
+}
+.pro-obs.is-vazia { color: var(--muted2, var(--muted)); font-style: italic; }
+.main .pro-table td.pro-acao { text-align: right; white-space: nowrap; vertical-align: middle; }
+.pro-acao .btn { padding: 5px 12px; font-size: 12.5px; }
+.pro-del {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  width: 30px; height: 30px; margin-left: 4px;
+  display: inline-grid; place-items: center; vertical-align: middle;
+  color: var(--muted); border-radius: 6px;
+}
+.pro-del:hover { color: var(--danger); background: rgba(220,38,38,.08); }
+.pro-del svg { width: 15px; height: 15px; }
+
+/* Barra igual à de Chamados: busca e botão em cima, abas inteiras embaixo. */
+[data-section="orcamentos"] .ch-toolbar { padding: 10px 16px 12px; gap: 10px; row-gap: 10px; }
+[data-section="orcamentos"] .ch-toolbar .input { flex: 1 1 260px; max-width: 420px; order: 1; }
+[data-section="orcamentos"] .ch-toolbar .select { order: 2; width: auto; }
+[data-section="orcamentos"] .ch-toolbar #avBtnNovo { order: 2; margin-left: auto; margin-bottom: 0; }
+[data-section="orcamentos"] .ch-toolbar .wa-tabs {
+  order: 3; flex: 1 1 100%;
+  flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+}
+[data-section="orcamentos"] .ch-toolbar .wa-tabs .wa-tab { flex: 0 0 auto; }
+
+/* Contratos: a tabela antiga tinha largura fixa por coluna; a de 5 respira. */
+[data-section="contratos"] .pro-table td { font-size: 13px; }
+
+/* No celular a linha vira cartão, como a da O.S. */
+@media (max-width: 640px) {
+  .pro-table, .pro-table tbody,
+  [data-section="contratos"] #ctrsTable, [data-section="contratos"] #ctrsTable tbody { display: block; width: 100%; min-width: 0; }
+  .pro-table thead, [data-section="contratos"] #ctrsTable thead { display: none; }
+  .main tr.pro-row {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .main tr.pro-row td { display: block; padding: 0 !important; border: 0 !important; background: none !important; text-align: left !important; }
+  .main tr.pro-row.is-pendente { box-shadow: inset 3px 0 0 var(--amarelo); }
+  .main tr.pro-row.is-pendente td:first-child { box-shadow: none; }
+  .pro-id .os-sub { display: inline; margin-left: 6px; }
+  .main .pro-table .pro-val { font-size: 14px; }
+  .pro-vig { white-space: normal; }
+}
+/* Filtro e busca na mesma linha das abas (antes a busca caía embaixo). */
+[data-section="contratos"] .al-filters { flex-wrap: nowrap; }
+[data-section="contratos"] #ctrsBusca { width: 240px; }
+@media (max-width: 640px) {
+  [data-section="contratos"] .al-filters { flex-wrap: wrap; width: 100%; }
+  [data-section="contratos"] #ctrsBusca { width: 100%; }
+}

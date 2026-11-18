@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=301">
+  <link rel="stylesheet" href="/static/admin.css?v=305">
 </head>
 <body>
   <div id="appLoader">
@@ -607,18 +607,18 @@
       </div>
 
       <div class="section" data-section="chamados">
-        <!-- KPIs -->
-        <div class="resumo-grid" id="chKpiGrid" style="margin-bottom:16px;"></div>
-
         <!-- Layout principal: lista + detalhe -->
         <div class="ch-layout">
           <!-- Coluna lista -->
           <div class="ch-list-col">
+            <!-- A faixa de 3 números virou esta frase (molde da O.S.,
+                 18/11/2026). Ver renderChKpis. -->
+            <p class="os-resumo ch-resumo" id="chKpiGrid"></p>
             <div class="ch-toolbar">
               <div class="wa-tabs" role="tablist">
                 <button class="wa-tab is-active" data-ch-tab="todos">Todos <span class="wa-count" id="chCtTodos">0</span></button>
                 <button class="wa-tab" data-ch-tab="aberto">Abertos <span class="wa-count" id="chCtAbertos">0</span></button>
-                <button class="wa-tab" data-ch-tab="em_atendimento">Em atend. <span class="wa-count" id="chCtAtend">0</span></button>
+                <button class="wa-tab" data-ch-tab="em_atendimento">Em atendimento <span class="wa-count" id="chCtAtend">0</span></button>
                 <button class="wa-tab" data-ch-tab="fechado">Resolvidos <span class="wa-count" id="chCtFechados">0</span></button>
                 <button class="wa-tab" data-ch-tab="cancelado">Cancelados <span class="wa-count" id="chCtCancel">0</span></button>
                 <button class="wa-tab" data-ch-tab="p1">P1 Crítico <span class="wa-count" id="chCtEmerg">0</span></button>
@@ -647,11 +647,9 @@
                          saiu da tela — Condomínio e Categoria desceram para a
                          linha de apoio, e as duas colunas que sobravam viraram
                          largura para o título, que era o que vinha truncado. -->
-                    <th style="width:72px">ID</th>
+                    <th style="width:84px">Nº</th>
                     <th>Chamado</th>
-                    <th style="width:104px">Prioridade</th>
-                    <th style="width:120px">Status</th>
-                    <th style="width:104px">Aberto em</th>
+                    <th style="width:320px">Situação</th>
                   </tr>
                 </thead>
                 <tbody id="chTableBody"></tbody>
@@ -777,20 +775,22 @@
             <span data-aviso-txt></span>
             <button type="button" class="btn btn-sm" id="avAvisoVer">Ver</button>
           </div>
-          <div class="resumo-grid" id="avKpiGrid" style="margin-bottom:16px;"></div>
 
-          <!-- Master-detail: condomínios (esq) → orçamentos do condomínio (dir).
-               Mesma distribuição da aba "Solicitados pelos técnicos": toolbar
-               dentro do card da lista + lista larga / painel estreito. -->
+          <!-- Uma tabela da carteira inteira, com o condomínio numa coluna
+               (molde da O.S., 18/11/2026). Era lista de prédios à esquerda e
+               orçamentos do prédio à direita. A visão por prédio mora na
+               ficha do condomínio, aba Orçamentos. Ver _avRenderTudo. -->
           <div class="ch-layout">
-            <!-- Coluna: lista de condomínios -->
             <div class="ch-list-col">
+              <!-- A faixa de 4 números virou esta frase (molde da O.S.,
+                   18/11/2026). Ver _avRenderTudo. -->
+              <p class="os-resumo orc-resumo" id="avKpiGrid"></p>
               <div class="ch-toolbar">
                 <div class="wa-tabs" role="tablist">
                   <button class="wa-tab is-active" data-av-tab="todos" type="button">Todos <span class="wa-count" id="avCtTodos">0</span></button>
-                  <button class="wa-tab" data-av-tab="rascunho" type="button">Rascunho <span class="wa-count" id="avCtRascunho">0</span></button>
-                  <button class="wa-tab" data-av-tab="enviado" type="button">Enviado <span class="wa-count" id="avCtEnviado">0</span></button>
-                  <button class="wa-tab" data-av-tab="aprovado" type="button">Aprovado <span class="wa-count" id="avCtAprovado">0</span></button>
+                  <button class="wa-tab" data-av-tab="rascunho" type="button">Rascunhos <span class="wa-count" id="avCtRascunho">0</span></button>
+                  <button class="wa-tab" data-av-tab="enviado" type="button">Enviados <span class="wa-count" id="avCtEnviado">0</span></button>
+                  <button class="wa-tab" data-av-tab="aprovado" type="button">Aprovados <span class="wa-count" id="avCtAprovado">0</span></button>
                   <!-- ⚠️ ESTA ABA NÃO É UM STATUS, e é a única assim. As outras
                        filtram `status`; esta filtra "o cliente respondeu"
                        (`respondido_em`), que atravessa aprovado E recusado. É a
@@ -814,35 +814,21 @@
               </div>
             </div>
 
-            <!-- Painel: orçamentos do condomínio selecionado -->
-            <aside class="ch-detail-col" id="avCondoDetail">
-              <div class="ch-detail-empty">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-                <p>Selecione um condomínio para ver os orçamentos</p>
-              </div>
-            </aside>
           </div>
         </div><!-- /avulso -->
 
         <!-- ===== MODO OS ===== -->
-        <!-- ⚠️ MESMO ESQUELETO DA ABA "Criar orçamento" (02/09/2026), e isso
-             é a correção de uma divergência, não uma preferência nova: as duas
-             abas vivem na MESMA seção, a um clique uma da outra, e uma era
-             tabela de 7 colunas enquanto a outra era master-detail agrupado
-             por condomínio. A pergunta que as duas respondem é a mesma —
-             "o que este prédio está esperando de orçamento?" —, e agrupar por
-             condomínio é o que permite responder de uma vez: um técnico pediu
-             três coisas no mesmo prédio, e são três linhas soltas na tabela.
-             Componentes reaproveitados inteiros (av-condo-row, av-dot,
-             av-orc-item): nenhuma classe nova de estrutura. -->
+        <!-- ⚠️ MESMO ESQUELETO DA ABA "Criar orçamento". De 02/09 a 18/11/2026
+             as duas eram listas de prédios com painel; agora são as duas uma
+             tabela da carteira (molde da O.S.). O que justificava agrupar,
+             "o que este prédio está esperando?", se responde no filtro de
+             condomínio daqui e na ficha do condomínio, aba Orçamentos. -->
         <div id="orcModoOS" style="display:none;">
-          <div class="resumo-grid" id="orcKpiGrid" style="margin-bottom:16px;"></div>
-
           <div class="ch-layout">
-            <!-- Coluna: condomínios com pedido de orçamento -->
             <div class="ch-list-col">
+              <!-- A faixa de 4 números virou esta frase (molde da O.S.,
+                   18/11/2026). Ver _orcRenderTudo. -->
+              <p class="os-resumo orc-resumo" id="orcKpiGrid"></p>
               <div class="ch-toolbar">
                 <div class="wa-tabs" role="tablist">
                   <button class="wa-tab is-active" data-orc-tab="todos" type="button">Todos <span class="wa-count" id="orcCtTodos">0</span></button>
@@ -871,17 +857,6 @@
               </div>
             </div>
 
-            <!-- Painel: os pedidos do condomínio selecionado.
-                 ⚠️ SEM `al-painel` — ele traz `padding: 18px`, e a lista de
-                 itens tem de encostar na borda como a do `#avCondoDetail`. -->
-            <aside class="ch-detail-col" id="orcPainel">
-              <div class="ch-detail-empty">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-                <p>Selecione um condomínio para ver os pedidos</p>
-              </div>
-            </aside>
           </div>
         </div><!-- /os -->
 
@@ -889,9 +864,6 @@
 
       <!-- ===== SECTION: CONTRATOS ===== -->
       <div class="section" data-section="contratos">
-
-        <!-- KPIs -->
-        <div class="resumo-grid" id="ctrsKpiGrid" style="margin-bottom:16px;"></div>
 
         <section class="card al-card">
           <div class="cardHead al-head">
@@ -909,6 +881,9 @@
               + Novo contrato
             </button>
           </div>
+          <!-- A faixa de 4 números virou esta frase (molde da O.S.,
+               18/11/2026). Ver _ctrsRenderKpi. -->
+          <p class="os-resumo ctrs-resumo" id="ctrsKpiGrid"></p>
 
           <div class="al-toolbar">
             <div class="wa-tabs" role="tablist">
@@ -929,17 +904,18 @@
 
           <div class="al-grid" style="grid-template-columns:1fr;">
             <div class="al-tableWrap">
-              <table class="orc-table" id="ctrsTable">
+              <table class="orc-table pro-table" id="ctrsTable">
                 <thead>
                   <tr>
+                    <!-- 8 colunas viraram 5 (molde da O.S., 18/11/2026):
+                         serviço e periodicidade embaixo do cliente, início e
+                         vencimento numa coluna de vigência, e a assinatura
+                         embaixo da situação. -->
                     <th>Cliente</th>
-                    <th style="width:90px">Serviço</th>
-                    <th style="width:100px">Periodicidade</th>
-                    <th style="width:110px">Valor/mês</th>
-                    <th style="width:85px">Início</th>
-                    <th style="width:90px">Vencimento</th>
-                    <th style="width:120px">Status</th>
-                    <th style="width:44px"></th>
+                    <th style="width:130px" class="pro-val">Valor por mês</th>
+                    <th style="width:190px">Vigência</th>
+                    <th style="width:230px">Situação</th>
+                    <th style="width:90px"></th>
                   </tr>
                 </thead>
                 <tbody id="ctrsTbody"></tbody>
@@ -2877,8 +2853,8 @@
 </div>
 
 
-<script src="/static/admin.js?v=381" defer></script>
-<script src="/static/admin-condominio.js?v=5" defer></script>
+<script src="/static/admin.js?v=385" defer></script>
+<script src="/static/admin-condominio.js?v=6" defer></script>
 <script src="/static/admin-nav.js?v=5" defer></script>
 <script src="/static/admin-carteira.js?v=2" defer></script>
 <script src="/static/admin-agenda.js?v=4" defer></script>

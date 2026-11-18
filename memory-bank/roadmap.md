@@ -996,6 +996,7 @@ o "porquê" em [`decisions.md`](decisions.md).
 | 3 | Menu de 15 para 9 itens + tela Início (fila do que pede ação) + lista de notas | ✅ 18/11 (mesma branch) |
 | 4 | Tema claro no painel (app mobile fica como está) + forma de sistema de gestão (sem chanfro, cartões, abas segmentadas) | ✅ 18/11 (mesma branch) |
 | 5 | Retirar telas antigas (autorizado em 18/11): gaveta e modal antigo de KPIs; ficha com recorte do operador | ✅ 18/11 (mesma branch) |
+| 6 | Molde da O.S. nas listas: O.S. (página própria), Chamados (painel ao lado), Orçamentos (uma tabela da carteira, sem agrupar por prédio) e Contratos | ✅ 18/11 (mesma branch) · próximo: orçamento como página própria com linha do tempo |
 
 ---
 

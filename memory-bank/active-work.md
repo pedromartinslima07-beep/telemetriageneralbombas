@@ -19,7 +19,8 @@ aliases:
 > notas fiscais, e (fase 4) o fundo claro com forma de sistema de gestão. A
 > branch saiu da `feature/nota-fiscal-omie`, então **sobe depois dela**.
 > Fase 5 também feita (gaveta e modal antigo retirados, ficha com recorte do
-> operador), o piloto da O.S. (página própria) e a **agenda, fase A**
+> operador), o piloto da O.S. (página própria), o mesmo molde em Chamados,
+> Orçamentos (tabela da carteira) e Contratos, e a **agenda, fase A**
 > ([agenda.md](../docs/modulos/agenda.md)). ⚠️ A agenda traz a **migration 092**:
 > rodar em produção ANTES do push, junto com 090 e 091. Falta subir, depois da
 > nota fiscal. Ver

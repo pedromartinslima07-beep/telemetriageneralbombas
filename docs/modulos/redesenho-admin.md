@@ -598,3 +598,100 @@ sem rolagem lateral. Sem erro de JS. Versões: `admin.js?v=380`,
 `admin.css?v=297`, `admin-condominio.js?v=5`, `admin-nav.js?v=4`.
 
 **Próximo:** levar o molde para Chamados, Orçamentos e Contratos.
+
+---
+
+## O molde da O.S. em Chamados (18/11/2026)
+
+Lista **com o painel ao lado** (não virou página como a O.S.): escolher e agir
+rápido é o trabalho desta tela, e o operador vive nela. O resto do molde entrou:
+
+| Antes | Agora |
+|---|---|
+| Faixa com Críticos, % resolvido e Tempo médio | Frase: em aberto · sem técnico · fora do prazo · % resolvidos e tempo médio, com "N críticos (P1) →" que leva à aba |
+| Colunas ID, Chamado, Prioridade, Status, Aberto em | Nº (data embaixo), Chamado (prédio como link · categoria), **Situação** (prioridade, estado e prazo; embaixo, quem está com ele e há quanto tempo) |
+| "⚠ SLA", "⏱ TTR" | "Fora do prazo", "Prazo de solução estourado" |
+| Painel: título, descrição, "Informações" com 12 linhas, ações no fim | Topo com número, estado, prioridade, título, prédio (link) e as ações; **linha do tempo** (aberto → a caminho → chegou → resolvido/cancelado); "Quem está com ele" (técnico, condomínio, responsável, cliente, prazo) |
+| "✓ Fechar", "✕ Cancelar", "↺ Reabrir" | "Marcar como resolvido" (primário), "Cancelar chamado", "Reabrir" |
+| No celular, tabela rolando de lado | Cartões |
+
+**Defeitos achados e corrigidos de passagem:**
+- Chamado **cancelado** mostrava "Prazo: aguardando resposta" (a regra só
+  olhava `fechado_em`).
+- O boot do **operador** mandava sempre para Alertas, por cima do endereço: o
+  F5 em `#/chamados` perdia a tela (código de antes da fase 1). Agora o
+  endereço que ele vê ganha; o resto cai em Alertas.
+
+⚠️ **Um script de edição cortou 1.559 linhas do `admin.js`** nesta rodada (o
+marcador de início aparecia em três painéis "ch-detail" e o corte pegou o
+primeiro). `node --check` passou, porque o que sobrou era JS válido. Pego pelo
+`git diff --stat`, restaurado do commit e reaplicado com o início procurado
+DENTRO da função e uma trava de tamanho. **Ao editar por script, conferir o
+saldo de linhas antes de gravar.**
+
+Testado: admin e operador (desktop), celular 375px, sem erro de JS e sem
+requisição falhando. `admin.js?v=384`, `admin.css?v=303`.
+
+---
+
+## Orçamentos e Contratos no padrão dos sistemas de gestão (18/11/2026)
+
+Pedido do Pedro nesta rodada: *"deixar o visual e as funcionalidades o mais
+próximo possível dos sistemas profissionais"*. Em Jobber, ServiceTitan e
+Field Control o orçamento é **uma lista da carteira**, com o cliente numa
+coluna; a visão por cliente fica na página dele. Foi o que mudou aqui.
+
+### Orçamentos (as duas abas)
+
+| Antes | Agora |
+|---|---|
+| Lista de prédios à esquerda, orçamentos do prédio num painel à direita | Uma tabela de todos os orçamentos; o prédio é coluna e link para a ficha (aba Orçamentos) |
+| 4 cartões (Total, Rascunho, Enviado, Total aprovado) | Frase: total · enviados esperando o cliente · R$ aprovados, e "N rascunhos por enviar →" |
+| Linha de apoio só com data ou quem respondeu | Situação com o que vem a seguir: "falta enviar ao cliente", "esperando o cliente · válido até dd/mm", "validade venceu em dd/mm" (destacado), "Aprovado por Fulano · há N dias", "registrado pelo escritório" |
+| Abas "Rascunho", "Enviado", "Aprovado" | "Rascunhos", "Enviados", "Aprovados" |
+| Solicitados: observação do técnico como 3ª linha de um item no painel | Coluna "Pedido do técnico" (duas linhas), e a ação **"Fazer orçamento"** no pedido que ninguém começou |
+| Selo OFICINA ao lado do número | "· oficina" na linha da data |
+
+Continua tudo: o aviso das respostas sem baixa (e o "Ver"), o selo "Resposta
+nova"/"Sem baixa", o "Feito"/"Chamado #N", "via IA"/"via OS", o tipo do
+documento, a lixeira do pedido, a ordem de fila (pendência primeiro na aba
+Respondidos; pedido sem orçamento primeiro em Solicitados), o filtro de
+condomínio, busca, linhas focáveis com Enter. O modal de tela cheia é o mesmo.
+
+**Por que o agrupamento saiu:** para achar um orçamento era preciso saber o
+prédio antes, e a carteira nunca era vista de uma vez. A pergunta que o
+agrupamento respondia ("o que este prédio espera?") tem agora dois lugares:
+a ficha do condomínio, aba Orçamentos, e o filtro de condomínio de
+Solicitados. `_avCondoSel` e `_orcCondoSel` saíram com ele (inclusive a
+atribuição em `admin-condominio.js`).
+
+### Contratos
+
+| Antes | Agora |
+|---|---|
+| 4 cartões (Ativos, Vencendo em 30d, Vencidos, MRR) | Frase: "N contratos ativos, R$ X por mês · N vencendo em 30 dias", com "N vencidos →" (ou "N vencem nos próximos 30 dias →") |
+| 8 colunas: Cliente, Serviço, Periodicidade, Valor/mês, Início, Vencimento, Status, ícone | 5: Cliente (link para a ficha, aba Contrato; serviço · periodicidade embaixo), Valor por mês, Vigência ("dd/mm a dd/mm" ou "desde dd/mm · sem data de fim"), Situação (selo + assinatura embaixo), ação |
+| Olho ou lápis, sem nome | "Ver" (assinado) ou "Editar" |
+| Busca caía embaixo do filtro | Na mesma linha das abas |
+
+⚠️ **A frase conta "ativo" pelo cadastro (`ct.ativo`)**, o mesmo filtro da
+soma mensal. A primeira versão dizia "3 em vigor" ao lado de uma soma que
+incluía o vencido (ele continua ativo até alguém encerrar), e a conta não
+fechava.
+
+### Testado (banco de teste, 18/11/2026)
+
+Desktop 1440 e celular 375 sem rolagem lateral, sem erro no console. Em
+Orçamentos: atalho da frase para a aba, linha abre o modal, Esc fecha, link
+do prédio abre `#/condominios/13/orcamentos`, "Ver" do aviso abre o
+OR-000058; em Solicitados, abrir um pedido com orçamento existente. **Não
+clicado:** "Fazer orçamento" (cria o orçamento no banco; é o mesmo caminho
+`_orcMaterializarEAbrir` de antes). Contratos: o banco de teste não tem
+nenhum, então a tela foi conferida com 4 contratos **montados só na tela**
+(ativo, vencendo, vencido, sem fim): frase, atalho para Vencidos, link do
+cliente para `#/condominios/13/contrato`, cartões no celular.
+
+**Próximo, se quiser chegar mais perto dos sistemas de referência:** o
+orçamento como **página própria** (`#/orcamentos/<id>`) com linha do tempo
+(criado → enviado → respondido → feito → nota), como a O.S. ganhou; e
+ordenar colunas clicando no cabeçalho.

@@ -17831,3 +17831,24 @@ Ver [agenda.md](modulos/agenda.md). Migration **092**, rota **`/agenda`**
 - Teste `scripts/testes/agenda.test.js` 21/21.
 - `admin.js?v=381`, `admin.css?v=301`, `admin-nav.js?v=5`,
   `admin-agenda.js?v=4`, `sw.js` `telemetria-v62`, `register-sw.js?v=52`.
+
+- **Chamados no molde da O.S.**: frase-resumo, coluna "Situação", prédio como
+  link, painel com estado/ações no topo e linha do tempo, cartões no celular.
+  Corrigidos: prazo em chamado cancelado e o F5 do operador que voltava para
+  Alertas. `admin.js?v=384`, `admin.css?v=303`.
+- Chamados: a barra de nível da "Telemetria atual" no painel sumia no fundo
+  claro (cor do tema escuro); agora usa os tokens de fio.
+- **Orçamentos no padrão dos sistemas de gestão**: as duas abas ("Criar
+  orçamento" e "Solicitados pelos técnicos") deixaram de ser lista de prédios
+  com painel ao lado e viraram **uma tabela da carteira**: Nº e data,
+  condomínio (link para a ficha, aba Orçamentos), situação com a linha do que
+  vem a seguir ("falta enviar ao cliente", "esperando o cliente · válido até",
+  "validade venceu", "Aprovado por Fulano"), valor à direita. Em
+  "Solicitados", o pedido do técnico ganha coluna e a ação "Fazer orçamento".
+  Os 4 cartões de números viraram frase com atalho para a aba que pede ação.
+- **Contratos no molde da O.S.**: frase no lugar dos 4 cartões ("N contratos
+  ativos, R$ X por mês · N vencendo" + atalho para vencidos ou vencendo),
+  8 colunas viraram 5 (cliente com serviço e periodicidade embaixo, valor,
+  vigência, situação com a assinatura embaixo, ação "Ver"/"Editar" com nome).
+- Cartões no celular nas três listas. `admin.js?v=385`, `admin.css?v=305`,
+  `admin-condominio.js?v=6`.

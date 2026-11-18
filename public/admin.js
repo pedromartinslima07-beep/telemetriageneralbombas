@@ -4400,7 +4400,7 @@ const _chCatNome  = { vazamento:"Vazamento", bomba_falha:"Bomba", nivel_baixo:"N
                       sem_agua:"Sem água", ruido:"Ruído", manutencao:"Manutenção",
                       melhoria:"Melhoria", outro:"Outro" };
 const _chPrioNome = { p4:"P4 Agendado", p3:"P3 Controlado", p2:"P2 Alta", p1:"P1 Crítico" };
-const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atend.", fechado:"Resolvido",
+const _chStNome   = { aberto:"Aberto", em_atendimento:"Em atendimento", fechado:"Resolvido",
                       cancelado:"Cancelado" };
 
 // ⚠️ "EM ABERTO" É O CONTRÁRIO DE DUAS COISAS, NÃO DE UMA (04/09/2026).
@@ -4505,23 +4505,25 @@ function renderChKpis() {
     tempoMedio = avgH < 1 ? `${Math.round(avgH * 60)}min` : `${avgH.toFixed(1)}h`;
   }
 
-  const kpi = (icon, val, hint, kindCls) => kpiCard(icon, val, hint, kindCls);
-
-  // ⚠️ Abertos / Em atendimento / Resolvidos NÃO entram aqui.
-  // As abas logo abaixo mostram exatamente os mesmos três números, com a
-  // vantagem de também filtrarem a lista — a faixa só os repetia. A divisão
-  // agora é de pergunta: as ABAS respondem "o que está na lista", a FAIXA
-  // responde "como estamos indo".
-  // Para trazê-los de volta, basta reinserir as três chamadas de `kpi(...)`
-  // — as contagens (`abertos`, `atend`, `fechados`) seguem calculadas acima
-  // porque as abas usam as mesmas.
-  el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        criticos, "Críticos", criticos > 0 ? "rc-bad" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
-        `${taxa}%`, "% resolvido", taxa >= 70 ? "rc-ok" : taxa >= 40 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        tempoMedio, "Tempo médio", "rc-neutral");
+  // ⚠️ A FAIXA DE 3 NÚMEROS VIROU UMA FRASE (molde da O.S., 18/11/2026).
+  // Os três continuam aqui (críticos, % resolvido, tempo médio), mais o que
+  // a faixa não dizia: quantos estão sem técnico e fora do prazo. O que pede
+  // ação vira botão que leva à aba. Sem preventiva na conta, como as abas.
+  void abertos; void atend;
+  const semPrev   = data.filter(ch => !_chEhPreventiva(ch));
+  const emAberto  = semPrev.filter(ch => _chEmAberto(ch.status));
+  const semTec    = emAberto.filter(ch => !ch.tecnico_id && !ch.tecnico_nome).length;
+  const foraPrazo = emAberto.filter(ch => ch.sla_ttfr_estourado || ch.sla_ttr_risco).length;
+  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+  const partes = [
+    pl(emAberto.length, "chamado em aberto", "chamados em aberto"),
+    semTec ? `${semTec} sem técnico` : "",
+    foraPrazo ? `${foraPrazo} fora do prazo` : "",
+    `${taxa}% resolvidos, em ${tempoMedio} na média`,
+  ].filter(Boolean).join(" · ");
+  el.innerHTML = `<span>${partes}.</span>${criticos
+    ? ` <button type="button" class="os-resumo-acao ch-resumo-acao" data-ch-ir-aba="p1">${pl(criticos, "crítico", "críticos")} (P1) →</button>`
+    : ""}`;
 }
 
 function renderChTabela() {
@@ -4552,7 +4554,7 @@ function renderChTabela() {
     const vazio = _chFiltros.tab === "preventiva"
       ? (_chFiltros.busca ? "Nenhuma preventiva encontrada." : "Nenhuma preventiva aberta neste período.")
       : "Nenhum chamado encontrado.";
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">${vazio}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;">${vazio}</td></tr>`;
     return;
   }
 
@@ -4563,27 +4565,39 @@ function renderChTabela() {
     // continua sendo P1, mas não é mais alarme — e placa vermelha cheia numa
     // linha resolvida disputa atenção com quem realmente precisa.
     const prioQuieta = _chEmAberto(ch.status) ? "" : " is-quieto";
+    // MOLDE DA O.S. (18/11/2026): Prioridade, Status e "Aberto em" viraram
+    // UMA coluna "Situação" — prioridade e estado na primeira linha, e quem
+    // está com o chamado e há quanto tempo na linha de apoio. A data absoluta
+    // desceu para baixo do número. Nada saiu.
+    const prazo = ch.sla_ttfr_estourado
+      ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min (TTFR)">Fora do prazo</span>`
+      : (ch.sla_ttr_risco ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min (TTR)">Prazo de solução estourado</span>` : "");
+    const quem = ch.tecnico_nome
+      ? _waEscaparHtml(ch.tecnico_nome)
+      : (_chEmAberto(ch.status) ? `<span class="ch-sem-tec">sem técnico</span>` : "");
+    const nomeCondo = _waEscaparHtml(ch.condominio_nome || "Sem condomínio");
     return `<tr class="ch-row${sel}" data-ch-id="${ch.id}">
-      <td class="ch-id-cell">CH-${String(ch.id).padStart(4,"0")}</td>
+      <td class="ch-id-cell">CH-${String(ch.id).padStart(4,"0")}
+        <span class="os-sub">${_chFmtDataCurta(ch.criado_em)}</span></td>
       <td class="ch-titulo-cell">
         <div class="ch-titulo-text">${_waEscaparHtml(ch.titulo || "—")}</div>
         <div class="ch-titulo-sub">
-          ${_waEscaparHtml(ch.condominio_nome || "—")}
+          ${ch.condominio_id
+            ? `<button type="button" class="os-link" data-ch-condo="${ch.condominio_id}" title="Abrir a ficha do condomínio">${nomeCondo}</button>`
+            : nomeCondo}
           <span class="ch-cat-badge">${_chCatNome[ch.categoria] || ch.categoria || "—"}</span>
         </div>
       </td>
-      <td><span class="ch-prio ch-prio-${ch.prioridade||"p3"}${prioQuieta}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span></td>
-      <td>
-        <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span>
-        ${(ch.status === "fechado" && ch.avaliacao_nota != null)
-          ? `<span class="ch-aval-inline" title="Avaliado: ${ch.avaliacao_nota} de 5">${_chRenderStars(ch.avaliacao_nota, "sm")}</span>`
-          : ""}
-        ${ch.sla_ttfr_estourado ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min (TTFR)">⚠ SLA</span>` : ""}
-        ${(!ch.sla_ttfr_estourado && ch.sla_ttr_risco) ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min (TTR)">⏱ TTR</span>` : ""}
-      </td>
-      <td class="ch-data-cell">
-        <div class="ch-data-abs">${_chFmtDataCurta(ch.criado_em)}</div>
-        <div class="ch-data-delta ${idade.cls}">${idade.texto}</div>
+      <td class="ch-sit-cell">
+        <span class="os-sit-linha">
+          <span class="ch-prio ch-prio-${ch.prioridade||"p3"}${prioQuieta}">${_chPrioNome[ch.prioridade]||ch.prioridade||"—"}</span>
+          <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status||"—"}</span>
+          ${prazo}
+          ${(ch.status === "fechado" && ch.avaliacao_nota != null)
+            ? `<span class="ch-aval-inline" title="Avaliado: ${ch.avaliacao_nota} de 5">${_chRenderStars(ch.avaliacao_nota, "sm")}</span>`
+            : ""}
+        </span>
+        <span class="os-sub">${quem}${quem ? " · " : ""}<span class="ch-data-delta ${idade.cls}">aberto ${idade.texto}</span></span>
       </td>
     </tr>`;
   }).join("");
@@ -4772,7 +4786,7 @@ function renderChDetalhe(ch) {
         <div class="cc-res-list">${resHtml}</div>
         <button class="btn btn-sm ch-tel-btn"
           data-action="ver-condo" data-id="${ch.condominio_id}">
-          📊 Ver telemetria do condomínio
+          Abrir a ficha do condomínio
         </button>
       </div>`;
     }
@@ -4792,84 +4806,103 @@ function renderChDetalhe(ch) {
   // `GESTAO_ROLES`, ver `chamados.routes.js`) — botão que só sabe dar erro é
   // pior do que botão nenhum.
   const btnCancelar = (!_isOperador && !fechado && !cancelado)
-    ? `<button class="btn btn-sm viewer-only-hide" data-action="cancelar-chamado" data-id="${ch.id}">✕ Cancelar</button>`
+    ? `<button class="btn btn-sm viewer-only-hide" data-action="cancelar-chamado" data-id="${ch.id}">Cancelar chamado</button>`
     : "";
 
   const acoes = (fechado || cancelado)
-    ? `<button class="btn btn-sm viewer-only-hide" data-action="reabrir-chamado" data-id="${ch.id}">↺ Reabrir</button>`
-    : `<button class="btn btn-sm viewer-only-hide" style="color:var(--ok);border-color:rgba(34,197,94,.3);" data-action="fechar-chamado" data-id="${ch.id}">✓ Fechar</button>${btnCancelar}`;
+    ? `<button class="btn btn-sm viewer-only-hide" data-action="reabrir-chamado" data-id="${ch.id}">Reabrir</button>`
+    : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="fechar-chamado" data-id="${ch.id}">Marcar como resolvido</button>${btnCancelar}`;
+
+  // MOLDE DA O.S. (18/11/2026): estado e ações no topo, a linha do tempo
+  // logo abaixo (aberto, a caminho, chegou, resolvido), e só depois as
+  // informações. As datas que viraram etapa da linha do tempo saíram da
+  // lista de "Informações": continuam na tela, uma vez só.
+  const fim = cancelado
+    ? { rot: "Cancelado", em: ch.cancelado_em }
+    : { rot: "Resolvido", em: ch.fechado_em };
+  const etapas = [
+    { rot: "Aberto", em: ch.criado_em },
+    { rot: "Técnico a caminho", em: ch.tecnico_a_caminho_em },
+    { rot: "Técnico chegou", em: ch.tecnico_chegou_em },
+    fim,
+  ];
+  const atualIdx = (fechado || cancelado) ? -1 : etapas.findIndex(e => !e.em);
+  const linhaTempo = `<ol class="os-tempo ch-tempo" aria-label="Andamento do chamado">${etapas.map((e, i) => {
+    const pulou = (fechado || cancelado) && !e.em;
+    const cls = e.em ? "is-feito" : i === atualIdx ? "is-atual" : "";
+    const quando = e.em ? fmtData(e.em) : pulou ? "não registrado" : (i === atualIdx ? "a seguir" : "");
+    return `<li class="${cls}"><span class="os-tempo-rot">${e.rot}</span><span class="os-tempo-em">${quando}</span></li>`;
+  }).join("")}</ol>`;
+
+  const condoHtml = ch.condominio_id
+    ? `<button type="button" class="os-link" data-action="ver-condo" data-id="${ch.condominio_id}" title="Abrir a ficha do condomínio">${_waEscaparHtml(ch.condominio_nome || "Condomínio")}</button>`
+    : `<span class="ch-sem-tec">sem condomínio</span>`;
 
   col.innerHTML = `<div class="ch-detail">
-    <div class="ch-det-head">
-      <span class="ch-det-id">CH-${String(ch.id).padStart(4,"0")}</span>
-      <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status}</span>
+    <div class="ch-det-topo">
+      <div class="ch-det-head">
+        <span class="ch-det-id">CH-${String(ch.id).padStart(4,"0")}</span>
+        <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status}</span>
+        <span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span>
+      </div>
+      <div class="ch-det-title">${_waEscaparHtml(ch.titulo || "Sem título")}</div>
+      <div class="ch-det-sub">${condoHtml}${ch.categoria ? ` · ${_chCatNome[ch.categoria]||ch.categoria}` : ""}</div>
+      <div class="ch-det-acoes ch-det-acoes-topo">${acoes}</div>
     </div>
-    <div class="ch-det-title">${_waEscaparHtml(ch.titulo || "Sem título")}</div>
+
+    ${linhaTempo}
 
     ${ch.descricao ? `<div class="ch-det-section">
       <div class="ch-det-sec-title">Descrição</div>
       <div class="ch-det-desc">${_waEscaparHtml(ch.descricao)}</div>
     </div>` : ""}
 
-    ${_chRenderAvaliacaoCard(ch)}
-
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title">Informações</div>
-      <div class="ch-det-meta">
-        <div class="ch-met-row" id="chCondoRow-${ch.id}">
-          <span class="ch-met-lbl">Condomínio</span>
-          ${ch.condominio_nome
-            ? `<span style="display:flex;align-items:center;gap:6px;">
-                 ${_waEscaparHtml(ch.condominio_nome)}
-                 <button class="btn btn-sm viewer-only-hide" style="font-size:10px;padding:1px 6px;opacity:.6;"
-                   data-action="vincular-ch-condo" data-ch-id="${ch.id}">trocar</button>
-               </span>`
-            : `<button class="btn btn-sm btnAccent viewer-only-hide" style="font-size:11px;"
-                 data-action="vincular-ch-condo" data-ch-id="${ch.id}">🔗 Vincular condomínio</button>`}
-        </div>
-        ${ch.responsavel_nome  ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span>${_waEscaparHtml(ch.responsavel_nome)}</span></div>` : ""}
-        <div class="ch-met-row" id="chTecnicoRow-${ch.id}">
-          <span class="ch-met-lbl">Técnico</span>
-          ${ch.tecnico_nome
-            ? `<span style="display:flex;align-items:center;gap:6px;">
-                 ${_waEscaparHtml(ch.tecnico_nome)}
-                 <button class="btn btn-sm viewer-only-hide" style="font-size:10px;padding:1px 6px;opacity:.6;"
-                   data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">trocar</button>
-               </span>`
-            : `<button class="btn btn-sm viewer-only-hide" style="font-size:11px;"
-                 data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Atribuir técnico</button>`}
-        </div>
-        ${ch.categoria         ? `<div class="ch-met-row"><span class="ch-met-lbl">Categoria</span><span class="ch-cat-badge">${_chCatNome[ch.categoria]||ch.categoria}</span></div>` : ""}
-        <div class="ch-met-row"><span class="ch-met-lbl">Prioridade</span><span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span></div>
-        ${ch.sla_ttfr_min != null && !ch.fechado_em ? `<div class="ch-met-row"><span class="ch-met-lbl">SLA</span><span style="display:flex;gap:5px;flex-wrap:wrap;">
-          ${ch.sla_ttfr_estourado
-            ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min">⚠ TTFR estourado</span>`
-            : ch.primeira_resposta_em
-              ? `<span style="font-size:11px;color:var(--ok);">✓ Respondido</span>`
-              : `<span style="font-size:11px;color:var(--muted);">Aguardando resposta (limite ${ch.sla_ttfr_min} min)</span>`}
-          ${ch.sla_ttr_risco && !ch.sla_ttfr_estourado
-            ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min">⏱ TTR estourado</span>`
-            : ""}
-        </span></div>` : ""}
-        <div class="ch-met-row"><span class="ch-met-lbl">Aberto em</span><span>${fmtData(ch.criado_em)}</span></div>
-        ${ch.tecnico_a_caminho_em ? `<div class="ch-met-row"><span class="ch-met-lbl">A caminho</span><span style="color:var(--warn);">🚗 ${fmtData(ch.tecnico_a_caminho_em)}</span></div>` : ""}
-        ${ch.tecnico_chegou_em    ? `<div class="ch-met-row"><span class="ch-met-lbl">Chegou</span><span style="color:var(--ok);">📍 ${fmtData(ch.tecnico_chegou_em)}</span></div>` : ""}
-        ${ch.fechado_em        ? `<div class="ch-met-row"><span class="ch-met-lbl">Fechado em</span><span>${fmtData(ch.fechado_em)}</span></div>` : ""}
-        ${(cancelado && ch.cancelado_em) ? `<div class="ch-met-row"><span class="ch-met-lbl">Cancelado em</span><span>${fmtData(ch.cancelado_em)}</span></div>` : ""}
-        ${ch.cliente_nome      ? `<div class="ch-met-row"><span class="ch-met-lbl">Cliente WA</span><span>${_waEscaparHtml(ch.cliente_nome)}${ch.cliente_telefone ? " · "+_waEscaparHtml(ch.cliente_telefone) : ""}</span></div>` : ""}
-      </div>
-    </div>
-
     ${(cancelado && ch.cancelado_motivo) ? `<div class="ch-det-section">
       <div class="ch-det-sec-title">Motivo do cancelamento</div>
       <div class="ch-det-desc">${_waEscaparHtml(ch.cancelado_motivo)}</div>
     </div>` : ""}
 
+    ${_chRenderAvaliacaoCard(ch)}
+
+    <div class="ch-det-section">
+      <div class="ch-det-sec-title">Quem está com ele</div>
+      <div class="ch-det-meta">
+        <div class="ch-met-row" id="chTecnicoRow-${ch.id}">
+          <span class="ch-met-lbl">Técnico</span>
+          ${ch.tecnico_nome
+            ? `<span style="display:flex;align-items:center;gap:8px;">
+                 ${_waEscaparHtml(ch.tecnico_nome)}
+                 <button class="btn btn-sm viewer-only-hide" data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Trocar</button>
+               </span>`
+            : `<button class="btn btn-sm viewer-only-hide" data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Atribuir técnico</button>`}
+        </div>
+        <div class="ch-met-row" id="chCondoRow-${ch.id}">
+          <span class="ch-met-lbl">Condomínio</span>
+          ${ch.condominio_nome
+            ? `<span style="display:flex;align-items:center;gap:8px;">
+                 ${_waEscaparHtml(ch.condominio_nome)}
+                 <button class="btn btn-sm viewer-only-hide" data-action="vincular-ch-condo" data-ch-id="${ch.id}">Trocar</button>
+               </span>`
+            : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="vincular-ch-condo" data-ch-id="${ch.id}">Vincular condomínio</button>`}
+        </div>
+        ${ch.responsavel_nome ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span>${_waEscaparHtml(ch.responsavel_nome)}</span></div>` : ""}
+        ${ch.cliente_nome ? `<div class="ch-met-row"><span class="ch-met-lbl">Cliente (WhatsApp)</span><span>${_waEscaparHtml(ch.cliente_nome)}${ch.cliente_telefone ? " · "+_waEscaparHtml(ch.cliente_telefone) : ""}</span></div>` : ""}
+        ${ch.sla_ttfr_min != null && !ch.fechado_em && !cancelado ? `<div class="ch-met-row"><span class="ch-met-lbl">Prazo</span><span style="display:flex;gap:5px;flex-wrap:wrap;">
+          ${ch.sla_ttfr_estourado
+            ? `<span class="ch-sla-badge" title="Sem resposta há mais de ${ch.sla_ttfr_min} min">Primeira resposta fora do prazo</span>`
+            : ch.primeira_resposta_em
+              ? `<span style="font-size:12px;color:var(--ok);">Respondido</span>`
+              : `<span style="font-size:12px;color:var(--muted);">Aguardando resposta (limite ${ch.sla_ttfr_min} min)</span>`}
+          ${ch.sla_ttr_risco && !ch.sla_ttfr_estourado
+            ? `<span class="ch-sla-ttr-badge" title="Aberto há mais de ${ch.sla_ttr_min} min">Prazo de solução estourado</span>`
+            : ""}
+        </span></div>` : ""}
+      </div>
+    </div>
+
     ${telHtml}
 
     ${_chRenderHistoricoCard(ch.id)}
-
-    <div class="ch-det-acoes">${acoes}</div>
   </div>`;
 
   // Dispara o carregamento do histórico (lazy, cache por id).
@@ -5755,7 +5788,7 @@ function _ctrsGetStatusKey(ct) {
 async function _ctrsCarregar() {
   const tbody = document.getElementById("ctrsTbody");
   const empty = document.getElementById("ctrsEmpty");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr>`;
   if (empty) empty.style.display = "none";
 
   try {
@@ -5763,7 +5796,7 @@ async function _ctrsCarregar() {
     if (!r.ok) throw new Error(r.status);
     _ctrsLista = await r.json();
   } catch (e) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:20px;">Erro ao carregar contratos.</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:20px;">Erro ao carregar contratos.</td></tr>`;
     return;
   }
   _ctrsRender();
@@ -5803,24 +5836,50 @@ function _ctrsRender() {
   }
   if (empty) empty.style.display = "none";
 
+  // ⚠️ 8 COLUNAS VIRARAM 5 (molde da O.S., 18/11/2026). Serviço e
+  // periodicidade descem para a linha de apoio do cliente; início e
+  // vencimento viram uma coluna de vigência; a situação ganha embaixo a
+  // assinatura, que antes só aparecia como "olho ou lápis" no ícone da ação.
+  // O ícone virou uma ação com nome.
   const _clsPill = { ok: "orc-status-ok", warn: "orc-status-pend", bad: "orc-status-bad" };
-  const _SVG_EDIT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;display:block;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const _SVG_EYE  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;display:block;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const _assinaturaTxt = {
+    rascunho:   "ainda não enviado para assinatura",
+    aguardando: "aguardando assinatura do cliente",
+    assinado:   "assinado",
+    recusado:   "assinatura recusada",
+    cancelado:  "assinatura cancelada",
+  };
   tbody.innerHTML = lista.map(ct => {
     const st = _ctrStatusVisual(ct);
     const assinado = ct.zapsign_status === "assinado";
+    const zs = ct.zapsign_status || "rascunho";
     const actionBtn = assinado
-      ? `<button class="btn btn-sm" title="Visualizar contrato" data-ctrs-view="${ct.id}" data-ctrs-view-condo="${ct.condominio_id}" style="padding:4px 6px;">${_SVG_EYE}</button>`
-      : `<button class="btn btn-sm" title="Editar contrato" data-ctrs-edit="${ct.id}" data-ctrs-edit-condo="${ct.condominio_id}" style="padding:4px 6px;">${_SVG_EDIT}</button>`;
-    return `<tr class="orc-row" data-ctrs-row="${ct.id}" data-ctrs-condo="${ct.condominio_id}" data-ctrs-status="${ct.zapsign_status || ''}" style="cursor:pointer;">
-      <td>${_waEscaparHtml(ct.condominio_nome || "—")}</td>
-      <td>${_ctrsServicoLabel[ct.servico_tipo] || ct.servico_tipo || "—"}</td>
-      <td>${_ctrTipoLabel[ct.tipo] || ct.tipo || "—"}</td>
-      <td>${_ctrFmtMoeda(ct.valor_mensal)}</td>
-      <td>${_ctrFmtData(ct.inicio_em)}</td>
-      <td>${_ctrFmtData(ct.fim_em)}</td>
-      <td><span class="orc-status-pill ${_clsPill[st.cls] || "orc-status-pend"}">${st.texto}</span></td>
-      <td style="text-align:center;">${actionBtn}</td>
+      ? `<button class="btn btn-sm" data-ctrs-view="${ct.id}" data-ctrs-view-condo="${ct.condominio_id}">Ver</button>`
+      : `<button class="btn btn-sm viewer-only-hide" data-ctrs-edit="${ct.id}" data-ctrs-edit-condo="${ct.condominio_id}">Editar</button>`;
+    const nome = _waEscaparHtml(ct.condominio_nome || "—");
+    const cliente = ct.condominio_id
+      ? `<button type="button" class="os-link" data-ctrs-condo-link="${ct.condominio_id}" title="Abrir a ficha do condomínio">${nome}</button>`
+      : nome;
+    const apoio = [
+      _ctrsServicoLabel[ct.servico_tipo] || ct.servico_tipo || "",
+      _ctrTipoLabel[ct.tipo] || ct.tipo || "",
+    ].filter(Boolean).join(" · ");
+    const vig = ct.fim_em
+      ? `${_ctrFmtData(ct.inicio_em)} a ${_ctrFmtData(ct.fim_em)}`
+      : `desde ${_ctrFmtData(ct.inicio_em)}`;
+    const zsCls = zs === "aguardando" ? " os-sub-atencao" : (zs === "assinado" ? " os-sub-ok" : "");
+    return `<tr class="orc-row pro-row" tabindex="0" data-ctrs-row="${ct.id}" data-ctrs-condo="${ct.condominio_id}" data-ctrs-status="${ct.zapsign_status || ''}">
+      <td class="pro-cli">
+        <span class="pro-cli-nome">${cliente}</span>
+        ${apoio ? `<span class="os-sub">${_waEscaparHtml(apoio)}</span>` : ""}
+      </td>
+      <td class="pro-val">${_ctrFmtMoeda(ct.valor_mensal)}</td>
+      <td class="pro-vig">${vig}${ct.fim_em ? "" : `<span class="os-sub">sem data de fim</span>`}</td>
+      <td class="pro-sit">
+        <span class="os-sit-linha"><span class="orc-status-pill ${ct.ativo ? (_clsPill[st.cls] || "orc-status-pend") : "orc-status-off"}">${ct.ativo ? st.texto : "Encerrado"}</span></span>
+        <span class="os-sub${zsCls}">${_assinaturaTxt[zs] || _waEscaparHtml(zs)}</span>
+      </td>
+      <td class="pro-acao">${actionBtn}</td>
     </tr>`;
   }).join("");
 }
@@ -5828,22 +5887,31 @@ function _ctrsRender() {
 function _ctrsRenderKpi() {
   const grid = document.getElementById("ctrsKpiGrid");
   if (!grid) return;
-  const ativos   = _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === "ativo");
   const vencendo = _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === "vencendo");
   const vencidos = _ctrsLista.filter(ct => _ctrsGetStatusKey(ct) === "vencido");
   const mrr      = _ctrsLista.filter(ct => ct.ativo).reduce((s, ct) => s + (Number(ct.valor_mensal) || 0), 0);
 
-  const kpi = (icon, val, label, cls) => kpiCard(icon, val, label, cls);
-
-  grid.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-        ativos.length, "Ativos", "rc-ok") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        vencendo.length, "Vencendo em 30d", vencendo.length > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-        vencidos.length, "Vencidos", vencidos.length > 0 ? "rc-bad" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
-        mrr.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "MRR (contratos ativos)", "rc-neutral");
+  // ⚠️ A FAIXA DE 4 CARTÕES VIROU UMA FRASE (molde da O.S., 18/11/2026). Os
+  // quatro números continuam (ativos, vencendo em 30 dias, vencidos e a
+  // receita mensal dos ativos). O que pede ação, renovar, vira botão que leva
+  // à aba; vencido ganha de vencendo porque já passou.
+  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+  if (!_ctrsLista.length) { grid.innerHTML = "<span>Nenhum contrato cadastrado.</span>"; return; }
+  // ⚠️ "Ativo" aqui é o cadastro (ct.ativo), o mesmo filtro da receita: o
+  // vencido continua ativo até alguém encerrar, e soma no mês. Contar só os
+  // "em vigor" ao lado de uma soma que inclui o vencido não fechava a conta.
+  const nAtivos = _ctrsLista.filter(ct => ct.ativo).length;
+  const partes = [
+    `${pl(nAtivos, "contrato ativo", "contratos ativos")}, ${_ctrFmtMoeda(mrr)} por mês`,
+    vencidos.length && vencendo.length ? pl(vencendo.length, "vencendo em 30 dias", "vencendo em 30 dias") : "",
+  ].filter(Boolean).join(" · ");
+  let acao = "";
+  if (vencidos.length) {
+    acao = ` <button type="button" class="os-resumo-acao" data-ctrs-ir-aba="vencido">${pl(vencidos.length, "vencido", "vencidos")} →</button>`;
+  } else if (vencendo.length) {
+    acao = ` <button type="button" class="os-resumo-acao" data-ctrs-ir-aba="vencendo">${pl(vencendo.length, "vence", "vencem")} nos próximos 30 dias →</button>`;
+  }
+  grid.innerHTML = `<span>${partes}.</span>${acao}`;
 }
 
 function _ctrsAbrirPicker() {
@@ -5886,6 +5954,12 @@ function _ctrsBindEventos() {
   if (!section) return;
 
   section.addEventListener("click", e => {
+    // A frase-resumo leva à aba do que pede ação.
+    const ir = e.target.closest("[data-ctrs-ir-aba]");
+    if (ir) { section.querySelector(`[data-ctrs-tab="${ir.dataset.ctrsIrAba}"]`)?.click(); return; }
+    // O nome do cliente abre a ficha dele, não o contrato.
+    const condo = e.target.closest("[data-ctrs-condo-link]");
+    if (condo) { abrirFichaCondominio(Number(condo.dataset.ctrsCondoLink), "contrato"); return; }
     const tab = e.target.closest("[data-ctrs-tab]");
     if (tab) {
       _ctrsTabAtual = tab.dataset.ctrsTab;
@@ -5914,6 +5988,11 @@ function _ctrsBindEventos() {
     }
   });
 
+  // Linhas focáveis: Enter abre como o clique.
+  section.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || e.target.closest("button")) return;
+    e.target.closest("[data-ctrs-row]")?.click();
+  });
   document.getElementById("ctrsTipoFilter")?.addEventListener("change", e => {
     _ctrsTipoFiltro = e.target.value;
     _ctrsRender();
@@ -10366,7 +10445,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // painel na única seção que não é dele — e o mini-mapa Leaflet montaria
     // num container que ninguém vai ver. Alertas é a primeira tela do turno:
     // o que está errado agora.
-    showSection("alertas");
+    // ⚠️ MAS SÓ SEM ENDEREÇO (18/11/2026). Desde a fase 1 do redesenho cada
+    // tela tem endereço; este boot roda depois do roteador e jogava o F5 do
+    // operador em "#/chamados" de volta para Alertas. Endereço de tela que ele
+    // vê ganha; o resto (ou nenhum) cai em Alertas.
+    const _rota = typeof _rotaLer === "function" ? _rotaLer() : null;
+    if (_rota && typeof _rotaPermitida === "function" && _rotaPermitida(_rota.secao)) _rotaAplicar();
+    else showSection("alertas");
   }
 
   // Rótulo de grupo sem nenhum item visível vira cabeçalho órfão. Acontece
@@ -10672,7 +10757,15 @@ document.addEventListener("DOMContentLoaded", () => {
     _chFiltros.busca = e.target.value.trim();
     renderChTabela();
   }, 200));
+  // A frase-resumo leva à aba do que pede ação.
+  document.getElementById("chKpiGrid")?.addEventListener("click", e => {
+    const ir = e.target.closest("[data-ch-ir-aba]");
+    if (ir) document.querySelector(`[data-ch-tab="${ir.dataset.chIrAba}"]`)?.click();
+  });
   document.getElementById("chTableBody")?.addEventListener("click", e => {
+    // O nome do prédio abre a ficha dele, não seleciona o chamado.
+    const condo = e.target.closest("[data-ch-condo]");
+    if (condo) { abrirFichaCondominio(Number(condo.dataset.chCondo)); return; }
     const row = e.target.closest("[data-ch-id]");
     if (!row) return;
     const id = Number(row.dataset.chId);
@@ -12481,7 +12574,6 @@ function _orcModoBindEventos() {
 let _avData        = [];
 let _avTabAtiva    = "todos";
 let _avSelecionado = null;
-let _avCondoSel    = null;   // chave do condomínio selecionado na coluna esquerda
 // Alteração digitada e ainda não salva. Substitui o antigo `_avNovoPendente`,
 // que marcava "rascunho descartável" — conceito que deixou de existir quando o
 // registro passou a nascer só na primeira ação de verdade.
@@ -12624,19 +12716,22 @@ function _avRenderTudo() {
     .filter(o => o.status === "aprovado")
     .reduce((s, o) => s + Number(o.valor_total || 0), 0);
 
-  const ICO_LIST  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
-  const ICO_DRAFT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
-  const ICO_SEND  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
-  const ICO_MONEY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
-
-  const kpi = (ico, val, label, cls) => kpiCard(ico, val, label, cls);
-
+  // ⚠️ A FAIXA DE 4 CARTÕES VIROU UMA FRASE (molde da O.S., 18/11/2026).
+  // Os quatro números continuam aqui (total, rascunho, enviado, aprovado em
+  // R$). O que pede ação do escritório, o rascunho por enviar, vira botão que
+  // leva à aba. "Total aprovado" continua só dos aprovados (ver acima).
+  const plAv = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
   const grid = document.getElementById("avKpiGrid");
-  if (grid) grid.innerHTML =
-    kpi(ICO_LIST,  total,                "Total",           "rc-neutral") +
-    kpi(ICO_DRAFT, rascunho,             "Rascunho",        rascunho > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(ICO_SEND,  enviado,              "Enviado",         enviado  > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(ICO_MONEY, _orcFmtValor(totalVal || null), "Total aprovado", aprov > 0 ? "rc-ok" : "rc-neutral");
+  if (grid) {
+    const partes = [
+      plAv(total, "orçamento", "orçamentos"),
+      enviado ? `${plAv(enviado, "enviado esperando", "enviados esperando")} o cliente` : "",
+      aprov ? `${_orcFmtValor(totalVal)} ${aprov === 1 ? "aprovado" : "aprovados"}` : "nenhum aprovado",
+    ].filter(Boolean).join(" · ");
+    grid.innerHTML = `<span>${partes}.</span>${rascunho
+      ? ` <button type="button" class="os-resumo-acao" data-av-ir-aba="rascunho">${plAv(rascunho, "rascunho", "rascunhos")} por enviar →</button>`
+      : ""}`;
+  }
 
   // ⚠️ AS RESPOSTAS SEM BAIXA (25/08/2026 · reescrito em 26/08/2026).
   // Quando o orçamento passou a ser respondido no painel do cliente, a decisão
@@ -12692,155 +12787,104 @@ function _avRenderTudo() {
   set("avCtAprovado", aprov);
   set("avCtRespondidos", _avData.filter(o => o.respondido_em).length);
 
+  // ── A lista: uma tabela da carteira inteira (molde da O.S., 18/11/2026) ──
+  // ⚠️ DEIXOU DE SER AGRUPADA POR CONDOMÍNIO. Era lista de prédios à esquerda
+  // e orçamentos do prédio à direita: para achar um orçamento era preciso
+  // saber o prédio antes, e a carteira nunca era vista de uma vez. Os
+  // sistemas de referência (Jobber, ServiceTitan, Field Control) têm uma
+  // lista por documento, com o cliente numa coluna, e a visão por prédio na
+  // ficha dele, que aqui já tem a aba Orçamentos. Nada saiu da linha: número,
+  // data, origem, tipo, selo da resposta, quem respondeu, o "feito" e o valor.
   const lista = _avFiltrados();
   const listEl = document.getElementById("avCondoList");
   const empty  = document.getElementById("avEmpty");
   if (!listEl) return;
 
-  // Agrupa os orçamentos por condomínio (ordem alfabética; itens de cada
-  // condomínio por data desc).
-  const grupos = new Map();
-  for (const o of lista) {
-    const key = o.condominio_id != null ? `id:${o.condominio_id}` : `nome:${o.condominio_nome || ""}`;
-    // `razao` é a razão social (condominios.nome). Guardada no grupo para o
-    // cabeçalho do painel direito: o nome grande passou a ser o fantasia, e
-    // sem esta linha o painel deixaria de mostrar em algum lugar o nome com
-    // que o cliente assina contrato e recebe nota.
-    if (!grupos.has(key)) grupos.set(key, {
-      key,
-      nome: o.condominio_nome || "Sem condomínio",
-      razao: o.condominio_razao_social || null,
-      itens: [],
-    });
-    grupos.get(key).itens.push(o);
-  }
-  // Ordem alfabética, como sempre — MENOS na aba de respondidos, onde a lista
-  // deixa de ser cadastro e vira fila de trabalho: ali quem ainda espera baixa
-  // sobe, no grupo e dentro dele. É o que faz a aba servir para o caso de
-  // várias respostas ao mesmo tempo, quando a faixa do topo só sabe contar.
+  // Mais novo primeiro. Na aba de respondidos a lista vira fila de trabalho:
+  // quem ainda espera baixa sobe.
   const filaPend = _avTabAtiva === "respondidos";
-  const gruposOrd = [...grupos.values()].sort((a, b) => {
+  lista.sort((a, b) => {
     if (filaPend) {
-      const pa = a.itens.some(_avPendente) ? 0 : 1;
-      const pb = b.itens.some(_avPendente) ? 0 : 1;
+      const pa = _avPendente(a) ? 0 : 1;
+      const pb = _avPendente(b) ? 0 : 1;
       if (pa !== pb) return pa - pb;
     }
-    return a.nome.localeCompare(b.nome);
+    return new Date(b.criado_em) - new Date(a.criado_em);
   });
-  for (const g of gruposOrd) {
-    g.itens.sort((a, b) => {
-      if (filaPend) {
-        const pa = _avPendente(a) ? 0 : 1;
-        const pb = _avPendente(b) ? 0 : 1;
-        if (pa !== pb) return pa - pb;
-      }
-      return new Date(b.criado_em) - new Date(a.criado_em);
-    });
-  }
 
-  if (!gruposOrd.length) {
+  if (!lista.length) {
     listEl.innerHTML = "";
     if (empty) empty.style.display = "flex";
-    _avCondoSel = null;
-    _avRenderCondoDetail(null);
     return;
   }
   if (empty) empty.style.display = "none";
 
-  // Mantém o condomínio selecionado se ainda existe no filtro atual; senão
-  // seleciona o primeiro da lista.
-  if (!_avCondoSel || !gruposOrd.some(g => g.key === _avCondoSel)) {
-    _avCondoSel = gruposOrd[0].key;
-  }
-
-  listEl.innerHTML = gruposOrd.map(g => {
-    const totalGrupo = g.itens.reduce((s, o) => s + Number(o.valor_total || 0), 0);
-    const sel = g.key === _avCondoSel ? " is-selected" : "";
-    const nRasc = g.itens.filter(o => o.status === "rascunho").length;
-    const nEnv  = g.itens.filter(o => o.status === "enviado").length;
-    const nApr  = g.itens.filter(o => o.status === "aprovado").length;
-    // Respostas sem baixa: o ponto existe para achar o condomínio certo depois
-    // que a faixa do topo já foi fechada. Vem primeiro porque é o único dos
-    // quatro que significa trabalho parado.
-    const nPend = g.itens.filter(o => o.respondido_em && !o.resposta_tratada_em).length;
-    const dot = (n, cls, lbl) => n ? `<span class="av-dot ${cls}" title="${n} ${lbl}">${n}</span>` : "";
+  const linhas = lista.map(o => {
+    const selc = _avSelecionado?.id === o.id ? " is-selected" : "";
+    const pend = _avPendente(o);
+    const tipoLbl = _avTipoLabels[o.tipo];
+    const nome = _waEscaparHtml(o.condominio_nome || "Sem condomínio");
+    const predio = o.condominio_id
+      ? `<button type="button" class="os-link" data-av-condo-link="${o.condominio_id}" title="Abrir a ficha do condomínio">${nome}</button>`
+      : nome;
+    const apoio = [
+      tipoLbl ? _waEscaparHtml(tipoLbl) : "",
+      o.os_numero ? `da O.S. ${_waEscaparHtml(o.os_numero)}` : "",
+    ].filter(Boolean).join(" · ");
     return `
-      <div class="av-condo-row${sel}" data-av-condo="${_waEscaparHtml(g.key)}">
-        <div class="av-condo-main">
-          <div class="av-condo-name">${_waEscaparHtml(g.nome)}</div>
-          <div class="av-condo-sub">${g.itens.length} ${g.itens.length === 1 ? "orçamento" : "orçamentos"} · ${_orcFmtValor(totalGrupo)}</div>
-        </div>
-        <div class="av-condo-dots">${dot(nPend, "pend", "resposta sem baixa")}${dot(nRasc, "off", "rascunho")}${dot(nEnv, "warn", "enviado")}${dot(nApr, "ok", "aprovado")}</div>
-      </div>`;
+      <tr class="pro-row${selc}${pend ? " is-pendente" : ""}" data-av-id="${o.id}" tabindex="0">
+        <td class="pro-id">
+          <span class="mono">${_waEscaparHtml(o.numero || "—")}</span>
+          <span class="os-sub">${_orcFmtData(o.criado_em)}</span>
+        </td>
+        <td class="pro-cli">
+          <span class="pro-cli-nome">${predio}</span>${_avOrigemBadge(o.origem)}
+          ${apoio ? `<span class="os-sub">${apoio}</span>` : ""}
+        </td>
+        <td class="pro-sit">
+          <span class="os-sit-linha">
+            <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
+            ${pend ? `<span class="av-selo-pend${o.resposta_vista_em ? " is-vista" : ""}">${o.resposta_vista_em ? "Sem baixa" : "Resposta nova"}</span>` : ""}${_avExecBadge(o)}
+          </span>
+          <span class="os-sub${o.respondido_em ? " is-resposta" : ""}">${_avSituacaoTexto(o)}</span>
+        </td>
+        <td class="pro-val">${_orcFmtValor(o.valor_total)}</td>
+      </tr>`;
   }).join("");
 
-  _avRenderCondoDetail(gruposOrd.find(g => g.key === _avCondoSel) || null);
+  listEl.innerHTML = `
+    <table class="orc-table pro-table">
+      <thead><tr>
+        <th style="width:130px">Nº</th>
+        <th>Condomínio</th>
+        <th style="width:340px">Situação</th>
+        <th style="width:130px" class="pro-val">Valor</th>
+      </tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>`;
 }
 
-// Painel direito: lista os orçamentos do condomínio selecionado. Clicar num
-// item abre o modal de detalhe/edição (_avRenderPainel).
-function _avRenderCondoDetail(g) {
-  const wrap = document.getElementById("avCondoDetail");
-  if (!wrap) return;
-
-  if (!g) {
-    wrap.innerHTML = `
-      <div class="ch-detail-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-        </svg>
-        <p>Selecione um condomínio para ver os orçamentos</p>
-      </div>`;
-    return;
+// A linha de apoio da situação: o que acontece a seguir, ou quem decidiu.
+// ⚠️ QUEM APROVOU CONTINUA NA LISTA (26/08/2026): o selo diz "Aprovado" igual
+// para o síndico respondendo no painel dele e para o escritório mudando a
+// Situação à mão. A linha de baixo é o que separa os dois. Pendência se lê em
+// "há quanto tempo"; resposta já tratada é histórico, e histórico é data.
+function _avSituacaoTexto(o) {
+  if (o.respondido_em) {
+    return `${o.status === "rejeitado" ? "Recusado" : "Aprovado"} por ` +
+      `${_waEscaparHtml(o.respondido_nome || "cliente")} · ` +
+      `${_avPendente(o) ? _tempoRelativo(o.respondido_em) : _orcFmtData(o.respondido_em)}`;
   }
-
-  const totalGrupo = g.itens.reduce((s, o) => s + Number(o.valor_total || 0), 0);
-  const linhas = g.itens.map(o => {
-    const selc = _avSelecionado?.id === o.id ? " is-selected" : "";
-    const tipoLbl = _avTipoLabels[o.tipo];
-    // ⚠️ ONDE A PENDÊNCIA MORA DE VERDADE (26/08/2026). A faixa do topo é o
-    // chamado; este selo é o endereço. Ele não some ao abrir a ficha — só com
-    // a baixa —, então recarregar a tela ou fechar a faixa não perde a
-    // informação de QUAL orçamento espera o escritório.
-    const pend = _avPendente(o);
-    // ⚠️ QUEM APROVOU, NA LISTA (26/08/2026). O selo de status dizia "Aprovado"
-    // igual para os dois casos que mais importam distinguir: o síndico
-    // respondendo no painel dele e alguém do escritório mudando a Situação na
-    // mão. A diferença existia só dentro da ficha — achar "o que o cliente
-    // aprovou" era abrir uma por uma. Agora a linha de baixo carrega isso.
-    //
-    // Relógio diferente para cada estado, de propósito: pendência é sobre HÁ
-    // QUANTO TEMPO espera; resposta já tratada é histórico, e histórico se lê
-    // em data.
-    const quemRespondeu = o.respondido_em
-      ? `${o.status === "rejeitado" ? "Recusado" : "Aprovado"} por ` +
-        `${_waEscaparHtml(o.respondido_nome || "cliente")} · ` +
-        `${pend ? _tempoRelativo(o.respondido_em) : _orcFmtData(o.respondido_em)}`
-      : _orcFmtData(o.criado_em);
-    return `
-      <div class="av-orc-item${selc}${pend ? " is-pendente" : ""}" data-av-id="${o.id}">
-        <div class="av-orc-item-main">
-          <div class="av-orc-item-top">
-            <span class="mono" style="font-size:11.5px;">${_waEscaparHtml(o.numero || "—")}</span>${_avOrigemBadge(o.origem)}
-            ${tipoLbl ? `<span class="orc-tipo-pill">${_waEscaparHtml(tipoLbl)}</span>` : ""}
-            ${pend ? `<span class="av-selo-pend${o.resposta_vista_em ? " is-vista" : ""}">${o.resposta_vista_em ? "Sem baixa" : "Resposta nova"}</span>` : ""}${_avExecBadge(o)}
-          </div>
-          <div class="av-orc-item-sub${o.respondido_em ? " is-resposta" : ""}">${quemRespondeu}</div>
-        </div>
-        <div class="av-orc-item-right">
-          <span class="av-orc-item-val">${_orcFmtValor(o.valor_total)}</span>
-          <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
-        </div>
-      </div>`;
-  }).join("");
-
-  wrap.innerHTML = `
-    <div class="av-orc-pane-head">
-      <div class="av-orc-pane-title">${_waEscaparHtml(g.nome)}</div>
-      ${_avLinhaRazao(g)}
-      <div class="av-orc-pane-sub">${g.itens.length} ${g.itens.length === 1 ? "orçamento" : "orçamentos"} · ${_orcFmtValor(totalGrupo)}</div>
-    </div>
-    <div class="av-orc-list">${linhas}</div>`;
+  if (o.status === "rascunho") return "falta enviar ao cliente";
+  if (o.status === "enviado") {
+    // `valido_ate` é DATE: compara a string, sem passar por fuso.
+    const hoje = new Date().toISOString().slice(0, 10);
+    const val = o.valido_ate ? String(o.valido_ate).slice(0, 10) : null;
+    if (val && val < hoje) return `<span class="os-sub-atencao">validade venceu em ${_orcFmtDataSemFuso(val)}</span>`;
+    return `esperando o cliente${val ? ` · válido até ${_orcFmtDataSemFuso(val)}` : ""}`;
+  }
+  if (o.status === "aprovado" || o.status === "rejeitado") return "registrado pelo escritório";
+  return "";
 }
 
 function _avFecharModal() {
@@ -12849,7 +12893,7 @@ function _avFecharModal() {
   document.body.style.overflow = "";
   _avSelecionado = null;
   // Atualiza seleção visual na lista de orçamentos do painel
-  document.querySelectorAll("#avCondoDetail .av-orc-item.is-selected").forEach(r => r.classList.remove("is-selected"));
+  document.querySelectorAll("#avCondoList .pro-row.is-selected").forEach(r => r.classList.remove("is-selected"));
   // ⚠️ A LISTA SE REDESENHA AO FECHAR (09/10/2026). Item adicionado ou
   // removido grava na hora e acerta o `valor_total` em `_avData`, e o
   // orçamento nasce no servidor na primeira ação (`_avGarantirRegistro`) —
@@ -14756,7 +14800,6 @@ async function _avAcao(acao) {
       // um orçamento novo com valor manual digitado salvaria sem o valor.
       valor: null,
     };
-    _avCondoSel = null;
     _avLinhas = []; _avLinhasId = null;
     _avSujo = false;
     _avRenderPainel();
@@ -14922,12 +14965,6 @@ async function _avAcao(acao) {
       }
     }
     _avSelecionado = _avData[idx] || _avSelecionado;
-    // Mantém o painel no condomínio do orçamento recém-editado
-    if (_avSelecionado) {
-      _avCondoSel = _avSelecionado.condominio_id != null
-        ? `id:${_avSelecionado.condominio_id}`
-        : `nome:${_avSelecionado.condominio_nome || ""}`;
-    }
     if (msg) msg.textContent = "✓ Salvo";
     setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
     _avRenderTudo();
@@ -14981,23 +15018,30 @@ function _avBindEventos() {
 
   document.getElementById("avBusca")?.addEventListener("input", _avRenderTudo);
 
-  // Clique num condomínio (coluna esquerda) → seleciona e mostra os orçamentos
-  document.getElementById("avCondoList")?.addEventListener("click", e => {
-    const row = e.target.closest("[data-av-condo]");
-    if (!row) return;
-    _avCondoSel = row.dataset.avCondo;
-    _avRenderTudo();
+  // A frase-resumo leva à aba do que pede ação.
+  document.getElementById("avKpiGrid")?.addEventListener("click", e => {
+    const ir = e.target.closest("[data-av-ir-aba]");
+    if (ir) document.querySelector(`[data-av-tab="${ir.dataset.avIrAba}"]`)?.click();
   });
 
-  // Clique num orçamento (painel direito) → abre o modal de detalhe/edição
-  document.getElementById("avCondoDetail")?.addEventListener("click", e => {
-    const item = e.target.closest("[data-av-id]");
-    if (!item) return;
+  // Clique numa linha → abre o orçamento. O nome do prédio abre a ficha dele.
+  const abrirLinha = (item) => {
     const id = Number(item.dataset.avId);
     _avSelecionado = _avData.find(o => o.id === id) || null;
     _avRenderPainel();
-    document.querySelectorAll("#avCondoDetail .av-orc-item").forEach(r => r.classList.toggle("is-selected", r === item));
+    document.querySelectorAll("#avCondoList .pro-row").forEach(r => r.classList.toggle("is-selected", r === item));
     _avMarcarRespostaVista(_avSelecionado);
+  };
+  document.getElementById("avCondoList")?.addEventListener("click", e => {
+    const condo = e.target.closest("[data-av-condo-link]");
+    if (condo) { abrirFichaCondominio(Number(condo.dataset.avCondoLink), "orcamentos"); return; }
+    const item = e.target.closest("[data-av-id]");
+    if (item) abrirLinha(item);
+  });
+  document.getElementById("avCondoList")?.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || e.target.closest("button")) return;
+    const item = e.target.closest("[data-av-id]");
+    if (item) abrirLinha(item);
   });
 
   // O "Ver" do aviso leva ao primeiro sem baixa. Sem isto o aviso diria que há
@@ -15023,10 +15067,6 @@ function _avBindEventos() {
       document.getElementById("avCondoList")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
-    const chave = alvo.condominio_id != null
-      ? `id:${alvo.condominio_id}`
-      : `nome:${alvo.condominio_nome || ""}`;
-    if (_avCondoSel !== chave) { _avCondoSel = chave; _avRenderTudo(); }
     const linha = document.querySelector(`[data-av-id="${alvo.id}"]`);
     if (linha) { linha.scrollIntoView({ behavior: "smooth", block: "center" }); linha.click(); return; }
     // Filtrado para fora da lista visível: seleciona mesmo assim, para a ficha
@@ -15086,9 +15126,6 @@ function _avBindEventos() {
 let _orcData        = [];
 let _orcTabAtiva    = "todos";
 let _orcSelecionado = null;
-// A chave do condomínio selecionado na coluna esquerda. Espelha o
-// `_avCondoSel` da aba "Criar orçamento" — as duas listam condomínios.
-let _orcCondoSel    = null;
 
 /* ⚠️ O PEDIDO SEM ORÇAMENTO É UM ESTADO, e ele não tinha nome (02/09/2026).
    O técnico marca "preciso de orçamento" na O.S. e o escritório ainda não
@@ -15216,20 +15253,20 @@ function _orcRenderTudo() {
   const totalVal = _orcData.filter(o => o.orcamento_status === "aprovado" && o.orcamento_valor)
                            .reduce((s, o) => s + Number(o.orcamento_valor), 0);
 
-  const ICO_LIST  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
-  const ICO_HAND  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a2 2 0 0 1 4 0v5"/><path d="M13 11V4a2 2 0 0 1 4 0v7"/><path d="M17 11V7a2 2 0 0 1 4 0v9a5 5 0 0 1-5 5h-3a6 6 0 0 1-5.2-3L5 15a2 2 0 0 1 3.3-2.3L9 13.5"/></svg>`;
-  const ICO_DRAFT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
-  const ICO_MONEY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
-
-  const kpi = (ico, val, label, cls) => kpiCard(ico, val, label, cls);
-
+  // ⚠️ A FAIXA DE 4 CARTÕES VIROU UMA FRASE (molde da O.S., 18/11/2026).
+  // O pedido sem orçamento é o que pede ação, e é o botão que leva à aba.
+  const plO = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
   const grid = document.getElementById("orcKpiGrid");
-  if (grid) grid.innerHTML =
-    kpi(ICO_LIST,  total,   "Total",         "rc-neutral") +
-    kpi(ICO_HAND,  solicit, "Solicitados",   solicit > 0 ? "rc-warn" : "rc-neutral") +
-    // Neutro mesmo com rascunho: o amarelo desta tela é só do "Solicitados".
-    kpi(ICO_DRAFT, pend,    "Em orçamento",  "rc-neutral") +
-    kpi(ICO_MONEY, _orcFmtValor(totalVal || null), "Total aprovado", aprov > 0 ? "rc-ok" : "rc-neutral");
+  if (grid) {
+    const partes = [
+      plO(total, "pedido dos técnicos", "pedidos dos técnicos"),
+      pend ? `${pend} em orçamento` : "",
+      aprov ? `${_orcFmtValor(totalVal)} ${aprov === 1 ? "aprovado" : "aprovados"}` : "nenhum aprovado",
+    ].filter(Boolean).join(" · ");
+    grid.innerHTML = `<span>${partes}.</span>${solicit
+      ? ` <button type="button" class="os-resumo-acao" data-orc-ir-aba="solicitado">${plO(solicit, "pedido", "pedidos")} sem orçamento →</button>`
+      : ""}`;
+  }
 
   // Contadores das tabs
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -15239,150 +15276,88 @@ function _orcRenderTudo() {
   set("orcCtAprovado",   aprov);
   set("orcCtRejeitado",  rejeit);
 
-  // ── A lista, agrupada por condomínio ───────────────────────────────
+  // ── A lista: uma tabela da carteira inteira (molde da O.S., 18/11/2026) ──
+  // Deixou de ser agrupada por condomínio pelo mesmo motivo da aba irmã (ver
+  // _avRenderTudo). A observação do técnico ganhou coluna própria: é o texto
+  // que esta aba existe para entregar, e quem abre a tela está decidindo o
+  // que orçar lendo o que o técnico escreveu.
   const lista  = _orcFiltrados();
   const listEl = document.getElementById("orcCondoList");
   const empty  = document.getElementById("orcEmpty");
   if (!listEl) return;
 
-  const grupos = new Map();
-  for (const o of lista) {
-    const key = o.condominio_id != null ? `id:${o.condominio_id}` : `nome:${o.condominio_nome || ""}`;
-    // `razao` é a razão social (condominios.nome). Guardada no grupo para o
-    // cabeçalho do painel direito: o nome grande passou a ser o fantasia, e
-    // sem esta linha o painel deixaria de mostrar em algum lugar o nome com
-    // que o cliente assina contrato e recebe nota.
-    if (!grupos.has(key)) grupos.set(key, {
-      key,
-      nome: o.condominio_nome || "Sem condomínio",
-      razao: o.condominio_razao_social || null,
-      itens: [],
-    });
-    grupos.get(key).itens.push(o);
-  }
-
-  // ⚠️ QUEM TEM PEDIDO NÃO ATENDIDO SOBE — no grupo e dentro dele. A aba
-  // irmã ordena alfabeticamente porque lá a lista é cadastro; aqui ela é
-  // fila de trabalho, e o que a tela responde é "por onde começo".
-  const gruposOrd = [...grupos.values()].sort((a, b) => {
-    const pa = a.itens.some(_orcSolicitado) ? 0 : 1;
-    const pb = b.itens.some(_orcSolicitado) ? 0 : 1;
+  // ⚠️ QUEM TEM PEDIDO NÃO ATENDIDO SOBE: aqui a lista é fila de trabalho, e
+  // o que a tela responde é "por onde começo". Depois, o mais novo.
+  lista.sort((a, b) => {
+    const pa = _orcSolicitado(a) ? 0 : 1;
+    const pb = _orcSolicitado(b) ? 0 : 1;
     if (pa !== pb) return pa - pb;
-    return a.nome.localeCompare(b.nome);
+    return new Date(b.finalizada_em || b.criado_em) - new Date(a.finalizada_em || a.criado_em);
   });
-  for (const g of gruposOrd) {
-    g.itens.sort((a, b) => {
-      const pa = _orcSolicitado(a) ? 0 : 1;
-      const pb = _orcSolicitado(b) ? 0 : 1;
-      if (pa !== pb) return pa - pb;
-      return new Date(b.finalizada_em || b.criado_em) - new Date(a.finalizada_em || a.criado_em);
-    });
-  }
 
-  if (!gruposOrd.length) {
+  if (!lista.length) {
     listEl.innerHTML = "";
     if (empty) empty.style.display = "flex";
-    _orcCondoSel = null;
-    _orcRenderPainel(null);
     return;
   }
   if (empty) empty.style.display = "none";
 
-  // Mantém o condomínio selecionado se ele sobrevive ao filtro; senão, o topo.
-  if (!_orcCondoSel || !gruposOrd.some(g => g.key === _orcCondoSel)) {
-    _orcCondoSel = gruposOrd[0].key;
-  }
-
-  listEl.innerHTML = gruposOrd.map(g => {
-    const totalGrupo = g.itens.reduce((s, o) => s + Number(o.orcamento_valor || 0), 0);
-    const sel = g.key === _orcCondoSel ? " is-selected" : "";
-    const nSol = g.itens.filter(_orcSolicitado).length;
-    const nRas = g.itens.filter(o => o.orcamento_status === "rascunho").length;
-    const nEnv = g.itens.filter(o => o.orcamento_status === "enviado").length;
-    const nApr = g.itens.filter(o => o.orcamento_status === "aprovado").length;
-    // O ponto que pulsa é o do pedido não atendido — é o único dos quatro
-    // que significa trabalho parado, e o único amarelo. "Enviado" era
-    // amarelo cheio também e brigava com ele; agora é de fio, como o rascunho.
-    const dot = (n, cls, lbl) => n ? `<span class="av-dot ${cls}" title="${n} ${lbl}">${n}</span>` : "";
-    return `
-      <div class="av-condo-row${sel}" data-orc-condo="${_waEscaparHtml(g.key)}">
-        <div class="av-condo-main">
-          <div class="av-condo-name">${_waEscaparHtml(g.nome)}</div>
-          <div class="av-condo-sub">${g.itens.length} ${g.itens.length === 1 ? "pedido" : "pedidos"}${totalGrupo ? ` · ${_orcFmtValor(totalGrupo)}` : ""}</div>
-        </div>
-        <div class="av-condo-dots">${dot(nSol, "pend", "solicitado sem orçamento")}${dot(nRas, "off", "em orçamento")}${dot(nEnv, "off", "enviado")}${dot(nApr, "ok", "aprovado")}</div>
-      </div>`;
-  }).join("");
-
-  _orcRenderPainel(gruposOrd.find(g => g.key === _orcCondoSel) || null);
-}
-/* O painel do condomínio selecionado. Antes ele era a ficha de UMA O.S.;
-   agora é a lista dos pedidos daquele prédio, exatamente como o
-   `_avRenderCondoDetail` da aba "Criar orçamento". A ficha não se perdeu —
-   ela virou o modal de tela cheia, que já era para onde o botão "Preencher
-   orçamento" levava e que já carregava a observação do técnico. */
-function _orcRenderPainel(g) {
-  const wrap = document.getElementById("orcPainel");
-  if (!wrap) return;
-
-  if (!g) {
-    wrap.innerHTML = `
-      <div class="ch-detail-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-        </svg>
-        <p>Selecione um condomínio para ver os pedidos</p>
-      </div>`;
-    return;
-  }
-
-  const totalGrupo = g.itens.reduce((s, o) => s + Number(o.orcamento_valor || 0), 0);
-  const nSol = g.itens.filter(_orcSolicitado).length;
-
-  const linhas = g.itens.map(o => {
-    const sel  = _orcSelecionado?.id === o.id ? " is-selected" : "";
+  const linhas = lista.map(o => {
     const aberto = _orcSolicitado(o);
     const daBancada = o.fonte === "bancada";
-    // ⚠️ A OBSERVAÇÃO DO TÉCNICO FICA NA LINHA, não só no modal. É o texto
-    // que a aba existe para entregar — quem abre esta tela está decidindo o
-    // que orçar, e essa decisão se toma lendo o que o técnico escreveu. Na
-    // tabela antiga ela ocupava uma coluna; aqui, a terceira linha do item.
+    const nome = _waEscaparHtml(o.condominio_nome || "Sem condomínio");
+    const predio = o.condominio_id
+      ? `<button type="button" class="os-link" data-orc-condo-link="${o.condominio_id}" title="Abrir a ficha do condomínio">${nome}</button>`
+      : nome;
+    const apoio = [
+      _waEscaparHtml(o.tecnico_nome || "sem técnico"),
+      o.chamado_id ? `chamado #${o.chamado_id}` : "",
+    ].filter(Boolean).join(" · ");
     const obs = o.orcamento_observacoes
-      ? `<div class="av-orc-item-obs">${_waEscaparHtml(o.orcamento_observacoes)}</div>`
-      : `<div class="av-orc-item-obs is-vazia">Sem observação — contate o técnico.</div>`;
+      ? `<span class="pro-obs">${_waEscaparHtml(o.orcamento_observacoes)}</span>`
+      : `<span class="pro-obs is-vazia">Sem observação — contate o técnico.</span>`;
+    // Uma ação com nome: começar o orçamento quando ainda não existe; senão a
+    // linha abre o documento. A lixeira tira o PEDIDO da fila (ver abaixo).
+    const acao = aberto
+      ? `<button type="button" class="btn btn-sm btnAccent viewer-only-hide" data-orc-abrir>Fazer orçamento</button>`
+      : "";
+    const del = daBancada ? "" : `
+          <button type="button" class="pro-del viewer-only-hide" data-orc-del="${o.id}"
+            title="Excluir este pedido de orçamento" aria-label="Excluir este pedido de orçamento">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>`;
     return `
-      <div class="av-orc-item${sel}${aberto ? " is-pendente" : ""}"
-           data-orc-id="${o.id ?? ""}" data-orc-fonte="${o.fonte || "os"}"
-           data-orc-orcid="${o.orcamento_id ?? ""}">
-        <div class="av-orc-item-main">
-          <div class="av-orc-item-top">
-            <span class="mono" style="font-size:11.5px;">${_waEscaparHtml(o.numero || ("OS " + o.id))}</span>
-            ${daBancada ? `<span class="badge" style="font-size:9.5px;">OFICINA</span>` : ""}
-          </div>
-          <div class="av-orc-item-sub">${_waEscaparHtml(o.tecnico_nome || "sem técnico")} · ${_orcFmtData(o.finalizada_em || o.criado_em)}${o.chamado_id ? ` · chamado #${o.chamado_id}` : ""}</div>
-          ${obs}
-        </div>
-        <div class="av-orc-item-right">
-          <span class="av-orc-item-val">${_orcFmtValor(o.orcamento_valor)}</span>
-          <span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span>
-        </div>
-        ${daBancada ? "" : `
-        <button type="button" class="av-orc-item-del" data-orc-del="${o.id}"
-          title="Excluir este pedido de orçamento" aria-label="Excluir este pedido de orçamento">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>`}
-      </div>`;
+      <tr class="pro-row${aberto ? " is-pendente" : ""}" tabindex="0"
+          data-orc-id="${o.id ?? ""}" data-orc-fonte="${o.fonte || "os"}"
+          data-orc-orcid="${o.orcamento_id ?? ""}">
+        <td class="pro-id">
+          <span class="mono">${_waEscaparHtml(o.numero || ("OS " + o.id))}</span>
+          <span class="os-sub">${_orcFmtData(o.finalizada_em || o.criado_em)}${daBancada ? " · oficina" : ""}</span>
+        </td>
+        <td class="pro-cli">
+          <span class="pro-cli-nome">${predio}</span>
+          <span class="os-sub">${apoio}</span>
+        </td>
+        <td class="pro-obs-cell">${obs}</td>
+        <td class="pro-sit">
+          <span class="os-sit-linha"><span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span></span>
+          <span class="os-sub">${aberto ? "ninguém começou o orçamento" : _orcFmtValor(o.orcamento_valor)}</span>
+        </td>
+        <td class="pro-acao">${acao}${del}</td>
+      </tr>`;
   }).join("");
 
-  wrap.innerHTML = `
-    <div class="av-orc-pane-head">
-      <div class="av-orc-pane-title">${_waEscaparHtml(g.nome)}</div>
-      ${_avLinhaRazao(g)}
-      <div class="av-orc-pane-sub">${g.itens.length} ${g.itens.length === 1 ? "pedido" : "pedidos"}${
-        nSol ? ` · <b style="color:var(--accent)">${nSol} sem orçamento</b>` : ""}${
-        totalGrupo ? ` · ${_orcFmtValor(totalGrupo)}` : ""}</div>
-    </div>
-    <div class="av-orc-list">${linhas}</div>`;
+  listEl.innerHTML = `
+    <table class="orc-table pro-table">
+      <thead><tr>
+        <th style="width:130px">O.S.</th>
+        <th style="width:26%">Condomínio</th>
+        <th>Pedido do técnico</th>
+        <th style="width:190px">Situação</th>
+        <th style="width:170px"></th>
+      </tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>`;
 }
 
 /* ── Excluir o PEDIDO do técnico (03/09/2026) ────────────────────────
@@ -15586,12 +15561,10 @@ function _orcBindEventos() {
   document.getElementById("orcBusca")?.addEventListener("input", _orcRenderTudo);
   document.getElementById("orcFiltroCondo")?.addEventListener("change", _orcRenderTudo);
 
-  // Coluna esquerda: escolhe o CONDOMÍNIO. Mesma mecânica do `av-condo-row`.
-  document.getElementById("orcCondoList")?.addEventListener("click", e => {
-    const row = e.target.closest("[data-orc-condo]");
-    if (!row) return;
-    _orcCondoSel = row.dataset.orcCondo;
-    _orcRenderTudo();
+  // A frase-resumo leva à aba do que pede ação.
+  document.getElementById("orcKpiGrid")?.addEventListener("click", e => {
+    const ir = e.target.closest("[data-orc-ir-aba]");
+    if (ir) document.querySelector(`[data-orc-tab="${ir.dataset.orcIrAba}"]`)?.click();
   });
 
   // Painel: escolhe o PEDIDO e abre o documento.
@@ -15606,20 +15579,30 @@ function _orcBindEventos() {
   // O caminho já existia para o pedido da bancada (`_orcAbrirDaBancada`): a
   // lista de avulsos NÃO tem WHERE, então ela já contém os orçamentos nascidos
   // de O.S. Agora todo pedido segue por ele.
-  document.getElementById("orcPainel")?.addEventListener("click", e => {
-    // A lixeira vem ANTES: ela mora dentro da linha, e a linha inteira abre o
-    // documento. Sem este desvio, clicar em excluir também materializaria um
-    // orçamento antes de perguntar qualquer coisa.
-    const del = e.target.closest("[data-orc-del]");
-    if (del) { _orcExcluirPedido(Number(del.dataset.orcDel)); return; }
-    const item = e.target.closest(".av-orc-item[data-orc-fonte]");
-    if (!item) return;
+  const abrirPedido = (item) => {
     const orcId = Number(item.dataset.orcOrcid) || null;
     const osId  = Number(item.dataset.orcId) || null;
     // Já existe documento? Abre direto. É o caso de tudo que não é SOLICITADO,
     // e o único caso possível para o pedido da bancada (que não tem O.S.).
     if (orcId) { _orcAbrirDaBancada(orcId); return; }
     if (osId)  { _orcMaterializarEAbrir(osId); }
+  };
+  document.getElementById("orcCondoList")?.addEventListener("click", e => {
+    // A lixeira vem ANTES: ela mora dentro da linha, e a linha inteira abre o
+    // documento. Sem este desvio, clicar em excluir também materializaria um
+    // orçamento antes de perguntar qualquer coisa.
+    const del = e.target.closest("[data-orc-del]");
+    if (del) { _orcExcluirPedido(Number(del.dataset.orcDel)); return; }
+    // O nome do prédio abre a ficha dele, não o pedido.
+    const condo = e.target.closest("[data-orc-condo-link]");
+    if (condo) { abrirFichaCondominio(Number(condo.dataset.orcCondoLink), "orcamentos"); return; }
+    const item = e.target.closest("tr[data-orc-fonte]");
+    if (item) abrirPedido(item);
+  });
+  document.getElementById("orcCondoList")?.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || e.target.closest("button")) return;
+    const item = e.target.closest("tr[data-orc-fonte]");
+    if (item) abrirPedido(item);
   });
 
   // ⚠️ NÃO HÁ MAIS DELEGAÇÃO DE MODAL AQUI (02/09/2026). Esta aba tinha uma
@@ -17512,11 +17495,6 @@ async function _orcAbrirDaBancada(orcamentoId) {
       return;
     }
     _avSelecionado = alvo;
-    // ⚠️ O condomínio do avulso é selecionado junto: sem isto, fechar o modal
-    // devolveria a outra aba a um painel de condomínio nenhum.
-    _avCondoSel = alvo.condominio_id != null
-      ? `id:${alvo.condominio_id}`
-      : `nome:${alvo.condominio_nome || ""}`;
     _avRenderPainel();
   } catch (err) {
     alert("Erro ao abrir o orçamento: " + err.message);

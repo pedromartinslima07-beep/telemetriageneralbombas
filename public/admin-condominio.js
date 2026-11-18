@@ -748,7 +748,6 @@ document.addEventListener("DOMContentLoaded", () => {
         _avAcao("novo").then(() => {
           if (!_avSelecionado || _avSelecionado.id != null) return;
           _avSelecionado.condominio_id = _cfCondoId;
-          _avCondoSel = `id:${_cfCondoId}`;
           _avRenderPainel();
         });
         return;
