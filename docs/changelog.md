@@ -17919,3 +17919,38 @@ outros dois corrigidos:
   usava a razão social desde 14/09. `compromissoEmAberto` em
   `chamados.routes.js` passou a devolver o fantasia. 7/7.
 
+## Preventivas, Equipamentos e Notas fiscais no molde da O.S. (2026-11-18)
+
+Ver [redesenho-admin.md](modulos/redesenho-admin.md). `admin.js?v=391`,
+`admin.css?v=313`, `admin-carteira.js?v=4`, `admin-condominio.js?v=8`.
+
+- **"Planos" sai da tela**, a pedido do Pedro: a tela é **"Manutenção
+  preventiva"**, o item é "a preventiva do prédio" ("+ Nova preventiva",
+  "Sem preventiva", "Desativar preventiva", "Editar preventiva"), a ficha do
+  condomínio tem a aba "Contrato e preventiva". Só o texto: seção `planos`,
+  rota `/planos-manutencao` e tabela `planos_manutencao` ficam.
+- **Preventivas:** frase no lugar dos 4 cartões ("N prédios com preventiva ·
+  em <mês>: N por fazer, N em campo, N feitas · N atrasada", com atalho para
+  "sem responsável" e "prédios sem preventiva"); prédio como link para a ficha
+  (aba Contrato e preventiva); ordenar por Prédio, Este mês e Próxima **dentro
+  de cada zona**; a linha abre a preventiva (só onde o Editar aparece, a
+  mesma permissão); no celular, abas numa linha e a preventiva como cartão
+  (antes as abas empilhavam e a coluna Próxima saía cortada).
+- **Equipamentos:** abas no lugar do seletor de estado. ⚠️ O seletor "Na
+  oficina" filtrava só o estado `oficina` exato e escondia aguardando
+  orçamento, aguardando peça e em conserto; a aba junta a bancada inteira.
+  Frase com o parque e "N prontos para devolver →". 5 colunas viram 4
+  (Equipamento com código, tipo, série e lote; Condomínio como link e
+  "desde"; Situação com o defeito relatado; "Abrir ficha ↗"). Etiqueta em
+  branco vai para o fim (é estoque). Ordena pelo cabeçalho.
+- **Notas fiscais:** ganha cartão, título e frase ("N notas emitidas, R$ X ·
+  N processando", atalho para "com erro" ou "aprovados sem nota"); 6 colunas
+  viram 4 (Nota com tipo e data; Prédio e orçamento, com link; Situação com o
+  erro do Omie; Valor); ordena pelo cabeçalho; a linha abre a página do
+  orçamento.
+- `planos-tela.test.js` ganhou o ordenador como identidade no ambiente que ele
+  monta (24/24).
+- Banco de teste: apagadas as sobras de `preventivas-mes.test.js` de 03 e
+  04/09 (zonas "ZTeste…", 8 prédios "COND A–D", 8 planos, 17 chamados, 2
+  técnicos), que apareciam na tela de Preventivas.
+

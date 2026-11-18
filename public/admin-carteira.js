@@ -201,11 +201,12 @@ function renderNotas() {
   const root = document.getElementById("nfRoot");
   if (!root) return;
   const { comNota, semNota } = _nfLinhas();
+  const conta = (st) => comNota.filter(o => o.nota_status === st).length;
   const abas = [
     ["todas", "Emitidas e em andamento", comNota.length],
-    ["emitida", "Emitidas", comNota.filter(o => o.nota_status === "emitida").length],
-    ["processando", "Processando", comNota.filter(o => o.nota_status === "processando").length],
-    ["erro", "Com erro", comNota.filter(o => o.nota_status === "erro").length],
+    ["emitida", "Emitidas", conta("emitida")],
+    ["processando", "Processando", conta("processando")],
+    ["erro", "Com erro", conta("erro")],
     ["sem", "Aprovados sem nota", semNota.length],
   ];
   let lista = _nfAba === "sem" ? semNota : _nfAba === "todas" ? comNota : comNota.filter(o => o.nota_status === _nfAba);
@@ -214,34 +215,76 @@ function renderNotas() {
     lista = lista.filter(o => [o.nota_numero, o.numero, _icNomeCondo(o.condominio_id, o.condominio_nome || o.cliente_nome)]
       .some(v => String(v || "").toLowerCase().includes(q)));
   }
-  lista = [...lista].sort((a, b) => new Date(b.nota_emitida_em || b.nota_solicitada_em || b.respondido_em || b.criado_em) -
-                                     new Date(a.nota_emitida_em || a.nota_solicitada_em || a.respondido_em || a.criado_em));
+  const quandoDe = (o) => o.nota_emitida_em || o.nota_solicitada_em || o.respondido_em || o.criado_em;
+  lista = [...lista].sort((a, b) => new Date(quandoDe(b)) - new Date(quandoDe(a)));
+  // Ordem pela coluna (ver _ordenar em admin.js). Situação: erro primeiro.
+  const rank = { erro: 0, processando: 1, emitida: 3, cancelada: 4 };
+  lista = _ordenar("notas", lista, {
+    nota:     o => _ordemData(quandoDe(o)),
+    predio:   o => _icNomeCondo(o.condominio_id, o.condominio_nome || o.cliente_nome) || null,
+    situacao: o => o.nota_status ? (rank[o.nota_status] ?? 5) : 2,
+    valor:    o => Number(o.nota_valor || o.valor_total) || 0,
+  });
 
-  const stTxt = { processando: ["Processando", "atencao"], emitida: ["Emitida", "ok"], erro: ["Erro", "risco"], cancelada: ["Cancelada", "neutro"] };
+  // ⚠️ A FRASE (molde da O.S., 18/11/2026). Esta tela não tinha resumo
+  // nenhum. Erro do Omie ganha de "sem nota" no atalho: é nota que alguém
+  // pediu e não saiu.
+  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+  const emitidas = comNota.filter(o => o.nota_status === "emitida");
+  const faturado = emitidas.reduce((s, o) => s + (Number(o.nota_valor || o.valor_total) || 0), 0);
+  const partes = [
+    emitidas.length ? `${pl(emitidas.length, "nota emitida", "notas emitidas")}, ${_cfMoeda(faturado)}` : "Nenhuma nota emitida",
+    conta("processando") ? `${conta("processando")} processando` : "",
+  ].filter(Boolean).join(" · ");
+  const acao = conta("erro")
+    ? `<button type="button" class="os-resumo-acao" data-nf-aba="erro">${pl(conta("erro"), "nota com erro", "notas com erro")} →</button>`
+    : semNota.length
+      ? `<button type="button" class="os-resumo-acao" data-nf-aba="sem">${pl(semNota.length, "orçamento aprovado", "orçamentos aprovados")} sem nota →</button>`
+      : "";
+
+  const stTxt = { processando: ["Processando", "atencao"], emitida: ["Emitida", "ok"], erro: ["Erro na emissão", "risco"], cancelada: ["Cancelada", "neutro"] };
   const linhas = lista.map(o => {
     const [t, tom] = o.nota_status ? (stTxt[o.nota_status] || [o.nota_status, "neutro"]) : ["Sem nota", "neutro"];
     const quando = o.nota_emitida_em || o.nota_solicitada_em || o.respondido_em;
-    return `<tr class="cf-linha" data-ic-orc="${o.id}" tabindex="0">
-      <td class="cf-num">${_cfEsc(o.nota_numero || "—")}</td>
-      <td>${o.nota_status ? (o.nota_tipo === "nfe" ? "DANFE" : "NFS-e") : "—"}</td>
-      <td><div class="cf-l1">${_cfEsc(_icNomeCondo(o.condominio_id, o.condominio_nome || o.cliente_nome))}</div>
-        <div class="cf-l2">${_cfEsc(o.numero || "")}</div></td>
-      <td>${_cfSelo(t, tom)}${o.nota_status === "erro" && o.nota_erro ? `<div class="cf-l2 is-atencao">${_cfEsc(o.nota_erro)}</div>` : ""}</td>
-      <td class="cf-num">${_cfMoeda(o.nota_valor || o.valor_total)}</td>
-      <td>${_cfData(quando)}</td>
+    const tipo = o.nota_status ? (o.nota_tipo === "nfe" ? "DANFE" : "NFS-e") : "";
+    const nome = _icNomeCondo(o.condominio_id, o.condominio_nome || o.cliente_nome);
+    const predio = o.condominio_id
+      ? `<button type="button" class="os-link" data-ic-condo="${o.condominio_id}" data-ic-aba="notas" title="Abrir a ficha do condomínio">${_cfEsc(nome || "—")}</button>`
+      : _cfEsc(nome || "—");
+    const sub = o.nota_status === "erro" && o.nota_erro
+      ? `<span class="os-sub os-sub-atencao">${_cfEsc(o.nota_erro)}</span>`
+      : !o.nota_status && o.respondido_em ? `<span class="os-sub">aprovado em ${_cfData(o.respondido_em)}</span>` : "";
+    return `<tr class="pro-row" data-ic-orc="${o.id}" tabindex="0">
+      <td class="pro-id"><span class="mono">${_cfEsc(o.nota_numero || "—")}</span>
+        <span class="os-sub">${o.nota_status ? [tipo, quando ? _cfData(quando) : ""].filter(Boolean).join(" · ") : ""}</span></td>
+      <td class="pro-cli"><span class="pro-cli-nome">${predio}</span>
+        <span class="os-sub">${_cfEsc(o.numero || "")}</span></td>
+      <td class="pro-sit"><span class="os-sit-linha">${_cfSelo(t, tom)}</span>${sub}</td>
+      <td class="pro-val">${_cfMoeda(o.nota_valor || o.valor_total)}</td>
     </tr>`;
   });
 
   root.innerHTML = `
-    <div class="nf-barra">
-      <div class="wa-tabs" role="tablist">${abas.map(([id, rot, n]) =>
-        `<button class="wa-tab${id === _nfAba ? " is-active" : ""}" role="tab" aria-selected="${id === _nfAba}" data-nf-aba="${id}">${rot}${n ? ` <span class="wa-count">${n}</span>` : ""}</button>`).join("")}</div>
-      <input type="search" class="nf-busca" id="nfBusca" placeholder="Buscar nota, orçamento ou prédio…" value="${_cfEsc(_nfBusca)}" aria-label="Buscar nota fiscal">
-    </div>
-    ${lista.length
-      ? _cfTabela([{ t: "Nº da nota", num: true }, { t: "Tipo" }, { t: "Prédio e orçamento" }, { t: "Situação" }, { t: "Valor", num: true }, { t: "Data" }], linhas)
-      : `<div class="cf-vazio"><p>${q ? "Nada encontrado com essa busca." : _nfAba === "sem" ? "Todo orçamento aprovado já tem nota." : "Nenhuma nota nesta situação."}</p></div>`}
-    <p class="cf-nota">A nota é emitida e acompanhada pela ficha do orçamento. Clique na linha para abrir.</p>`;
+    <section class="card nf-card">
+      <div class="cardHead"><h3>Notas fiscais</h3></div>
+      <p class="os-resumo nf-resumo"><span>${partes}.</span>${acao ? " " + acao : ""}</p>
+      <div class="nf-barra">
+        <div class="wa-tabs" role="tablist">${abas.map(([id, rot, n]) =>
+          `<button class="wa-tab${id === _nfAba ? " is-active" : ""}" role="tab" aria-selected="${id === _nfAba}" data-nf-aba="${id}">${rot}${n ? ` <span class="wa-count">${n}</span>` : ""}</button>`).join("")}</div>
+        <input type="search" class="input nf-busca" id="nfBusca" placeholder="Buscar nota, orçamento ou prédio…" value="${_cfEsc(_nfBusca)}" aria-label="Buscar nota fiscal">
+      </div>
+      ${lista.length
+        ? `<div class="tableWrap"><table class="orc-table pro-table">
+            <thead><tr>
+              ${_ordemTh("notas", "nota", "Nota", { padrao: "desc", style: "width:170px" })}
+              ${_ordemTh("notas", "predio", "Prédio e orçamento")}
+              ${_ordemTh("notas", "situacao", "Situação", { style: "width:300px" })}
+              ${_ordemTh("notas", "valor", "Valor", { padrao: "desc", cls: "pro-val", style: "width:140px" })}
+            </tr></thead>
+            <tbody>${linhas.join("")}</tbody></table></div>`
+        : `<div class="cf-vazio"><p>${q ? "Nada encontrado com essa busca." : _nfAba === "sem" ? "Todo orçamento aprovado já tem nota." : "Nenhuma nota nesta situação."}</p></div>`}
+      <p class="cf-nota nf-rodape">A nota é emitida e acompanhada na página do orçamento. Clique na linha para abrir.</p>
+    </section>`;
 }
 
 // ===== CLIQUES =====
@@ -264,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!sec) continue;
     sec.addEventListener("click", agir);
     sec.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && e.target.matches?.(".cf-linha")) { e.preventDefault(); agir(e); }
+      if (e.key === "Enter" && e.target.matches?.(".cf-linha, .pro-row")) { e.preventDefault(); agir(e); }
     });
   }
   document.querySelector('.section[data-section="notas"]')?.addEventListener("input", (e) => {

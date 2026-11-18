@@ -11839,3 +11839,79 @@ a.os-link { color: var(--text); }
 .ord-btn.is-asc .ord-seta, .ord-btn.is-desc .ord-seta { opacity: 1; }
 .ord-btn.is-desc .ord-seta::before { content: "▼"; }
 .pro-val .ord-btn { flex-direction: row-reverse; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PREVENTIVAS NO MOLDE DA O.S. (18/11/2026)
+   Continua cadastro E acompanhamento do mês (decisão de 04/09); entram a
+   frase no lugar dos 4 cartões, o prédio como link para a ficha, a ordem pela
+   coluna (dentro de cada zona) e, no celular, abas numa linha e o plano como
+   cartão. Tudo escopado em [data-section="planos"].
+   ════════════════════════════════════════════════════════════════════════ */
+[data-section="planos"] .pm-resumo { padding: 0 18px 12px; }
+.pm-resumo-atraso { color: var(--danger-t, var(--danger)); font-weight: 700; }
+[data-section="planos"] .pm-predio .os-link { font-weight: 700; color: var(--text); }
+
+@media (max-width: 640px) {
+  [data-section="planos"] .al-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  [data-section="planos"] .al-toolbar .wa-tabs {
+    flex-direction: row; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    width: 100%;
+  }
+  [data-section="planos"] .al-toolbar .wa-tabs .wa-tab { flex: 0 0 auto; white-space: nowrap; }
+  [data-section="planos"] .al-filters, [data-section="planos"] #pmBusca { width: 100%; }
+
+  [data-section="planos"] table, [data-section="planos"] tbody { display: block; width: 100%; min-width: 0; }
+  [data-section="planos"] thead { display: none; }
+  [data-section="planos"] tr.pm-zona-row { display: block; }
+  [data-section="planos"] tr.pm-zona-row td { display: block; }
+  [data-section="planos"] tr.pm-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    grid-template-areas: "chk predio acoes" "chk mes mes" "chk prox prox";
+    gap: 8px 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  [data-section="planos"] tr.pm-row td { display: block; padding: 0 !important; border: 0 !important; }
+  [data-section="planos"] tr.pm-row td:nth-child(1) { grid-area: chk; }
+  [data-section="planos"] tr.pm-row td:nth-child(2) { grid-area: predio; min-width: 0; }
+  [data-section="planos"] tr.pm-row td:nth-child(3) { grid-area: mes; }
+  [data-section="planos"] tr.pm-row td:nth-child(4) { grid-area: prox; display: flex !important; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  [data-section="planos"] tr.pm-row td:nth-child(5) { grid-area: acoes; align-self: start; }
+  [data-section="planos"] tr.pm-row.is-atrasada { box-shadow: inset 3px 0 0 var(--danger); }
+}
+/* A linha abre a preventiva (ver o handler de #pmTableBody). Só onde há o
+   Editar: operador e visualizador não têm cursor de clique. */
+[data-section="planos"] tr.pm-row:not(.is-sem-plano) { cursor: pointer; }
+[data-section="planos"] tr.pm-row:not(.is-sem-plano):hover td { background: rgba(6,16,51,.035); }
+body.role-operador [data-section="planos"] tr.pm-row,
+body.role-admin_viewer [data-section="planos"] tr.pm-row { cursor: default; }
+
+/* ── EQUIPAMENTOS NO MOLDE DA O.S. (18/11/2026) ─────────────────────────── */
+[data-section="equipamentos"] .eq-resumo { padding: 0 18px 12px; }
+.eq-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 0 16px 12px;
+}
+.eq-toolbar .wa-tabs { flex: 1 1 auto; min-width: 0; margin-top: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.eq-toolbar .wa-tabs .wa-tab { flex: 0 0 auto; white-space: nowrap; }
+.eq-toolbar #eqBusca { width: 240px; }
+[data-section="equipamentos"] .pro-cli .mono { font-size: 11.5px; color: var(--text); }
+[data-section="equipamentos"] tr.is-livre .pro-cli-nome { font-weight: 500; }
+[data-section="equipamentos"] td .os-link { font-weight: 600; color: var(--text); }
+[data-section="equipamentos"] .os-sub { white-space: normal; }
+@media (max-width: 640px) {
+  .eq-toolbar #eqBusca { width: 100%; }
+  [data-section="equipamentos"] .cardHead { flex-wrap: wrap; gap: 8px; }
+}
+
+/* ── NOTAS FISCAIS NO MOLDE DA O.S. (18/11/2026) ────────────────────────── */
+.nf-card { padding: 0; }
+.nf-card .nf-resumo { padding: 0 18px 12px; }
+.nf-card .nf-barra { padding: 0 16px 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.nf-card .nf-barra .wa-tabs { margin-top: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.nf-card .nf-barra .wa-tab { flex: 0 0 auto; white-space: nowrap; }
+.nf-card .nf-busca { width: 280px; }
+.nf-card .cf-vazio { padding: 24px 18px; }
+.nf-card .nf-rodape { padding: 10px 18px 14px; margin: 0; }
+@media (max-width: 640px) { .nf-card .nf-busca { width: 100%; } }

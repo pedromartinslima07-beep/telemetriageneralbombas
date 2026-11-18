@@ -142,7 +142,7 @@ const _sectionTitles = {
   contratos:        "Contratos",
   cadastros:        "Clientes",
   tecnicos:         "Colaboradores",
-  planos:           "Planos de manutenção",
+  planos:           "Manutenção preventiva",
   equipamentos:     "Equipamentos",
   relatorios:       "Relatórios",
   config:           "Configurações",
@@ -16126,26 +16126,28 @@ function _pmRenderTudo() {
   const inativos  = _pmData.filter(p => !p.ativo).length;
   const semPlano  = _pmSemPlano.length;
 
-  // KPIs
-  const ICO_CAL  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-  const ICO_X    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
-  const ICO_CLK  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-  const ICO_OK   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
-
-  const kpi = (ico, val, label, cls) => kpiCard(ico, val, label, cls);
-
-  // ⚠️ OS QUATRO NÚMEROS RESPONDEM O MÊS E A COBERTURA (04/09/2026). Antes
-  // eram Planos ativos · Vencidos · Este mês · Em dia — três deles sobre a
-  // DATA do plano, e nenhum sobre o trabalho. "Falta fazer" é a soma do que
-  // ninguém entregou ainda; "Sem plano" é o buraco de cobertura, que a tela
-  // nunca mostrou.
+  // ⚠️ OS QUATRO CARTÕES VIRARAM UMA FRASE (molde da O.S., 18/11/2026). Os
+  // números são os mesmos de 04/09 (planos ativos, falta fazer, atrasadas,
+  // prédios sem plano), mais o andamento do mês que só as abas contavam. O
+  // que pede ação vira atalho para a aba: escalar quem está sem responsável,
+  // e criar plano para quem está de fora.
   const faltaFazer = semDono + comDono;
+  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
   const grid = document.getElementById("pmKpiGrid");
-  if (grid) grid.innerHTML =
-    kpi(ICO_CAL, ativos.length, "Planos ativos", "rc-neutral") +
-    kpi(ICO_CLK, faltaFazer,    "Falta fazer",   faltaFazer > 0 ? "rc-warn" : "rc-ok") +
-    kpi(ICO_X,   atrasadas,     "Atrasadas",     atrasadas > 0  ? "rc-bad"  : "rc-neutral") +
-    kpi(ICO_OK,  semPlano,      "Prédios sem plano", semPlano > 0 ? "rc-warn" : "rc-ok");
+  if (grid) {
+    const mesTxt = _pmMesPorExtenso(_pmMes || _pmMesCorrente());
+    const partes = [
+      pl(ativos.length, "prédio com preventiva", "prédios com preventiva"),
+      `em ${mesTxt}: ${faltaFazer ? `${faltaFazer} por fazer` : "nada por fazer"}${
+        emCampo ? `, ${emCampo} em campo` : ""}${feitas ? `, ${pl(feitas, "feita", "feitas")}` : ""}`,
+      atrasadas ? `<span class="pm-resumo-atraso">${pl(atrasadas, "atrasada", "atrasadas")}</span>` : "",
+    ].filter(Boolean).join(" · ");
+    const acoes = [
+      semDono ? `<button type="button" class="os-resumo-acao" data-pm-ir-aba="sem-dono">${pl(semDono, "sem responsável", "sem responsável")} →</button>` : "",
+      semPlano ? `<button type="button" class="os-resumo-acao" data-pm-ir-aba="sem-plano">${pl(semPlano, "prédio sem preventiva", "prédios sem preventiva")} →</button>` : "",
+    ].filter(Boolean).join(" ");
+    grid.innerHTML = `<span>${partes}.</span>${acoes ? " " + acoes : ""}`;
+  }
 
   // O mês que a tela está mostrando, e o atalho de volta.
   const rot = document.getElementById("pmMesRot");
@@ -16165,8 +16167,16 @@ function _pmRenderTudo() {
   set("pmCtSemPlano", semPlano);
   set("pmCtInativos", inativos);
 
-  // Tabela
-  const lista = _pmFiltrados();
+  // Tabela. A ordem pela coluna (ver _ordenar) vale DENTRO de cada zona: a
+  // zona é o roteiro do técnico e continua agrupando; o Map do agrupamento
+  // guarda a ordem de inserção, então ordenar antes basta.
+  const _pmRank = { "sem-dono": 0, "com-dono": 1, "em-campo": 2, "feitas": 3 };
+  const lista = _ordenar("planos", _pmFiltrados(), {
+    predio:  p => p.condominio_nome || null,
+    mes:     p => p.ativo ? (_pmRank[_pmBaldeDoMes(p)] ?? 4) : 5,
+    proxima: p => _ordemData(p.proxima_em),
+  });
+  _ordemMarcar("planos");
   const tbody = document.getElementById("pmTableBody");
   const empty = document.getElementById("pmEmpty");
   if (!tbody) return;
@@ -16181,8 +16191,8 @@ function _pmRenderTudo() {
       // O vazio precisa dizer QUAL vazio é: "nenhum plano" numa aba filtrada
       // manda criar plano quando o que falta é limpar o filtro.
       empty.querySelector("p").textContent = _pmTabAtiva === "todos"
-        ? 'Nenhum plano. Clique em "+ Novo plano".'
-        : "Nenhum plano nesta situação agora.";
+        ? 'Nenhuma preventiva cadastrada. Clique em "+ Nova preventiva".'
+        : "Nenhuma preventiva nesta situação agora.";
       empty.style.display = "flex";
     }
     return;
@@ -16292,7 +16302,9 @@ function _pmRenderTudo() {
       <td><input type="checkbox" class="pm-chk viewer-only-hide" data-pm-chk="${p.id}" ${_pmSelecionados.has(p.id) ? "checked" : ""}></td>
       <td>
         <div class="pm-predio">
-          ${_waEscaparHtml(p.condominio_nome || "—")}
+          ${p.condominio_id
+            ? `<button type="button" class="os-link" data-pm-condo-link="${p.condominio_id}" title="Abrir a ficha do condomínio">${_waEscaparHtml(p.condominio_nome || "—")}</button>`
+            : _waEscaparHtml(p.condominio_nome || "—")}
           ${perio}${titulo}
           ${p.ativo ? "" : `<span class="pm-pill-off">inativo</span>`}
           ${_pmAtrasada(p) ? `<span class="pm-pill-atraso">atrasada</span>` : ""}
@@ -16319,7 +16331,7 @@ function _pmRenderTudo() {
               <button type="button" role="menuitem" data-pm-action="executar" data-pm-id="${p.id}">Gerar chamado agora</button>
               <button type="button" role="menuitem" data-pm-action="despachar" data-pm-id="${p.id}">Escalar técnico do mês</button>
               <button type="button" role="menuitem" class="is-danger" data-pm-action="excluir" data-pm-id="${p.id}">${
-                p.ativo ? "Desativar plano" : "Reativar plano"}</button>
+                p.ativo ? "Desativar preventiva" : "Reativar preventiva"}</button>
             </div>` : ""}
           </div>
         </div>
@@ -16334,14 +16346,14 @@ function _pmRenderTudo() {
     <tr class="pm-row is-sem-plano">
       <td></td>
       <td>
-        <div class="pm-predio">${_waEscaparHtml(c.nome || "—")}</div>
+        <div class="pm-predio"><button type="button" class="os-link" data-pm-condo-link="${c.id}" title="Abrir a ficha do condomínio">${_waEscaparHtml(c.nome || "—")}</button></div>
         <div class="pm-plano-sub">${_waEscaparHtml([c.bairro, c.zona].filter(Boolean).join(" · ") || "sem zona")}</div>
       </td>
       <td class="pm-mes"><span class="pm-selo" data-e="sem">Sem preventiva</span></td>
       <td><div class="pm-prox-delta is-off">—</div></td>
       <td>
         <div class="pm-acoes viewer-only-hide">
-          <button class="btn btn-sm btnAccent" data-pm-action="criar-para" data-pm-condo="${c.id}">Criar plano</button>
+          <button class="btn btn-sm btnAccent" data-pm-action="criar-para" data-pm-condo="${c.id}">Criar preventiva</button>
         </div>
       </td>
     </tr>`;
@@ -16360,7 +16372,7 @@ function _pmRenderTudo() {
   if (_pmTabAtiva === "sem-plano") {
     const fora = _pmSemPlanoFiltrados();
     if (empty) {
-      empty.querySelector("p").textContent = "Todos os prédios ativos têm plano de manutenção.";
+      empty.querySelector("p").textContent = "Todos os prédios ativos têm manutenção preventiva.";
       empty.style.display = fora.length ? "none" : "flex";
     }
     tbody.innerHTML = fora.map(linhaSemPlano).join("");
@@ -16533,14 +16545,14 @@ async function _pmBulkPatch(campos) {
     body: JSON.stringify({ ids, ...campos }),
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || "Erro ao atualizar planos");
+  if (!r.ok) throw new Error(j.error || "Erro ao atualizar as preventivas");
   return true;
 }
 
 async function _pmAcaoBulk(ativo) {
   const ids = [..._pmSelecionados];
   if (!ids.length) return;
-  if (!confirm(`${ativo ? "Ativar" : "Desativar"} ${ids.length} plano${ids.length === 1 ? "" : "s"}?`)) return;
+  if (!confirm(`${ativo ? "Ativar" : "Desativar"} ${ids.length} preventiva${ids.length === 1 ? "" : "s"}?`)) return;
 
   const btn = document.getElementById(ativo ? "pmBulkAtivar" : "pmBulkDesativar");
   if (btn) { btn.disabled = true; btn.textContent = "Aguarde…"; }
@@ -16563,7 +16575,7 @@ function _pmAbrirModalBulk() {
   if (!selecionados.length) return;
 
   const n = selecionados.length;
-  document.getElementById("pmModalTitulo").textContent = `Editar ${n} plano${n === 1 ? "" : "s"}`;
+  document.getElementById("pmModalTitulo").textContent = `Editar ${n} preventiva${n === 1 ? "" : "s"}`;
   document.getElementById("pmModalSubtitulo").textContent = "Só os campos alterados são aplicados; o resto continua como está";
 
   const periodOpts = PM_PERIOD_PRESETS.map(p =>
@@ -16585,7 +16597,7 @@ function _pmAbrirModalBulk() {
     <div style="display:flex;flex-direction:column;gap:12px;">
 
       <div style="padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:var(--muted);line-height:1.5;">
-        <strong style="color:var(--text);">${n} plano${n === 1 ? "" : "s"}</strong> em ${_waEscaparHtml(resumoCondos)}<br>
+        <strong style="color:var(--text);">${n} preventiva${n === 1 ? "" : "s"}</strong> em ${_waEscaparHtml(resumoCondos)}<br>
         Periodicidade atual: ${_waEscaparHtml(periodResumo)}
       </div>
 
@@ -16702,8 +16714,8 @@ function _pmAtualizarBadge() {
 async function _pmAbrirModal(plano, condoPre) {
   await _pmCarregarCondos();
   const isEdit = !!plano;
-  document.getElementById("pmModalTitulo").textContent = isEdit ? "Editar plano" : "Novo plano";
-  document.getElementById("pmModalSubtitulo").textContent = isEdit ? "Atualize os dados do plano de manutenção" : "Preencha os dados para criar um plano de manutenção";
+  document.getElementById("pmModalTitulo").textContent = isEdit ? "Editar preventiva" : "Nova preventiva";
+  document.getElementById("pmModalSubtitulo").textContent = isEdit ? "Atualize a manutenção preventiva deste prédio" : "Defina a manutenção preventiva de um prédio";
 
   const condoOpts = _pmCondosCache.map(c =>
     `<option value="${c.id}" ${(plano?.condominio_id ?? condoPre) === c.id ? "selected" : ""}>${_waEscaparHtml(c.nome)}</option>`
@@ -16763,7 +16775,7 @@ async function _pmAbrirModal(plano, condoPre) {
 
       ${isEdit ? `
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);">
-        <input id="pmFAtivo" type="checkbox" ${plano.ativo ? "checked" : ""}> Plano ativo
+        <input id="pmFAtivo" type="checkbox" ${plano.ativo ? "checked" : ""}> Preventiva ativa
       </label>` : ""}
 
       <div id="pmFErr" style="font-size:11px;color:var(--danger);min-height:14px;"></div>
@@ -16781,7 +16793,7 @@ async function _pmAbrirModal(plano, condoPre) {
     footer.innerHTML = `
       <div class="modalFoot-actions">
         <button class="btn btn-sm" id="pmFCancelar" type="button">Cancelar</button>
-        <button class="btn btnAccent btn-sm" id="pmFSalvar" type="button">${isEdit ? "Salvar alterações" : "Criar plano"}</button>
+        <button class="btn btnAccent btn-sm" id="pmFSalvar" type="button">${isEdit ? "Salvar alterações" : "Criar preventiva"}</button>
       </div>
     `;
   }
@@ -16889,7 +16901,7 @@ async function _pmAcao(acao, id) {
     return;
   }
   if (acao === "excluir") {
-    if (!confirm(`Desativar o plano "${plano?.titulo}"? Ele não vai mais gerar chamados automáticos.`)) return;
+    if (!confirm(`Desativar a preventiva de "${plano?.condominio_nome || plano?.titulo}"? Ela não vai mais gerar chamados automáticos.`)) return;
     try {
       const r = await fetch(`/planos-manutencao/${id}`, { method: "DELETE", headers: authHeaders() });
       if (!r.ok) { alert("Erro ao desativar"); return; }
@@ -16923,7 +16935,7 @@ Gerar mesmo assim?`
       const r = await fetch(`/planos-manutencao/${id}/executar-agora`, { method: "POST", headers: authHeaders() });
       const j = await r.json();
       if (!r.ok) { alert(j.error || "Erro ao executar"); return; }
-      if (j.duplicado) alert(`Esse plano já tem o chamado #${j.chamado_id} em andamento.`);
+      if (j.duplicado) alert(`Essa preventiva já tem o chamado #${j.chamado_id} em andamento.`);
       else             alert(`Chamado #${j.chamado_id} criado.`);
       await carregarPlanos();
     } catch (e) { alert(e.message); }
@@ -17029,7 +17041,15 @@ function _pmBindEventos() {
   document.getElementById("pmBusca")?.addEventListener("input", _pmRenderTudo);
   document.getElementById("pmBtnNovo")?.addEventListener("click", () => _pmAbrirModal(null));
 
+  // A frase-resumo leva à aba do que pede ação.
+  document.getElementById("pmKpiGrid")?.addEventListener("click", (e) => {
+    const ir = e.target.closest("[data-pm-ir-aba]");
+    if (ir) document.querySelector(`[data-pm-tab="${ir.dataset.pmIrAba}"]`)?.click();
+  });
   document.getElementById("pmTableBody")?.addEventListener("click", (e) => {
+    // O nome do prédio abre a ficha dele, na aba do contrato e do plano.
+    const condoLink = e.target.closest("[data-pm-condo-link]");
+    if (condoLink) { abrirFichaCondominio(Number(condoLink.dataset.pmCondoLink), "contrato"); return; }
     // "Criar plano" na linha do prédio SEM plano — abre o modal já com o
     // condomínio escolhido. É a única ação da tabela que cria em vez de editar.
     const criar = e.target.closest("[data-pm-action='criar-para']");
@@ -17074,7 +17094,19 @@ function _pmBindEventos() {
       const ids = [...document.querySelectorAll("[data-pm-zona-tec]:checked")]
         .map(el => Number(el.dataset.pmZonaTec));
       _pmSalvarZona(acaoZona.dataset.pmZona, ids, acaoZona);
+      return;
     }
+
+    // ⚠️ A LINHA ABRE A PREVENTIVA (18/11/2026), como a linha da O.S., do
+    // chamado e do orçamento. Antes só o botão Editar abria. Caixa de
+    // seleção, link, botão e menu ficaram com o deles (todos saem acima ou
+    // são ignorados aqui). Abre só quando o Editar da linha está à vista:
+    // a mesma permissão de antes, sem regra nova (operador e visualizador
+    // não veem o botão, então a linha não abre para eles).
+    if (e.target.closest("input, button, a, .pm-menu-wrap")) return;
+    const linha = e.target.closest("tr.pm-row[data-pm-id]");
+    const editarVisivel = linha?.querySelector('[data-pm-action="editar"]')?.offsetParent;
+    if (linha && editarVisivel) _pmAcao("editar", Number(linha.dataset.pmId));
   });
 
   document.getElementById("pmTableBody")?.addEventListener("change", (e) => {
@@ -17344,13 +17376,41 @@ function _eqFormatarCodigo(c) {
   return s.length === 8 ? `${s.slice(0, 4)}-${s.slice(4)}` : s;
 }
 
+// ⚠️ AS ABAS AGRUPAM ESTADOS (molde da O.S., 18/11/2026). Era um seletor
+// que filtrava UM estado no servidor, e "Na oficina" só achava o estado
+// `oficina` exato: aguardando orçamento, aguardando peça e em conserto
+// (tudo bancada) sumiam dele. Agora a lista vem inteira (a busca continua no
+// servidor) e a aba agrupa como quem trabalha pensa.
+const _EQ_ABAS = {
+  todos:     null,
+  instalado: ["instalado", "devolvido"],
+  bancada:   ["oficina", "aguardando_orcamento", "aguardando_peca", "em_conserto"],
+  pronto:    ["pronto"],
+  livre:     ["etiqueta_livre"],
+  baixado:   ["baixado"],
+};
+// Ordem de trabalho: o que pede ação primeiro, etiqueta em branco (estoque,
+// não equipamento) e baixado no fim.
+const _EQ_RANK = { pronto: 0, oficina: 1, aguardando_orcamento: 1, aguardando_peca: 1, em_conserto: 1,
+                   instalado: 2, devolvido: 3, etiqueta_livre: 4, baixado: 5 };
+let _eqAba = "todos";
+
+function _eqNome(eq) {
+  return eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ")
+      || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "");
+}
+
+function _eqDataCurta(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
 async function _eqCarregar() {
   const busca  = document.getElementById("eqBusca")?.value.trim();
-  const status = document.getElementById("eqFiltroStatus")?.value;
-
   const qs = new URLSearchParams();
-  if (busca)  qs.set("q", busca);
-  if (status) qs.set("status", status);
+  if (busca) qs.set("q", busca);
+  qs.set("limit", "500");
 
   const tbody = document.getElementById("eqTableBody");
   if (!tbody) return;
@@ -17361,30 +17421,92 @@ async function _eqCarregar() {
     if (!r.ok) throw new Error(dados.error || "Erro ao listar equipamentos");
     _eqDados = dados;
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">${_eqEsc(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">${_eqEsc(e.message)}</td></tr>`;
+    return;
+  }
+  _eqRender();
+  _eqPreencherLotes();
+}
+
+function _eqRender() {
+  const tbody = document.getElementById("eqTableBody");
+  if (!tbody) return;
+  const naAba = (aba) => (eq) => !_EQ_ABAS[aba] || _EQ_ABAS[aba].includes(eq.status);
+  const conta = (aba) => _eqDados.filter(naAba(aba)).length;
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set("eqCtTodos", _eqDados.length);
+  set("eqCtInstalado", conta("instalado"));
+  set("eqCtBancada", conta("bancada"));
+  set("eqCtPronto", conta("pronto"));
+  set("eqCtLivre", conta("livre"));
+  set("eqCtBaixado", conta("baixado"));
+
+  // A frase: o parque e o que pede ação (devolver o que está pronto; depois,
+  // o que está parado na bancada).
+  const res = document.getElementById("eqResumo");
+  if (res) {
+    const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+    const equip = _eqDados.length - conta("livre");
+    const partes = [
+      pl(equip, "equipamento", "equipamentos"),
+      conta("instalado") ? `${conta("instalado")} no condomínio` : "",
+      conta("bancada") ? `${conta("bancada")} na oficina` : "",
+      conta("livre") ? pl(conta("livre"), "etiqueta em branco", "etiquetas em branco") : "",
+    ].filter(Boolean).join(" · ");
+    const acao = conta("pronto")
+      ? ` <button type="button" class="os-resumo-acao" data-eq-ir-aba="pronto">${pl(conta("pronto"), "pronto", "prontos")} para devolver →</button>`
+      : "";
+    res.innerHTML = `<span>${partes}.</span>${acao}`;
+  }
+
+  const filtrados = _eqDados.filter(naAba(_eqAba))
+    .map((eq, i) => [eq, i])
+    .sort((a, b) => (_EQ_RANK[a[0].status] ?? 9) - (_EQ_RANK[b[0].status] ?? 9) || a[1] - b[1])
+    .map(p => p[0]);
+  const lista = _ordenar("equipamentos", filtrados, {
+    equip:    eq => _eqNome(eq) || null,
+    condo:    eq => eq.condominio_nome || null,
+    situacao: eq => _EQ_RANK[eq.status] ?? 9,
+  });
+  _ordemMarcar("equipamentos");
+
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">${_eqDados.length
+      ? "Nenhum equipamento nesta situação."
+      : "Nenhum equipamento etiquetado ainda. Comece gerando um lote de etiquetas."}</td></tr>`;
     return;
   }
 
-  if (!_eqDados.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">
-      Nenhum equipamento etiquetado ainda. Comece gerando um lote de etiquetas.
-    </td></tr>`;
-  } else {
-    tbody.innerHTML = _eqDados.map(eq => {
-      const [label, cls] = _EQ_STATUS_LABEL[eq.status] || [eq.status, ""];
-      const nome = eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ")
-                 || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "—");
-      return `<tr data-eq-codigo="${_eqEsc(eq.codigo)}" style="cursor:pointer;">
-        <td class="mono">${_eqFormatarCodigo(eq.codigo)}</td>
-        <td>${_eqEsc(nome)}</td>
-        <td>${_eqEsc(eq.condominio_nome || "—")}</td>
-        <td><span class="badge ${cls}">${_eqEsc(label)}</span></td>
-        <td class="muted">${_eqEsc(eq.lote || "—")}</td>
-      </tr>`;
-    }).join("");
-  }
-
-  _eqPreencherLotes();
+  tbody.innerHTML = lista.map(eq => {
+    const [label, cls] = _EQ_STATUS_LABEL[eq.status] || [eq.status, ""];
+    const nome = _eqNome(eq);
+    const livre = eq.status === "etiqueta_livre";
+    const apoio = [
+      `<span class="mono">${_eqFormatarCodigo(eq.codigo)}</span>`,
+      // o tipo só quando o nome NÃO veio dele (sem apelido, marca e modelo,
+      // o nome já é o tipo, e repetir seria ruído)
+      eq.tipo && (eq.apelido || eq.marca || eq.modelo) ? _eqEsc(eq.tipo) : "",
+      eq.numero_serie ? `série ${_eqEsc(eq.numero_serie)}` : "",
+      eq.lote ? `lote ${_eqEsc(eq.lote)}` : "",
+    ].filter(Boolean).join(" · ");
+    const condo = eq.condominio_id
+      ? `<button type="button" class="os-link" data-eq-condo="${eq.condominio_id}" title="Abrir a ficha do condomínio">${_eqEsc(eq.condominio_nome || "—")}</button>`
+      : `<span class="muted">${livre ? "ainda sem vínculo" : "—"}</span>`;
+    const desde = eq.condominio_id && eq.vinculado_em ? `<span class="os-sub">desde ${_eqDataCurta(eq.vinculado_em)}</span>` : "";
+    const naBancada = _EQ_ABAS.bancada.includes(eq.status) || eq.status === "pronto";
+    const subSit = naBancada && eq.defeito_relatado
+      ? `<span class="os-sub">${_eqEsc(eq.defeito_relatado)}</span>`
+      : (eq.ultima_movimentacao_em ? `<span class="os-sub">mudou em ${_eqDataCurta(eq.ultima_movimentacao_em)}</span>` : "");
+    return `<tr class="pro-row${livre ? " is-livre" : ""}" data-eq-codigo="${_eqEsc(eq.codigo)}" tabindex="0">
+      <td class="pro-cli">
+        <span class="pro-cli-nome">${nome ? _eqEsc(nome) : `<span class="muted">Etiqueta em branco</span>`}</span>
+        <span class="os-sub">${apoio}</span>
+      </td>
+      <td>${condo}${desde}</td>
+      <td class="pro-sit"><span class="os-sit-linha"><span class="badge ${cls}">${_eqEsc(label)}</span></span>${subSit}</td>
+      <td class="pro-acao"><a class="btn btn-sm" href="/e/${_eqEsc(eq.codigo)}" target="_blank" rel="noopener">Abrir ficha ↗</a></td>
+    </tr>`;
+  }).join("");
 }
 
 /** Lotes existentes, dos mais novos pros mais antigos. */
@@ -17654,7 +17776,16 @@ function _eqBindEventos() {
     document.getElementById("btnEqDesfazer")?.addEventListener("click", _eqDesfazerCadastro);
   }
 
-  document.getElementById("eqFiltroStatus")?.addEventListener("change", _eqCarregar);
+  // Abas (client-side) e o atalho da frase.
+  document.querySelector('.section[data-section="equipamentos"]')?.addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-eq-tab]") ||
+      (e.target.closest("[data-eq-ir-aba]") &&
+        document.querySelector(`[data-eq-tab="${e.target.closest("[data-eq-ir-aba]").dataset.eqIrAba}"]`));
+    if (!tab) return;
+    _eqAba = tab.dataset.eqTab;
+    document.querySelectorAll("[data-eq-tab]").forEach(b => b.classList.toggle("is-active", b === tab));
+    _eqRender();
+  });
 
   let _debounce;
   document.getElementById("eqBusca")?.addEventListener("input", () => {
@@ -17665,6 +17796,15 @@ function _eqBindEventos() {
   // Clicar na linha abre a mesma ficha que o QR abre — uma tela só pros dois
   // caminhos, sem versão "de escritório" que diverge da versão da bancada.
   document.getElementById("eqTableBody")?.addEventListener("click", (ev) => {
+    // O nome do prédio abre a ficha dele, na aba Equipamentos.
+    const condo = ev.target.closest("[data-eq-condo]");
+    if (condo) { abrirFichaCondominio(Number(condo.dataset.eqCondo), "equipamentos"); return; }
+    if (ev.target.closest("a")) return; // "Abrir ficha" já é link
+    const tr = ev.target.closest("tr[data-eq-codigo]");
+    if (tr) window.open(`/e/${tr.dataset.eqCodigo}`, "_blank");
+  });
+  document.getElementById("eqTableBody")?.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter" || ev.target.closest("a, button")) return;
     const tr = ev.target.closest("tr[data-eq-codigo]");
     if (tr) window.open(`/e/${tr.dataset.eqCodigo}`, "_blank");
   });
@@ -17772,3 +17912,6 @@ _ordemRender.os         = () => { _osPagina = 1; _osRenderTabela(); };
 _ordemRender["orc-av"]  = () => _avRenderTudo();
 _ordemRender["orc-os"]  = () => _orcRenderTudo();
 _ordemRender.contratos  = () => _ctrsRender();
+_ordemRender.planos     = () => _pmRenderTudo();
+_ordemRender.equipamentos = () => _eqRender();
+_ordemRender.notas      = () => typeof renderNotas === "function" && renderNotas();

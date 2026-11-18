@@ -20,12 +20,14 @@ aliases:
 > branch saiu da `feature/nota-fiscal-omie`, então **sobe depois dela**.
 > Fase 5 também feita (gaveta e modal antigo retirados, ficha com recorte do
 > operador), o piloto da O.S. (página própria), o mesmo molde em Chamados,
-> Orçamentos (tabela da carteira) e Contratos, e a **agenda, fase A**
+> Orçamentos (tabela da carteira, e o orçamento como página própria),
+> Contratos, Preventivas (na tela, "Manutenção preventiva"), Equipamentos e
+> Notas fiscais, a ordem pela coluna, e a **agenda, fase A**
 > ([agenda.md](../docs/modulos/agenda.md)). ⚠️ A agenda traz a **migration 092**:
 > rodar em produção ANTES do push, junto com 090 e 091. Falta subir, depois da
-> nota fiscal. Ver
-> [redesenho-admin.md](../docs/modulos/redesenho-admin.md) e
-> [roadmap.md](roadmap.md).
+> nota fiscal (adiado pelo Pedro em 18/11/2026). O próximo passo está em
+> [redesenho-admin.md](../docs/modulos/redesenho-admin.md#próximo-passo-18112026);
+> ver também [roadmap.md](roadmap.md).
 
 > ⏳ **Nota fiscal pelo Omie: NFS-e e DANFE prontas no código, falta subir
 > (17–18/11/2026).** Em ordem: (1) `node scripts/migrate.js
@@ -124,7 +126,12 @@ aliases:
 > corrigida passa a fazer sozinha (a alternativa era **cancelar**, que é o que a
 > baixa à mão do operador faz e some do SLA).
 
-## ⏳ URGENTE — o chamado de preventiva com mês precisa subir antes de 04/10/2026
+## ✅ O chamado de preventiva com mês — subiu (conferido em 18/11/2026)
+
+> ✅ **Resolvido.** O commit da 087 (`df2c8b5`, 02/10/2026) está na
+> `origin/main`, com commits posteriores em cima dele, e push na main é deploy
+> (ver [CLAUDE.md](../CLAUDE.md)). O passo 3 abaixo aconteceu junto. Fica o
+> registro do que era.
 
 Código pronto em 02/10/2026 (migration 087, `executarPlano`, virada do mês,
 despacho e "Já foi feita" por competência — ver
@@ -135,12 +142,13 @@ despacho e "Já foi feita" por competência — ver
    `roteiro-competencia` 6/6, `planos-lote` 10/10. `preventiva-orfa` 10/11 — a
    falha é do banco de teste, não da mudança: o técnico do fixture tem o #623
    `em_atendimento` desde 14/09 e o "um atendimento por vez" responde 409 no
-   "A caminho".
+   "A caminho". (✅ O #623 foi devolvido em 18/11/2026; `preventiva-orfa`
+   passa 11/11.)
 2. ✅ 087 em **produção** em 02/10/2026, conferida em seguida: nenhum
    chamado de preventiva sem competência; só o #257 (AGUIA DE HAIA) foi para
    outubro e ganhou "— outubro/26". Setembro ficou com 41 abertos e 1 em
    atendimento — este a virada poupa.
-3. ⏳ Deploy. Na primeira passada do job (30 min após o boot) a virada cancela
+3. ✅ Deploy (com o push do `df2c8b5` na main). Na primeira passada do job (30 min após o boot) a virada cancela
    os ~42 chamados de setembro parados — 5 deles com técnico e sem
    deslocamento (#103, #118, #141, #166, #167) entram na regra.
 4. ✅ **O portal do cliente não mostra preventiva cancelada** (decisão do

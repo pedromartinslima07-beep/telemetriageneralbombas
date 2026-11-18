@@ -111,7 +111,7 @@ const _CF_ABAS = [
   { id: "os",           rotulo: "O.S.",             soGestao: true },
   { id: "orcamentos",   rotulo: "Orçamentos",       soGestao: true },
   { id: "notas",        rotulo: "Notas fiscais",    soGestao: true },
-  { id: "contrato",     rotulo: "Contrato e plano", soGestao: true },
+  { id: "contrato",     rotulo: "Contrato e preventiva", soGestao: true },
   { id: "equipamentos", rotulo: "Equipamentos",     soGestao: true },
   { id: "contatos",     rotulo: "Contatos" },
 ];
@@ -623,7 +623,7 @@ function _cfPaneNotas(d) {
 
 function _cfPaneContrato(c, d) {
   if (!d.extraCarregado) return `<div class="cf-carregando">Carregando contratos…</div>`;
-  if (d.extraErro) return _cfVazio(`Não foi possível carregar contratos e planos (${_cfEsc(d.extraErro)}).`);
+  if (d.extraErro) return _cfVazio(`Não foi possível carregar contratos e preventivas (${_cfEsc(d.extraErro)}).`);
   const novo = `<button class="btn btn-sm btnAccent viewer-only-hide" data-cf-acao="novo-contrato">Novo contrato</button>`;
   const ctr = d.contratos.length
     ? _cfTabela([{ t: "Contrato" }, { t: "Vigência" }, { t: "Situação" }, { t: "Mensal", num: true }],
@@ -640,7 +640,7 @@ function _cfPaneContrato(c, d) {
     : _cfVazio("Nenhum contrato cadastrado.");
 
   const pl = d.planos.length
-    ? _cfTabela([{ t: "Plano" }, { t: "A cada" }, { t: "Próxima" }, { t: "Situação" }],
+    ? _cfTabela([{ t: "Preventiva" }, { t: "A cada" }, { t: "Próxima" }, { t: "Situação" }],
         d.planos.map(p => `<tr class="cf-linha" data-cf-plano="${p.id}" tabindex="0">
           <td><div class="cf-l1">${_cfEsc(p.titulo || "Preventiva")}</div></td>
           <td>${p.periodicidade_dias ? `${p.periodicidade_dias} dias` : "—"}</td>
@@ -654,8 +654,8 @@ function _cfPaneContrato(c, d) {
       ${d.contratos.length ? ctr : _cfVazio("Nenhum contrato cadastrado.", novo)}
     </section>
     <section class="cf-bloco">
-      <div class="cf-bloco-head"><h2 class="cf-h2">Planos de manutenção</h2>
-        <button class="btn btn-sm" data-cf-acao="ir-planos">Abrir em Planos</button></div>
+      <div class="cf-bloco-head"><h2 class="cf-h2">Manutenção preventiva</h2>
+        <button class="btn btn-sm" data-cf-acao="ir-planos">Abrir em Preventivas</button></div>
       ${pl}
     </section>`;
 }

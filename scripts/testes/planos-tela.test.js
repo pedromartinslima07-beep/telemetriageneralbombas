@@ -117,6 +117,11 @@ async function main() {
     global._waEscaparHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     global.kpiCard = (ico, val, label) => `[${label}=${val}]`;
+    // O ordenador pela coluna (18/11/2026) mora fora do bloco _pm*. Aqui ele
+    // é identidade: o que este teste prova é que cada aba DESENHA, não a ordem.
+    global._ordenar = (_lista, itens) => itens;
+    global._ordemMarcar = () => {};
+    global._ordemData = (iso) => (iso ? new Date(iso).getTime() : null);
     global.PM_PERIOD_PRESETS = [
       { dias: 30, label: "Mensal" }, { dias: 90, label: "Trimestral" },
       { dias: 180, label: "Semestral" }, { dias: 365, label: "Anual" },

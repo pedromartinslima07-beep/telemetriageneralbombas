@@ -87,7 +87,9 @@ ESP32 (sonda 4-20mA + SCT-013)
 mantém o painel ao lado; **Orçamentos deixou de agrupar por prédio** e é uma
 tabela da carteira nas duas abas; Contratos tem 5 colunas. O **orçamento é página própria** em
 `#/orcamentos/<id>` (o `#avModal` é movido para a seção `orcamento-detalhe`),
-com linha do tempo e Voltar. Os cartões de
+com linha do tempo e Voltar. Preventivas, Equipamentos e Notas fiscais
+seguiram o mesmo molde; na tela, "Planos" virou **"Manutenção preventiva"**
+(o código continua `planos`). Os cartões de
 números dessas telas viraram uma frase com atalho para a aba que pede ação.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 

@@ -597,7 +597,8 @@ ela; Editar → Cancelar na página; cabeçalho grudando ao rolar; celular 375px
 sem rolagem lateral. Sem erro de JS. Versões: `admin.js?v=380`,
 `admin.css?v=297`, `admin-condominio.js?v=5`, `admin-nav.js?v=4`.
 
-**Próximo:** levar o molde para Chamados, Orçamentos e Contratos.
+**Próximo:** levar o molde para Chamados, Orçamentos e Contratos. (✅ Feito
+em 18/11/2026, nas seções abaixo.)
 
 ---
 
@@ -758,3 +759,85 @@ em cinco tabelas:
   ordenar ali; a ordem escolhida no computador continua valendo.
 
 Testado nas cinco (Contratos com dados montados só na tela), sem erro de JS.
+
+---
+
+## Preventivas, Equipamentos e Notas fiscais no molde (18/11/2026)
+
+Com estas três, todas as listas do admin falam a mesma língua: frase com o
+que pede ação, situação numa coluna com a linha de apoio embaixo, o prédio
+como link para a ficha, ordem pela coluna, cartões no celular.
+
+### "Planos" sai da tela
+
+Pedido do Pedro: *"não gosto desse nome planos… deixa algo mais claro tipo
+manutenção preventiva"*. Nos sistemas de referência o serviço recorrente tem o
+nome do serviço, não da estrutura ("Recurring services"). Aqui: a tela é
+**Manutenção preventiva**, o item é **a preventiva do prédio**, e a contagem é
+por cliente ("13 prédios com preventiva"). Só o que se lê mudou; seção,
+rotas, tabela e ids continuam `planos`.
+
+### Preventivas
+
+Continua cadastro **e** acompanhamento do mês (decisão do Pedro em
+04/09/2026: "o que eu quero fazer nessa tela é tudo que for possível"). Entrou: a frase, o prédio como link (aba Contrato e
+preventiva), a ordem por Prédio, Este mês e Próxima **dentro de cada zona**
+(a zona é o roteiro do técnico e continua agrupando), a linha que abre a
+preventiva e o celular (abas numa linha, cartão por preventiva).
+
+⚠️ **A linha abre só onde o botão Editar está à vista** (`offsetParent` do
+botão), em vez de uma regra de perfil nova: operador e visualizador não veem
+o Editar, então a linha não abre para eles.
+
+### Equipamentos
+
+| Antes | Agora |
+|---|---|
+| Seletor de 5 estados, filtrando no servidor | Abas: Todos, No condomínio, Na oficina, Prontos para devolver, Etiquetas em branco, Baixados (na tela; a busca segue no servidor) |
+| "Na oficina" = só o estado `oficina` | Na oficina = oficina, aguardando orçamento, aguardando peça, em conserto |
+| Nada em cima da tabela | Frase: N equipamentos · no condomínio · na oficina · etiquetas em branco, e "N prontos para devolver →" |
+| Código, Equipamento, Condomínio, Estado, Lote | Equipamento (código · tipo · série · lote embaixo), Condomínio (link, "desde"), Situação (defeito relatado na bancada), "Abrir ficha ↗" |
+| Etiquetas em branco misturadas | No fim da lista (estoque, não equipamento) |
+
+⚠️ `document.querySelector('[data-section="equipamentos"]')` acha o **botão do
+menu** antes da seção (os dois têm o atributo); as abas não respondiam. Use
+`.section[data-section=…]`.
+
+### Notas fiscais
+
+Era a única lista sem cartão nem resumo, desenhada com a tabela da ficha.
+Agora: cartão com título, frase (emitidas e valor, processando; atalho para
+"com erro" ou "aprovados sem nota"), 4 colunas (Nota, Prédio e orçamento,
+Situação com o erro do Omie, Valor), ordem pela coluna, e a linha abre a
+**página** do orçamento (Voltar devolve para Notas).
+
+### Testado (banco de teste, 18/11/2026)
+
+Desktop 1440 e celular 375 sem rolagem lateral nas três, sem erro de JS.
+Preventivas: frase, ordem dentro da zona e volta, linha abrindo "Editar
+preventiva" (fechado com Cancelar, nada salvo). Equipamentos: cada aba, ordem
+por condomínio, link para `#/condominios/1/equipamentos`. Notas: atalho da
+frase, ordem por valor, linha → `#/orcamentos/58` → Voltar → `#/notas`,
+prédio → `#/condominios/13/notas`. O banco de teste não tem nota emitida nem
+com erro, então essas linhas não foram vistas com dado real.
+
+---
+
+## Próximo passo (18/11/2026)
+
+Todas as listas do admin estão no molde. O que sobra do redesenho:
+
+1. **Subir para produção.** A branch `feature/admin-condominio` sai da
+   `feature/nota-fiscal-omie`, então as duas sobem juntas, a da nota primeiro.
+   Em ordem: rodar **090, 091 e 092** em produção **antes** do push
+   (conferindo antes, no `information_schema`, o que já está lá) → merge da
+   nota fiscal na main → merge desta → push (= deploy). O passo a passo do
+   Omie depois do deploy está em [nota-fiscal.md](nota-fiscal.md). Em
+   18/11/2026 o Pedro deixou isso para depois.
+2. **Ordenar no celular.** Abaixo de 640px as linhas viram cartão e o
+   cabeçalho some, então não há onde clicar para ordenar. Um seletor
+   "Ordenar por" acima da lista resolve, usando o mesmo `_ordenar`.
+3. **Página própria para o chamado e o contrato**, se a O.S. e o orçamento
+   mostrarem que vale: Chamados manteve o painel ao lado de propósito (o
+   operador escolhe e age rápido ali), e o contrato ainda abre em modal.
+
