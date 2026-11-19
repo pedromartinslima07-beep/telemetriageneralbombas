@@ -13419,7 +13419,6 @@ body.gb-cmdk-aberta { overflow: hidden; }
 .ls-tab tbody tr.is-pede td { background: #fffaee; }
 .ls-tab tbody tr.is-pede:hover td { background: #fdf4dd; }
 .ls-tab tbody tr.is-sel td { background: var(--ls-sel) !important; }
-.ls-tab tbody tr.is-sel td:first-child { box-shadow: inset 3px 0 0 var(--ls-mar); }
 .ls-tab tbody tr:focus-visible { outline: 2px solid var(--ls-mar-2); outline-offset: -2px; }
 .ls-tab b { font-weight: 600; color: var(--ls-tinta); }
 .ls-sub { display: block; margin-top: 2px; color: var(--ls-muted); font-size: 12.5px; }
@@ -13541,7 +13540,6 @@ body.gb-cmdk-aberta { overflow: hidden; }
   .ls-tab tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 14px; border-bottom: 1px solid var(--ls-fio-fraco); }
   .ls-tab td { display: block; padding: 0; border: 0; background: transparent !important; grid-column: 1 / -1; }
   .ls-tab tbody tr.is-pede { background: #fffaee; }
-  .ls-tab tbody tr.is-sel td:first-child { box-shadow: none; }
   .ls-tab td.ls-c-om, .ls-tab td.ls-c-cx { display: none; }
   .ls-tab td:nth-child(2) { grid-column: 1; }
   .ls-tab td.ls-c-sit { grid-column: 2; grid-row: 1; text-align: right; }
@@ -13576,3 +13574,27 @@ body.gb-cmdk-aberta { overflow: hidden; }
   .ls .ls-tab td { padding: 0; }
   .ls .ls-tab td .ls-sub { margin-top: 1px; }
 }
+
+/* Peças do molde que entraram com Orçamentos (20/11/2026). */
+.orc-antigo[hidden] { display: none !important; }
+.ls-txt-ri { color: var(--ls-ri-t); font-weight: 600; }
+.ls-corta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+.ls-valor { font-size: 14px; font-weight: 700; color: var(--ls-tinta); }
+.ls-tab tbody tr.is-risco td { background: #fff7f6; }
+.ls-tab tbody tr.is-risco:hover td { background: #fdeeec; }
+.ls-bt.is-perigo { color: var(--ls-ri-t); }
+.ls-bt.is-perigo:hover { background: var(--ls-ri-f); color: var(--ls-ri-t); }
+.ls-aviso.is-at { background: var(--ls-at-f); color: var(--ls-at-t); margin: 14px 0 0; }
+.ls-cita { margin: 0; padding: 10px 12px; border: 1px solid rgba(217,148,17,.28); border-radius: 8px; background: #fffaee; color: var(--ls-tinta); font-size: 13.5px; line-height: 1.5; white-space: pre-line; }
+.ls-cita-de { margin: 8px 0 0; color: var(--ls-muted); font-size: 12.5px; }
+.ls-mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ls-mini td { padding: 7px 0; border-bottom: 1px solid var(--ls-fio-fraco); vertical-align: top; color: var(--ls-tinta-2); background: none; }
+.ls-mini td.ls-num { padding-left: 12px; white-space: nowrap; color: var(--ls-tinta); }
+.ls-mini tr.is-sub td { color: var(--ls-muted); font-size: 12.5px; }
+.ls-mini tr.is-tot td { border-bottom: 0; padding-top: 10px; font-weight: 700; color: var(--ls-tinta); }
+.ls-mini tr.is-tot td.ls-num { font-size: 14px; }
+@media (max-width: 768px) { .ls-corta { max-width: none; white-space: normal; } }
+@media (max-width: 768px) {
+  .ls .ls-tab td.ls-c-val { grid-column: 2; grid-row: 2; text-align: right; align-self: start; font-size: 12.5px; }
+}
+@media (max-width: 768px) { #orcLsRoot .ls-tab td:nth-child(3) { grid-column: 1; } }

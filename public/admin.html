@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=340">
+  <link rel="stylesheet" href="/static/admin.css?v=342">
 </head>
 <body>
   <div id="appLoader">
@@ -805,6 +805,14 @@
       <!-- ===== SECTION: ORÇAMENTOS ===== -->
       <div class="section" data-section="orcamentos">
 
+        <!-- Lista no molde da maquete (20/11/2026): admin-lista.js +
+             admin-orc-lista.js. Uma lista do pedido do técnico até o aprovado.
+             O conteúdo de baixo (as duas abas antigas) fica escondido e NÃO
+             pode sair: _avBindEventos e _orcBindEventos ligam nos ids dele. -->
+        <div id="orcLsRoot" class="ls"></div>
+
+        <div class="orc-antigo" hidden>
+
         <!-- Abas principais da seção. ⚠️ São NAVEGAÇÃO (trocam a lista), não
              ação: até 19/11/2026 a primeira se chamava "+ Criar orçamento",
              com ícone de mais e fundo âmbar, e lia como um segundo botão de
@@ -914,6 +922,7 @@
 
           </div>
         </div><!-- /os -->
+        </div><!-- /orc-antigo -->
 
       </div><!-- /section orcamentos -->
 
@@ -2932,6 +2941,7 @@
 <script src="/static/admin-financeiro.js?v=1" defer></script>
 <script src="/static/admin-lista.js?v=1" defer></script>
 <script src="/static/admin-os-lista.js?v=2" defer></script>
+<script src="/static/admin-orc-lista.js?v=2" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>

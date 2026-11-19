@@ -18120,3 +18120,15 @@ Sem e-mail · Todas, "Enviar as N pendentes", e a O.S. no painel com a linha do
 tempo e o que o técnico registrou. O cartão antigo fica escondido no HTML.
 Nenhum endpoint, nenhuma migration. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Orçamentos numa lista só (2026-11-20)
+
+Etapa 7 do redesenho estrutural. `public/admin-orc-lista.js` (novo) junta as
+abas "Orçamentos" e "Solicitados pelos técnicos" numa lista no molde: o pedido
+sem documento é um estado ("Pedido do técnico", com "Fazer orçamento"), e o
+orçamento aparece uma vez só, com o pedido do técnico, a resposta do cliente,
+a linha do tempo e os itens no painel ao lado. Visões Pede ação · Pedidos dos
+técnicos · Rascunhos · Esperando o cliente · Respondidos · Aprovados ·
+Recusados · Todos; Exportar; lote de PDFs e de baixa. As telas antigas ficam
+escondidas no HTML. Nenhum endpoint, nenhuma migration. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).

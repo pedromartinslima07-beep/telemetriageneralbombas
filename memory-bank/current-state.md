@@ -117,7 +117,9 @@ movidos para a tela nova.
 **Etapa 6 (20/11):** o molde de lista da maquete existe no código
 (`admin-lista.js`, `GBLista.criar`) e a lista de **O.S.** já está nele
 (`admin-os-lista.js`): chips, busca, Exportar, lote, ordem, paginação e a O.S.
-no painel ao lado. As outras listas entram no mesmo molde.
+no painel ao lado. **Etapa 7 (20/11):** **Orçamentos** é uma lista só
+(`admin-orc-lista.js`), do pedido do técnico ao aprovado; as duas abas antigas
+ficam escondidas. As outras listas entram no mesmo molde.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma

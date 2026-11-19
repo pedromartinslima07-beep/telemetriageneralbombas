@@ -1729,6 +1729,76 @@ Nenhum endpoint novo (o `sw.js` não muda).
 
 ---
 
+## Etapa 7 no código: Orçamentos numa lista só (20/11/2026)
+
+Segunda tela no molde de lista (`public/admin-orc-lista.js`). Como a
+maquete pediu (Jobber Quotes): **uma lista do pedido do técnico até o
+aprovado**. As duas abas ("Orçamentos" e "Solicitados pelos técnicos")
+viraram uma; o pedido que ninguém começou é um **estado** da lista.
+
+### De onde vem cada linha
+
+- **Documento:** `_avData` (`GET /admin/orcamentos/avulsos`, que lista
+  todos os orçamentos, de qualquer origem).
+- **Pedido sem documento:** `_orcData` (`GET /admin/orcamentos`) com
+  `orcamento_id` nulo. O pedido que já virou documento **não aparece duas
+  vezes**: entra como documento, e o que o técnico escreveu vai para o painel
+  ("O que o técnico pediu").
+
+### Como é
+
+| Antes | Agora |
+|---|---|
+| Duas abas, cada uma com suas abas de status | Chips **Pede ação** (pedido parado, rascunho, resposta sem baixa, validade vencida, nota com erro) · Pedidos dos técnicos · Rascunhos · Esperando o cliente · Respondidos · Aprovados · Recusados (só se houver) · Todos |
+| Faixa "N respostas de clientes sem baixa" com "Ver" | A frase diz "N respostas sem baixa" e leva à visão Respondidos; a linha fica âmbar e tem "Dar baixa" |
+| Selos Rascunho/Enviado/Aprovado + selo "Resposta nova/Sem baixa" + "Feito/Chamado #N" | Um selo (Pedido do técnico · Rascunho · Esperando o cliente · Cliente respondeu · Aprovado · Recusado) e embaixo o que vem a seguir: "falta enviar", "válido até", "validade venceu" (em vermelho, linha rosada), "Regina aprovou · há 4 h · falta dar baixa", "chamado #228 · nota NFS-e 1.284", "sem nota · segue para o Financeiro" |
+| A linha abria a página | A linha abre o painel; "Abrir página" ou duplo clique vão para `#/orcamentos/<id>` |
+| Filtro de condomínio em Solicitados | A busca acha prédio (fantasia e razão social), número, técnico, O.S. e o texto do pedido |
+| — | Exportar CSV, lote "Baixar PDFs" e "Dar baixa nas respostas" (com confirmação) |
+
+Ações na linha: **Fazer orçamento** (pedido), **Enviar** (rascunho),
+**Dar baixa** (resposta). No painel, além delas: Reenviar (enviado), Emitir
+nota / Ver a nota com erro (aprovado), PDF, Abrir página, Ver a O.S. e
+**Excluir pedido** (o `_orcExcluirPedido` de sempre, com o mesmo confirm).
+
+O painel: o que o técnico pediu (citação + técnico · O.S. · chamado), a
+resposta do cliente (quem, quando, comentário ou motivo, e a baixa com
+"Reabrir"), a linha do tempo (Criado → Enviado → Aprovado/Recusado → Serviço
+feito → Nota fiscal; no pedido, Técnico pediu → Orçamento criado → …), os
+**itens com o total** (lidos de `/admin/orcamentos/avulsos/:id/linhas` ao
+escolher; total digitado aparece como tal, com a soma dos itens embaixo) e o
+que está ligado (O.S., chamado, prédio). Escolher um orçamento respondido no
+painel **marca a resposta como vista** (é ver); a baixa continua à parte.
+
+⚠️ **As duas telas antigas continuam no HTML, escondidas** (`.orc-antigo`):
+`_avBindEventos` e `_orcBindEventos` ligam nos ids delas. Quem grava chama
+`_avRenderTudo`/`_orcRenderTudo`, e os embrulhos redesenham a lista nova.
+Os carregadores (`carregarAvulsos`, `carregarOrcamentos`) engolem a falha
+calados; o embrulho deles é o que deixa a tela dizer "não consegui carregar".
+
+⚠️ **Limite antigo que continua:** as rotas cortam em **300** documentos e
+**200** pedidos (`LIMIT` fixo). É o mesmo defeito que a O.S. tinha até
+13/11/2026 (as mais antigas somem como se apagadas). Com a paginação na tela,
+a próxima a fazer é paginar as duas rotas como a de O.S. (`X-Total-Count`).
+
+### Testado (banco de teste, 20/11/2026)
+
+1900×1000 e 390×844, sem erro de JS e **sem nenhuma escrita** no banco
+durante o teste: visões, painel de rascunho com pedido do técnico e de
+aprovado com resposta e baixa dada, "Abrir página" → voltar do navegador
+(volta à lista com o mesmo item e a mesma visão), "Novo orçamento" →
+`#/orcamentos/novo` → voltar sem criar nada, F5 com a visão lembrada,
+cartões e painel no celular (o valor aparece no cartão). O banco de teste
+não tem pedido parado, enviado, resposta sem baixa, recusado nem nota: esses
+estados foram montados **só na tela**. **Não clicado:** "Fazer orçamento",
+"Enviar", "Dar baixa", "Excluir pedido" e o lote (todos gravam); são as
+funções de sempre do admin.js.
+
+Versões: `admin.css?v=342`, `admin-orc-lista.js?v=2`. Nenhum endpoint
+novo.
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -1746,6 +1816,7 @@ aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
 | 4 | **Agenda** como quadro de despacho, com arrastar e soltar | `admin-despacho.js` + migration **093** |
 | 5 | **Financeiro** (Notas + Contratos + Omie) | `admin-financeiro.js` |
 | 6 | **Molde de lista** e **Ordens de serviço** nele (20/11) | `admin-lista.js`, `admin-os-lista.js` |
+| 7 | **Orçamentos** numa lista só, do pedido ao aprovado (20/11) | `admin-orc-lista.js` |
 
 Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
 abrindo por endereço, e os blocos movidos voltam para elas.
@@ -1754,7 +1825,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 
 1. **As listas restantes no molde da maquete** (`_redesenho-preview-2.js` é a
    referência de cada uma), agora com `GBLista.criar` (ver etapa 6):
-   ~~O.S.~~ (✅ 20/11) · Orçamentos (lista única, "solicitado" vira
+   ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11; falta paginar as rotas, ver etapa 7) (lista única, "solicitado" vira
    estado, termina no aprovado) · **Condomínios** (lista + página do prédio
    em 3 colunas no lugar das 10 abas) · Preventivas (tira dos 12 meses) ·
    Equipamentos · Colaboradores · Configurações (menu à esquerda). Molde:
