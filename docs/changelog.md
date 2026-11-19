@@ -18108,3 +18108,15 @@ do mês (contratos por mês, faturamento do Omie, avulsos aprovados, pede ação
 com atalhos) e a troca "Notas fiscais | Contratos", com as listas de sempre
 movidas para a tela. O menu não tem mais subabas. Nenhum endpoint novo. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Molde de lista e Ordens de serviço (2026-11-20)
+
+Etapa 6 do redesenho estrutural. `public/admin-lista.js` (novo) é o molde de
+lista da maquete (`GBLista.criar`): chips com contador, busca, Exportar CSV,
+seleção em lote, ordem pela coluna, paginação, painel ao lado, estados de
+carregando/vazio/erro e cartões no celular. `public/admin-os-lista.js` (novo)
+põe a lista de O.S. nele: visões Pede ação · Em andamento · Falta enviar ·
+Sem e-mail · Todas, "Enviar as N pendentes", e a O.S. no painel com a linha do
+tempo e o que o técnico registrou. O cartão antigo fica escondido no HTML.
+Nenhum endpoint, nenhuma migration. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).

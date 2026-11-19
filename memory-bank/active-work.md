@@ -17,8 +17,9 @@ aliases:
 > `feature/admin-condominio`, commitada e com push na branch (sem merge, sem
 > deploy). **Prontas no código:** casca + Ctrl+K + Hoje, Monitoramento,
 > Atendimento (filas Chamados | Conversas), Agenda como quadro de despacho
-> com arrastar e soltar, Financeiro. **Falta:** as listas no molde da maquete
-> (O.S., Orçamentos, Condomínios com a página em 3 colunas, Preventivas,
+> com arrastar e soltar, Financeiro, e (20/11) o **molde de lista**
+> (`admin-lista.js`) com a lista de **O.S.** nele. **Falta:** as listas no
+> molde (Orçamentos, Condomínios com a página em 3 colunas, Preventivas,
 > Equipamentos, Colaboradores, Configurações), Relatórios (dashboard, a
 > definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
 > para a main: 090, 091, 092 e 093 em produção.** Maquete no repo:

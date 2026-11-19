@@ -1645,6 +1645,90 @@ nota emitida: essas linhas só foram vistas no código.
 
 ---
 
+## Etapa 6 no código: o molde de lista, começando pela O.S. (20/11/2026)
+
+A `lista()` da maquete (`_redesenho-preview-2.js`) virou peça de verdade:
+**`public/admin-lista.js`** (`GBLista.criar(cfg)`), o molde que as listas
+restantes (Orçamentos, Preventivas, Equipamentos, Colaboradores) vão usar.
+A primeira tela nele é **Ordens de serviço** (`public/admin-os-lista.js`).
+Pedido do Pedro nesta rodada: *"seguir a maquete e fazer o mais bonito e
+profissional possível"*.
+
+### O molde
+
+- **Cabeçalho:** a frase da tela e **uma ação primária**. O título já está
+  na barra de cima; o `h1` fica só para leitor de tela (repetido, parecia
+  amador).
+- **Barra:** visões em **chip com contador** (sobre o conjunto inteiro, sem a
+  busca), busca sem acento e sem caixa, **Exportar** em CSV (`;` e BOM, abre
+  no Excel em português) só do que está filtrado.
+- **Tabela:** seleção em lote com barra azul e ações; **ordem pela coluna** no
+  ciclo de três cliques (natural → invertida → desligada, que volta à ordem de
+  trabalho), gravada em `localStorage` `ordem:<lista>` (o mesmo formato do
+  `_ordenar` do admin.js); **paginação** com 25/50/100 por página. A visão e o
+  tamanho da página ficam em `lista:<lista>`. Setas ↑/↓ andam pelas linhas.
+- **Painel ao lado** (420 px; 360 abaixo de 1280): sem nada escolhido, o
+  computador abre o primeiro da visão. Duplo clique abre a página inteira.
+- **Estados:** esqueleto ao carregar, vazio por visão com atalho para
+  "Todas", vazio de busca com "Limpar busca", erro com "Tentar de novo".
+- **Celular (≤768):** linhas viram cartões (número e prédio à esquerda,
+  situação à direita), chips rolam de lado, o painel cobre a tela com "Lista".
+- CSS em bloco próprio no fim do `admin.css`, com os **tokens declarados no
+  `.ls`** (os nomes da maquete não existem no admin.css).
+
+### Ordens de serviço
+
+| Antes | Agora |
+|---|---|
+| Abas Todas · Finalizadas · Em andamento · A enviar | Chips **Pede ação** (padrão) · Em andamento · Falta enviar · **Sem e-mail** (só aparece se houver) · Todas |
+| Frase com "N finalizadas esperando envio →" | Frase (total · abertas no mês · em andamento) e o botão primário **"Enviar as N pendentes"**, que abre o modal de lote de sempre |
+| A linha abre a página da O.S. | A linha abre o **painel ao lado**; "Abrir página" ou duplo clique vão para `#/os/<id>` |
+| Lote só "Enviar por e-mail" | Lote "Enviar ao cliente" (só as que têm e-mail) e "Baixar PDFs" |
+| — | Exportar CSV da visão |
+| "técnico ainda não chegou" em O.S. esquecida | "aberta há N dias, técnico não chegou" (7 dias ou mais), em âmbar |
+
+O painel tem a linha do tempo (Aberta → Técnico chegou → Finalizada →
+Enviada, com o e-mail de destino ou "o prédio não tem e-mail no cadastro"),
+**o que o técnico registrou** (resultado, quem recebeu, peças, fotos, retorno,
+orçamento pedido, observações e o aviso de **assinatura em branco**), lido do
+`GET /ordens-servico/:id` na primeira vez que a O.S. é escolhida, e o que está
+ligado (chamado de origem, ficha do prédio).
+
+⚠️ **Nenhuma regra nova, nenhuma rota nova.** Dados e ações são os do admin.js:
+`_osData`/`carregarOrdensServico`, `baixarOSPdf`, `_osEnviarUmaPelaLista`,
+`_osAbrirEnvioLote` (que lê `_osSelecionadas`; o molde preenche antes de
+chamar), `abrirOSDetalhe`. O **cartão antigo continua no HTML, escondido**
+(`.os-cartao-antigo[hidden]`): a página da O.S. liga os botões dela nos ids
+dele (`_osBindEventos`). Quem grava chama `_osRenderTabela`, e o embrulho no
+fim do `admin-os-lista.js` redesenha a tela nova junto.
+
+### ⚠️ Armadilhas achadas
+
+- `.main input[type="search"]` desenha borda e fundo em todo campo de busca:
+  a do molde saía com uma caixa dentro da outra.
+- No celular, `table { min-width: 520px }` e o padding global de `td`
+  esticavam o cartão para fora da tela.
+- A entrada da seção (`sectionIn`, com `fill-mode: both`) deixa um
+  `transform` na `.section`, e **`position: fixed` dentro dela passa a se
+  posicionar pela seção, não pela tela**: o painel do celular não cobria a
+  largura toda. A seção com `.ls` entra só com opacidade (`lsSecIn`).
+
+### Testado (banco de teste, 20/11/2026)
+
+1900×1000 e 390×844, sem erro de JS: visões, ordem nas três posições,
+paginação e troca para 25, busca sem resultado, seleção da página inteira e
+barra de lote, painel com O.S. finalizada (registro lido do servidor) e em
+andamento, "Abrir página" → Voltar (volta à lista com a mesma O.S.
+escolhida), cartões e painel no celular sem rolagem lateral. O banco de teste
+tem **uma** O.S.; o volume (137 linhas) foi montado **só na tela**, sem
+gravar. **Não testado:** enviar de verdade (o modal abre, não foi enviado),
+"Baixar PDFs" com várias, e o perfil operador.
+
+Versões: `admin.css?v=340`, `admin-lista.js?v=1`, `admin-os-lista.js?v=2`.
+Nenhum endpoint novo (o `sw.js` não muda).
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -1661,6 +1745,7 @@ aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
 | 3 | **Atendimento** (filas Chamados \| Conversas separadas) | `admin-atendimento.js` |
 | 4 | **Agenda** como quadro de despacho, com arrastar e soltar | `admin-despacho.js` + migration **093** |
 | 5 | **Financeiro** (Notas + Contratos + Omie) | `admin-financeiro.js` |
+| 6 | **Molde de lista** e **Ordens de serviço** nele (20/11) | `admin-lista.js`, `admin-os-lista.js` |
 
 Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
 abrindo por endereço, e os blocos movidos voltam para elas.
@@ -1668,7 +1753,8 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 ### Falta (na ordem que eu seguiria)
 
 1. **As listas restantes no molde da maquete** (`_redesenho-preview-2.js` é a
-   referência de cada uma): O.S. · Orçamentos (lista única, "solicitado" vira
+   referência de cada uma), agora com `GBLista.criar` (ver etapa 6):
+   ~~O.S.~~ (✅ 20/11) · Orçamentos (lista única, "solicitado" vira
    estado, termina no aprovado) · **Condomínios** (lista + página do prédio
    em 3 colunas no lugar das 10 abas) · Preventivas (tira dos 12 meses) ·
    Equipamentos · Colaboradores · Configurações (menu à esquerda). Molde:

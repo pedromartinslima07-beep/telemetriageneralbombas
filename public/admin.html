@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=338">
+  <link rel="stylesheet" href="/static/admin.css?v=340">
 </head>
 <body>
   <div id="appLoader">
@@ -697,7 +697,13 @@
       <!-- ===== SECTION: ORDENS DE SERVIÇO ===== -->
       <div class="section" data-section="ordens-servico">
 
-        <section class="card" style="min-height:calc(100vh - 220px);">
+        <!-- Lista no molde da maquete (20/11/2026): admin-lista.js +
+             admin-os-lista.js. O cartão de baixo fica escondido e NÃO pode
+             sair: a página da O.S. liga os botões dela pelos ids dele
+             (_osBindEventos), e o envio em lote lê _osSelecionadas. -->
+        <div id="osLsRoot" class="ls"></div>
+
+        <section class="card os-cartao-antigo" hidden style="min-height:calc(100vh - 220px);">
           <div class="cardHead">
             <h2>
               <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2924,6 +2930,8 @@
 <script src="/static/admin-agenda.js?v=6" defer></script>
 <script src="/static/admin-despacho.js?v=2" defer></script>
 <script src="/static/admin-financeiro.js?v=1" defer></script>
+<script src="/static/admin-lista.js?v=1" defer></script>
+<script src="/static/admin-os-lista.js?v=2" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>
