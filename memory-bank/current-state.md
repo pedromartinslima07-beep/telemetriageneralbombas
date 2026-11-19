@@ -103,6 +103,19 @@ seguiram o mesmo molde; na tela, "Planos" virou **"Manutenção preventiva"**
 números dessas telas viraram uma frase com atalho para a aba que pede ação.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
+**Redesenho estrutural, etapa 1 (19/11/2026, mesma branch):** o menu lateral
+é um elemento novo (`admin-nav.js`, 11 itens + menu do usuário, recolhe pelo
+ícone do topo, gaveta no celular), a busca é o Ctrl+K (`admin-busca.js`) e o
+Início virou **Hoje** (fila única do que pede ação, em campo agora, agenda de
+hoje). O aside antigo continua escondido e é a fonte de perfil e badges.
+**Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):
+Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
+lado; as telas antigas seguem alcançáveis por link.
+**Etapa 3:** Atendimento é uma caixa de entrada (`admin-atendimento.js`): fila
+de chamados e conversas, e o painel do chamado / chat do WhatsApp de sempre,
+movidos para a tela nova.
+Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
+
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma
 **ficha do condomínio** que junta chamados, O.S., orçamentos, notas, contrato,
 planos, equipamentos e contatos do prédio, abrindo cada documento no modal que

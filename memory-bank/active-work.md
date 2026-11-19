@@ -13,6 +13,18 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Redesenho ESTRUTURAL do admin — onde paramos (19/11/2026).** Branch
+> `feature/admin-condominio`, commitada e com push na branch (sem merge, sem
+> deploy). **Prontas no código:** casca + Ctrl+K + Hoje, Monitoramento,
+> Atendimento (filas Chamados | Conversas), Agenda como quadro de despacho
+> com arrastar e soltar, Financeiro. **Falta:** as listas no molde da maquete
+> (O.S., Orçamentos, Condomínios com a página em 3 colunas, Preventivas,
+> Equipamentos, Colaboradores, Configurações), Relatórios (dashboard, a
+> definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
+> para a main: 090, 091, 092 e 093 em produção.** Maquete no repo:
+> `/dev/_redesenho-preview.html`. Ver
+> [redesenho-admin.md](../docs/modulos/redesenho-admin.md#onde-paramos-19112026-fim-do-dia--retomar-daqui).
+
 > 🟡 **Redesenho do admin: fases 1 a 5 prontas na branch
 > `feature/admin-condominio` (18/11/2026).** Endereço por tela, a ficha do
 > condomínio, o menu em 9 grupos, a tela Início (o que pede ação) e a lista de

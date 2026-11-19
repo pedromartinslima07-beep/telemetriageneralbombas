@@ -98,7 +98,8 @@ function _validar(b, { parcial = false } = {}) {
     if (!b.repete_ate) out.repete_ate = null;
     else if (!_diaValido(b.repete_ate)) erros.push("Data final da repetição inválida."); else out.repete_ate = b.repete_ate;
   }
-  for (const k of ["condominio_id", "responsavel_id"]) {
+  // chamado_id (migration 093): a visita marcada no quadro de despacho.
+  for (const k of ["condominio_id", "responsavel_id", "chamado_id"]) {
     if (b[k] !== undefined) {
       if (b[k] === null || b[k] === "") out[k] = null;
       else { const n = Number(b[k]); if (!Number.isInteger(n) || n <= 0) erros.push(`${k} inválido.`); else out[k] = n; }
@@ -129,13 +130,16 @@ router.get("/", async (req, res) => {
     // ⚠️ AS CONSULTAS SAEM TODAS DE UMA VEZ. Em sequência eram ~12 idas ao
     // banco para montar um mês (5 s no banco de teste, que fica a ~200 ms
     // daqui). Nenhuma depende da outra.
-    const [rc, ro, rk, porMes] = await Promise.all([
+    const [rc, ro, rk, porMes, rv] = await Promise.all([
       // 1. Compromissos lançados à mão (com as repetições do período).
       pool.query(
-        `SELECT c.*, COALESCE(NULLIF(cd.nome_fantasia,''), cd.nome) AS condominio_nome, u.nome AS responsavel_nome
+        `SELECT c.*, COALESCE(NULLIF(cd.nome_fantasia,''), cd.nome) AS condominio_nome, u.nome AS responsavel_nome,
+                ch.status AS chamado_status, ch.tecnico_id AS chamado_tecnico_id,
+                ch.prioridade AS chamado_prioridade, ch.titulo AS chamado_titulo
            FROM compromissos c
            LEFT JOIN condominios cd ON cd.id = c.condominio_id
            LEFT JOIN usuarios u ON u.id = c.responsavel_id
+           LEFT JOIN chamados ch ON ch.id = c.chamado_id
           WHERE c.apagado_em IS NULL
             AND c.inicio < $2
             AND (c.repeticao <> 'nenhuma' OR COALESCE(c.fim, c.inicio) >= $1)
@@ -172,6 +176,15 @@ router.get("/", async (req, res) => {
         ]);
         return { comp, prev: rp.rows[0], fat: r };
       })),
+      // 6. Próxima visita marcada de cada chamado (migration 093), em qualquer
+      // semana: o quadro de despacho tira da coluna "a agendar" o chamado que
+      // já tem visita, mesmo que ela caia fora do período na tela.
+      pool.query(
+        `SELECT chamado_id, MIN(inicio) AS proxima
+           FROM compromissos
+          WHERE chamado_id IS NOT NULL AND apagado_em IS NULL AND inicio >= NOW() - INTERVAL '1 day'
+          GROUP BY chamado_id`
+      ),
     ]);
 
     for (const c of rc.rows) {
@@ -185,6 +198,8 @@ router.get("/", async (req, res) => {
           condominio_id: c.condominio_id, condominio_nome: c.condominio_nome,
           responsavel_id: c.responsavel_id, responsavel_nome: c.responsavel_nome,
           descricao: c.descricao, so_admin: c.so_admin, editavel: true,
+          chamado_id: c.chamado_id ?? null, chamado_status: c.chamado_status ?? null,
+          chamado_tecnico_id: c.chamado_tecnico_id ?? null, chamado_prioridade: c.chamado_prioridade ?? null,
         });
       }
     }
@@ -226,7 +241,9 @@ router.get("/", async (req, res) => {
     }
 
     itens.sort((a, b) => new Date(a.inicio) - new Date(b.inicio) || (b.dia_inteiro - a.dia_inteiro));
-    res.json({ de, ate, itens });
+    const visitas_chamados = {};
+    for (const v of rv.rows) visitas_chamados[v.chamado_id] = new Date(v.proxima).toISOString();
+    res.json({ de, ate, itens, visitas_chamados });
   } catch (err) {
     console.error("[agenda] GET /:", err);
     res.status(500).json({ error: "Erro ao montar a agenda." });
@@ -260,11 +277,11 @@ router.post("/compromissos", async (req, res) => {
   try {
     const r = await pool.query(
       `INSERT INTO compromissos (titulo, tipo, inicio, fim, dia_inteiro, repeticao, repete_ate, condominio_id,
-                                 responsavel_id, descricao, so_admin, criado_por)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+                                 responsavel_id, descricao, so_admin, criado_por, chamado_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [out.titulo, out.tipo, out.inicio, out.fim ?? null, out.dia_inteiro ?? false, out.repeticao,
        out.repete_ate ?? null, out.condominio_id ?? null, out.responsavel_id ?? null, out.descricao ?? null,
-       out.so_admin ?? false, req.user.id]
+       out.so_admin ?? false, req.user.id, out.chamado_id ?? null]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) {

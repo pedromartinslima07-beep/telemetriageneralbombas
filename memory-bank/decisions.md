@@ -1289,6 +1289,32 @@ comum cancelado segue aparecendo, com o motivo. Para a equipe nada some.
   aprovado diz que o Início é "a fila do que pede ação", e é o que o mercado
   faz (ver redesenho-admin.md). O operador continua abrindo em Alertas.
 
+## Admin: reestruturar telas, não reagrupar menu (19/11/2026)
+
+**Decisão do Pedro:** o redesenho de 18/11 foi recusado como "abas com as
+mesmas telas dentro". A régua passa a ser: **dado repetido em várias telas
+vira uma tela só**; o que tem ciclo de vida próprio fica. Daí: Alertas some
+dentro do Monitoramento (com Telemetria e Mapa), WhatsApp entra no Atendimento
+como canal do chamado, Notas vão para o Financeiro (Orçamentos para no
+aprovado), Configurações e Colaboradores vão para o menu do usuário.
+
+**Por quê:** reagrupar menu sem mudar a tela não muda o trabalho de ninguém.
+**Lição:** antes de desenhar, perguntar "esta tela precisa existir?" para
+cada tela, com o inventário do que ela mostra, e mostrar maquete antes de
+mexer no `admin.js`. Ver
+[redesenho-admin.md](../docs/modulos/redesenho-admin.md).
+
+## Atendimento: conversa e chamado em filas separadas (19/11/2026)
+
+**Decisão do Pedro:** as conversas do WhatsApp não entram na fila dos
+chamados; uma troca "Chamados | Conversas" separa as duas filas na mesma tela.
+**Por quê:** a IA resolve a maior parte das conversas sozinha; misturadas,
+elas enchiam a fila e escondiam o chamado urgente. **Descartado:** fila única
+no molde do Zendesk (lá toda mensagem vira ticket, aqui não) e o WhatsApp como
+item próprio no menu (o menu volta a crescer e a conversa fica longe do
+chamado que ela gerou). Ver
+[redesenho-admin.md](../docs/modulos/redesenho-admin.md).
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o

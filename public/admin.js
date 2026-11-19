@@ -126,7 +126,10 @@ function escapeHtml(s) {
 
 // ===== NAVEGAÇÃO POR SEÇÕES =====
 const _sectionTitles = {
-  inicio:           "Início",
+  inicio:           "Hoje",
+  monitoramento:    "Monitoramento",
+  atendimento:      "Atendimento",
+  financeiro:       "Financeiro",
   "os-detalhe":     "Ordem de Serviço",
   "orcamento-detalhe": "Orçamento",
   "contrato-detalhe":  "Contrato",

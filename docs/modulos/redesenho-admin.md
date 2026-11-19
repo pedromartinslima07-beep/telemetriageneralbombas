@@ -1178,19 +1178,518 @@ mesmo jeito, só que em escala menor.
 
 ---
 
-## Próximo passo (19/11/2026)
+## Redesenho estrutural: maquete aprovando a arquitetura (19/11/2026)
 
-1. **Subir para produção.** A branch `feature/admin-condominio` sai da
-   `feature/nota-fiscal-omie`, então as duas sobem juntas, a da nota primeiro.
-   Em ordem: rodar **090, 091 e 092** em produção **antes** do push
-   (conferindo antes, no `information_schema`, o que já está lá) → merge da
-   nota fiscal na main → merge desta → push (= deploy). O passo a passo do
-   Omie depois do deploy está em [nota-fiscal.md](nota-fiscal.md). Em
-   18/11/2026 o Pedro deixou isso para depois.
-2. **A ronda de UX acima.** **Todos feitos** (1, 2 e 4 a 9) em 19/11/2026;
-   o 3 (Relatórios) foi adiado e vai virar um dashboard, ainda sem plano.
-3. **Ordenar no celular.** Abaixo de 640px as linhas viram cartão e o
-   cabeçalho some, então não há onde clicar para ordenar. Um seletor
-   "Ordenar por" acima da lista resolve, usando o mesmo `_ordenar`.
-4. Testar as páginas novas com o **perfil operador** (chamado sem "Ligado a
-   este chamado"; `#/contratos/…` ignorado).
+Pedido do Pedro, recusando o que foi entregue nas fases 1 a 5: *"queria um
+redesenho mais bruto [...] entender o que pode ficar em uma tela só e o que de
+fato precisa de uma tela individual"*, e *"a tela de início por exemplo vc
+criou algumas abas e jogou nelas as mesmas telas que já tinha do mesmo exato
+jeito"*. Ele tem razão: as fases 1 a 5 **reagruparam o menu** (15 itens em 9
+grupos com subabas) e clarearam o visual, mas cada tela manteve o esqueleto
+antigo (faixa de números → abas com contador → tabela → ficha).
+
+### O que estava repetido (inventário de 19/11)
+
+1. **Estado da água em 5 lugares:** Painel (alertas críticos, leituras),
+   Alertas, Telemetria, Mapa (abas Reservatórios/Bombas/Alertas) e o bloco
+   Urgente do Início — os mesmos `_statusData` e alertas.
+2. **O que chega do cliente em 3:** Chamados, WhatsApp, Urgente do Início.
+3. **Nota fiscal não é entidade:** mora no orçamento; a tela Notas é
+   `_avData` filtrado. Financeiro espalhado em 4 (Painel, Contratos, Notas,
+   faturamento Omie na Agenda).
+4. **"Quem está onde":** posição do técnico no Mapa, carga em Relatórios,
+   compromissos na Agenda.
+
+### A arquitetura aprovada (as 4 perguntas, "sim" em 19/11/2026)
+
+| Tela | Reúne | Forma |
+|---|---|---|
+| **Hoje** | Pede ação + o que sobra do Painel | Uma página, sem subaba: frase da carteira, **fila única** com a ação na linha, "em campo hoje" (quadro do dia por técnico), atividade recente |
+| **Monitoramento** | Telemetria + Mapa + Alertas + parte viva do Painel | Lista ou mapa (mesmos dados), chips de filtro, reservatório escolhido no painel ao lado (gráfico 24 h com as faixas 45/20, alertas abertos, histórico). **Alertas deixa de ser tela** |
+| **Atendimento** | Chamados + WhatsApp | Caixa de entrada em 3 colunas (lista · conversa · dados). A conversa do WhatsApp é o canal do chamado; nota interna no mesmo fio |
+| **Agenda** | Agenda + técnicos no mapa + carga por técnico | Quadro de despacho |
+| **Ordens de serviço** | — | Fica |
+| **Orçamentos** | Avulsos + solicitados | Lista única; "solicitado" vira estado. **Termina no aprovado** |
+| **Financeiro** | Contratos + Notas + receita + faturamento Omie | Faturamento começa no aprovado |
+| **Condomínios**, **Preventivas**, **Equipamentos** | — | Ficam (Preventivas: decisão de 04/09, cadastro e acompanhamento juntos) |
+| **Relatórios** | — | Fica até virar o dashboard |
+| Configurações, Colaboradores | — | **Saem do menu lateral** e vão para o menu do usuário |
+
+A casca muda junto: **busca global (Ctrl+K)** em condomínios, chamados,
+reservatórios, documentos e ações; abas com contador viram **chips de filtro**;
+**lista e detalhe na mesma tela**; o **mesmo cabeçalho** (título · filtros ·
+uma ação primária) em toda tela.
+
+### A maquete
+
+`public/_redesenho-preview.html` (+ `.css` e `.js`), aberta em
+`/dev/_redesenho-preview.html` (só fora de produção). Estática, dados de
+exemplo, nada grava. Tem a casca nova, **Hoje**, **Monitoramento** e
+**Atendimento** funcionando (filtros, seleção, ações da fila com desfazer,
+Ctrl+K); as outras telas mostram o que vão reunir. Folha própria, **sem herdar
+o `admin.css`**: os mesmos tokens do registro de gestão, sem os remendos.
+
+Conferida em 1440×900 e 375×812, sem erro no console e sem rolagem lateral.
+
+**Veredito (19/11/2026):** aprovada. Em seguida o Pedro pediu **a maquete de
+todas as telas antes de codar** (*"então faz a maquete de tudo"*) e reforçou
+*"não esquece de deixar igual sistemas profissionais"*.
+
+### Segunda parte da maquete: as outras telas (19/11/2026)
+
+`public/_redesenho-preview-2.js` (usa a ponte `window.MAQ` da primeira parte).
+Toda lista segue **um molde só** (`lista()`): cabeçalho com uma ação primária,
+visões em chip, busca, **Exportar** (sai de Relatórios e vai para cada lista,
+com o filtro da tela), **seleção em lote** com barra de ações, **ordem pela
+coluna** (três cliques), **paginação** ("1–8 de 8") e o item escolhido no
+**painel ao lado** (linha do tempo + ações + o que está ligado).
+
+| Tela | Como ficou | Referência |
+|---|---|---|
+| **Agenda** | Quadro de despacho: técnicos nas linhas, dias nas colunas, linha "Empresa" (reunião, pagamento, faturamento Omie, contrato terminando). Coluna **"A agendar"** com chamados sem técnico, preventivas sem responsável e retornos de O.S.; "Agendar" escolhe o técnico e põe na grade. Barra de carga da semana por técnico. Modo **Mapa** com a posição dos técnicos e as visitas do dia | ServiceTitan Dispatch Board |
+| **Preventivas** | Barra do mês (feitas · em campo · a fazer · atrasadas), lista por prédio com o mês e a próxima, **tira dos últimos 12 meses** em cada linha, lote "trocar responsável" / "gerar chamados agora". Cadastro e acompanhamento juntos (decisão de 04/09) | Jobber Recurring jobs |
+| **O.S.** | Visões Pede ação · Em andamento · Falta enviar; "Enviar" e "PDF" na linha; painel com Aberta → Técnico chegou → Finalizada → Enviada e o que o técnico registrou | Jobber Jobs |
+| **Orçamentos** | Lista única: pedido do técnico é um estado ("Fazer orçamento" na linha), a origem vai embaixo do número. Termina no aprovado ("Emitir nota no Financeiro") | Jobber Quotes |
+| **Financeiro** | Faixa de quatro números (contratos por mês, faturamento Omie 77 de 81, avulsos do mês, pede ação) + a lista alterna **Notas avulsas / Contratos**. Na linha do contrato, a **nota do mês vinda do Omie** (antes só na Agenda), e o porquê de estar sem nota | QuickBooks / Omie |
+| **Condomínios** | Lista com Água, Chamados, Contrato e Preventiva; a linha abre a página | HubSpot Companies |
+| **Página do condomínio** | **No lugar das 10 abas, três colunas:** dados (cadastro, contrato e preventiva com a tira de 12 meses, equipamentos) · **histórico do prédio** com filtro por tipo e nota livre · água ao vivo, o que está em aberto e o acesso do síndico. Migalha "Condomínios › prédio", botão "Novo ▾" já com o prédio | HubSpot / ServiceTitan customer record |
+| **Equipamentos** | Visões Em uso · Na oficina · Prontos para devolver · Etiquetas em branco · Baixados; painel com o histórico do equipamento (instalado → oficina → orçamento → devolvido) | — |
+| **Colaboradores** | Lista com função, onde o técnico está agora e chamados abertos; "Convidar" | Linear Members |
+| **Configurações** | Menu à esquerda com 8 seções (Conta, Usuários e acesso, Notificações, Prazos, Operação, IA, Integrações, Limpeza de dados), grupos em cartão, Salvar/Descartar | Stripe / Linear Settings |
+| **Relatórios** | Placa explicando que espera a definição do dashboard | — |
+
+A busca global passou a achar também O.S., orçamentos, contratos,
+equipamentos e pessoas.
+
+Conferida em 1440×900 (todas) e 375×812 (as 14 rotas sem rolagem lateral).
+**No celular a Agenda ainda é a grade rolando de lado** dentro da área; o
+certo ali é a vista de um dia em lista, a fazer no código.
+
+**Próximo:** veredito do Pedro nesta segunda parte → reescrever o admin, tela
+por tela, começando pela casca + Hoje.
+
+---
+
+## Etapa 1 no código: casca nova e a tela Hoje (19/11/2026)
+
+Maquete aprovada pelo Pedro, com três pedidos para o código: **arrastar e
+soltar na Agenda** (entra quando a Agenda virar quadro de despacho), **telas
+de carregando, vazio e erro**, e o **menu lateral com as logos de hoje,
+abrindo e fechando, "bem bonitão"**. Depois, em cima do resultado: o botão de
+abrir/fechar **no topo, só o ícone**, a **logo centralizada**, e **uma busca
+só** (a do menu saiu, fica a do topo).
+
+### Arquivos
+
+| Arquivo | O quê |
+|---|---|
+| `public/admin-nav.js` | Reescrito. Menu de 11 itens em três blocos (sem rótulo · Documentos · Carteira), menu do usuário (Configurações, Colaboradores, Sair), recolher/abrir, gaveta no celular |
+| `public/admin-busca.js` (novo) | Busca global Ctrl+K: condomínios, reservatórios, chamados, O.S., orçamentos, pessoas, telas e ações |
+| `public/admin-carteira.js` | `renderInicio` virou a tela **Hoje**; `_icGarantirDados` busca também a agenda do dia e guarda erro por fonte |
+| `public/admin.css` | Bloco "CASCA NOVA" no fim; as peças novas entraram na lista de exceção do `body *:not(...) { border-radius: 0 }` |
+| `public/admin.html` | `lucide.min.js` e `admin-busca.js`; título "Hoje" |
+| `public/admin.js` | Só `_sectionTitles.inicio` = "Hoje" |
+
+Versões: `admin.css?v=331`, `admin.js?v=401`, `admin-nav.js?v=11`,
+`admin-busca.js?v=1`, `admin-carteira.js?v=6`. Nenhum endpoint novo (o Hoje lê
+`GET /agenda`, que já existia), então o `sw.js` não mudou.
+
+### O menu
+
+- É um `<aside class="gb-sb">` **novo**. O `<aside class="sidebar">` antigo
+  fica no HTML, escondido, e **continua mandando**: o admin.js esconde item
+  dele para o operador, escreve os badges e o nome do usuário nele. Um
+  `MutationObserver` ressincroniza o novo. Para esconder uma tela de um
+  perfil, continue escondendo o item antigo.
+- **Aberto:** logo inteira (`login-logo.png`) centralizada, botão de recolher
+  (só o ícone) no canto do topo. **Recolhido:** o ícone pequeno
+  (`logo-menu.png`), o botão logo abaixo, só ícones na lista, dica com o nome
+  ao passar o mouse, e o contador vira um ponto. A escolha fica em
+  `localStorage.sidebarCollapsed` (a mesma chave de antes).
+- Contador vermelho só em Monitoramento e Atendimento (é alarme); nos outros,
+  neutro.
+- **Celular (≤768px):** o menu vira gaveta, aberta pelo ☰ que entra no começo
+  da barra de cima; fecha no X, tocando fora, com Esc ou ao escolher tela. A
+  barra de baixo continua. A logo da barra de cima saiu (está na gaveta).
+- **Nenhum item do menu tem mais subabas:** Monitoramento (etapa 2),
+  Atendimento (etapa 3) e Financeiro (etapa 5) viraram telas únicas.
+  É transição: cada um vira uma tela só nas próximas etapas.
+
+### A busca (Ctrl+K)
+
+O campo do topo virou um botão que abre a paleta (e é a única busca: a do
+menu saiu a pedido do Pedro). Procura **no que o painel já carregou**, sem
+rota nova; o que o perfil não carrega não aparece. Sem texto, mostra as ações
+(novo chamado, orçamento, condomínio), os chamados em aberto mais recentes e
+as telas. ⚠️ O Ctrl+K antigo do admin.js continua registrado no `document`; o
+novo escuta na captura da `window` e para a propagação.
+
+⚠️ **As coleções do admin.js são `let` no topo**: existem no escopo global mas
+**não** como `window._osData`. Leia pelo nome, protegido por `typeof`.
+
+### A tela Hoje
+
+- Saudação e data; botão **Novo ▾** (chamado, orçamento, condomínio).
+- **Frase da carteira** com barra de proporção (normais · baixo · abaixo de
+  20% · sem sinal) e "Ver monitoramento".
+- **"Precisa de você": uma fila só**, em Agora / Hoje / Nos próximos dias,
+  com filtro em chip por tipo e **a ação com nome na linha**. As regras são as
+  de sempre (`_chamadosAlertaAbertos`, `_avPendente`, `_osFaltaEnviar`,
+  aprovado sem nota, nota com erro, contrato vencendo em 30 dias). ⚠️ **A ação
+  leva ao lugar onde a coisa é feita, não grava daqui**: "Emitir nota" e "Dar
+  baixa" abrem o orçamento, "Enviar ao cliente" abre a O.S., "Atribuir
+  técnico" abre o chamado.
+- **Em campo agora** (técnicos: em atendimento, a caminho, com N chamados ou
+  livre; quando foi visto pelo GPS), **Agenda de hoje** e **Aconteceu há
+  pouco** (chamado aberto/resolvido, cliente respondeu, O.S. finalizada,
+  alerta).
+- **Carregando:** esqueleto com brilho lento na fila, na frase e na agenda.
+  **Vazio:** "Nada esperando por você", com o que faz aparecer algo.
+  **Erro:** faixa vermelha dizendo o que não carregou (contratos, agenda,
+  O.S., orçamentos) e "Tentar de novo"; o resto da fila continua.
+- Tempo curto com plural certo (`_icRel`: "1 dia", não "1 dias"; passou de 30
+  dias, a data).
+
+### Testado (banco de teste, 19/11/2026)
+
+Admin em 1440×900 e 375×812, sem erro no console: menu aberto e recolhido,
+botão no topo, dica no recolhido, menu do usuário → Colaboradores (o rodapé
+acende), Monitoramento com as subabas, Ctrl+K "aurora" → Enter → ficha do
+condomínio, gaveta no celular sem rolagem lateral, filtros da fila.
+**Não testado:** o perfil operador (o Pedro mandou deixar para depois) e o
+estado de erro com falha de verdade (só lido no código).
+
+### Próximo
+
+~~Monitoramento como tela única~~ (✅ etapa 2) → ~~Atendimento (Chamados + WhatsApp)~~ (✅ etapa 3) → Agenda
+como quadro de despacho **com arrastar e soltar** (✅ etapa 4; 093 já no banco de teste,
+falta em produção) → ~~Financeiro~~ (✅ etapa 5) → as listas restantes no molde
+da maquete (O.S., Orçamentos, Condomínios com a página em 3 colunas,
+Preventivas, Equipamentos, Colaboradores, Configurações).
+
+---
+
+## Etapa 2 no código: Monitoramento numa tela só (19/11/2026)
+
+Telemetria, Mapa, Alertas (os de telemetria) e o lado ao vivo do Painel viram
+**uma tela**, `#/monitoramento`, em `public/admin-monitoramento.js` (novo). O
+item do menu deixou de ter subabas.
+
+### Como é
+
+- **Cabeçalho:** "Ao vivo" com a hora da última atualização, a frase da
+  carteira (N de M normais · baixo · sem sinal), **Lista | Mapa** e
+  "+ Reservatório" (o mesmo botão escondido da Telemetria, quando o perfil o
+  vê).
+- **Barra:** chips Pede atenção · Sem sinal · Nível baixo ou crítico · Todos,
+  filtro de condomínio e busca (prédio, reservatório, código do aparelho).
+- **Lista:** reservatório (prédio em negrito, nome · bairro embaixo), nível
+  com barra na cor da faixa, bomba, último sinal, situação e nº de alertas.
+  Ordem: o que pede atenção primeiro, depois o nível mais baixo. Setas ↑↓ e
+  Enter andam pela lista.
+- **Mapa:** um pino por prédio na cor do pior reservatório dele, técnicos com
+  as iniciais, legenda, e aviso de quantos prédios estão sem localização
+  cadastrada. Clicar no pino escolhe o reservatório.
+- **Painel do reservatório (ao lado):** prédio (abre a ficha na aba
+  Telemetria), nível grande, situação, **Abrir chamado** (já com o prédio) e
+  **Histórico e PDF** (abre o modal da Telemetria, que é quem gera o PDF);
+  gráfico de 24 h, 7 ou 30 dias com as faixas de 45 % e 20 %, mínimo e
+  máximo; **alertas abertos** com **Resolver** (mesma rota `PATCH
+  /alertas/:id/fechar`, com confirmação) e o botão de comentários, que abre o
+  alerta na tela Alertas (comentários e análise por IA moram lá); dados do
+  aparelho; histórico de alertas resolvidos com quanto tempo levou.
+- **Endereço:** `#/monitoramento/<id do reservatório>`; F5 volta no mesmo.
+- **Estados:** esqueleto enquanto o status não chega; "Nada pedindo atenção
+  agora" quando o filtro esvazia por estar tudo bem; "Nenhum reservatório com
+  esse filtro" + Limpar filtros; "Nenhum reservatório monitorado ainda"; erro
+  e "Tentar de novo" no gráfico; "Sem leituras no período".
+- **Celular:** a coluna de bomba e último sinal sai, os chips rolam de lado, o
+  painel abre por cima da lista com "← Lista".
+
+### Fontes (nenhum endpoint novo)
+
+`_statusData` (`GET /admin/status`), `_alertasAbertos` (`GET
+/alertas-abertos`), `GET /admin/historico?device_ids=&horas=` para o gráfico
+(guardado 1 min), `GET /alertas/:device_id` para o histórico de alertas,
+`_tecLocs` para os técnicos no mapa. O polling da telemetria (7 s) e o
+`carregarTudo` redesenham a lista e a cabeça do painel **sem refazer o
+gráfico nem o mapa** (ganchos no fim do arquivo).
+
+### O que continua nas telas antigas (de propósito)
+
+As seções `telemetria`, `mapa`, `alertas` e `dashboard` seguem no HTML e
+abrem por link e por endereço, acendendo o item Monitoramento:
+- **Histórico e PDF** → modal da Telemetria (`_telSelecionarNoHistorico`);
+- **Comentários e análise por IA** do alerta → tela Alertas;
+- **Chamado que vira alerta** (P1/P2, fora do prazo) é do Atendimento.
+O badge do item Monitoramento é o mesmo de Alertas (`badgeDe`).
+
+### Testado (banco de teste, 19/11/2026)
+
+1440×900 e 375×812, sem erro no console: lista, chips, escolher reservatório
+(endereço muda), F5 em `#/monitoramento/7`, mapa (16 tiles, aviso de prédio
+sem localização), painel com gráfico vazio ("Sem leituras"), alertas abertos e
+histórico, celular com o painel por cima e sem rolagem lateral.
+**Limite do banco de teste:** os 4 reservatórios estão sem sinal e sem
+leitura, e o prédio não tem lat/lng — o gráfico com dados, as cores de nível
+e os pinos no mapa só foram vistos no código. **Não clicado:** Resolver (muda
+o banco) e "+ Reservatório".
+
+---
+
+## Etapa 3 no código: Atendimento, uma caixa de entrada (19/11/2026)
+
+Chamados e WhatsApp viram **uma tela**, `#/atendimento`, em
+`public/admin-atendimento.js` (novo), no molde de Zendesk/Freshdesk: a fila
+à esquerda, o item escolhido à direita. O item do menu deixou de ter subabas.
+
+### Como é
+
+- **Cabeçalho:** frase "N chamados em aberto · N sem técnico · N fora do
+  prazo · N conversas sem resposta" e **+ Novo chamado** (o mesmo formulário de
+  sempre, `btnNovoChamado`).
+- **Fila:** busca (prédio, assunto, nº, telefone, técnico) e **visões em
+  chip**: Em aberto · Sem técnico · Fora do prazo · Críticos (P1) ·
+  Preventivas · Resolvidos · Cancelados · Todos. Visão de alarme vazia some.
+- **Troca "Chamados | Conversas" no topo** (só com o WhatsApp ligado). Ver
+  "Chamados e conversas não se misturam", abaixo.
+- **Item da fila:** canal (WhatsApp, preventiva, alerta da telemetria,
+  escritório), prédio, quando abriu, título, prioridade, estado (fora do
+  prazo, técnico a caminho/no local, aberto há X, resolvido) e o técnico
+  (iniciais) ou "sem técnico". Ordem: fora do prazo primeiro, depois a
+  prioridade, depois **quem espera há mais tempo**; nas visões de fechados, o
+  mais recente primeiro. ↑↓ e Enter andam pela fila.
+- A **conversa de um chamado** (mesmo telefone do `cliente_telefone`) vira a
+  aba **"Conversa no WhatsApp"** dentro do chamado.
+- **Endereço:** `#/atendimento/<id do chamado>` ou `#/atendimento/c<id da
+  conversa>`; F5 volta no mesmo.
+- **Estados:** esqueleto na fila até os chamados chegarem; "Fila limpa" nas
+  visões de alarme vazias; "Nada encontrado" na busca; o palco vazio explica o
+  que aparece quando se escolhe.
+- **Celular:** o item abre por cima da fila com "← Fila"; os chips rolam de
+  lado.
+
+### Chamados e conversas não se misturam (decisão do Pedro, 19/11/2026)
+
+A primeira versão punha as conversas do WhatsApp na mesma fila dos chamados.
+O Pedro achou que *"tanta informação junto das conversas ainda pode ficar
+confuso"*, e o motivo é do sistema: a IA atende a maior parte das conversas
+sozinha e abre o chamado quando é problema de verdade, então misturadas elas
+enchiam a fila e escondiam o P1. É o modelo do Intercom e do Blip (conversa e
+ticket em caixas separadas e ligadas), não o do Zendesk (onde toda mensagem
+vira ticket).
+
+- **Troca "Chamados | Conversas"** no topo da tela, cada uma com a sua fila e
+  as suas visões. A de Chamados nunca mostra conversa.
+- **Conversas:** Sem resposta · Com a IA (aberta, ninguém assumiu, a última
+  palavra foi da IA) · Assumidas por alguém · Encerradas · Todas. Frase
+  "N conversas abertas · N sem resposta · N com a IA".
+- O contador da troca **conta só as conversas sem resposta** (o que espera
+  uma pessoa), em vermelho; o de Chamados, os em aberto.
+- A ligação entre os dois fica **dentro do chamado** (aba "Conversa no
+  WhatsApp"), não na fila.
+- Trocar de fila com um item aberto da outra limpa o palco.
+- `#/atendimento/c<id>` abre direto na fila de conversas.
+- Sem a integração ligada a troca não aparece e a tela é só de chamados.
+
+Testado com três conversas **simuladas só na memória da página** (o banco de
+teste não tem nenhuma): contagens, visões, frase, a fila de chamados sem
+nenhuma conversa, e a troca limpando o palco.
+
+### ⚠️ O painel do chamado e o chat do WhatsApp foram MOVIDOS, não reescritos
+
+`#chDetailCol` (desenhado por `renderChDetalhe`) e `.wa-chat-col` +
+`#waInfoCol` (desenhados por `_waSelecionar`) são **hospedados** no palco da
+tela nova. As ações do chamado são delegadas no `body` e as do WhatsApp
+escutam nos próprios elementos, então tudo continua funcionando: resolver,
+cancelar, reabrir, trocar técnico e prédio, histórico, avaliação, "Abrir
+página", assumir/devolver/fechar conversa, responder.
+
+- Ao abrir as telas antigas (`#/chamados`, `#/whatsapp`, que seguem
+  alcançáveis por endereço e acendem o item Atendimento), os blocos **voltam**
+  para o lugar de origem (`devolver`).
+- ⚠️ **Antes de qualquer `innerHTML` na raiz da tela, devolva os blocos.**
+  A primeira versão redesenhava a tela com o painel dentro e o apagava do
+  documento (achado no teste: `#chDetailCol` sumia depois de ir a
+  `#/chamados` e voltar).
+- ⚠️ Aberta pelo endereço antes de os chamados chegarem, a tela marcava o item
+  e deixava o palco vazio. Os ganchos (`renderChamados`, `carregarAtendimento`,
+  `carregarTudo`) redesenham o palco quando ele está vazio e há escolha.
+- Abrir a tela marca os chamados como vistos (`_chamadosIdsAck`), como a tela
+  Chamados fazia. O badge do item é a soma de Chamados e WhatsApp.
+- Hoje e a busca Ctrl+K passam a abrir o chamado aqui (`gbAtEscolher`), não
+  na página `#/chamados/<id>`; a página continua pelo "Abrir página ↗".
+
+### Testado (banco de teste, 19/11/2026)
+
+1440×900 e 375×812, sem erro no console: fila e chips, escolher chamado
+(endereço muda), trocar de chamado, `#/chamados` e volta (painel devolvido e
+hospedado de novo), F5 em `#/atendimento/10`, celular com "← Fila" e sem
+rolagem lateral. **Não testado:** o WhatsApp (a integração está desligada no
+banco de teste, sem conversas), as ações que gravam (resolver, cancelar,
+trocar técnico), e o perfil operador.
+
+---
+
+## Etapa 4 no código: a Agenda vira quadro de despacho, com arrastar e soltar (19/11/2026)
+
+Pedido do Pedro ao aprovar a maquete: *"arrastar e soltar na Agenda. Nos
+quadros de despacho de verdade você arrasta o chamado para o técnico"*. Vista
+nova **Quadro** (a de abertura no computador) em `public/admin-despacho.js`
+(novo), no molde do Dispatch Board do ServiceTitan. As vistas Semana, Mês e
+Lista do `admin-agenda.js` continuam, na mesma troca de vistas.
+
+### Como é
+
+- **Grade:** técnicos ativos nas linhas (com "N visitas na semana"), dias da
+  semana nas colunas (seg a sáb; domingo só aparece quando tem algo), e a
+  linha **Empresa** com o que não é de técnico: reunião, pagamento,
+  faturamento do Omie, contrato terminando, retorno de O.S., compromisso sem
+  técnico. Hoje marcado.
+- **"A agendar" (à esquerda):** chamados em aberto **sem visita marcada em
+  nenhuma semana**, separados em Chamados e Preventivas, na ordem fora do
+  prazo → prioridade → mais antigo. Cada um tem **Agendar** (formulário curto:
+  técnico, dia, hora), que é o caminho sem mouse e no celular.
+- **Arrastar e soltar:**
+  - chamado → célula de técnico: cria uma **visita ligada ao chamado** (hora:
+    a primeira cheia livre do técnico no dia, das 8h às 17h) e **atribui o
+    técnico ao chamado** (`PATCH /chamados/:id`, a rota de sempre, para ele
+    ver no app);
+  - visita → outra célula: muda dia e técnico, mantém a hora (e troca o
+    técnico do chamado, se a visita tiver um);
+  - visita → coluna "A agendar": **desmarca** (o chamado volta para a fila).
+  - Chamado não cai na linha Empresa; visita de chamado também não.
+  - Toda ação mostra um aviso com **Desfazer** (8 s).
+- **Clique numa visita:** menu com Abrir o chamado · Remarcar · Editar ·
+  Desmarcar. Compromisso que **se repete não arrasta** (mudaria a série
+  inteira): o menu oferece "Editar a série", o formulário de sempre.
+- **Estados:** grade com brilho lento na primeira carga; "Nada a agendar"
+  quando a fila esvazia; aviso quando não há técnico ativo cadastrado.
+
+### O que mudou no servidor (⚠️ migration 093)
+
+- `migrations/093_compromisso_chamado.sql`: `compromissos.chamado_id`
+  (nullable, `ON DELETE SET NULL`) e índice. Aditiva e idempotente.
+- `src/routes/agenda.routes.js`: aceita `chamado_id` no POST/PATCH, devolve
+  em cada visita o `chamado_id`, o status, o técnico e a prioridade do
+  chamado (LEFT JOIN), e um mapa `visitas_chamados` com a próxima visita de
+  cada chamado (para a coluna "A agendar" não depender da semana na tela).
+- ⚠️ **A rota lê a coluna nova: sem a 093 o `GET /agenda` dá erro.** Rodar
+  no banco de teste antes de testar e **em produção ANTES do push**, junto com
+  090, 091 e 092.
+
+### Testado (banco de teste, 19/11/2026)
+
+093 aplicada no **banco de teste** em 19/11 (a pedido do Pedro); servidor
+reiniciado com a rota nova (`GET /agenda` → 200 com `visitas_chamados`).
+Arrastar testado com os eventos de arrastar e soltar do navegador, conferindo
+o banco pela API depois de cada passo:
+
+| Passo | Resultado |
+|---|---|
+| #10 (sem técnico) → Carlos, quinta 19 | Visita às 08:00 (11:00 UTC) ligada ao #10; o #10 ganhou o Carlos; saiu de "A agendar"; aviso "#10 com Carlos, hoje às 08:00 · técnico atribuído · Desfazer" |
+| Visita → Marina, sábado 21 | Dia e técnica trocados, hora mantida; o #10 passou para a Marina |
+| Desfazer da remarcação | Voltou para quinta com o Carlos, nos dois lados |
+| Visita → coluna "A agendar" | Desmarcada; o #10 voltou para a fila |
+| Desfazer do desmarcar | Visita recriada no mesmo horário |
+
+Celular 375×812: abre na Lista; o Quadro mostra "A agendar" em cima e a grade
+rolando de lado dentro da caixa, sem rolagem lateral na página.
+1440×900: grade cabendo, formulário "Agendar" e menu da visita.
+**Limpeza:** a visita de teste foi desmarcada e o #10 voltou sem técnico,
+como estava. Ficaram no banco de teste os compromissos marcados como apagados
+(a agenda é registro) e o histórico de troca de técnico do #10.
+
+⚠️ **Desmarcar a visita não tira o técnico do chamado** (de propósito: o
+chamado continua com quem foi escolhido, só sem data). O Desfazer de
+"agendar" desfaz as duas coisas.
+
+**Não testado:** arrastar com o mouse de verdade (os eventos foram
+disparados por script, o mesmo caminho do navegador) e o perfil operador (a
+Agenda é só da gestão).
+---
+
+## Etapa 5 no código: Financeiro numa tela só (19/11/2026)
+
+Notas fiscais, Contratos e o faturamento dos contratos no Omie (que só a
+Agenda mostrava) viram **uma tela**, `#/financeiro`, em
+`public/admin-financeiro.js` (novo). Era o último item do menu com subabas.
+
+### Como é
+
+- **Cabeçalho:** o mês ("Novembro de 2026") e a troca **Notas fiscais |
+  Contratos**. Endereço `#/financeiro/notas` ou `#/financeiro/contratos`.
+- **Faixa do mês, quatro números:** contratos por mês (soma dos ativos) ·
+  **faturamento do mês no Omie** ("77 de 81", "4 contratos sem nota · ver",
+  abre o painel do faturamento que era da Agenda; só o admin vê, como a rota)
+  · avulsos aprovados no mês · **Pede ação** (notas com erro, aprovados sem
+  nota, contratos vencidos e vencendo), em que cada parte é um atalho para a
+  lista já filtrada.
+- **As listas são as de sempre, MOVIDAS para cá** (a técnica do
+  Atendimento): o conteúdo da tela Notas (`#nfRoot`, `renderNotas`) e o
+  cartão da tela Contratos (`_ctrsRender` e companhia). Filtros, busca, ordem
+  pela coluna, "+ Novo contrato" e as páginas do orçamento e do contrato não
+  mudaram. `#/notas` e `#/contratos` seguem abrindo e pegam o conteúdo de
+  volta; o item Financeiro acende nelas.
+- A faixa se redesenha quando um orçamento, uma nota ou um contrato é gravado
+  (ganchos em `_avRenderTudo`, `_ctrRefrescarListas`, `_ctrsRender`).
+- Perfil operador não vê a tela (lê orçamentos e contratos, que dão 403).
+
+### Testado (banco de teste, 19/11/2026)
+
+1440×900 e 375×812, sem erro no console: faixa (Omie 77 de 81, 7 aprovados
+sem nota), troca para Contratos e volta, atalho "aprovados sem nota" caindo
+na lista filtrada, painel do Omie, `#/contratos` e volta (o cartão vai e
+volta), celular sem rolagem lateral. O banco de teste não tem contrato nem
+nota emitida: essas linhas só foram vistas no código.
+
+---
+
+## Onde paramos (19/11/2026, fim do dia) — retomar daqui
+
+**Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
+commitada e com push **na branch**, sem merge e sem deploy. A maquete de
+todas as telas está no repositório: `public/_redesenho-preview*.{html,css,js}`,
+aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
+
+### Pronto no código
+
+| Etapa | Tela | Arquivo |
+|---|---|---|
+| 1 | Casca (menu com logos, recolher no topo, menu do usuário), busca Ctrl+K, **Hoje** | `admin-nav.js`, `admin-busca.js`, `admin-carteira.js` |
+| 2 | **Monitoramento** (Telemetria + Mapa + Alertas + Painel) | `admin-monitoramento.js` |
+| 3 | **Atendimento** (filas Chamados \| Conversas separadas) | `admin-atendimento.js` |
+| 4 | **Agenda** como quadro de despacho, com arrastar e soltar | `admin-despacho.js` + migration **093** |
+| 5 | **Financeiro** (Notas + Contratos + Omie) | `admin-financeiro.js` |
+
+Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
+abrindo por endereço, e os blocos movidos voltam para elas.
+
+### Falta (na ordem que eu seguiria)
+
+1. **As listas restantes no molde da maquete** (`_redesenho-preview-2.js` é a
+   referência de cada uma): O.S. · Orçamentos (lista única, "solicitado" vira
+   estado, termina no aprovado) · **Condomínios** (lista + página do prédio
+   em 3 colunas no lugar das 10 abas) · Preventivas (tira dos 12 meses) ·
+   Equipamentos · Colaboradores · Configurações (menu à esquerda). Molde:
+   chips, busca, Exportar, seleção em lote, ordem pela coluna, paginação,
+   painel ao lado.
+2. **Relatórios:** o Pedro quer um dashboard; perguntar o que ele deve
+   responder antes de desenhar (memória "Relatórios vira dashboard").
+3. **Perfil operador:** o Pedro mandou deixar para depois; testar as cinco
+   telas novas com ele antes de subir.
+4. **Ordenar no celular** (seletor "Ordenar por" acima das listas).
+
+### Para subir para produção (o Pedro decide quando)
+
+1. Rodar em produção, **antes** do push, as migrations **090, 091, 092 e
+   093** (conferir antes no `information_schema` o que já está lá; eu sou
+   bloqueado de rodar com `--prod`, quem roda é ele).
+2. Merge da `feature/nota-fiscal-omie` na main → merge desta → push (= deploy).
+3. Passo a passo do Omie depois do deploy: [nota-fiscal.md](nota-fiscal.md).
+
+### Pendências antigas que continuam valendo
+
+- A ronda de UX de 19/11 foi toda feita, menos Relatórios (vai virar dashboard).
+- Testar as páginas de documento com o perfil operador (chamado sem "Ligado a
+  este chamado"; `#/contratos/…` ignorado).

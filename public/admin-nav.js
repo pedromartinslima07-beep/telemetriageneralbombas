@@ -1,60 +1,53 @@
 // ============================================================
-// MENU EM 9 GRUPOS + SUBABAS  (redesenho, fase 3 — 18/11/2026)
+// CASCA DO ADMIN — menu lateral (redesenho estrutural, 19/11/2026)
 // ============================================================
 //
-// Plano em docs/modulos/redesenho-admin.md. Roda depois do admin.js e do
-// admin-condominio.js.
+// Plano em docs/modulos/redesenho-admin.md, seção "Redesenho estrutural".
+// Roda depois do admin.js e do admin-condominio.js.
 //
-// ⚠️ OS 15 ITENS ANTIGOS CONTINUAM NO HTML, ESCONDIDOS, E SÃO A FONTE DA
-// VERDADE. Três coisas do admin.js leem e escrevem neles e não mudaram:
-//   - o perfil operador esconde item por `style.display = "none"`;
-//   - os badges (`navBadgeAlertas` etc.) moram dentro deles;
-//   - o `showSection` marca `.active` neles.
-// Este arquivo só LÊ esses itens e desenha o menu novo por cima. Um
-// MutationObserver ressincroniza quando algum deles muda (o item de WhatsApp,
+// O menu é um <aside class="gb-sb"> NOVO, montado aqui. O <aside class="sidebar">
+// antigo continua no HTML, escondido, e continua sendo A FONTE DA VERDADE de
+// três coisas que o admin.js escreve nele e que não mudaram:
+//   - o perfil operador esconde item da nav antiga por `style.display = "none"`;
+//   - os badges (`navBadgeAlertas` etc.) moram dentro desses itens;
+//   - nome e papel do usuário (`sidebarUserLabel`, `sidebarUserRole`).
+// Um MutationObserver no aside antigo ressincroniza o novo (o item do WhatsApp,
 // por exemplo, aparece depois do boot quando a integração está ligada).
 //
-// ⚠️ Nenhuma tela foi retirada. As que dividem um grupo viram subabas no
-// topo do conteúdo. Retirar tela é a fase 5, e só com autorização.
+// ⚠️ Item com mais de uma seção (Monitoramento, Atendimento, Financeiro)
+// mostra subabas no topo do conteúdo. É TRANSIÇÃO: cada um vira uma tela só
+// nas próximas etapas do redesenho. Nenhuma tela foi retirada.
 
-const _NAV_GRUPOS = [
-  { id: "inicio", rotulo: "Início",
-    icone: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
-    membros: [["inicio", "Pede ação"], ["dashboard", "Painel"], ["alertas", "Alertas"], ["telemetria", "Telemetria"]] },
-  { id: "agenda", rotulo: "Agenda",
-    icone: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-    membros: [["agenda", "Agenda"], ["mapa", "Mapa"], ["planos", "Preventivas"]] },
-  { id: "condominios", rotulo: "Condomínios",
-    icone: '<rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M10 22v-4h4v4"/>',
-    membros: [["cadastros", "Condomínios"], ["equipamentos", "Equipamentos"]],
-    // a ficha não é subaba, mas acende o grupo
-    tambem: ["condominio"] },
-  { id: "chamados", rotulo: "Chamados",
-    icone: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
-    membros: [["chamados", "Chamados"], ["whatsapp", "WhatsApp"]],
-    tambem: ["chamado-detalhe"] },
-  { id: "os", rotulo: "O.S.",
-    icone: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
-    membros: [["ordens-servico", "O.S."]],
-    tambem: ["os-detalhe"] },
-  { id: "orcamentos", rotulo: "Orçamentos",
-    icone: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
-    membros: [["orcamentos", "Orçamentos"]],
-    tambem: ["orcamento-detalhe"] },
-  { id: "financeiro", rotulo: "Financeiro",
-    icone: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/>',
-    membros: [["notas", "Notas fiscais"], ["contratos", "Contratos"]],
-    tambem: ["contrato-detalhe"] },
-  { id: "relatorios", rotulo: "Relatórios",
-    icone: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
-    membros: [["relatorios", "Relatórios"]] },
-  { id: "config", rotulo: "Configurações",
-    icone: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-    membros: [["config", "Configurações"], ["tecnicos", "Colaboradores"]] },
+const _NAV_ITENS = [
+  { id: "hoje", rotulo: "Hoje", icone: "sun", membros: [["inicio", "Hoje"]] },
+  // Etapa 2 (19/11/2026): uma tela só. As antigas continuam alcançáveis por
+  // link (Histórico e PDF, comentários do alerta) e acendem este item.
+  { id: "monitoramento", rotulo: "Monitoramento", icone: "activity",
+    membros: [["monitoramento", "Monitoramento"]], tambem: ["telemetria", "mapa", "alertas", "dashboard"],
+    badgeDe: ["alertas"] },
+  // Etapa 3 (19/11/2026): caixa de entrada única. As telas antigas seguem
+  // alcançáveis por endereço e acendem este item.
+  { id: "atendimento", rotulo: "Atendimento", icone: "inbox",
+    membros: [["atendimento", "Atendimento"]], tambem: ["chamados", "whatsapp", "chamado-detalhe"],
+    badgeDe: ["chamados", "whatsapp"] },
+  { id: "agenda", rotulo: "Agenda", icone: "calendar-days", membros: [["agenda", "Agenda"]] },
+  { grupo: "Documentos" },
+  { id: "os", rotulo: "Ordens de serviço", icone: "clipboard-check", membros: [["ordens-servico", "O.S."]], tambem: ["os-detalhe"] },
+  { id: "orcamentos", rotulo: "Orçamentos", icone: "file-text", membros: [["orcamentos", "Orçamentos"]], tambem: ["orcamento-detalhe"] },
+  // Etapa 5 (19/11/2026): tela única. Notas e Contratos seguem alcançáveis
+  // por endereço e acendem este item.
+  { id: "financeiro", rotulo: "Financeiro", icone: "landmark",
+    membros: [["financeiro", "Financeiro"]], tambem: ["notas", "contratos", "contrato-detalhe"] },
+  { grupo: "Carteira" },
+  { id: "condominios", rotulo: "Condomínios", icone: "building-2", membros: [["cadastros", "Condomínios"]], tambem: ["condominio"] },
+  { id: "preventivas", rotulo: "Preventivas", icone: "repeat", membros: [["planos", "Preventivas"]] },
+  { id: "equipamentos", rotulo: "Equipamentos", icone: "package", membros: [["equipamentos", "Equipamentos"]] },
+  { id: "relatorios", rotulo: "Relatórios", icone: "chart-column", membros: [["relatorios", "Relatórios"]] },
 ];
+// Saem do menu e vão para o menu do usuário (decisão de 19/11/2026).
+const _NAV_USUARIO = [["config", "Configurações", "settings"], ["tecnicos", "Colaboradores", "users"]];
 
-// Última subaba usada em cada grupo: voltar ao grupo devolve a pessoa onde ela
-// estava, não à primeira subaba.
+const _NAV_GRUPOS = _NAV_ITENS.filter(i => i.id); // compat: admin-condominio.js e afins leem por id
 const _navUltima = {};
 let _navAtual = null;
 
@@ -77,40 +70,134 @@ function _navMembrosVisiveis(g) {
 }
 
 function _navBadgeDe(secao) {
-  const el = _navItemAntigo(secao);
-  const b = el?.querySelector(".nav-badge");
+  const b = _navItemAntigo(secao)?.querySelector(".nav-badge");
   if (!b || b.style.display === "none") return 0;
   const n = parseInt(b.textContent, 10);
   return Number.isFinite(n) ? n : 0;
 }
 
+const _navEsc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const _navIco = n => `<i data-lucide="${n}" aria-hidden="true"></i>`;
+function _navIcones(raiz) {
+  if (window.lucide?.createIcons) window.lucide.createIcons({ root: raiz || document, attrs: { "stroke-width": 1.9 } });
+}
+
+// ===== MONTAGEM =====
+
 function _navMontar() {
-  const antiga = document.querySelector(".sidebar .nav");
-  if (!antiga || document.querySelector(".nav-grupos")) return;
-  antiga.classList.add("nav-antiga");
-  antiga.hidden = true;
+  const antigo = document.getElementById("sidebar");
+  const navAntiga = antigo?.querySelector(".nav");
+  if (!antigo || !navAntiga || document.querySelector(".gb-sb")) return;
+  navAntiga.classList.add("nav-antiga");
+  antigo.classList.add("sidebar-antiga");
+  antigo.setAttribute("aria-hidden", "true");
 
-  const nova = document.createElement("nav");
-  nova.className = "nav nav-grupos";
-  nova.setAttribute("aria-label", "Menu principal");
-  nova.innerHTML = _NAV_GRUPOS.map(g => `
-    <button class="nav-item" data-grupo="${g.id}" data-label="${g.rotulo}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${g.icone}</svg>
-      <span class="nav-item-label">${g.rotulo}</span>
-      <span class="nav-badge" style="display:none;">0</span>
-    </button>`).join("");
-  antiga.after(nova);
+  const sb = document.createElement("aside");
+  sb.className = "gb-sb";
+  sb.id = "gbSb";
+  sb.setAttribute("aria-label", "Menu principal");
+  sb.innerHTML = `
+    <div class="gb-sb-topo">
+      <a class="gb-sb-marca" href="#/inicio" aria-label="General · Hoje">
+        <img class="gb-sb-logo-full" src="/static/login-logo.png" alt="GENERAL">
+        <img class="gb-sb-logo-mini" src="/static/logo-menu.png" alt="">
+      </a>
+      <button class="gb-sb-recolher" type="button" data-sb-recolher aria-label="Recolher menu" title="Recolher menu">
+        ${_navIco("panel-left-close")}
+      </button>
+      <button class="gb-sb-fechar" type="button" data-sb-fechar aria-label="Fechar menu">${_navIco("x")}</button>
+    </div>
+    <nav class="gb-sb-nav" aria-label="Telas">
+      ${_NAV_ITENS.map(i => i.grupo
+        ? `<div class="gb-sb-grupo"><span class="gb-sb-txt">${i.grupo}</span></div>`
+        : `<button class="gb-sb-item" type="button" data-grupo="${i.id}" data-dica="${_navEsc(i.rotulo)}">
+            ${_navIco(i.icone)}<span class="gb-sb-txt">${i.rotulo}</span><b class="gb-sb-n" hidden></b>
+          </button>`).join("")}
+    </nav>
+    <div class="gb-sb-pe">
+      <button class="gb-sb-user" type="button" data-sb-user aria-haspopup="menu" aria-expanded="false" data-dica="Sua conta">
+        <span class="gb-sb-av" id="gbSbAv"></span>
+        <span class="gb-sb-user-txt gb-sb-txt"><b id="gbSbNome">—</b><small id="gbSbPapel"></small></span>
+        ${_navIco("chevrons-up-down")}
+      </button>
+      <div class="gb-menu gb-sb-user-menu" role="menu" hidden>
+        ${_NAV_USUARIO.map(([s, n, ic]) => `<button type="button" role="menuitem" data-sb-secao="${s}">${_navIco(ic)}${n}</button>`).join("")}
+        <hr>
+        <button type="button" role="menuitem" data-sb-sair>${_navIco("log-out")}Sair</button>
+      </div>
+    </div>`;
+  antigo.before(sb);
 
-  nova.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-grupo]");
-    if (!btn) return;
-    const g = _NAV_GRUPOS.find(x => x.id === btn.dataset.grupo);
-    const vis = _navMembrosVisiveis(g).map(([s]) => s);
-    const alvo = vis.includes(_navUltima[g.id]) ? _navUltima[g.id] : vis[0];
-    if (alvo) showSection(alvo);
+  const veu = document.createElement("div");
+  veu.className = "gb-sb-veu";
+  veu.dataset.sbFechar = "";
+  sb.after(veu);
+
+  // Recolhido: preferência salva (a mesma chave do menu antigo).
+  _navRecolher(localStorage.getItem("sidebarCollapsed") === "true", { salvar: false });
+
+  sb.addEventListener("click", (e) => {
+    const t = e.target;
+    const item = t.closest("[data-grupo]");
+    if (item) {
+      const g = _NAV_GRUPOS.find(x => x.id === item.dataset.grupo);
+      const vis = _navMembrosVisiveis(g).map(([s]) => s);
+      const alvo = vis.includes(_navUltima[g.id]) ? _navUltima[g.id] : vis[0];
+      if (alvo) showSection(alvo);
+      _navGaveta(false);
+      return;
+    }
+    if (t.closest("[data-sb-recolher]")) return _navRecolher(!sb.classList.contains("is-recolhido"));
+    if (t.closest("[data-sb-user]")) return _navMenuUsuario();
+    const sec = t.closest("[data-sb-secao]");
+    if (sec) { _navMenuUsuario(false); _navGaveta(false); showSection(sec.dataset.sbSecao); return; }
+    if (t.closest("[data-sb-sair]")) { if (typeof logout === "function") logout(); return; }
+    if (t.closest("[data-sb-fechar]")) return _navGaveta(false);
+  });
+  veu.addEventListener("click", () => _navGaveta(false));
+  document.addEventListener("mousedown", (e) => {
+    const m = sb.querySelector(".gb-sb-user-menu");
+    if (!m.hidden && !m.contains(e.target) && !e.target.closest("[data-sb-user]")) _navMenuUsuario(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    _navMenuUsuario(false);
+    _navGaveta(false);
   });
 
-  // Subabas no topo do conteúdo, acima das seções.
+  // Celular: o botão de menu entra no começo da barra de cima e abre o menu
+  // como gaveta. A barra de baixo (mob-nav) continua.
+  const topoMob = document.querySelector(".mob-topbar");
+  if (topoMob && !topoMob.querySelector("[data-sb-abrir]")) {
+    const b = document.createElement("button");
+    b.className = "mob-top-btn gb-mob-menu";
+    b.type = "button";
+    b.dataset.sbAbrir = "";
+    b.setAttribute("aria-label", "Abrir menu");
+    b.innerHTML = _navIco("menu");
+    b.addEventListener("click", () => _navGaveta(true));
+    topoMob.prepend(b);
+    const busca = document.createElement("button");
+    busca.className = "mob-top-btn";
+    busca.type = "button";
+    busca.dataset.buscaAbrir = "";
+    busca.setAttribute("aria-label", "Buscar");
+    busca.innerHTML = _navIco("search");
+    topoMob.querySelector("#mobBtnOffline")?.before(busca);
+  }
+
+  // O botão de menu do topo (desktop) passa a recolher o menu novo. Ele
+  // escutava o antigo pelo admin.js; o clique é interceptado na captura.
+  document.getElementById("btnSidebarToggleIn")?.addEventListener("click", (e) => {
+    e.stopImmediatePropagation();
+    _navRecolher(!sb.classList.contains("is-recolhido"));
+  }, true);
+
+  new MutationObserver(() => _navSincronizar()).observe(antigo, {
+    subtree: true, attributes: true, attributeFilter: ["style", "class"], characterData: true, childList: true,
+  });
+
+  // Subabas no topo do conteúdo (transição, ver o cabeçalho deste arquivo).
   const content = document.querySelector(".main .content");
   if (content && !document.getElementById("navSub")) {
     const sub = document.createElement("div");
@@ -125,35 +212,95 @@ function _navMontar() {
     });
   }
 
-  new MutationObserver(() => _navSincronizar()).observe(antiga, {
-    subtree: true, attributes: true, attributeFilter: ["style", "class"], characterData: true, childList: true,
-  });
+  _navIcones(sb);
+  if (topoMob) _navIcones(topoMob);
+}
+
+function _navRecolher(recolher, { salvar = true } = {}) {
+  const sb = document.getElementById("gbSb");
+  if (!sb) return;
+  sb.classList.toggle("is-recolhido", recolher);
+  document.body.classList.toggle("gb-sb-recolhido", recolher);
+  const b = sb.querySelector("[data-sb-recolher]");
+  if (b) {
+    b.setAttribute("aria-label", recolher ? "Abrir menu" : "Recolher menu");
+    b.title = recolher ? "Abrir menu" : "Recolher menu";
+    b.innerHTML = _navIco(recolher ? "panel-left-open" : "panel-left-close");
+    _navIcones(b);
+  }
+  if (salvar) localStorage.setItem("sidebarCollapsed", String(recolher));
+  // Mapas e gráficos medem o contêiner: avisa que a largura mudou.
+  setTimeout(() => window.dispatchEvent(new Event("resize")), 220);
+}
+
+function _navGaveta(abrir) {
+  document.body.classList.toggle("gb-sb-gaveta", !!abrir);
+}
+
+function _navMenuUsuario(abrir) {
+  const sb = document.getElementById("gbSb");
+  const m = sb?.querySelector(".gb-sb-user-menu");
+  const b = sb?.querySelector("[data-sb-user]");
+  if (!m) return;
+  const vai = abrir ?? m.hidden;
+  m.hidden = !vai;
+  b.setAttribute("aria-expanded", String(vai));
 }
 
 function _navSincronizar() {
-  const nova = document.querySelector(".nav-grupos");
-  if (!nova) return;
+  const sb = document.getElementById("gbSb");
+  if (!sb) return;
   const g = _navAtual ? _navGrupoDe(_navAtual) : null;
 
-  for (const grupo of _NAV_GRUPOS) {
-    const btn = nova.querySelector(`[data-grupo="${grupo.id}"]`);
+  for (const item of _NAV_GRUPOS) {
+    const btn = sb.querySelector(`[data-grupo="${item.id}"]`);
     if (!btn) continue;
-    const vis = _navMembrosVisiveis(grupo);
-    btn.style.display = vis.length ? "" : "none";
-    btn.classList.toggle("active", grupo === g);
-    const total = vis.reduce((s, [sec]) => s + _navBadgeDe(sec), 0);
-    const badge = btn.querySelector(".nav-badge");
+    const vis = _navMembrosVisiveis(item);
+    btn.hidden = !vis.length;
+    const on = item === g;
+    btn.classList.toggle("is-on", on);
+    if (on) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
+    const total = (item.badgeDe || vis.map(([sec]) => sec)).reduce((s, sec) => s + _navBadgeDe(sec), 0);
+    const badge = btn.querySelector(".gb-sb-n");
     badge.textContent = total > 99 ? "99+" : String(total);
-    badge.style.display = total ? "" : "none";
+    badge.hidden = !total;
+    // Monitoramento e Atendimento: contador vermelho (é alarme). O resto, neutro.
+    badge.classList.toggle("is-alarme", item.id === "monitoramento" || item.id === "atendimento");
+    btn.dataset.dica = total ? `${item.rotulo} · ${total}` : item.rotulo;
   }
+  // Rótulo de grupo sem item visível embaixo (operador) some.
+  sb.querySelectorAll(".gb-sb-grupo").forEach(rot => {
+    let algum = false;
+    for (let n = rot.nextElementSibling; n && !n.classList.contains("gb-sb-grupo"); n = n.nextElementSibling) {
+      if (!n.hidden) { algum = true; break; }
+    }
+    rot.hidden = !algum;
+  });
+  // Menu do usuário: Configurações e Colaboradores obedecem o perfil.
+  for (const [s] of _NAV_USUARIO) {
+    const b = sb.querySelector(`[data-sb-secao="${s}"]`);
+    if (b) b.hidden = !_navSecaoVisivel(s);
+  }
+  const userOn = _NAV_USUARIO.some(([s]) => s === _navAtual);
+  sb.querySelector("[data-sb-user]")?.classList.toggle("is-on", userOn);
+
+  // Nome e papel: o admin.js escreve no aside antigo.
+  const nome = document.getElementById("sidebarUserLabel")?.textContent?.trim() || "";
+  const papel = document.getElementById("sidebarUserRole")?.textContent?.trim() || "";
+  const elNome = document.getElementById("gbSbNome");
+  if (elNome && nome && elNome.textContent !== nome) {
+    elNome.textContent = nome;
+    const ini = nome.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+    document.getElementById("gbSbAv").textContent = ini || "?";
+  }
+  const elPapel = document.getElementById("gbSbPapel");
+  if (elPapel && elPapel.textContent !== papel) elPapel.textContent = papel;
 
   const sub = document.getElementById("navSub");
   if (!sub) return;
   const vis = g ? _navMembrosVisiveis(g) : [];
-  // Subaba só quando há o que escolher, e nunca por cima da ficha (ela tem as
-  // abas dela).
-  // Nem por cima das páginas de documento (O.S., orçamento, contrato,
-  // chamado): elas têm o "← Voltar", e a subaba ao lado dele confundia.
+  // Subaba só quando há o que escolher, e nunca por cima das páginas de
+  // documento (O.S., orçamento, contrato, chamado, ficha): elas têm o Voltar.
   const naPaginaDoc = _navAtual === "condominio" || /-detalhe$/.test(_navAtual || "");
   if (vis.length < 2 || naPaginaDoc) { sub.hidden = true; sub.innerHTML = ""; return; }
   sub.hidden = false;
@@ -171,15 +318,13 @@ function _navSincronizar() {
 (function _navEmbrulharShowSection() {
   const orig = window.showSection;
   if (typeof orig !== "function") return;
-  // Páginas de documento: não são subaba, acendem o grupo pelo "tambem".
-  const pagina = (n) => n === "condominio" || n === "os-detalhe" || n === "orcamento-detalhe"
-    || n === "contrato-detalhe" || n === "chamado-detalhe";
+  const pagina = (n) => n === "condominio" || /-detalhe$/.test(n);
   window.showSection = function (name, ...resto) {
     // Sair da página do orçamento com alteração não salva pergunta antes.
     if (typeof _avPodeSair === "function" && !_avPodeSair(name)) return;
     if (typeof _ctrPodeSair === "function") _ctrPodeSair(name);
     if (typeof _chPodeSair === "function") _chPodeSair(name);
-    if (!pagina(name) && document.querySelector(".nav-grupos") && !_navSecaoVisivel(name)) {
+    if (!pagina(name) && document.getElementById("gbSb") && !_navSecaoVisivel(name)) {
       const g = _navGrupoDe(name);
       const sub = g && _navMembrosVisiveis(g)[0]?.[0];
       const primeira = sub || _NAV_GRUPOS.map(x => _navMembrosVisiveis(x)[0]?.[0]).find(Boolean);
@@ -190,8 +335,8 @@ function _navSincronizar() {
     const g = _navGrupoDe(name);
     if (g && !pagina(name)) _navUltima[g.id] = name;
     _navSincronizar();
-    // Menu mobile acompanha: acende o item da própria tela quando ele existe
-    // (Alertas tem botão próprio lá embaixo); senão, o do grupo.
+    // Menu mobile acompanha: acende o item da própria tela quando ele existe;
+    // senão, o do grupo.
     const mob = [...document.querySelectorAll(".mob-nav-item[data-mob-section]")];
     const acender = mob.find(b => b.dataset.mobSection === name)
                  || mob.find(b => g && _navGrupoDe(b.dataset.mobSection) === g);
@@ -201,15 +346,19 @@ function _navSincronizar() {
 })();
 
 document.addEventListener("DOMContentLoaded", () => {
-  // As seções novas que não existem para o operador: Início e Notas leem
+  // As seções que não existem para o operador: Hoje, Notas e Financeiro leem
   // orçamentos, O.S. e contratos, que respondem 403 para ele; a Agenda é
   // `gestaoOnly` na rota (src/routes/agenda.routes.js).
   if (typeof _isOperador !== "undefined" && _isOperador) {
-    ["inicio", "notas", "agenda"].forEach(s => { const el = _navItemAntigo(s) || document.querySelector(`.nav-item[data-section="${s}"]`); if (el) el.style.display = "none"; });
+    ["inicio", "notas", "agenda", "financeiro"].forEach(s => {
+      const el = _navItemAntigo(s) || document.querySelector(`.nav-item[data-section="${s}"]`);
+      if (el) el.style.display = "none";
+    });
   }
   _navMontar();
-  // A tela de abertura passa a ser o Início (o HTML ainda nasce no Dashboard).
-  // Sem endereço na URL; com endereço, o roteador da ficha decide.
+  // Menu do celular: "Início" virou "Hoje".
+  const mobHoje = document.querySelector('.mob-nav-item[data-mob-section="inicio"] span');
+  if (mobHoje) mobHoje.textContent = "Hoje";
   _navAtual = document.querySelector(".section.is-active")?.dataset.section || null;
   if (!location.hash) {
     const abertura = _navSecaoVisivel("inicio") ? "inicio" : (_navAtual || "alertas");

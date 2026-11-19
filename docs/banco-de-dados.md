@@ -743,3 +743,11 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 093 — `compromissos.chamado_id` (19/11/2026)
+
+`ALTER TABLE compromissos ADD COLUMN chamado_id INTEGER REFERENCES
+chamados(id) ON DELETE SET NULL` + índice parcial. A visita marcada no quadro
+de despacho da Agenda sabe de que chamado é (ver
+[redesenho-admin.md](modulos/redesenho-admin.md), etapa 4). Nula nos
+compromissos antigos. ✅ Teste (19/11/2026). ⏳ **Falta produção** (antes do
+push, junto com 090–092).

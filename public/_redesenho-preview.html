@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050f38">
+<title>GENERAL • Redesenho do admin (maquete)</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/leaflet.css">
+<link rel="stylesheet" href="/static/_redesenho-preview.css?v=3">
+</head>
+<body>
+<!-- ⚠️ MAQUETE ESTÁTICA (19/11/2026), sem sessão e sem API: dados de exemplo.
+     Serve para aprovar a arquitetura de telas e a casca nova ANTES de mexer
+     no admin.html. Aberta em /dev/_redesenho-preview.html (só fora de prod).
+     Ver docs/modulos/redesenho-admin.md, seção "Redesenho estrutural". -->
+
+<div class="app" id="app">
+
+  <!-- ═══ MENU LATERAL ═══ -->
+  <aside class="sb" id="sb" aria-label="Menu principal">
+    <div class="sb-topo">
+      <span class="sb-marca"><img class="sb-logo" src="/static/logo-menu.png" alt="">General</span>
+      <button class="sb-fechar" id="sbFechar" type="button" aria-label="Fechar menu"><i data-lucide="x"></i></button>
+    </div>
+
+    <button class="sb-busca" id="sbBusca" type="button">
+      <i data-lucide="search"></i><span>Buscar</span><kbd>Ctrl K</kbd>
+    </button>
+
+    <nav class="sb-nav" id="sbNav">
+      <a class="sb-item" href="#/hoje" data-pg="hoje"><i data-lucide="sun"></i><span>Hoje</span><b class="sb-n" data-n="hoje">9</b></a>
+      <a class="sb-item" href="#/monitoramento" data-pg="monitoramento"><i data-lucide="activity"></i><span>Monitoramento</span><b class="sb-n is-risco" data-n="mon">5</b></a>
+      <a class="sb-item" href="#/atendimento" data-pg="atendimento"><i data-lucide="inbox"></i><span>Atendimento</span><b class="sb-n" data-n="at">8</b></a>
+      <a class="sb-item" href="#/agenda" data-pg="agenda"><i data-lucide="calendar-days"></i><span>Agenda</span></a>
+
+      <div class="sb-grupo">Documentos</div>
+      <a class="sb-item" href="#/os" data-pg="os"><i data-lucide="clipboard-check"></i><span>Ordens de serviço</span><b class="sb-n" data-n="os">1</b></a>
+      <a class="sb-item" href="#/orcamentos" data-pg="orcamentos"><i data-lucide="file-text"></i><span>Orçamentos</span><b class="sb-n" data-n="orc">2</b></a>
+      <a class="sb-item" href="#/financeiro" data-pg="financeiro"><i data-lucide="landmark"></i><span>Financeiro</span><b class="sb-n" data-n="fin">2</b></a>
+
+      <div class="sb-grupo">Carteira</div>
+      <a class="sb-item" href="#/condominios" data-pg="condominios"><i data-lucide="building-2"></i><span>Condomínios</span></a>
+      <a class="sb-item" href="#/preventivas" data-pg="preventivas"><i data-lucide="repeat"></i><span>Preventivas</span></a>
+      <a class="sb-item" href="#/equipamentos" data-pg="equipamentos"><i data-lucide="package"></i><span>Equipamentos</span></a>
+      <a class="sb-item" href="#/relatorios" data-pg="relatorios"><i data-lucide="chart-column"></i><span>Relatórios</span></a>
+    </nav>
+
+    <div class="sb-pe">
+      <button class="sb-user" id="sbUser" type="button" aria-haspopup="menu" aria-expanded="false">
+        <span class="av">PE</span>
+        <span class="sb-user-txt"><b>Pedro</b><small>Administrador</small></span>
+        <i data-lucide="chevrons-up-down"></i>
+      </button>
+      <div class="menu sb-user-menu" id="sbUserMenu" role="menu" hidden>
+        <a role="menuitem" href="#/config"><i data-lucide="settings"></i>Configurações</a>
+        <a role="menuitem" href="#/colaboradores"><i data-lucide="users"></i>Colaboradores</a>
+        <hr>
+        <a role="menuitem" href="#/hoje"><i data-lucide="log-out"></i>Sair</a>
+      </div>
+    </div>
+  </aside>
+  <div class="sb-veu" id="sbVeu"></div>
+
+  <!-- ═══ ÁREA DE TRABALHO ═══ -->
+  <main class="main" id="main">
+    <div class="mob-topo">
+      <button class="ib" id="mobMenu" type="button" aria-label="Abrir menu"><i data-lucide="menu"></i></button>
+      <b id="mobTitulo">Hoje</b>
+      <button class="ib" id="mobBusca" type="button" aria-label="Buscar"><i data-lucide="search"></i></button>
+    </div>
+    <div id="pagina"></div>
+  </main>
+</div>
+
+<!-- ═══ BUSCA GLOBAL ═══ -->
+<div class="cmdk-veu" id="cmdk" hidden>
+  <div class="cmdk" role="dialog" aria-modal="true" aria-label="Buscar">
+    <div class="cmdk-campo">
+      <i data-lucide="search"></i>
+      <input id="cmdkInput" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Condomínio, chamado, O.S., orçamento ou ação…">
+      <kbd>Esc</kbd>
+    </div>
+    <div class="cmdk-lista" id="cmdkLista" role="listbox"></div>
+    <div class="cmdk-pe"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="menu pop" id="pop" role="menu" hidden></div>
+
+<div class="faixa-maquete">Maquete · dados de exemplo · nada aqui grava</div>
+
+<script src="/static/lucide.min.js"></script>
+<script src="/static/leaflet.js"></script>
+<script src="/static/_redesenho-preview.js?v=2"></script>
+<script src="/static/_redesenho-preview-2.js?v=3"></script>
+</body>
+</html>

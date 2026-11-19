@@ -92,6 +92,8 @@ async function _agCarregar() {
     if (seq !== _agSeq) return;
     if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
     _agItens = j.itens || [];
+    // Próxima visita de cada chamado (quadro de despacho, admin-despacho.js).
+    _agVisitasChamados = j.visitas_chamados || {};
     _agCache.set(chave, _agItens);
   } catch (e) {
     if (seq !== _agSeq) return;
@@ -102,6 +104,7 @@ async function _agCarregar() {
   }
 }
 let _agErro = null;
+let _agVisitasChamados = {};
 
 function _agItemHtml(it, { compacto = false } = {}) {
   const t = _AG_TIPOS[it.tipo] || _AG_TIPOS.outro;

@@ -18048,3 +18048,63 @@ Item 9 da ronda de UX. A espera de 2–3 s era abrir conexão com o banco
 consultas juntas; no front, período já visto reaparece na hora e a grade
 aparece antes dos dados. `agenda.test.js` 21/21. `admin-agenda.js?v=5`,
 `admin.css?v=326`. Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Casca nova do admin e a tela Hoje (2026-11-19)
+
+Primeira etapa do redesenho estrutural no código (branch
+`feature/admin-condominio`). Menu lateral novo (`admin-nav.js` reescrito):
+11 itens, menu do usuário com Configurações e Colaboradores, logo
+centralizada, recolher pelo ícone do topo, gaveta no celular. Busca global
+Ctrl+K (`admin-busca.js`, novo) no lugar do campo do topo. A tela Início
+virou **Hoje** (`admin-carteira.js`): frase da carteira, fila única do que
+pede ação com a ação na linha, em campo agora, agenda de hoje, atividade, e
+estados de carregando, vazio e erro. Nenhum endpoint novo. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Monitoramento numa tela só (2026-11-19)
+
+Etapa 2 do redesenho estrutural (`public/admin-monitoramento.js`, novo):
+Telemetria, Mapa, Alertas de telemetria e o ao vivo do Painel numa tela
+`#/monitoramento`, com lista ou mapa, chips de filtro, filtro de condomínio,
+busca e o reservatório escolhido ao lado (gráfico 24 h/7 d/30 d com as
+faixas, alertas abertos com Resolver, histórico de alertas, abrir chamado,
+histórico e PDF). Endereço por reservatório. Nenhum endpoint novo. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Atendimento: chamados e WhatsApp numa caixa de entrada (2026-11-19)
+
+Etapa 3 do redesenho estrutural (`public/admin-atendimento.js`, novo): fila
+única com visões em chip (em aberto, sem técnico, fora do prazo, P1,
+WhatsApp, preventivas, resolvidos, cancelados), busca, e o item escolhido ao
+lado. O painel do chamado e o chat do WhatsApp são os de sempre, movidos para
+a tela nova; a conversa de um chamado vira aba dele. Endereço por chamado e
+por conversa. Nenhum endpoint novo. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Atendimento: chamados e conversas em filas separadas (2026-11-19)
+
+A pedido do Pedro, as conversas do WhatsApp saíram da fila dos chamados: uma
+troca "Chamados | Conversas" no topo do Atendimento separa as duas filas,
+cada uma com as suas visões (conversas: sem resposta, com a IA, assumidas,
+encerradas). O contador de Conversas conta só as sem resposta. A conversa de
+um chamado continua como aba dele. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Agenda: quadro de despacho com arrastar e soltar (2026-11-19)
+
+Etapa 4 do redesenho estrutural (`public/admin-despacho.js`, novo): vista
+Quadro na Agenda, técnicos × dias, linha Empresa e a coluna "A agendar" com os
+chamados sem visita. Arrastar um chamado para um técnico cria a visita ligada
+e atribui o técnico; arrastar uma visita remarca; soltar na fila desmarca;
+tudo com Desfazer. **Migration 093** (`compromissos.chamado_id`) e
+`GET /agenda` devolvendo o chamado de cada visita e a próxima visita de cada
+chamado. ⚠️ A rota lê a coluna nova: 093 roda antes do push. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Financeiro numa tela só (2026-11-19)
+
+Etapa 5 do redesenho estrutural (`public/admin-financeiro.js`, novo): faixa
+do mês (contratos por mês, faturamento do Omie, avulsos aprovados, pede ação
+com atalhos) e a troca "Notas fiscais | Contratos", com as listas de sempre
+movidas para a tela. O menu não tem mais subabas. Nenhum endpoint novo. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
