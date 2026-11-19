@@ -199,7 +199,7 @@ Leaflet, Lucide) — sem CDN, sem npm no frontend.
 # Servidor
 PORT, NODE_ENV
 # Banco (uma das duas formas)
-DATABASE_URL  |  PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE/PGSSL  + PG_POOL_MAX
+DATABASE_URL  |  PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE/PGSSL  + PG_POOL_MAX · PG_IDLE_MS (conexão ociosa, padrão 10 min)
 # Auth
 JWT_SECRET (obrigatório em prod) · OTP_DISABLED (dev) · CORS_ORIGINS (obrigatório em prod)
 # Telemetria

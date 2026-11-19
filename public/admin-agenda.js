@@ -70,13 +70,20 @@ function _agTituloPeriodo() {
 // sobrescrevia a do mês: a grade do mês aparecia só com os itens da semana.
 let _agSeq = 0;
 let _agChave = "";
+// ⚠️ O PERÍODO JÁ VISTO REAPARECE NA HORA (19/11/2026). Voltar à Agenda, ou
+// a uma semana já vista, mostra o que veio da última vez e atualiza por trás
+// (o "Atualizando…" do canto). Antes cada volta esperava o servidor de novo,
+// com a tela em "Carregando…". Toda gravação limpa o guardado (_agInvalidar):
+// a repetição de um compromisso muda outros períodos além do da tela.
+const _agCache = new Map();
+function _agInvalidar() { _agCache.clear(); }
 async function _agCarregar() {
   const { ini, fim } = _agPeriodo();
   const seq = ++_agSeq;
   // Período novo: a grade não pode mostrar os itens do período anterior
   // enquanto o novo não chega (parecia que o mês só tinha a semana).
   const chave = `${_agIso(ini)}|${_agIso(fim)}`;
-  if (chave !== _agChave) { _agItens = []; _agChave = chave; }
+  if (chave !== _agChave) { _agItens = _agCache.get(chave) || []; _agChave = chave; }
   _agCarregando = true;
   _agRender();
   try {
@@ -85,6 +92,7 @@ async function _agCarregar() {
     if (seq !== _agSeq) return;
     if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
     _agItens = j.itens || [];
+    _agCache.set(chave, _agItens);
   } catch (e) {
     if (seq !== _agSeq) return;
     _agItens = [];
@@ -165,8 +173,13 @@ function _agRender() {
   const root = document.getElementById("agRoot");
   if (!root) return;
   const porDia = _agPorDia();
-  const corpo = _agCarregando && !_agItens.length
-    ? `<p class="ag-lista-vazia">Carregando…</p>`
+  // Primeira carga de um período: a grade da vista aparece já, vazia e em
+  // "carregando" (classe is-carregando esconde o "—" de dia sem nada, que
+  // mentiria "não tem nada"), em vez de um parágrafo "Carregando…".
+  const esperando = _agCarregando && !_agItens.length;
+  const corpo = esperando && _agVista === "lista"
+    ? `<div class="ag-lista ag-esqueleto" aria-hidden="true">${[0, 1, 2].map(() => `<section class="ag-lista-dia"><span class="ag-esq ag-esq-tit"></span><span class="ag-esq ag-esq-linha"></span><span class="ag-esq ag-esq-linha"></span></section>`).join("")}</div>`
+    : esperando ? (_agVista === "semana" ? _agRenderSemana(porDia) : _agRenderMes(porDia))
     : _agErro ? `<p class="ag-lista-vazia">Não foi possível carregar a agenda: ${_agEsc(_agErro)}</p>`
     : _agVista === "semana" ? _agRenderSemana(porDia)
     : _agVista === "mes" ? _agRenderMes(porDia)
@@ -180,7 +193,7 @@ function _agRender() {
           <button type="button" class="btn btn-sm ag-seta" data-ag-nav="-1" aria-label="Período anterior">‹</button>
           <button type="button" class="btn btn-sm ag-seta" data-ag-nav="1" aria-label="Próximo período">›</button>
           <h2 class="ag-periodo">${_agTituloPeriodo()}</h2>
-          ${_agCarregando ? `<span class="ag-carregando" role="status">Carregando…</span>` : ""}
+          ${_agCarregando ? `<span class="ag-carregando" role="status">${_agItens.length ? "Atualizando…" : "Carregando…"}</span>` : ""}
         </div>
         <div class="ag-acoes">
           <div class="wa-tabs ag-vistas" role="tablist">
@@ -192,7 +205,7 @@ function _agRender() {
       </div>
       <div class="ag-legenda">${["reuniao", "visita", "financeiro", "retorno", "preventiva", "contrato"].map(t =>
         `<span class="ag-leg ${_AG_TIPOS[t].cls}">${t === "financeiro" ? "Financeiro" : _AG_TIPOS[t].rot}</span>`).join("")}</div>
-      <div class="ag-corpo">${corpo}</div>
+      <div class="ag-corpo${esperando ? " is-carregando" : ""}" aria-busy="${esperando}">${corpo}</div>
     </div>`;
 }
 
@@ -288,7 +301,7 @@ async function _agAbrirForm(dia, item) {
       if (!confirm("Apagar este compromisso" + (c.repeticao && c.repeticao !== "nenhuma" ? " e todas as repetições?" : "?"))) return;
       const r = await fetch(`/agenda/compromissos/${c.compromisso_id}`, { method: "DELETE", headers: authHeaders() });
       if (!r.ok) { msg.textContent = "Não foi possível apagar."; return; }
-      _agFecharForm(); _agCarregar(); return;
+      _agFecharForm(); _agInvalidar(); _agCarregar(); return;
     }
     // salvar
     const f = form;
@@ -328,6 +341,7 @@ async function _agAbrirForm(dia, item) {
     if (!r.ok) { msg.textContent = j.error || "Não foi possível salvar."; return; }
     _agFecharForm();
     _agRef = new Date(`${dia}T12:00:00`);
+    _agInvalidar();
     _agCarregar();
   });
 }
@@ -381,6 +395,7 @@ async function _agAbrirFaturamento(comp) {
     if (!r.ok) alert(j.error || "Não foi possível atualizar.");
     else if (j.pulado) b.textContent = "Atualizado há pouco";
     await desenhar();
+    _agInvalidar();
     _agCarregar();
   });
   desenhar();

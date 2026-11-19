@@ -17954,3 +17954,97 @@ Ver [redesenho-admin.md](modulos/redesenho-admin.md). `admin.js?v=391`,
   04/09 (zonas "ZTeste…", 8 prédios "COND A–D", 8 planos, 17 chamados, 2
   técnicos), que apareciam na tela de Preventivas.
 
+## Contrato e chamado como páginas próprias, e a ronda de UX (2026-11-19)
+
+Branch `feature/admin-condominio`, sem deploy, sem migration.
+
+- **Contrato em `#/contratos/<id>`**: os dois modais (editar e só leitura do
+  assinado) viraram uma página, com Voltar, o prédio como link e a linha do
+  tempo Criado → Enviado para assinatura → Assinado → Em vigor (vence/venceu
+  em vermelho). Contrato novo em `#/contratos/novo` até o primeiro salvar.
+- **Chamado em `#/chamados/<id>`**: o mesmo chamado do painel, em duas
+  colunas, com "Ligado a este chamado" (a O.S. e os orçamentos). A lista
+  continua com o painel ao lado; a página abre pelo "Abrir página ↗" e por
+  quem chega de fora (ficha, Início, O.S., preventiva, busca).
+- Subabas do grupo não aparecem mais sobre as páginas de documento.
+- `_ctrFmtData` monta a data pura sem passar por `Date` (saía um dia antes
+  na linha do tempo).
+- Ronda de UX com 9 pontos que ainda não estão no padrão (cartões cortados em
+  Painel/Telemetria/Mapa, Condomínios e Relatórios fora do molde, selos em
+  caixa alta, faixa na borda…).
+- Versões: `admin.js?v=394`, `admin.css?v=315`, `admin-condominio.js?v=9`,
+  `admin-nav.js?v=8`.
+
+Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## A faixa de números para de cortar (2026-11-19)
+
+Item 1 da ronda de UX. Painel, Telemetria, Mapa e a lista de Condomínios: a
+célula de número deixa de ser uma linha de 60px (ícone + rótulo + dica +
+número), que cortava o rótulo com reticências a 1440px, e passa a empilhar
+rótulo → número → dica, numa peça só com fio entre as células, sem a caixinha
+de ícone; o estado vai na cor do número. Só CSS (`admin.css?v=316`). Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Painel sem texto cortado e a lista de Condomínios no molde (2026-11-19)
+
+- Unidades das faixas por extenso e no plural certo ("1 dispositivo", "4
+  dispositivos"), por `_unidExtenso`.
+- Linha de Contratos do Painel no padrão da faixa; "Gerenciar →" (que levava
+  à lista de Condomínios) virou "Ver contratos →".
+- "Alertas Críticos" e "Atividade em Tempo Real" do Painel: título em até duas
+  linhas, sem caixinha de ícone; o subtítulo do alerta deixou de ser a
+  mensagem de log; o chamado abre a página dele.
+- Lista de Condomínios: frase no lugar dos 5 cartões; colunas Água, Chamados
+  e Contrato, ordenáveis; a linha abre a ficha; Inativar/Reativar foi para o
+  cabeçalho da ficha; "Clientes" → "Condomínios".
+- Versões: `admin.js?v=397`, `admin.css?v=320`, `admin-condominio.js?v=10`.
+
+Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Selos em frase em Orçamentos e Preventivas (2026-11-19)
+
+Item 4 da ronda de UX. "RASCUNHO", "APROVADO", "SEM BAIXA", "VIA OS",
+"SEMESTRAL", "ATRASADA" viraram "Rascunho", "Aprovado", "Sem baixa"…, na
+mesma pílula de O.S. e Chamados; "Rejeitado" virou "Recusado". A origem do
+orçamento ganhou tintas legíveis no fundo claro. `admin.js?v=398`,
+`admin.css?v=321`. Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Sem faixa de cor na borda (2026-11-19)
+
+Item 5 da ronda de UX. A faixa colorida na borda esquerda saiu de Orçamentos
+(linha que espera alguém), Preventivas (atrasada e sem preventiva) e Agenda
+(todo compromisso). Linha que pede alguém ganha fundo levíssimo; compromisso
+ganha o quadradinho da cor do tipo. A vista Lista da Agenda passa a usar a
+largura, uma linha por compromisso. `admin.css?v=322`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Orçamentos com um botão de criar só (2026-11-19)
+
+Item 6 da ronda de UX. A aba "+ Criar orçamento" (que lia como um segundo
+botão de criar) virou a aba "Orçamentos", e as duas abas da tela ganharam a
+cara da subaba do admin. O único botão de criar é o "+ Novo orçamento".
+`admin.js?v=399`, `admin.css?v=323`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Data da próxima preventiva mais leve (2026-11-19)
+
+Item 7 da ronda de UX. A data da coluna "Próxima" saiu do mono negrito e
+pesa menos que o nome do prédio; a linha de baixo ganhou cores legíveis no
+fundo claro. `admin.css?v=324`. Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Equipamentos sem botão repetido (2026-11-19)
+
+Item 8 da ronda de UX. Saiu o "Abrir ficha ↗" de toda linha; a linha inteira
+já abre a ficha. Fica uma seta discreta que acende no hover. `admin.js?v=400`,
+`admin.css?v=325`. Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## A Agenda abre em 0,4 s (2026-11-19)
+
+Item 9 da ronda de UX. A espera de 2–3 s era abrir conexão com o banco
+(~2,4 s cada, remoto): o pool fechava conexão ociosa em 30 s e a Agenda pede
+5–6 de uma vez. Pool com idle de 10 min (`PG_IDLE_MS`) e `keepAlive`
+(`src/db.js`, vale para o sistema inteiro); `retratoDoMes` com as duas
+consultas juntas; no front, período já visto reaparece na hora e a grade
+aparece antes dos dados. `agenda.test.js` 21/21. `admin-agenda.js?v=5`,
+`admin.css?v=326`. Ver [redesenho-admin.md](modulos/redesenho-admin.md).

@@ -10,8 +10,12 @@ aliases:
 
 PostgreSQL 18 (Railway em produção). Acesso via pool `pg` (`src/db.js`), que
 aceita `DATABASE_URL` (preferido, com SSL `rejectUnauthorized:false`) ou as
-variáveis `PG*` separadas. Pool: `max=20` (env `PG_POOL_MAX`), idle 30s,
-connection timeout 5s.
+variáveis `PG*` separadas. Pool: `max=20` (env `PG_POOL_MAX`), idle **10 min**
+(env `PG_IDLE_MS`; era 30 s até 19/11/2026), `keepAlive`, connection timeout 5s.
+⚠️ Abrir conexão com o Postgres remoto custa ~2,4 s medidos da máquina de dev
+até o banco de teste (uma consulta, ~0,34 s); com idle de 30 s, tela que
+dispara várias consultas juntas pagava a abertura a cada volta. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md) (item 9 da ronda de UX).
 
 - **Schema base:** `database/schema.sql` (dump das 7 tabelas originais).
 - **Evolução:** `migrations/001..073` (numeradas, **ativas**), aplicadas com

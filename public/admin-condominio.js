@@ -36,7 +36,9 @@ function _rotaPermitida(secao) {
   // A ficha e a página da O.S. não têm item próprio: valem as da lista.
   const alvo = secao === "condominio" ? "cadastros"
     : secao === "os-detalhe" ? "ordens-servico"
-    : secao === "orcamento-detalhe" ? "orcamentos" : secao;
+    : secao === "orcamento-detalhe" ? "orcamentos"
+    : secao === "contrato-detalhe" ? "contratos"
+    : secao === "chamado-detalhe" ? "chamados" : secao;
   const nav = document.querySelector(`.nav-item[data-section="${alvo}"]`);
   if (!nav) return false;
   return nav.style.display !== "none" && getComputedStyle(nav).display !== "none";
@@ -44,7 +46,8 @@ function _rotaPermitida(secao) {
 
 function _rotaAoMostrar(nome) {
   if (_rotaAplicando) return;
-  if (nome === "condominio" || nome === "os-detalhe" || nome === "orcamento-detalhe") return; // escrevem o próprio endereço
+  if (nome === "condominio" || nome === "os-detalhe" || nome === "orcamento-detalhe"
+      || nome === "contrato-detalhe" || nome === "chamado-detalhe") return; // escrevem o próprio endereço
   const novo = `#/${nome}`;
   if (location.hash !== novo) history.pushState(null, "", novo);
 }
@@ -58,6 +61,13 @@ function _rotaLer() {
   // #/orcamentos/58 → página do orçamento. "novo" não tem o que reabrir.
   if (partes[0] === "orcamentos" && partes[1]) {
     return { secao: "orcamento-detalhe", orcId: partes[1] === "novo" ? null : Number(partes[1]) };
+  }
+  // #/contratos/12 e #/chamados/950 → páginas próprias (19/11/2026).
+  if (partes[0] === "contratos" && partes[1]) {
+    return { secao: "contrato-detalhe", ctrId: partes[1] === "novo" ? null : Number(partes[1]) };
+  }
+  if (partes[0] === "chamados" && partes[1]) {
+    return { secao: "chamado-detalhe", chId: Number(partes[1]) };
   }
   if (partes[0] === "condominios" && partes[1]) {
     return { secao: "condominio", condoId: Number(partes[1]), aba: partes[2] || "resumo" };
@@ -92,6 +102,24 @@ function _rotaAplicar() {
       return;
     }
     if (!naPagina || _avSelecionado?.id !== r.orcId) _avAbrirPelaRota(r.orcId);
+    return;
+  }
+  if (r.secao === "contrato-detalhe") {
+    const naPagina = _ctrNaPagina();
+    if (!Number.isInteger(r.ctrId) || r.ctrId <= 0) {
+      // F5 num contrato novo que nunca foi gravado: não há o que reabrir.
+      if (naPagina) return;
+      history.replaceState(null, "", "#/contratos");
+      _rotaAplicando = true;
+      try { showSection("contratos"); } finally { _rotaAplicando = false; }
+      return;
+    }
+    if (!naPagina || _ctrIdPagina !== r.ctrId) _ctrAbrirPelaRota(r.ctrId);
+    return;
+  }
+  if (r.secao === "chamado-detalhe") {
+    if (!Number.isInteger(r.chId) || r.chId <= 0) return;
+    if (!_chNaPagina() || _chPaginaId !== r.chId) _chAbrirPagina(r.chId, { daRota: true });
     return;
   }
   _rotaAplicando = true;
@@ -368,6 +396,9 @@ function _cfRenderCabecalho(c, d) {
       <div class="cf-head-acoes viewer-only-hide">
         <button class="btn btn-sm" data-cf-acao="novo-chamado">Abrir chamado</button>
         ${_cfGestao() ? `<button class="btn btn-sm" data-action="editar-condominio" data-id="${c.id}">Editar cadastro</button>` : ""}
+        ${_cfGestao() ? (c.ativo === false
+          ? `<button class="btn btn-sm" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`
+          : `<button class="btn btn-sm cf-inativar" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_cfEsc(nome)}">Inativar</button>`) : ""}
       </div>
     </div>
     <h1 class="cf-nome">${_cfEsc(nome)}${c.ativo === false ? ` <span class="cf-inativo">Inativo</span>` : ""}</h1>
@@ -715,11 +746,10 @@ function _cfPaneContatos(c, d) {
 
 // ===== CLIQUES =====
 
+// Quem chega de fora da lista (ficha, Início, O.S.) abre a PÁGINA do chamado
+// (19/11/2026): "Voltar" devolve para cá. Antes caía na lista de Chamados.
 function _cfAbrirChamado(id) {
-  showSection("chamados");
-  _chSelecionadoId = id;
-  renderChamados();
-  setTimeout(() => document.querySelector(`[data-ch-id="${id}"]`)?.scrollIntoView({ block: "nearest" }), 80);
+  _chAbrirPagina(id);
 }
 
 async function _cfAbrirOrcamento(id) {

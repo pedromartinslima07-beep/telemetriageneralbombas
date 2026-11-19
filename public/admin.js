@@ -129,6 +129,8 @@ const _sectionTitles = {
   inicio:           "Início",
   "os-detalhe":     "Ordem de Serviço",
   "orcamento-detalhe": "Orçamento",
+  "contrato-detalhe":  "Contrato",
+  "chamado-detalhe":   "Chamado",
   agenda:           "Agenda",
   notas:            "Notas fiscais",
   dashboard:        "Painel",
@@ -140,7 +142,7 @@ const _sectionTitles = {
   "ordens-servico": "Ordens de Serviço",
   orcamentos:       "Orçamentos",
   contratos:        "Contratos",
-  cadastros:        "Clientes",
+  cadastros:        "Condomínios",
   tecnicos:         "Colaboradores",
   planos:           "Manutenção preventiva",
   equipamentos:     "Equipamentos",
@@ -300,7 +302,28 @@ const RC_META = {
 // ali — nenhum rótulo dizia de quê. A unidade entra ao lado do número, e não
 // dentro do rótulo, porque é assim que este sistema escreve leitura de
 // instrumento (ver DESIGN.md, "Reading": a unidade sai menor, em --sobre-2).
+// ⚠️ A UNIDADE SAI POR EXTENSO E NO PLURAL CERTO (19/11/2026). Era abreviada
+// ("4 disp.", "1 cond.") porque a célula de uma linha não tinha largura; a
+// faixa empilhada tem. As chamadas continuam passando a abreviação, e este
+// helper escolhe singular/plural pelo número: "1 dispositivo", "4
+// dispositivos". Valor que não é número ("—", "62%") fica sem unidade.
+const _UNID_EXTENSO = {
+  "disp.":   ["dispositivo", "dispositivos"],
+  "res.":    ["reservatório", "reservatórios"],
+  "cond.":   ["condomínio", "condomínios"],
+  "abertos": ["aberto", "abertos"],
+};
+function _unidExtenso(abrev, valor) {
+  if (!abrev) return "";
+  const n = Number(String(valor).trim());
+  if (!Number.isFinite(n)) return "";
+  const par = _UNID_EXTENSO[abrev];
+  if (!par) return abrev;
+  return n === 1 ? par[0] : par[1];
+}
+
 function kpiCard(icon, value, label, kindCls = "rc-neutral", attrs = "", button = false, unidade = "") {
+  unidade = _unidExtenso(unidade, value);
   const tag = button ? "button" : "div";
   const staticCls = button ? "" : " rc-static";
   return `
@@ -882,6 +905,23 @@ function _mcRelTime(iso) {
   return `${Math.floor(diff / 86400)}d atrás`;
 }
 
+const _MC_TIPO_NOME = {
+  dispositivo_offline: "Dispositivo sem sinal",
+  nivel_muito_baixo:   "Nível muito baixo",
+  nivel_baixo:         "Nível baixo",
+};
+
+// A mensagem do servidor é escrita para log ("Cisterna (caixa) (DEMO-CIST) está
+// OFFLINE há 135751 minutos"). Aqui sai o reservatório e o que aconteceu; há
+// quanto tempo já vem na linha de baixo.
+function _mcAlertaSub(a) {
+  const tipo = _MC_TIPO_NOME[a.tipo] || String(a.tipo || "").replaceAll("_", " ");
+  const msg = String(a.mensagem || "");
+  const res = msg.includes(" está ") ? msg.split(" está ")[0].replace(/\s*\([A-Z0-9-]+\)\s*$/, "").trim() : "";
+  if (res) return `${res} · ${tipo.toLowerCase()}`;
+  return msg || tipo;
+}
+
 function renderMcAlerts() {
   const wrap = document.getElementById("mcAlertsList");
   if (!wrap) return;
@@ -898,7 +938,7 @@ function renderMcAlerts() {
       kind: (a.tipo === "dispositivo_offline" || a.tipo === "nivel_muito_baixo") ? "bad" : "warn",
       icon: _mcAlertIconFor(a.tipo),
       titulo: _mcDeviceCondoName(a.device_id),
-      sub: String(a.tipo || "").replaceAll("_", " ") + (a.mensagem ? ` • ${a.mensagem}` : ""),
+      sub: _mcAlertaSub(a),
       criado_em: a.criado_em,
     });
   }
@@ -914,9 +954,8 @@ function renderMcAlerts() {
       kind: (ch.prioridade === "p1" || slaEstourado) ? "bad" : "warn",
       icon: _iconChamado,
       titulo: ch.titulo || `Chamado #${ch.id}`,
-      sub: slaEstourado
-        ? `SLA estourado • Chamado ${String(ch.prioridade || "").toUpperCase()} • ${ch.condominio_nome || "—"}`
-        : `Chamado ${String(ch.prioridade || "").toUpperCase()} • ${ch.condominio_nome || "—"}`,
+      sub: [ch.condominio_nome, `chamado ${String(ch.prioridade || "").toUpperCase()}`, slaEstourado ? "fora do prazo" : ""].filter(Boolean).join(" · "),
+      chamadoId: ch.id,
       criado_em: ch.criado_em,
     });
   }
@@ -929,16 +968,24 @@ function renderMcAlerts() {
     return;
   }
 
-  wrap.innerHTML = sorted.map(it => `
-    <div class="mc-alert-row" data-action="goto-alertas">
-      <div class="mc-alert-icon ${it.kind}">${it.icon}</div>
-      <div class="mc-alert-main">
-        <div class="mc-alert-title">${it.titulo}</div>
-        <div class="mc-alert-sub">${it.sub}</div>
-      </div>
-      <div class="mc-alert-time">${_mcRelTime(it.criado_em)}</div>
-    </div>
-  `).join("");
+  // ⚠️ COLUNA ESTREITA (19/11/2026): a caixinha de ícone (30px) e o tempo à
+  // direita comiam a largura, e o título saía "Preventiva — sete…". Agora um
+  // ponto de cor diz o peso, o tempo vai na linha de baixo e o título quebra
+  // em até duas linhas. Chamado abre a página dele; telemetria, os Alertas.
+  wrap.innerHTML = sorted.map(it => {
+    const alvo = it.chamadoId
+      ? `data-ch-abrir-pagina="${it.chamadoId}"`
+      : `data-action="goto-alertas"`;
+    return `
+    <button type="button" class="mc-alert-row" ${alvo} title="${_waEscaparHtml(it.titulo)}">
+      <span class="mc-alert-dot ${it.kind}" aria-hidden="true"></span>
+      <span class="mc-alert-main">
+        <span class="mc-alert-title">${_waEscaparHtml(it.titulo)}</span>
+        <span class="mc-alert-sub">${_waEscaparHtml(it.sub)}</span>
+        <span class="mc-alert-time">${_mcRelTime(it.criado_em)}</span>
+      </span>
+    </button>`;
+  }).join("");
 }
 
 function renderMcActivity() {
@@ -1186,6 +1233,7 @@ function renderTelKpis() {
 
   grid.innerHTML = cards.map(c => {
     const kindCls = c.kind === "bad" ? "rc-bad" : c.kind === "warn" ? "rc-warn" : c.kind === "ok" ? "rc-ok" : "rc-neutral";
+    c.unid = _unidExtenso(c.unid, c.value);
     return `
       <div class="rc ${kindCls} rc-static" data-card="tel-${c.key}">
         <div class="rc-head">
@@ -3016,13 +3064,15 @@ function renderMcContratos() {
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = v;
-    if (color) el.style.color = color;
+    el.style.color = color || "";
   };
   const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  set("mcContrMrr",      fmtMoeda(m.mrr || 0), "var(--accent)");
+  // Valor em âmbar saiu (19/11/2026): âmbar é "olhe aqui", e receita não pede
+  // ação. Cor só no que pede: vencendo (âmbar escuro) e vencido (vermelho).
+  set("mcContrMrr",      fmtMoeda(m.mrr || 0), "");
   set("mcContrAtivos",   m.ativos || 0);
-  set("mcContrVencendo", m.vencendo_30d || 0, m.vencendo_30d > 0 ? "var(--warn)" : null);
-  set("mcContrVencidos", m.vencidos || 0,     m.vencidos > 0     ? "var(--danger)" : null);
+  set("mcContrVencendo", m.vencendo_30d || 0, m.vencendo_30d > 0 ? "var(--atencao-t)" : "");
+  set("mcContrVencidos", m.vencidos || 0,     m.vencidos > 0     ? "var(--risco-t)" : "");
 }
 
 async function _carregarContratosMetricas() {
@@ -3057,19 +3107,22 @@ function renderCliKpis() {
   const m = _contratosMetricas?.total || { mrr: 0, ativos: 0, vencendo_30d: 0, vencidos: 0 };
   const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const kpi = (icon, val, label, kindCls) => kpiCard(icon, val, label, kindCls);
-
-  el.innerHTML =
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-        ativos, "Clientes ativos", ativos < condos.length ? "rc-warn" : "rc-ok") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
-        fmtMoeda(m.mrr), "MRR mensal", "rc-ok") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-        m.vencendo_30d, "Vencendo em 30d", m.vencendo_30d > 0 ? "rc-warn" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-        m.vencidos, "Contratos vencidos", m.vencidos > 0 ? "rc-bad" : "rc-neutral") +
-    kpi(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-        chAbertos, "Chamados abertos", chAbertos > 0 ? "rc-warn" : "rc-neutral");
+  // ⚠️ A FAIXA DE 5 CARTÕES VIROU UMA FRASE (molde da O.S., 19/11/2026). Os
+  // cinco números continuam: ativos (e inativos), chamados em aberto, a
+  // receita mensal dos contratos, vencendo em 30 dias e vencidos. O que pede
+  // ação (renovar) vira botão que leva à aba de Contratos; vencido ganha de
+  // vencendo porque já passou.
+  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+  const inativos = condos.length - ativos;
+  const partes = [
+    pl(ativos, "condomínio ativo", "condomínios ativos") + (inativos ? ` (${pl(inativos, "inativo", "inativos")})` : ""),
+    pl(chAbertos, "chamado em aberto", "chamados em aberto"),
+    `${fmtMoeda(m.mrr)} por mês em contratos`,
+  ];
+  let acao = "";
+  if (m.vencidos > 0) acao = ` <button type="button" class="os-resumo-acao" data-cli-ir-contratos="vencido">${pl(m.vencidos, "contrato vencido", "contratos vencidos")} →</button>`;
+  else if (m.vencendo_30d > 0) acao = ` <button type="button" class="os-resumo-acao" data-cli-ir-contratos="vencendo">${pl(m.vencendo_30d, "contrato vence", "contratos vencem")} em 30 dias →</button>`;
+  el.innerHTML = `<span>${partes.join(" · ")}.</span>${acao}`;
 }
 
 let _cliFiltros = { tab: "todos", busca: "" };
@@ -3093,6 +3146,44 @@ function _cliFiltrados() {
   });
 }
 
+// ── As três colunas da lista de Condomínios (19/11/2026) ──
+// Água: o estado dos reservatórios do prédio, do mesmo _statusData do mapa.
+// `peso` ordena do que pede atenção para o que não tem telemetria.
+function _cliAgua(condoId) {
+  const g = (_statusData || []).find(x => Number(x.condominio?.id) === Number(condoId));
+  const res = g?.reservatorios || [];
+  const tot = g?.resumo?.total_reservatorios ?? res.length;
+  if (!g || !tot) return { txt: "sem telemetria", sub: "", cls: "nada", peso: 4 };
+  const off = g.resumo?.offline_count ?? res.filter(r => r.offline).length;
+  const pl = (n) => `${n} ${n === 1 ? "reservatório" : "reservatórios"}`;
+  if (off >= tot) return { txt: "sem sinal", sub: pl(tot), cls: "bad", peso: 0 };
+  const niveis = res.map(r => r.ultima_leitura).filter(Boolean);
+  const muito = niveis.filter(u => String(u.nivel).toLowerCase() === "muito_baixo").length;
+  const baixo = niveis.filter(u => String(u.nivel).toLowerCase() === "baixo").length;
+  const pcts = niveis.map(u => u.nivel_pct).filter(v => v != null);
+  const menor = pcts.length ? Math.min(...pcts) : null;
+  const subBase = `${pl(tot)}${menor != null ? ` · menor nível ${Math.round(menor)}%` : ""}`;
+  if (off > 0) return { txt: `${off} de ${tot} sem sinal`, sub: menor != null ? `menor nível ${Math.round(menor)}%` : "", cls: "bad", peso: 1 };
+  if (muito) return { txt: "nível muito baixo", sub: subBase, cls: "bad", peso: 1 };
+  if (baixo) return { txt: "nível baixo", sub: subBase, cls: "warn", peso: 2 };
+  return { txt: "normal", sub: subBase, cls: "ok", peso: 3 };
+}
+
+function _cliChamados(condoId) {
+  const id = Number(condoId);
+  const abertos = (_chamadosData || []).filter(ch => Number(ch.condominio_id) === id && _chEmAberto(ch.status)).length;
+  const urgentes = abertos ? _chamadosAlertaAbertos().filter(ch => Number(ch.condominio_id) === id).length : 0;
+  return { abertos, urgentes };
+}
+
+// Vencido primeiro, depois quem vence antes; sem fim depois; sem contrato no fim.
+function _cliContratoPeso(ct) {
+  if (!ct) return null;
+  if (!ct.fim_em) return 100000;
+  const d = Number(ct.dias_para_vencer);
+  return Number.isFinite(d) ? d : 99999;
+}
+
 function renderCliTabela() {
   const tbody = document.getElementById("cliTableBody");
   if (!tbody) return;
@@ -3103,9 +3194,15 @@ function renderCliTabela() {
   set("cliCtAtivos",   condos.filter(c => c.ativo).length);
   set("cliCtInativos", condos.filter(c => !c.ativo).length);
 
-  const lista = _cliFiltrados();
+  const lista = _ordenar("condominios", _cliFiltrados(), {
+    nome:     c => (c.nome_fantasia || c.nome || "").toLowerCase(),
+    agua:     c => _cliAgua(c.id).peso,
+    chamados: c => _cliChamados(c.id).abertos,
+    contrato: c => _cliContratoPeso(_contratosByCondoId.get(Number(c.id))),
+  });
+  _ordemMarcar("condominios");
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:32px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px;">Nenhum condomínio encontrado.</td></tr>`;
     return;
   }
 
@@ -3115,8 +3212,15 @@ function renderCliTabela() {
     const contrato = _contratosByCondoId.get(Number(c.id));
     const st = _ctrStatusVisual(contrato);
     const ctrBadge = contrato
-      ? `<span class="ch-st ch-st-${st.cls === "ok" ? "aberto" : st.cls === "warn" ? "em_atendimento" : "fechado"}" title="${st.texto}">${st.texto}</span>`
-      : `<span style="font-size:10px;color:var(--muted);">—</span>`;
+      ? `<span class="ch-st ch-st-${st.cls === "ok" ? "aberto" : st.cls === "warn" ? "em_atendimento" : "fechado"}" title="${st.texto}">${st.texto}</span>
+         <div class="os-sub">${_ctrFmtMoeda(contrato.valor_mensal)} por mês</div>`
+      : `<span class="cli-nada">sem contrato</span>`;
+    const agua = _cliAgua(c.id);
+    const chs = _cliChamados(c.id);
+    const aguaHtml = `<span class="cli-agua cli-agua-${agua.cls}">${agua.txt}</span>${agua.sub ? `<div class="os-sub">${agua.sub}</div>` : ""}`;
+    const chHtml = chs.abertos
+      ? `<span class="cli-ch">${chs.abertos} em aberto</span>${chs.urgentes ? `<div class="os-sub cli-urgente">${chs.urgentes === 1 ? "1 urgente" : chs.urgentes + " urgentes"}</div>` : ""}`
+      : `<span class="cli-nada">nenhum em aberto</span>`;
     // Molde do `planos`: cidade e responsável descem para a linha de apoio.
     // O CNPJ vai junto — ele estava numa coluna própria que ficava inteira em
     // "—" sempre que a carteira não tem o dado, e coluna morta é pior que
@@ -3125,15 +3229,17 @@ function renderCliTabela() {
       ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
       : "";
     const apoio = [cidade, _waEscaparHtml(c.responsavel || "")].filter(v => v && v !== "—");
-    return `<tr class="ch-row${sel}" data-cli-id="${c.id}" style="cursor:pointer;">
+    return `<tr class="ch-row${sel}${c.ativo === false ? " is-inativo" : ""}" data-cli-id="${c.id}" tabindex="0" style="cursor:pointer;">
       <td class="cli-nome-cell">
-        <div class="cli-nome">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}</div>
+        <div class="cli-nome">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}${c.ativo === false ? ` <span class="cli-inativo">inativo</span>` : ""}</div>
         <div class="cli-sub">
           ${apoio.join('<span class="cli-sep">·</span>')}
           ${cnpjFmt ? `<span class="cli-sep">·</span><span class="cli-cnpj">${cnpjFmt}</span>` : ""}
         </div>
       </td>
-      <td>${ctrBadge}</td>
+      <td class="cli-td-agua">${aguaHtml}</td>
+      <td class="cli-td-ch">${chHtml}</td>
+      <td class="cli-td-ctr">${ctrBadge}</td>
     </tr>`;
   }).join("");
 }
@@ -3162,6 +3268,12 @@ function _ctrFmtMoeda(v) {
 
 function _ctrFmtData(s) {
   if (!s) return "—";
+  // ⚠️ DATA PURA NÃO PASSA POR new Date (19/11/2026). A API manda as colunas
+  // DATE como "2026-12-10T03:00:00.000Z" (meia-noite de Brasília), que sai
+  // certo. Mas a linha do tempo da página corta para "2026-12-10", e o Date lê
+  // isso como meia-noite UTC — 21h do dia ANTERIOR aqui. Saía "09/12".
+  const pura = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T00:00:00(?:\.000)?Z)?$/);
+  if (pura) return `${pura[3]}/${pura[2]}/${pura[1]}`;
   const d = new Date(s);
   if (isNaN(d.getTime())) return s;
   return d.toLocaleDateString("pt-BR");
@@ -4838,7 +4950,13 @@ function _chRenderAvaliacaoCard(ch) {
 }
 
 function renderChDetalhe(ch) {
-  const col = document.getElementById("chDetailCol");
+  // ⚠️ UM DESENHO, DOIS LUGARES (19/11/2026). Na página do chamado
+  // (#/chamados/<id>) o mesmo conteúdo vai para ela, em duas colunas. Toda
+  // ação que grava redesenha por carregarTudo → renderChamados → aqui, e acha
+  // a página sozinha. O painel da lista fica vazio enquanto a página está
+  // aberta: os dois teriam os mesmos ids (chTecnicoRow-N, chHistSec-N).
+  const naPagina = Boolean(ch) && _chNaPagina() && ch.id === _chPaginaId;
+  const col = document.getElementById(naPagina ? "chPagina" : "chDetailCol");
   if (!col) return;
 
   if (!ch) {
@@ -4934,33 +5052,15 @@ function renderChDetalhe(ch) {
     ? `<button type="button" class="os-link" data-action="ver-condo" data-id="${ch.condominio_id}" title="Abrir a ficha do condomínio">${_waEscaparHtml(ch.condominio_nome || "Condomínio")}</button>`
     : `<span class="ch-sem-tec">sem condomínio</span>`;
 
-  col.innerHTML = `<div class="ch-detail">
-    <div class="ch-det-topo">
-      <div class="ch-det-head">
-        <span class="ch-det-id">CH-${String(ch.id).padStart(4,"0")}</span>
-        <span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status}</span>
-        <span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span>
-      </div>
-      <div class="ch-det-title">${_waEscaparHtml(ch.titulo || "Sem título")}</div>
-      <div class="ch-det-sub">${condoHtml}${ch.categoria ? ` · ${_chCatNome[ch.categoria]||ch.categoria}` : ""}</div>
-      <div class="ch-det-acoes ch-det-acoes-topo">${acoes}</div>
-    </div>
-
-    ${linhaTempo}
-
-    ${ch.descricao ? `<div class="ch-det-section">
+  const descHtml   = `    ${ch.descricao ? `<div class="ch-det-section">
       <div class="ch-det-sec-title">Descrição</div>
       <div class="ch-det-desc">${_waEscaparHtml(ch.descricao)}</div>
-    </div>` : ""}
-
-    ${(cancelado && ch.cancelado_motivo) ? `<div class="ch-det-section">
+    </div>` : ""}`;
+  const motivoHtml = `    ${(cancelado && ch.cancelado_motivo) ? `<div class="ch-det-section">
       <div class="ch-det-sec-title">Motivo do cancelamento</div>
       <div class="ch-det-desc">${_waEscaparHtml(ch.cancelado_motivo)}</div>
-    </div>` : ""}
-
-    ${_chRenderAvaliacaoCard(ch)}
-
-    <div class="ch-det-section">
+    </div>` : ""}`;
+  const quemHtml   = `    <div class="ch-det-section">
       <div class="ch-det-sec-title">Quem está com ele</div>
       <div class="ch-det-meta">
         <div class="ch-met-row" id="chTecnicoRow-${ch.id}">
@@ -4994,7 +5094,63 @@ function renderChDetalhe(ch) {
             : ""}
         </span></div>` : ""}
       </div>
+    </div>`;
+  const id4 = `CH-${String(ch.id).padStart(4,"0")}`;
+  const selos = `<span class="ch-st ch-st-${ch.status||"aberto"}">${_chStNome[ch.status]||ch.status}</span>
+        <span class="ch-prio ch-prio-${ch.prioridade||"p3"}">${_chPrioNome[ch.prioridade]||ch.prioridade}</span>`;
+  const subHtml = `${condoHtml}${ch.categoria ? ` · ${_chCatNome[ch.categoria]||ch.categoria}` : ""}`;
+
+  if (naPagina) {
+    col.innerHTML = `<div class="ch-detail ch-pag">
+      <div class="ch-pag-head">
+        <button type="button" class="btn btn-sm ch-voltar" data-ch-voltar>← Voltar</button>
+        <div class="ch-pag-tit">
+          <div class="ch-det-head"><span class="ch-det-id">${id4}</span>${selos}</div>
+          <h2 class="ch-det-title">${_waEscaparHtml(ch.titulo || "Sem título")}</h2>
+          <div class="ch-det-sub">${subHtml}</div>
+        </div>
+        <div class="ch-det-acoes ch-det-acoes-topo">${acoes}</div>
+      </div>
+      <div class="ch-pag-tempo">${linhaTempo}</div>
+      <div class="os-colunas ch-pag-corpo">
+        <div class="os-col-trabalho">
+          ${descHtml}
+          ${motivoHtml}
+          ${_chRenderAvaliacaoCard(ch)}
+          ${_chRenderLigados(ch)}
+          ${_chRenderHistoricoCard(ch.id)}
+        </div>
+        <aside class="os-col-lado">
+          ${quemHtml}
+          ${telHtml}
+        </aside>
+      </div>
+    </div>`;
+    _chCarregarHistorico(ch.id);
+    return;
+  }
+
+  col.innerHTML = `<div class="ch-detail">
+    <div class="ch-det-topo">
+      <div class="ch-det-head">
+        <span class="ch-det-id">${id4}</span>
+        ${selos}
+        <button type="button" class="os-link ch-abrir-pag" data-ch-abrir-pagina="${ch.id}" title="Abrir o chamado em página própria, com o que está ligado a ele">Abrir página ↗</button>
+      </div>
+      <div class="ch-det-title">${_waEscaparHtml(ch.titulo || "Sem título")}</div>
+      <div class="ch-det-sub">${subHtml}</div>
+      <div class="ch-det-acoes ch-det-acoes-topo">${acoes}</div>
     </div>
+
+    ${linhaTempo}
+
+    ${descHtml}
+
+    ${motivoHtml}
+
+    ${_chRenderAvaliacaoCard(ch)}
+
+    ${quemHtml}
 
     ${telHtml}
 
@@ -5004,6 +5160,143 @@ function renderChDetalhe(ch) {
   // Dispara o carregamento do histórico (lazy, cache por id).
   _chCarregarHistorico(ch.id);
 }
+
+// ============================================================
+// PÁGINA DO CHAMADO (19/11/2026)
+// ============================================================
+//
+// ⚠️ A LISTA CONTINUA COM O PAINEL AO LADO. Escolher e agir rápido é o
+// trabalho da tela Chamados, e o operador vive nela (decisão de 18/11/2026).
+// A página é o mesmo chamado inteiro, com endereço (#/chamados/<id>) e o que
+// está ligado a ele (O.S., orçamentos). Abre pelo "Abrir página" do painel e
+// por quem chega de fora da lista: ficha do condomínio, Início, busca, link
+// do chamado na O.S. "Voltar" devolve de onde veio; link colado cai na lista.
+let _chPaginaId = null;
+let _chEmpurrouHistorico = false;
+let _chLigadosBuscou = false;
+const _chOsCache = {};   // O.S. ligada, quando a lista de O.S. não foi aberta
+const _chOsBuscando = new Set();
+
+function _chNaPagina() {
+  return Boolean(document.querySelector('.section[data-section="chamado-detalhe"].is-active'));
+}
+
+async function _chAbrirPagina(id, { daRota = false } = {}) {
+  if (!id) return;
+  _chSelecionadoId = id;
+  _chPaginaId = id;
+  const painel = document.getElementById("chDetailCol");
+  if (painel) painel.innerHTML = "";
+  if (!_chNaPagina()) {
+    _rotaAplicando = true;
+    try { showSection("chamado-detalhe"); } finally { _rotaAplicando = false; }
+    document.querySelector(".content")?.scrollTo?.(0, 0);
+  }
+  const destino = `#/chamados/${id}`;
+  if (daRota) _chEmpurrouHistorico = false;
+  else if (location.hash !== destino) { history.pushState(null, "", destino); _chEmpurrouHistorico = true; }
+
+  const pag = document.getElementById("chPagina");
+  let ch = (_chamadosData || []).find(c => c.id === id);
+  if (!ch) {
+    if (pag) pag.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;">Carregando…</div>`;
+    try { await carregarChamados(); } catch (_) { /* cai no "não encontrado" */ }
+    if (_chPaginaId !== id) return;
+    ch = (_chamadosData || []).find(c => c.id === id);
+  }
+  if (!ch) {
+    if (pag) pag.innerHTML = `<div class="ch-pag ch-pag-vazio">
+      <button type="button" class="btn btn-sm ch-voltar" data-ch-voltar>← Voltar</button>
+      <p>Chamado CH-${String(id).padStart(4, "0")} não encontrado.</p></div>`;
+    return;
+  }
+  renderChDetalhe(ch);
+  // Orçamentos ligados vêm da lista de orçamentos; se ela ainda não foi
+  // aberta nesta sessão, busca uma vez e redesenha.
+  if (!_isOperador && !_chLigadosBuscou && !(Array.isArray(_avData) && _avData.length) && typeof carregarAvulsos === "function") {
+    _chLigadosBuscou = true;
+    carregarAvulsos().then(() => {
+      if (_chNaPagina() && _chPaginaId === id) renderChDetalhe((_chamadosData || []).find(c => c.id === id) || null);
+    });
+  }
+}
+
+function _chFecharPagina() {
+  if (!_chNaPagina()) return;
+  if (_chEmpurrouHistorico) { _chEmpurrouHistorico = false; history.back(); return; }
+  showSection("chamados");
+}
+
+// Sair da página por qualquer caminho limpa o estado, e a lista volta com o
+// chamado no painel (o painel foi esvaziado ao abrir a página).
+function _chPodeSair(destino) {
+  if (destino === "chamado-detalhe" || !_chNaPagina()) return true;
+  const pag = document.getElementById("chPagina");
+  if (pag) pag.innerHTML = "";
+  _chPaginaId = null;
+  _chEmpurrouHistorico = false;
+  if (destino === "chamados") {
+    setTimeout(() => {
+      const ch = (_chamadosData || []).find(c => c.id === _chSelecionadoId);
+      renderChTabela();
+      renderChDetalhe(ch || null);
+    }, 0);
+  }
+  return true;
+}
+
+// O que está ligado ao chamado: a O.S. que ele gerou e os orçamentos que
+// apontam para ele. Só gestão: O.S. e orçamento são rotas gestaoOnly.
+function _chRenderLigados(ch) {
+  if (_isOperador) return "";
+  const itens = [];
+  if (ch.ordem_servico_id) {
+    const osId = ch.ordem_servico_id;
+    const os = (_osData || []).find(o => o.id === osId) || _chOsCache[osId];
+    // A lista de O.S. pode não ter sido aberta: busca esta uma vez e redesenha.
+    // Mora aqui (e não em _chAbrirPagina) porque todo redesenho passa por aqui.
+    if (!os && !_chOsBuscando.has(osId)) {
+      _chOsBuscando.add(osId);
+      fetch(`/ordens-servico/${osId}`, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(o => {
+          if (!o) return;
+          _chOsCache[osId] = o;
+          if (_chNaPagina() && _chPaginaId === ch.id) renderChDetalhe((_chamadosData || []).find(c => c.id === ch.id) || null);
+        }).catch(() => {});
+    }
+    const dataCurta = (v) => v ? new Date(v).toLocaleDateString("pt-BR") : "";
+    const sit = !os ? "" : !os.finalizada_em ? "em andamento"
+      : `finalizada ${dataCurta(os.finalizada_em)}${os.enviado_em ? " · enviada ao cliente" : " · falta enviar ao cliente"}`;
+    itens.push(`<button type="button" class="ch-lig" data-ch-lig-os="${ch.ordem_servico_id}">
+      <span class="ch-lig-tipo">O.S.</span>
+      <b>${_waEscaparHtml(os?.numero || ("#" + ch.ordem_servico_id))}</b>
+      <span class="ch-lig-sit">${sit}</span></button>`);
+  }
+  const stNome = { rascunho: "rascunho", enviado: "esperando o cliente", aprovado: "aprovado", rejeitado: "recusado" };
+  (Array.isArray(_avData) ? _avData : []).filter(o => Number(o.chamado_id) === ch.id).forEach(o => {
+    const valor = o.valor_total != null ? Number(o.valor_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "";
+    itens.push(`<button type="button" class="ch-lig" data-ch-lig-orc="${o.id}">
+      <span class="ch-lig-tipo">Orçamento</span>
+      <b>${_waEscaparHtml(o.numero || ("#" + o.id))}</b>
+      <span class="ch-lig-sit">${stNome[o.status] || _waEscaparHtml(o.status || "")}${valor ? ` · ${valor}` : ""}</span></button>`);
+  });
+  return `<div class="ch-det-section">
+    <div class="ch-det-sec-title">Ligado a este chamado</div>
+    ${itens.length ? `<div class="ch-lig-lista">${itens.join("")}</div>`
+      : `<div class="ch-lig-vazio">Nenhuma O.S. ou orçamento ligado a este chamado.</div>`}
+  </div>`;
+}
+
+document.addEventListener("click", (e) => {
+  const abrir = e.target.closest("[data-ch-abrir-pagina]");
+  if (abrir) { _chAbrirPagina(Number(abrir.dataset.chAbrirPagina)); return; }
+  if (e.target.closest("[data-ch-voltar]")) { _chFecharPagina(); return; }
+  const os = e.target.closest("[data-ch-lig-os]");
+  if (os) { abrirOSDetalhe(Number(os.dataset.chLigOs)); return; }
+  const orc = e.target.closest("[data-ch-lig-orc]");
+  if (orc) { _avBindEventos(); _orcAbrirDaBancada(Number(orc.dataset.chLigOrc)); }
+});
 
 function renderChamados() {
   renderChKpis();
@@ -5460,6 +5753,9 @@ function _ctrAbrirModal({ condoId, contratoId }) {
         document.getElementById("ctrSignGeralNome").value   = c.signatario_geral_nome || "";
         document.getElementById("ctrSignGeralEmail").value  = c.signatario_geral_email || "";
         _ctrAtualizarDestinatarios();
+        document.getElementById("ctrSub").innerHTML = _ctrSubLink(c.condominio_id, c.condominio_nome);
+        document.getElementById("ctrTitulo").textContent = c.numero ? `Contrato ${c.numero}` : "Contrato";
+        _ctrRenderTempo(c, "ctrTempo");
 
         // Botões de PDF/assinatura sempre visíveis em edição
         document.getElementById("ctrBtnPdf").style.display = "";
@@ -5491,13 +5787,165 @@ function _ctrAbrirModal({ condoId, contratoId }) {
       .catch(() => { document.getElementById("ctrMsg").textContent = "Erro ao carregar contrato"; });
   }
 
-  overlay.style.display = "flex";
+  if (condo) document.getElementById("ctrSub").innerHTML = _ctrSubLink(condo.id, condo.nome);
+  _ctrRenderTempo(contratoId ? null : {}, "ctrTempo");
+  _ctrIrParaPagina("editar", contratoId || null);
 }
 
 function _ctrFecharModal() {
-  const overlay = document.getElementById("ctrOverlay");
-  if (overlay) overlay.style.display = "none";
   _ctrEditando = null;
+  if (!_ctrNaPagina()) return;
+  if (_ctrEmpurrouHistorico) { _ctrEmpurrouHistorico = false; history.back(); return; }
+  showSection("contratos");
+}
+
+// ============================================================
+// PÁGINA DO CONTRATO (era modal até 19/11/2026)
+// ============================================================
+//
+// ⚠️ O CONTRATO TEM PÁGINA PRÓPRIA EM #/contratos/<id>, no mesmo mecanismo
+// da O.S. e do orçamento. As duas caixas de antes — #ctrBox (editar) e
+// #ctrViewerBox (assinado, só leitura) — são MOVIDAS para a seção
+// "contrato-detalhe" na primeira abertura, com os mesmos ids: salvar,
+// assinatura, PDF, inativar e excluir continuam sem reescrita. Uma das duas
+// aparece por vez. Os overlays ficam no HTML, vazios.
+// Contrato novo mora em #/contratos/novo até o primeiro POST (_ctrSalvar troca
+// o endereço pelo id); F5 no "novo" cai na lista.
+let _ctrEmpurrouHistorico = false;
+let _ctrAbrindoPelaRota   = false;
+let _ctrModoPagina        = null;  // "editar" | "ver"
+let _ctrIdPagina          = null;
+
+function _ctrNaPagina() {
+  return Boolean(document.querySelector('.section[data-section="contrato-detalhe"].is-active'));
+}
+
+function _ctrMontarPagina() {
+  const pag = document.getElementById("ctrPagina");
+  if (!pag) return;
+  [["ctrBox", "ctrBtnFechar"], ["ctrViewerBox", "ctrViewerBtnFechar"]].forEach(([idBox, idFechar]) => {
+    const box = document.getElementById(idBox);
+    if (!box || box.parentElement === pag) return;
+    pag.appendChild(box);
+    box.classList.add("is-pagina");
+    box.style.maxWidth = "";
+    // O "Fechar" do canto vira o "← Voltar" do começo do cabeçalho.
+    const fechar = document.getElementById(idFechar);
+    const head = box.querySelector(".modalHead");
+    if (fechar && head) {
+      fechar.textContent = "← Voltar";
+      fechar.classList.add("ctr-voltar");
+      head.insertBefore(fechar, head.firstChild);
+    }
+  });
+}
+
+function _ctrIrParaPagina(modo, id) {
+  _ctrMontarPagina();
+  _ctrModoPagina = modo;
+  _ctrIdPagina = id || null;
+  const ed = document.getElementById("ctrBox");
+  const vw = document.getElementById("ctrViewerBox");
+  if (ed) ed.style.display = modo === "editar" ? "" : "none";
+  if (vw) vw.style.display = modo === "ver" ? "" : "none";
+  if (!_ctrNaPagina()) {
+    _rotaAplicando = true;
+    try { showSection("contrato-detalhe"); } finally { _rotaAplicando = false; }
+    document.querySelector(".content")?.scrollTo?.(0, 0);
+  }
+  const destino = `#/contratos/${id || "novo"}`;
+  if (_ctrAbrindoPelaRota) { _ctrEmpurrouHistorico = false; return; }
+  if (location.hash === destino) return;
+  if (location.hash.startsWith("#/contratos/")) history.replaceState(null, "", destino);
+  else { history.pushState(null, "", destino); _ctrEmpurrouHistorico = true; }
+}
+
+// Chegou pelo endereço (F5, voltar/avançar, link colado): o endereço só tem
+// o id, então o contrato é buscado para saber o prédio e se já foi assinado
+// (assinado abre só leitura, como na lista).
+async function _ctrAbrirPelaRota(id) {
+  try {
+    const r = await fetch(`/contratos/${id}`, { headers: authHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    const c = await r.json();
+    _ctrAbrindoPelaRota = true;
+    try {
+      if (c.zapsign_status === "assinado") _ctrAbrirVisualizacao(c.id, c.condominio_id);
+      else _ctrAbrirModal({ condoId: c.condominio_id, contratoId: c.id });
+    } finally { _ctrAbrindoPelaRota = false; }
+  } catch (_) {
+    history.replaceState(null, "", "#/contratos");
+    showSection("contratos");
+  }
+}
+
+// Sair da página por qualquer caminho (menu, voltar do navegador) limpa o
+// estado; era o "Fechar" do modal que fazia isso. Chamada pelo embrulho do
+// showSection (admin-nav.js).
+function _ctrPodeSair(destino) {
+  if (destino === "contrato-detalhe" || !_ctrNaPagina()) return true;
+  _ctrEditando = null;
+  _ctrModoPagina = null;
+  _ctrIdPagina = null;
+  _ctrEmpurrouHistorico = false;
+  document.getElementById("ctrMoreMenu")?.classList.remove("is-open");
+  return true;
+}
+
+function _ctrSubLink(condoId, nome) {
+  if (!nome) return "";
+  if (!condoId) return _waEscaparHtml(nome);
+  return `<button type="button" class="os-link" data-ctr-condo="${condoId}" title="Abrir a ficha do condomínio">${_waEscaparHtml(nome)}</button>`;
+}
+
+// A LINHA DO TEMPO do contrato: criado → enviado para assinatura → assinado
+// → em vigor. A última etapa diz o que importa hoje: até quando, vence em N
+// dias, venceu, ou inativado. c === null = carregando; {} = contrato novo.
+function _ctrRenderTempo(c, alvoId) {
+  const alvo = document.getElementById(alvoId);
+  if (!alvo) return;
+  if (c === null) { alvo.innerHTML = ""; return; }
+  const d = (v) => v ? _ctrFmtData(v) : "";
+  const assinadoEm = c.assinado_em
+    || (c.assinatura_cliente_em && c.assinatura_geral_em
+        ? (c.assinatura_cliente_em > c.assinatura_geral_em ? c.assinatura_cliente_em : c.assinatura_geral_em) : null);
+  const assinado = c.zapsign_status === "assinado" || Boolean(assinadoEm);
+  const recusado = c.zapsign_status === "recusado";
+  const enviado  = Boolean(c.enviado_assinatura_em) || Boolean(c.zapsign_token) || assinado || recusado;
+  let assinTxt = "";
+  if (assinado) assinTxt = assinadoEm ? d(assinadoEm) : "assinado";
+  else if (recusado) assinTxt = "recusado";
+  else if (c.assinatura_cliente_em) assinTxt = `cliente assinou ${d(c.assinatura_cliente_em)} · falta a General`;
+  else if (c.assinatura_geral_em) assinTxt = `General assinou ${d(c.assinatura_geral_em)} · falta o cliente`;
+
+  let vigTxt = "", vigFeito = false, vigAlerta = false;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const ini = c.inicio_em ? String(c.inicio_em).slice(0, 10) : null;
+  const fim = c.fim_em ? String(c.fim_em).slice(0, 10) : null;
+  if (c.id && c.ativo === false) { vigTxt = "inativado"; }
+  else if (ini && ini <= hoje) {
+    vigFeito = true;
+    if (!fim) vigTxt = `desde ${d(ini)} · sem data de fim`;
+    else if (fim < hoje) { vigTxt = `venceu em ${d(fim)}`; vigFeito = false; vigAlerta = true; }
+    else {
+      const dias = Math.round((new Date(fim) - new Date(hoje)) / 86400000);
+      vigTxt = dias <= 30 ? `vence em ${dias} dia${dias === 1 ? "" : "s"} (${d(fim)})` : `até ${d(fim)}`;
+      vigAlerta = dias <= 30;
+    }
+  } else if (ini) vigTxt = `começa em ${d(ini)}`;
+
+  const etapas = [
+    { rot: "Criado", feito: Boolean(c.id), txt: c.criado_em ? d(c.criado_em) : (c.id ? "" : "ao salvar") },
+    { rot: "Enviado para assinatura", feito: enviado, txt: c.enviado_assinatura_em ? d(c.enviado_assinatura_em) : (enviado ? "enviado" : "") },
+    { rot: recusado ? "Recusado" : "Assinado", feito: assinado, txt: assinTxt, alerta: recusado },
+    { rot: "Em vigor", feito: vigFeito, txt: vigTxt, alerta: vigAlerta },
+  ];
+  const atual = etapas.findIndex(e => !e.feito);
+  alvo.innerHTML = `<ol class="os-tempo ctr-tempo" aria-label="Andamento do contrato">${etapas.map((e, i) => {
+    const cls = [e.feito ? "is-feito" : i === atual ? "is-atual" : "", e.alerta ? "is-alerta" : ""].filter(Boolean).join(" ");
+    const txt = e.txt || (i === atual ? "a seguir" : "");
+    return `<li class="${cls}"><span class="os-tempo-rot">${e.rot}</span><span class="os-tempo-em">${txt}</span></li>`;
+  }).join("")}</ol>`;
 }
 
 // ⚠️ TODA AÇÃO QUE MUDA UM CONTRATO PASSA POR AQUI (09/10/2026). O contrato
@@ -5578,6 +6026,17 @@ async function _ctrSalvar() {
     document.getElementById("ctrBtnMais").style.display = "";
     document.getElementById("ctrBtnPdf").style.display = "";
     document.getElementById("ctrBtnEnviarAssinatura").style.display = "";
+    document.getElementById("ctrBtnEncerrar").style.display = "";
+    document.getElementById("ctrBtnExcluir").style.display = "";
+    _ctrEditando.contratoId = saved.id;
+    if (_ctrNaPagina()) {
+      _ctrIdPagina = saved.id;
+      if (location.hash !== `#/contratos/${saved.id}`) history.replaceState(null, "", `#/contratos/${saved.id}`);
+      const tit = document.getElementById("ctrTitulo");
+      if (saved.numero) tit.textContent = `Contrato ${saved.numero}`;
+      else if (tit.textContent === "Novo contrato") tit.textContent = "Contrato";
+      _ctrRenderTempo(saved, "ctrTempo");
+    }
     _ctrRefrescarListas(_ctrEditando.condoId);
     setTimeout(() => { msg.textContent = ""; }, 2500);
   } catch (e) {
@@ -5687,7 +6146,8 @@ async function _ctrAtualizarStatus() {
       ctrMoreMenu.classList.remove("is-open");
     }
   });
-  overlay.addEventListener("click", e => {
+  // ⚠️ NA CAIXA, NÃO NO OVERLAY: a caixa sai do overlay para a página.
+  document.getElementById("ctrBox")?.addEventListener("click", e => {
     const btn = e.target.closest("[data-ctr-copy]");
     if (!btn) return;
     const val = document.getElementById(btn.dataset.ctrCopy)?.value || "";
@@ -5745,8 +6205,13 @@ async function _ctrAtualizarStatus() {
     }
     btn.disabled = false;
   });
-  overlay.addEventListener("click", e => { if (e.target === overlay) _ctrFecharModal(); });
 })();
+
+// O nome do prédio no cabeçalho das duas caixas abre a ficha dele.
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-ctr-condo]");
+  if (b && b.closest(".ctr-box")) abrirFichaCondominio(Number(b.dataset.ctrCondo), "contrato");
+});
 
 // ─── Visualizador de contrato (somente leitura — contratos assinados) ────────
 
@@ -5763,7 +6228,9 @@ async function _ctrAbrirVisualizacao(contratoId, condoId) {
   document.getElementById("ctrViewerDownload").style.display = "none";
   document.getElementById("ctrViewerMsg").textContent    = "";
   document.getElementById("ctrViewerBtnPdf").dataset.ctrId = "";
-  overlay.style.display = "flex";
+  _ctrRenderTempo(null, "ctrViewerTempo");
+  _ctrEditando = { condoId, contratoId };
+  _ctrIrParaPagina("ver", contratoId);
 
   try {
     const r = await fetch(`/contratos/${contratoId}`, { headers: authHeaders() });
@@ -5771,7 +6238,8 @@ async function _ctrAbrirVisualizacao(contratoId, condoId) {
     const c = await r.json();
 
     document.getElementById("ctrViewerTitulo").textContent = c.numero ? `Contrato ${c.numero}` : "Contrato";
-    document.getElementById("ctrViewerSub").textContent    = c.condominio_nome || "";
+    document.getElementById("ctrViewerSub").innerHTML      = _ctrSubLink(c.condominio_id, c.condominio_nome);
+    _ctrRenderTempo(c, "ctrViewerTempo");
     document.getElementById("ctrViewerBtnPdf").dataset.ctrId = String(c.id);
 
     const badge = document.getElementById("ctrViewerBadge");
@@ -5826,10 +6294,9 @@ async function _ctrAbrirVisualizacao(contratoId, condoId) {
 (function _bindCtrViewer() {
   const overlay = document.getElementById("ctrViewerOverlay");
   if (!overlay) return;
-  const fechar = () => { overlay.style.display = "none"; };
+  const fechar = () => _ctrFecharModal();
   document.getElementById("ctrViewerBtnFechar")?.addEventListener("click", fechar);
   document.getElementById("ctrViewerBtnFechar2")?.addEventListener("click", fechar);
-  overlay.addEventListener("click", e => { if (e.target === overlay) fechar(); });
   document.getElementById("ctrViewerBtnPdf")?.addEventListener("click", async () => {
     const id = document.getElementById("ctrViewerBtnPdf").dataset.ctrId;
     if (!id) return;
@@ -8283,10 +8750,14 @@ function _mpAtualizarKpis() {
     else if (off > 0 || al > 0) critico += 1;
     else online += 1;
   }
-  document.getElementById("mpKpiTotal")  && (document.getElementById("mpKpiTotal").textContent   = total);
-  document.getElementById("mpKpiOnline") && (document.getElementById("mpKpiOnline").textContent  = online);
-  document.getElementById("mpKpiCritico")&& (document.getElementById("mpKpiCritico").textContent = critico);
-  document.getElementById("mpKpiOffline")&& (document.getElementById("mpKpiOffline").textContent = offline);
+  // O número vai no <span> e a unidade no irmão .rc-unid, no plural certo.
+  [["mpKpiTotal", total], ["mpKpiOnline", online], ["mpKpiCritico", critico], ["mpKpiOffline", offline]].forEach(([id, n]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = n;
+    const un = el.parentElement?.querySelector(".rc-unid");
+    if (un) un.textContent = _unidExtenso("cond.", n);
+  });
 }
 
 // --- Mapa principal Leaflet ---
@@ -10603,14 +11074,31 @@ document.addEventListener("DOMContentLoaded", () => {
     _cliBuscaTimer = setTimeout(() => { _cliFiltros.busca = e.target.value; renderCliTabela(); }, 200);
   });
 
+  // ⚠️ A LINHA ABRE A FICHA (19/11/2026), como a da O.S. abre a página dela.
+  // Antes abria um painel ao lado com cadastro, chamados, contrato e
+  // responsáveis — tudo que a ficha já mostra, inteiro. O que só o painel
+  // tinha (Inativar/Reativar) foi para o cabeçalho da ficha. renderCliDetalhe
+  // continua no código (outras rotinas ainda o chamam); a coluna fica oculta.
+  const _cliAbrir = (row) => {
+    const id = Number(row.dataset.cliId);
+    if (!id) return;
+    _cliSelecionadoId = id;
+    abrirFichaCondominio(id);
+  };
   document.getElementById("cliTableBody")?.addEventListener("click", e => {
     const row = e.target.closest("tr[data-cli-id]");
-    if (!row) return;
-    const id = Number(row.dataset.cliId);
-    _cliSelecionadoId = id;
-    renderCliTabela();
-    const c = (Array.isArray(_condominios) ? _condominios : []).find(c => c.id === id);
-    renderCliDetalhe(c || null);
+    if (row) _cliAbrir(row);
+  });
+  document.getElementById("cliTableBody")?.addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    const row = e.target.closest("tr[data-cli-id]");
+    if (row) _cliAbrir(row);
+  });
+  document.getElementById("cliKpiGrid")?.addEventListener("click", e => {
+    const b = e.target.closest("[data-cli-ir-contratos]");
+    if (!b) return;
+    showSection("contratos");
+    setTimeout(() => document.querySelector(`[data-ctrs-tab="${b.dataset.cliIrContratos}"]`)?.click(), 60);
   });
 
   // ===== Página Técnicos =====
@@ -12717,7 +13205,10 @@ function _avStatusCls(s) {
   return "orc-status-off";
 }
 function _avStatusLabel(s) {
-  return { aprovado:"APROVADO", rejeitado:"REJEITADO", enviado:"ENVIADO", rascunho:"RASCUNHO" }[s] || s.toUpperCase();
+  // Selo em frase, não em caixa alta (19/11/2026): o mesmo de O.S., Chamados
+  // e Contratos. "Recusado" é a palavra da linha do tempo do orçamento.
+  return { aprovado:"Aprovado", rejeitado:"Recusado", enviado:"Enviado", rascunho:"Rascunho" }[s]
+    || (s ? s[0].toUpperCase() + s.slice(1) : "");
 }
 // ⚠️ O QUE ACONTECEU DEPOIS DO APROVADO (31/08/2026, migrations 079 e 080).
 // Até aqui o admin não tinha como responder "esse orçamento chegou a ser
@@ -15469,12 +15960,13 @@ function _orcStatusLabel(s) {
   // Sem status = não há linha em `orcamentos`: a O.S. foi marcada como
   // "precisa de orçamento" e ninguém começou. É o estado que mais precisa
   // aparecer nesta aba, e era justamente o que ficava invisível.
-  if (!s)                return "SOLICITADO";
-  if (s === "aprovado")  return "APROVADO";
-  if (s === "rejeitado") return "REJEITADO";
-  if (s === "expirado")  return "EXPIRADO";
-  if (s === "enviado")   return "ENVIADO";
-  return "EM ORÇAMENTO"; // rascunho — o nome da aba que o lista
+  // Selo em frase, não em caixa alta (19/11/2026), como em _avStatusLabel.
+  if (!s)                return "Solicitado";
+  if (s === "aprovado")  return "Aprovado";
+  if (s === "rejeitado") return "Recusado";
+  if (s === "expirado")  return "Expirado";
+  if (s === "enviado")   return "Enviado";
+  return "Em orçamento"; // rascunho — o nome da aba que o lista
 }
 
 function _orcFiltrados() {
@@ -15646,7 +16138,7 @@ async function _orcExcluirPedido(osId) {
              + "A O.S. continua no sistema — ela só sai desta fila de orçamentos.";
   } else {
     // Rascunho por extenso: "um orçamento EM ORÇAMENTO" não diz nada.
-    const estado = o.orcamento_status === "rascunho" ? "em rascunho" : _orcStatusLabel(o.orcamento_status);
+    const estado = o.orcamento_status === "rascunho" ? "em rascunho" : _orcStatusLabel(o.orcamento_status).toLowerCase();
     pergunta = "A " + qual + " tem um orçamento " + estado
              + (o.orcamento_numero ? " (nº " + o.orcamento_numero + ")" : "")
              + (o.orcamento_valor ? " de " + _orcFmtValor(o.orcamento_valor) : "") + ".\n\n"
@@ -17067,11 +17559,7 @@ function _pmBindEventos() {
     // "chamado #N em andamento" → abre o chamado na aba Chamados
     const link = e.target.closest("[data-pm-chamado]");
     if (link) {
-      const chamadoId = Number(link.dataset.pmChamado);
-      showSection("chamados");
-      _chSelecionadoId = chamadoId;
-      renderChamados();
-      setTimeout(() => document.querySelector(`[data-ch-id="${chamadoId}"]`)?.scrollIntoView({ block: "nearest" }), 80);
+      _chAbrirPagina(Number(link.dataset.pmChamado));
       return;
     }
 
@@ -17274,10 +17762,7 @@ function _pmBindEventos() {
       _cliSelecionadoId = item.id;
       renderClientes();
     } else if (item.type === "chamado") {
-      showSection("chamados");
-      _chSelecionadoId = item.id;
-      renderChamados();
-      setTimeout(() => document.querySelector(`[data-ch-id="${item.id}"]`)?.scrollIntoView({ block: "nearest" }), 80);
+      _chAbrirPagina(item.id);
     } else if (item.type === "tecnico") {
       showSection("tecnicos");
       _tecSelecionadoId = item.id;
@@ -17497,14 +17982,14 @@ function _eqRender() {
     const subSit = naBancada && eq.defeito_relatado
       ? `<span class="os-sub">${_eqEsc(eq.defeito_relatado)}</span>`
       : (eq.ultima_movimentacao_em ? `<span class="os-sub">mudou em ${_eqDataCurta(eq.ultima_movimentacao_em)}</span>` : "");
-    return `<tr class="pro-row${livre ? " is-livre" : ""}" data-eq-codigo="${_eqEsc(eq.codigo)}" tabindex="0">
+    return `<tr class="pro-row${livre ? " is-livre" : ""}" data-eq-codigo="${_eqEsc(eq.codigo)}" tabindex="0" title="Abrir a ficha do equipamento (outra aba)">
       <td class="pro-cli">
         <span class="pro-cli-nome">${nome ? _eqEsc(nome) : `<span class="muted">Etiqueta em branco</span>`}</span>
         <span class="os-sub">${apoio}</span>
       </td>
       <td>${condo}${desde}</td>
       <td class="pro-sit"><span class="os-sit-linha"><span class="badge ${cls}">${_eqEsc(label)}</span></span>${subSit}</td>
-      <td class="pro-acao"><a class="btn btn-sm" href="/e/${_eqEsc(eq.codigo)}" target="_blank" rel="noopener">Abrir ficha ↗</a></td>
+      <td class="pro-acao eq-abre-cel"><a class="eq-abre" href="/e/${_eqEsc(eq.codigo)}" target="_blank" rel="noopener" tabindex="-1" aria-label="Abrir a ficha de ${_eqEsc(nome || "etiqueta em branco")} em outra aba">↗</a></td>
     </tr>`;
   }).join("");
 }
@@ -17894,7 +18379,7 @@ async function _orcAbrirDaBancada(orcamentoId) {
     if (!Array.isArray(_avData) || !_avData.length) await carregarAvulsos();
     const alvo = (_avData || []).find(o => o.id === orcamentoId);
     if (!alvo) {
-      alert("Orçamento não encontrado na lista de avulsos. Abra pela aba \"Criar orçamento\".");
+      alert("Orçamento não encontrado na lista de avulsos. Abra pela aba \"Orçamentos\".");
       return;
     }
     _avSelecionado = alvo;
@@ -17912,6 +18397,7 @@ _ordemRender.os         = () => { _osPagina = 1; _osRenderTabela(); };
 _ordemRender["orc-av"]  = () => _avRenderTudo();
 _ordemRender["orc-os"]  = () => _orcRenderTudo();
 _ordemRender.contratos  = () => _ctrsRender();
+_ordemRender.condominios = () => renderCliTabela();
 _ordemRender.planos     = () => _pmRenderTudo();
 _ordemRender.equipamentos = () => _eqRender();
 _ordemRender.notas      = () => typeof renderNotas === "function" && renderNotas();

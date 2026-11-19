@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=313">
+  <link rel="stylesheet" href="/static/admin.css?v=326">
 </head>
 <body>
   <div id="appLoader">
@@ -370,11 +370,11 @@
               </svg>
               Contratos
             </h2>
-            <button class="btn-link" data-section-go="cadastros">Gerenciar →</button>
+            <button class="btn-link" data-section-go="contratos">Ver contratos →</button>
           </div>
           <div class="mc-fin-row" id="mcContratosRow">
             <div class="mc-fin-item">
-              <div class="mc-fin-label">MRR mensal</div>
+              <div class="mc-fin-label">Receita mensal dos contratos</div>
               <div class="mc-fin-value" id="mcContrMrr">—</div>
             </div>
             <div class="mc-fin-item">
@@ -382,7 +382,7 @@
               <div class="mc-fin-value" id="mcContrAtivos">—</div>
             </div>
             <div class="mc-fin-item">
-              <div class="mc-fin-label">Vencendo em 30d</div>
+              <div class="mc-fin-label">Vencem em 30 dias</div>
               <div class="mc-fin-value" id="mcContrVencendo">—</div>
             </div>
             <div class="mc-fin-item">
@@ -518,13 +518,14 @@
 
       <!-- ===== SECTION: CADASTROS (Clientes) ===== -->
       <div class="section" data-section="cadastros">
-        <!-- KPIs -->
-        <div class="resumo-grid" id="cliKpiGrid" style="margin-bottom:16px;"></div>
 
         <!-- Layout split lista + detalhe -->
         <div class="ch-layout">
           <!-- Lista -->
           <div class="ch-list-col">
+            <!-- A faixa de 5 cartões virou esta frase (molde da O.S.,
+                 19/11/2026). Ver renderCliKpis. -->
+            <p class="os-resumo cli-resumo" id="cliKpiGrid"></p>
             <div class="ch-toolbar" style="justify-content:space-between;">
               <div class="wa-tabs" role="tablist">
                 <button class="wa-tab is-active" data-cli-tab="todos">Todos <span class="wa-count" id="cliCtTodos">0</span></button>
@@ -533,7 +534,7 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center;">
                 <input id="cliBusca" class="input" style="width:200px;" placeholder="Buscar condomínio…">
-                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-cliente">+ Novo cliente</button>
+                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-cliente">+ Novo condomínio</button>
               </div>
             </div>
             <div class="tableWrap ch-table-wrap">
@@ -546,8 +547,12 @@
                          tem o dado — e coluna morta ocupa largura sem informar.
                          Na linha de apoio, dado ausente simplesmente não
                          aparece. -->
-                    <th>Cliente</th>
-                    <th style="width:150px">Contrato</th>
+                    <!-- 19/11/2026: Água, Chamados e Contrato dizem como o
+                         prédio está sem abrir a ficha. A linha abre a ficha. -->
+                    <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="nome" data-ord-padrao="asc" title="Ordenar por condomínio">Condomínio<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th aria-sort="none" style="width:24%"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="agua" data-ord-padrao="asc" title="Ordenar por água">Água<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th aria-sort="none" style="width:18%"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="chamados" data-ord-padrao="desc" title="Ordenar por chamados">Chamados<span class="ord-seta" aria-hidden="true"></span></button></th>
+                    <th aria-sort="none" style="width:20%"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="contrato" data-ord-padrao="asc" title="Ordenar por contrato">Contrato<span class="ord-seta" aria-hidden="true"></span></button></th>
                   </tr>
                 </thead>
                 <tbody id="cliTableBody"></tbody>
@@ -756,18 +761,33 @@
         <div id="orcPagina" class="orc-pagina"></div>
       </div>
 
+      <!-- Página do contrato (19/11/2026). As caixas #ctrBox (editar) e
+           #ctrViewerBox (assinado, só leitura) moram nos overlays lá embaixo
+           e são movidas para cá na primeira abertura; ver _ctrMontarPagina. -->
+      <div class="section" data-section="contrato-detalhe">
+        <div id="ctrPagina" class="ctr-pagina"></div>
+      </div>
+
+      <!-- Página do chamado (19/11/2026). A lista de Chamados continua com o
+           painel ao lado (triagem); a página é o mesmo chamado inteiro, com
+           endereço e o que está ligado a ele. Ver _chAbrirPagina. -->
+      <div class="section" data-section="chamado-detalhe">
+        <div id="chPagina" class="ch-pagina"></div>
+      </div>
+
       <!-- ===== SECTION: ORÇAMENTOS ===== -->
       <div class="section" data-section="orcamentos">
 
-        <!-- Abas principais da seção -->
-        <div class="orc-main-tabs" id="orcMainTabs">
-          <button class="orc-main-tab is-active" data-orc-modo="avulso" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Criar orçamento
+        <!-- Abas principais da seção. ⚠️ São NAVEGAÇÃO (trocam a lista), não
+             ação: até 19/11/2026 a primeira se chamava "+ Criar orçamento",
+             com ícone de mais e fundo âmbar, e lia como um segundo botão de
+             criar ao lado do "+ Novo orçamento" (o único que cria). Agora têm a
+             cara da subaba do admin: texto com fio embaixo. -->
+        <div class="orc-main-tabs" id="orcMainTabs" role="tablist">
+          <button class="orc-main-tab is-active" data-orc-modo="avulso" type="button" role="tab">
+            Orçamentos
           </button>
-          <button class="orc-main-tab" data-orc-modo="os" type="button">
+          <button class="orc-main-tab" data-orc-modo="os" type="button" role="tab">
             Solicitados pelos técnicos <span class="wa-count" id="navBadgeOrcamentosOS" style="display:none;">0</span>
           </button>
         </div>
@@ -1347,7 +1367,10 @@
                   <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="equipamentos" data-ord-chave="equip" data-ord-padrao="asc" title="Ordenar por equipamento">Equipamento<span class="ord-seta" aria-hidden="true"></span></button></th>
                   <th style="width:28%" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="equipamentos" data-ord-chave="condo" data-ord-padrao="asc" title="Ordenar por condomínio">Condomínio<span class="ord-seta" aria-hidden="true"></span></button></th>
                   <th style="width:240px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="equipamentos" data-ord-chave="situacao" data-ord-padrao="asc" title="Ordenar por situação">Situação<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  <th style="width:130px"><span class="sr-only">Ação</span></th>
+                  <!-- 19/11/2026: era "Abrir ficha ↗" em toda linha. A linha
+                       inteira já abre (clique e Enter); fica só a seta de
+                       "outra aba", discreta, que acende no hover. -->
+                  <th style="width:44px"><span class="sr-only">Abrir</span></th>
                 </tr>
               </thead>
               <tbody id="eqTableBody"></tbody>
@@ -2639,7 +2662,7 @@
        numa coluna estreita, rolando, numa tela de 1440. Mesmo problema (e
        mesma correção) do modal de orçamento. Todos os ids preservados — o
        JS de contratos lê 69 deles por getElementById. -->
-  <div class="modalBox" style="max-width:1000px;">
+  <div class="modalBox ctr-box" id="ctrBox" style="max-width:1000px;">
     <div class="modalHead">
       <div>
         <div class="modalTitle" id="ctrTitulo">Novo contrato</div>
@@ -2650,6 +2673,7 @@
         <button class="btn btn-sm" id="ctrBtnFechar">Fechar</button>
       </div>
     </div>
+    <div class="ctr-tempo-wrap" id="ctrTempo"></div>
     <div class="modalBody">
       <input type="hidden" id="ctrId" />
       <input type="hidden" id="ctrCondoId" />
@@ -2826,7 +2850,7 @@
 
 <!-- ═══ Modal: visualizar contrato assinado (somente leitura) ═══ -->
 <div id="ctrViewerOverlay" class="modalOverlay" style="display:none;">
-  <div class="modalBox" style="max-width:560px;">
+  <div class="modalBox ctr-box" id="ctrViewerBox" style="max-width:560px;">
     <div class="modalHead">
       <div>
         <div class="modalTitle" id="ctrViewerTitulo">Contrato</div>
@@ -2837,6 +2861,7 @@
         <button class="btn btn-sm" id="ctrViewerBtnFechar">Fechar</button>
       </div>
     </div>
+    <div class="ctr-tempo-wrap" id="ctrViewerTempo"></div>
     <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;">
 
       <!-- Grid de dados do contrato -->
@@ -2867,11 +2892,11 @@
 </div>
 
 
-<script src="/static/admin.js?v=391" defer></script>
-<script src="/static/admin-condominio.js?v=8" defer></script>
-<script src="/static/admin-nav.js?v=6" defer></script>
+<script src="/static/admin.js?v=400" defer></script>
+<script src="/static/admin-condominio.js?v=10" defer></script>
+<script src="/static/admin-nav.js?v=8" defer></script>
 <script src="/static/admin-carteira.js?v=4" defer></script>
-<script src="/static/admin-agenda.js?v=4" defer></script>
+<script src="/static/admin-agenda.js?v=5" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>

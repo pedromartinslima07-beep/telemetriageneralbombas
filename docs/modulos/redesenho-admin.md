@@ -823,9 +823,362 @@ com erro, então essas linhas não foram vistas com dado real.
 
 ---
 
-## Próximo passo (18/11/2026)
+## Contrato e chamado como páginas próprias (19/11/2026)
 
-Todas as listas do admin estão no molde. O que sobra do redesenho:
+Pedido do Pedro: *"resolve isso: página própria para o chamado e o contrato"*.
+Com isso, os quatro documentos (O.S., orçamento, contrato e chamado) têm
+endereço, Voltar e linha do tempo.
+
+### Contrato: `#/contratos/<id>`
+
+Era um de dois modais: o de editar (`#ctrOverlay`) e o só leitura do contrato
+assinado (`#ctrViewerOverlay`). Agora é uma página com o mesmo mecanismo do
+orçamento. As duas caixas (`#ctrBox`, `#ctrViewerBox`) são **movidas** para a
+seção `contrato-detalhe` na primeira abertura (`_ctrMontarPagina`), com os
+mesmos ids, e aparece uma por vez. Salvar, assinatura, PDF, inativar e
+excluir não foram reescritos.
+
+- **Cabeçalho:** "← Voltar" (era o "Fechar" do canto), título "Contrato
+  CT-…", o prédio como link para a ficha (aba Contrato) e o selo da
+  assinatura. Cabeçalho e rodapé de ações grudam ao rolar no desktop.
+- **Linha do tempo:** Criado → Enviado para assinatura → Assinado (ou
+  Recusado; com uma só assinatura, diz quem falta) → Em vigor ("até dd/mm",
+  "desde dd/mm · sem data de fim", "vence em N dias" e "venceu em dd/mm" em
+  vermelho, "inativado").
+- **Endereço:** F5 e link colado (`_ctrAbrirPelaRota` busca o contrato para
+  saber o prédio e se já foi assinado: assinado abre só leitura, como na
+  lista). Contrato novo mora em `#/contratos/novo` e troca para o id no
+  primeiro salvar; F5 no "novo" cai na lista.
+- `_ctrPodeSair` limpa o estado ao sair por menu ou voltar do navegador.
+  O contrato não tinha aviso de alteração não salva no modal, e continua sem.
+
+⚠️ **O botão "Copiar" do link de assinatura escutava o clique no overlay.**
+A caixa saiu do overlay, então o clique deixaria de chegar. Agora escuta na
+própria caixa (`#ctrBox`).
+
+⚠️ **Data pura em `_ctrFmtData`.** A API manda as colunas DATE como
+`2026-12-10T03:00:00.000Z` (meia-noite de Brasília), que já saía certo. A
+linha do tempo corta para `2026-12-10`, que o `Date` lê como meia-noite UTC,
+e aí saía "09/12". O formatador agora monta `dd/mm/aaaa` direto quando
+recebe data pura.
+
+### Chamado: `#/chamados/<id>`
+
+**A lista de Chamados continua com o painel ao lado**: escolher e agir rápido
+é o trabalho daquela tela (decisão de 18/11/2026). A página é o mesmo
+chamado inteiro, com endereço e o que está ligado a ele.
+
+- **Um desenho, dois lugares.** `renderChDetalhe` decide o destino: na
+  página, o mesmo conteúdo sai em duas colunas (descrição, avaliação,
+  **"Ligado a este chamado"** e histórico à esquerda; quem está com ele e
+  telemetria à direita). Toda ação que grava redesenha por `carregarTudo →
+  renderChamados → renderChDetalhe` e cai na página sozinha. Os botões
+  (resolver, cancelar, reabrir, trocar técnico/prédio) são os mesmos, pela
+  delegação no `body`.
+- **"Ligado a este chamado":** a O.S. que ele gerou (número, finalizada em
+  dd/mm, enviada ou não ao cliente) e os orçamentos com `chamado_id` dele
+  (número, situação, valor). Clicar abre a página do documento, e o Voltar
+  de lá volta ao chamado. Some para o operador: O.S. e orçamento são rotas
+  `gestaoOnly`.
+- **Quem abre a página:** o "Abrir página ↗" no topo do painel, e todo
+  caminho que chega **de fora da lista**: ficha do condomínio
+  (`_cfAbrirChamado`), Início, link do chamado na O.S., chamado da
+  preventiva e busca global. Antes esses caíam na lista com o chamado
+  selecionado. Clicar numa linha da lista continua abrindo o painel.
+- **Endereço:** F5 e link colado (`_chAbrirPagina(id, { daRota: true })`;
+  se a lista ainda não carregou, busca e espera). Chamado inexistente mostra
+  "não encontrado" com o Voltar.
+
+⚠️ **O painel da lista é esvaziado enquanto a página está aberta.** Os dois
+teriam os mesmos ids (`chTecnicoRow-N`, `chHistSec-N`), e o
+`getElementById` das ações acharia o do painel escondido. Ao voltar para a
+lista, `_chPodeSair` redesenha o painel com o chamado selecionado.
+
+⚠️ **A O.S. ligada é buscada dentro do desenho (`_chRenderLigados`), não ao
+abrir a página.** A primeira versão buscava em `_chAbrirPagina`, e entrando
+pelo endereço o redesenho seguinte saía sem número nem situação. Todo
+redesenho passa pelo desenho; o `Set` `_chOsBuscando` evita buscar duas vezes.
+
+### Também
+
+- As subabas do grupo (ex.: "Notas fiscais · Contratos") não aparecem mais
+  por cima das páginas de documento (`*-detalhe`). Na página do contrato elas
+  apareciam ao lado do Voltar e confundiam.
+
+### Testado (banco de teste, 19/11/2026)
+
+Desktop 1440 e celular 375 sem rolagem lateral, sem erro de JS.
+**Chamado:** linha → painel → "Abrir página" → `#/chamados/950` → Voltar
+(lista com o painel de volta); F5 em `#/chamados/3`; O.S. ligada → `#/os/1`
+→ Voltar (volta ao chamado). **Contrato:** novo pela ficha →
+`#/contratos/novo` → salvar → `#/contratos/2` (linha do tempo com "vence em
+21 dias" em vermelho); F5; Voltar depois do F5 (lista); linha → página →
+Voltar; link do prédio → `#/condominios/5/contrato` → voltar do navegador;
+só leitura (assinado); menu para fora; Excluir pela página (volta à lista).
+Os dois contratos de teste (`[TESTE 19/11]`) foram excluídos. **Não
+testado:** perfil operador nas páginas novas, e o contrato assinado de
+verdade (o banco de teste não tem nenhum; a versão só leitura foi aberta
+direto). Versões: `admin.js?v=394`, `admin.css?v=315`,
+`admin-condominio.js?v=9`, `admin-nav.js?v=8`.
+
+⚠️ **O `npm run dev` é `node --watch`**: editar arquivo reinicia o servidor.
+O primeiro "Salvar" do contrato caiu no meio de um reinício, e a tela disse
+"Erro de rede" com o contrato **gravado** (o banco ficou com dois). Num
+teste que grava, espere o servidor voltar antes de clicar.
+
+---
+
+## Ronda de UX: o que ainda não parece sistema de gestão (19/11/2026)
+
+Pedido do Pedro: *"conferir o que ainda não está com visual de sistema
+profissional para a gente melhorar"*. Todas as telas em 1440×900, banco de
+teste. Em ordem do que mais pesa:
+
+1. ✅ **(Feito em 19/11/2026, ver abaixo.)** **Painel, Telemetria e Mapa ainda têm a faixa antiga de cartões de
+   número, e os rótulos saem cortados.** Medido no Mapa: "Offline" vira
+   "Off…" (31px para 35px de texto), e a unidade "condomínios" vira
+   "cond…"; na Telemetria, "4 res…", "B… sem dados de bomba". Cada cartão
+   tem ícone em caixinha, número mono grande e rótulo espremido: é o
+   "card dentro de card" que o diagnóstico de 18/11 apontou e que as listas
+   já trocaram por uma frase. É o defeito mais visível do admin hoje.
+2. ✅ **(Feito em 19/11/2026, ver abaixo.)** **Condomínios (lista) ficou de fora do molde.** Cinco cartões (Clientes
+   ativos, MRR, Vencendo em 30d, Contratos vencidos, Chamados abertos) em
+   cima de uma tabela de duas colunas (Cliente, Contrato), com muito branco.
+   Faltam as colunas que dizem como o prédio está (água/sinal, chamados em
+   aberto, próxima preventiva). E o título da tela diz **"Clientes"**,
+   enquanto o menu diz "Condomínios".
+3. ⏸️ **Adiado pelo Pedro em 19/11/2026:** ele não quer mais o modelo de
+   exportar relatórios; quer um **dashboard** no lugar, para fazer depois.
+   Não vale polir a tela atual. **Relatórios ficou de fora do molde.** Títulos mono em caixa alta ("PAINEL
+   AO VIVO", "CHAMADOS EM RISCO (PASSOU DA METADE DO PRAZO)", "EXPORTAR
+   RELATÓRIOS"), ícone em caixinha, pílulas âmbar de período.
+4. ✅ **(Feito em 19/11/2026, ver abaixo.)** **Selos com duas caras.** O.S., Chamados e Contratos usam selo em frase
+   ("Finalizada 27/07", "Resolvido"); Orçamentos e Preventivas ainda usam
+   caixa alta mono ("RASCUNHO", "APROVADO", "SEM BAIXA", "SEMESTRAL",
+   "LIMPEZA DE CAIXA D'ÁGUA", "ATRASADA").
+5. ✅ **(Feito em 19/11/2026, ver abaixo.)** **Faixa de cor na borda esquerda**, o padrão que o DESIGN.md proíbe:
+   compromissos da Agenda, a linha "atrasada" de Preventivas e (visto em
+   19/11, depois da ronda) a linha de Orçamentos com resposta sem baixa. Na Agenda, a
+   lista também ocupa só uns 60% da largura.
+6. ✅ **(Feito em 19/11/2026, ver abaixo.)** **Orçamentos com dois botões primários iguais:** "+ Criar orçamento" no
+   topo e "+ Novo orçamento" dentro do cartão. "Solicitados pelos técnicos"
+   aparece como botão ao lado do primeiro, quando é uma aba.
+7. ✅ **(Feito em 19/11/2026: `.pm-prox-data` na fonte do texto, 13px/500,
+   algarismos tabulares; a linha de baixo trocou `#f87171`/`#fbbf24`, tintas
+   do tema escuro, por `--risco-t`/`--atencao-t`. `admin.css?v=324`.)**
+   **Datas da Preventivas em mono negrito grande** ("23/01/2027") pesam mais
+   que o nome do prédio.
+8. ✅ **(Feito em 19/11/2026: o botão saiu; a linha inteira já abria a ficha
+   do equipamento em outra aba (clique e Enter). Fica uma seta "↗" discreta,
+   que acende no hover/foco da linha, como link de verdade (botão do meio e
+   copiar endereço funcionam), com `tabindex -1` porque o foco de teclado é
+   a linha. No celular a seta some: o cartão inteiro abre. Testado: clique,
+   Enter, link do prédio → `#/condominios/2/equipamentos`, 375px sem rolagem
+   lateral. `admin.js?v=400`, `admin.css?v=325`.)**
+   **Equipamentos:** "Abrir ficha ↗" em todas as linhas. Nas outras listas a
+   linha inteira abre, e o botão só aparece quando há uma ação.
+9. ✅ **(Feito em 19/11/2026, ver abaixo.)** **Agenda abre em "Carregando…" por 2–3 s** sem esqueleto (a rota responde
+   200; é só a espera).
+
+O que **está** no padrão: Início, as listas de O.S., Chamados, Contratos,
+Notas, Equipamentos (fora o item 8), a ficha do condomínio, as quatro páginas
+de documento e Configurações/Colaboradores.
+
+### Item 1 feito: a faixa de números sem corte (19/11/2026)
+
+Só CSS, no fim do `admin.css` (bloco "FAIXA DE NÚMEROS SEM CORTE"), escopado a
+`.main :is(.resumo-grid, .mp-kpis)`. Pega Painel, Telemetria, Mapa e a faixa
+da lista de Condomínios, que usam o mesmo `.rc`. Ids, `kpiCard` e
+`renderTelKpis` não mudaram; Configurações (curva de qualidade) fica de fora,
+porque não está dentro de uma dessas faixas.
+
+| Antes | Agora |
+|---|---|
+| Célula de uma linha, 60px: ícone, rótulo, dica e número disputando a largura | Célula empilhada: rótulo inteiro → número com unidade → dica (quebra linha se precisar) |
+| Rótulo com reticências ("Off…", "4 res…", "B… sem dados de bomba") | Nenhum texto cortado, medido nas quatro telas em 1440 e 375 |
+| Cartões soltos, cada um com ícone em caixinha colorida | Uma peça só, com fio entre as células, sem ícone |
+| Estado na cor da caixinha do ícone | Estado na cor do número (vermelho, âmbar), só quando pede atenção |
+| Número em mono 19px | Número na fonte do texto, 22px (19px no celular) |
+
+Celular: duas colunas nas quatro faixas, sem rolagem lateral. Os cartões
+clicáveis do Painel continuam levando à tela deles (testado: "Offline" →
+Telemetria). `admin.css?v=316`.
+
+**Os três restos, resolvidos na mesma tarde (pedido do Pedro):**
+
+- **Unidades por extenso, no plural certo.** `_unidExtenso(abrev, valor)`
+  (perto de `kpiCard`, em `admin.js`) troca "disp.", "res.", "cond." e
+  "abertos" por "dispositivo/dispositivos", "reservatório/reservatórios",
+  "condomínio/condomínios", "aberto/abertos" pelo número. Vale nas três
+  fontes: `kpiCard` (Painel), `renderTelKpis` (Telemetria) e o preenchimento
+  do Mapa, que agora escreve também o `.rc-unid` do HTML. Valor que não é
+  número ("—", "62%") fica sem unidade.
+- **Linha de Contratos do Painel** (`.mc-fin-row`): a mesma peça da faixa de
+  números (rótulo em cima, número embaixo na fonte do texto, fio entre as
+  células). A receita saiu do âmbar: âmbar é "olhe aqui", e receita não pede
+  ação; cor só em "vencem em 30 dias" e "vencidos" quando passam de zero.
+  Rótulos: "MRR mensal" → "Receita mensal dos contratos", "Vencendo em 30d"
+  → "Vencem em 30 dias". **"Gerenciar →" levava para a lista de
+  Condomínios**; agora é "Ver contratos →" e leva para Contratos.
+- **"Alertas Críticos" do Painel:** a caixinha de ícone (30px) e o tempo à
+  direita comiam a coluna. Agora: ponto de cor, título em até duas linhas,
+  prédio · prioridade · "fora do prazo" embaixo, e o tempo por último; fio
+  entre os itens. O subtítulo deixou de ser o tipo cru ("dispositivo
+  offline • …", "SLA estourado • Chamado P1") e a mensagem de log do
+  servidor ("está OFFLINE há 135751 minutos"): sai "Cisterna (caixa) ·
+  dispositivo sem sinal" (`_mcAlertaSub`). O título agora é escapado
+  (`_waEscaparHtml`); antes ia cru para o HTML. **O chamado da lista abre a
+  página dele** (`#/chamados/<id>`); telemetria continua indo para Alertas.
+- **"Atividade em Tempo Real"**, a coluna ao lado, tinha o mesmo corte de
+  título; ganhou a mesma solução (duas linhas, fio entre os itens, ponto
+  redondo).
+
+Medido depois: nenhum título cortado nas duas colunas. `admin.js?v=397`,
+`admin.css?v=320`.
+
+### Item 2 feito: a lista de Condomínios no molde (19/11/2026)
+
+| Antes | Agora |
+|---|---|
+| Faixa de 5 cartões (Clientes ativos, MRR, Vencendo em 30d, Contratos vencidos, Chamados abertos) | Frase: "12 condomínios ativos (N inativos) · 8 chamados em aberto · R$ X por mês em contratos", com "N contratos vencidos →" (ou "N contratos vencem em 30 dias →") que abre Contratos na aba certa |
+| 2 colunas: Cliente, Contrato | 4, todas ordenáveis (`_ordenar`, lista `condominios`): **Condomínio** (cidade · síndico · CNPJ embaixo), **Água**, **Chamados**, **Contrato** |
+| Contrato: selo ou "—" | Selo e "R$ X por mês" embaixo, ou "sem contrato" |
+| Linha abre um painel ao lado | **Linha abre a ficha** (`abrirFichaCondominio`), também com Enter |
+| Título da tela "Clientes", botão "+ Novo cliente" | "Condomínios", "+ Novo condomínio" |
+| No celular, tabela | Cartões |
+
+- **Água** (`_cliAgua`, do mesmo `_statusData` do Mapa): "sem sinal" (todos
+  os reservatórios mudos), "N de M sem sinal", "nível muito baixo", "nível
+  baixo", "normal" ou "sem telemetria"; embaixo, "N reservatórios · menor
+  nível X%". Ordenar por Água põe primeiro o que pede atenção.
+- **Chamados** (`_cliChamados`): "N em aberto" e, embaixo, "N urgentes"
+  (P1/P2 ou fora do prazo, a mesma regra de `_chamadosAlertaAbertos`).
+- **Contrato** ordena vencido primeiro, depois quem vence antes, sem fim
+  depois, sem contrato no fim.
+
+⚠️ **O painel ao lado saiu de cena, mas nada do que ele fazia se perdeu.**
+Tudo que ele mostrava a ficha mostra inteiro. A única ação que só ele tinha,
+**Inativar/Reativar o condomínio**, foi para o cabeçalho da ficha (só
+gestão), ao lado de "Editar cadastro". A coluna `#cliDetailCol` fica no HTML,
+oculta por CSS, e `renderCliDetalhe` continua no código, porque
+`_ctrRefrescarListas` e o boot ainda o chamam.
+
+Testado (banco de teste, 1440 e 375, sem erro de JS): frase, as três
+ordenações e o terceiro clique voltando à ordem por nome, linha →
+`#/condominios/5` com "Inativar" no cabeçalho, celular sem rolagem lateral.
+⚠️ No celular o "+ Novo condomínio" saía cortado na borda; corrigido.
+**Não clicado:** Inativar (mudaria o banco de teste; é o mesmo
+`data-action` que o painel usava). `admin.js?v=397`, `admin.css?v=320`,
+`admin-condominio.js?v=10`.
+
+### Item 4 feito: selos em frase em Orçamentos e Preventivas (19/11/2026)
+
+- **Os rótulos vinham em maiúsculas do próprio JS**, não só do CSS:
+  `_avStatusLabel` e `_orcStatusLabel` agora devolvem "Rascunho", "Enviado",
+  "Aprovado", "Recusado" (era "REJEITADO"; "Recusado" é a palavra da linha do
+  tempo do orçamento), "Expirado", "Solicitado", "Em orçamento". No `confirm`
+  de excluir pedido, o rótulo entra minúsculo no meio da frase.
+- **CSS** (bloco "SELOS EM FRASE" no fim do `admin.css`): `.orc-status-pill`,
+  `.av-selo-pend` ("Sem baixa"), `.av-selo-exec`, `.orc-origem-pill` ("via
+  OS", "via IA"), `.pm-pill-perio` ("Semestral", "Limpeza de caixa
+  d'água"), `.pm-pill-atraso` ("atrasada") e `.pm-pill-off` usam a mesma
+  pílula: fonte do texto, 11,5px, sem caixa alta nem espaçamento. As cores de
+  estado não mudaram (cheio = pede alguém; de fio = não pede).
+- A origem "via IA/via OS" tinha as tintas do tema escuro (`#c4b5fd`,
+  `#7dd3fc`), que mal se liam no fundo claro; ganhou tintas para o claro.
+- O cabeçalho de grupo da Preventivas ("ZONA OESTE") virou texto normal.
+
+Conferido por varredura nas duas telas (nenhum texto em caixa alta sobrando,
+incluindo a aba Solicitados) e no print. `admin.js?v=398`, `admin.css?v=321`.
+
+### Item 5 feito: sem faixa de cor na borda (19/11/2026)
+
+Só CSS (bloco "SEM FAIXA DE COR NA BORDA" no fim do `admin.css`). Achado por
+varredura em 11 telas (borda esquerda ≥ 2px ou `box-shadow inset` lateral),
+três lugares:
+
+| Onde | Era | Agora |
+|---|---|---|
+| Orçamentos e Solicitados, linha que espera alguém (`.pro-row.is-pendente`) | 3px âmbar na 1ª célula (no celular, na linha) | Fundo âmbar levíssimo na linha; o selo "Sem baixa"/"Solicitado" continua dizendo o porquê |
+| Preventiva atrasada (`.pm-row.is-atrasada`) | 2px vermelho (3px no celular) | Fundo vermelho levíssimo; o selo "atrasada" continua |
+| Linha "sem preventiva" (`.pm-row.is-sem-plano`) | 2px âmbar | Nada: o selo "Sem preventiva" e o botão "Criar preventiva" já dizem |
+| Compromisso da Agenda (`.ag-item`, as 3 vistas) | 3px na cor do tipo | Quadradinho da cor do tipo, o mesmo da legenda |
+
+Também na Agenda: a vista **Lista** tinha `max-width: 760px` (ocupava ~60%
+da tela) e cada compromisso em três linhas; agora usa a largura, uma linha
+por compromisso (hora · título · onde · quem). No celular o título desce
+para a linha de baixo.
+
+**Deixado de propósito:** o `.cbx-item.is-marcado` do seletor de condomínio
+(`condo-picker`): é o marcador de teclado de uma lista suspensa, não estado
+de registro, e o comentário dele explica por quê.
+
+Varredura de novo depois: nenhuma faixa em Agenda (semana, mês, lista),
+Orçamentos e Preventivas; celular 375 sem rolagem lateral. `admin.css?v=322`.
+
+### Item 6 feito: um botão de criar em Orçamentos (19/11/2026)
+
+O "+ Criar orçamento" do topo **não era botão**: era a aba do modo avulso,
+com rótulo de ação, ícone de mais e fundo âmbar quando ativa. Ao lado do
+"+ Novo orçamento" (o único que cria), lia como um segundo botão igual, e
+"Solicitados pelos técnicos" parecia botão também.
+
+- A aba passou a se chamar **"Orçamentos"**, sem o ícone. Os `data-orc-modo`
+  e o handler não mudaram.
+- As duas abas (`.orc-main-tab`) ganharam a cara da subaba do admin
+  (`.nav-sub`): texto, fio embaixo, ativa com o traço escuro, sem âmbar. São
+  navegação (trocam a lista), e as de dentro da lista continuam filtro, na
+  placa cinza.
+- O `alert` de `_orcAbrirDaBancada` que mandava "abrir pela aba Criar
+  orçamento" agora diz "aba Orçamentos".
+
+Testado: troca entre as duas abas e volta; só um botão de criar visível
+("+ Novo orçamento"). `admin.js?v=399`, `admin.css?v=323`.
+
+⚠️ [painel-admin.md](painel-admin.md) ainda cita a aba pelo nome antigo
+("Criar orçamento") nas notas de 02/09; é registro histórico, não foi
+reescrito.
+
+### Item 9 feito: a Agenda abre em 0,4 s (19/11/2026)
+
+**Medido antes de mexer** (script só de leitura no banco de teste):
+
+| | Tempo |
+|---|---|
+| `GET /agenda`, como estava | 2,7 s (e 0,7 s quando repetido logo em seguida) |
+| Abrir uma conexão nova com o banco | **~2,4 s** |
+| Uma consulta numa conexão aberta | ~0,34 s |
+| 6 consultas em paralelo, abrindo conexões / já abertas | 2,4 s / 0,34 s |
+
+A rota já fazia as consultas em paralelo. **A espera era abrir conexão:** o
+pool fechava conexão parada há 30 s, e a Agenda pede 5–6 de uma vez (mais
+que as outras telas), então quase toda abertura pagava conexões novas.
+
+- **`src/db.js`:** conexão ociosa fica aberta **10 min** (`PG_IDLE_MS`), com
+  `keepAlive`. O teto continua 20; conexão derrubada pelo servidor sai
+  sozinha (`pool.on("error")`). Vale para o sistema inteiro, não só a Agenda.
+- **`retratoDoMes`** (`omie-faturamento.service.js`): as duas consultas
+  (contratos do mês e última sincronização) saem juntas; eram em sequência.
+- **Front (`admin-agenda.js`):** o período já visto fica guardado
+  (`_agCache`) e reaparece na hora, com "Atualizando…" no canto enquanto
+  busca de novo; toda gravação (salvar, apagar, atualizar faturamento) limpa
+  o guardado, porque a repetição de um compromisso mexe em outros períodos.
+  Na primeira carga de um período a grade da vista aparece já, com brilho
+  lento (lista: três blocos), em vez do parágrafo "Carregando…"; o "—" de
+  dia vazio fica oculto até os dados chegarem.
+
+**Depois:** primeira abertura 0,38 s, com a grade na tela antes dos dados;
+voltar à Agenda ou a uma semana já vista mostra os compromissos na hora;
+**depois de 40 s parado, 0,36 s** (antes, ~2,5 s). `agenda.test.js` 21/21.
+`admin-agenda.js?v=5`, `admin.css?v=326`.
+
+⚠️ **Em produção a espera deve ser menor**, se o app e o banco estiverem na
+mesma rede do Railway; não foi medido lá. O ganho do idle maior vale do
+mesmo jeito, só que em escala menor.
+
+---
+
+## Próximo passo (19/11/2026)
 
 1. **Subir para produção.** A branch `feature/admin-condominio` sai da
    `feature/nota-fiscal-omie`, então as duas sobem juntas, a da nota primeiro.
@@ -834,10 +1187,10 @@ Todas as listas do admin estão no molde. O que sobra do redesenho:
    nota fiscal na main → merge desta → push (= deploy). O passo a passo do
    Omie depois do deploy está em [nota-fiscal.md](nota-fiscal.md). Em
    18/11/2026 o Pedro deixou isso para depois.
-2. **Ordenar no celular.** Abaixo de 640px as linhas viram cartão e o
+2. **A ronda de UX acima.** **Todos feitos** (1, 2 e 4 a 9) em 19/11/2026;
+   o 3 (Relatórios) foi adiado e vai virar um dashboard, ainda sem plano.
+3. **Ordenar no celular.** Abaixo de 640px as linhas viram cartão e o
    cabeçalho some, então não há onde clicar para ordenar. Um seletor
    "Ordenar por" acima da lista resolve, usando o mesmo `_ordenar`.
-3. **Página própria para o chamado e o contrato**, se a O.S. e o orçamento
-   mostrarem que vale: Chamados manteve o painel ao lado de propósito (o
-   operador escolhe e age rápido ali), e o contrato ainda abre em modal.
-
+4. Testar as páginas novas com o **perfil operador** (chamado sem "Ligado a
+   este chamado"; `#/contratos/…` ignorado).

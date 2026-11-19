@@ -83,6 +83,16 @@ ESP32 (sonda 4-20mA + SCT-013)
 
 ### ⚠️ Ficha do condomínio e endereço por tela (18/11/2026, branch sem deploy)
 
+**Lista de Condomínios** (mesma branch, 19/11/2026): frase no lugar dos
+cartões, colunas Água, Chamados e Contrato, e a linha abre a ficha (o painel
+ao lado ficou oculto; Inativar/Reativar foi para o cabeçalho da ficha).
+
+**Páginas de documento** (mesma branch, 19/11/2026): O.S. (`#/os/<id>`),
+orçamento (`#/orcamentos/<id>`), contrato (`#/contratos/<id>`) e chamado
+(`#/chamados/<id>`) têm endereço, Voltar e linha do tempo. A lista de
+Chamados continua com o painel ao lado; a página do chamado abre pelo "Abrir
+página ↗" e por quem chega de fora da lista.
+
 **Listas no molde da O.S.** (mesma branch): O.S. é página própria; Chamados
 mantém o painel ao lado; **Orçamentos deixou de agrupar por prédio** e é uma
 tabela da carteira nas duas abas; Contratos tem 5 colunas. O **orçamento é página própria** em

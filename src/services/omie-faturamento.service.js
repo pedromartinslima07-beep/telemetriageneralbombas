@@ -142,7 +142,9 @@ async function sincronizar({ forcar = false } = {}) {
 async function retratoDoMes(competencia) {
   const [ano, mes] = competencia.split("-").map(Number);
   const fimMes = new Date(ano, mes, 0);
-  const r = await pool.query(
+  // As duas consultas saem juntas (19/11/2026): em sequência eram duas idas ao
+  // banco por mês da Agenda, e nenhuma depende da outra.
+  const [r, sincronizacao] = await Promise.all([pool.query(
     `SELECT c.omie_codigo, c.numero, c.valor_mensal, c.dia_faturamento, c.vigencia_fim,
             n.numero_nfse, n.emitida_em, n.status
        FROM omie_contratos c
@@ -154,7 +156,7 @@ async function retratoDoMes(competencia) {
       WHERE c.situacao = '10'
       ORDER BY (n.numero_nfse IS NULL) DESC, c.numero`,
     [competencia]
-  );
+  ), ultimaSincronizacao()]);
   const contratos = r.rows.map(x => ({
     numero: x.numero,
     valor_mensal: Number(x.valor_mensal || 0),
@@ -175,7 +177,7 @@ async function retratoDoMes(competencia) {
     valor_esperado: contratos.reduce((s, c) => s + c.valor_mensal, 0),
     pendentes: contratos.filter(c => !c.nfse),
     fim_mes: fimMes.toISOString().slice(0, 10),
-    sincronizacao: await ultimaSincronizacao(),
+    sincronizacao,
   };
 }
 

@@ -22,12 +22,16 @@ aliases:
 > operador), o piloto da O.S. (página própria), o mesmo molde em Chamados,
 > Orçamentos (tabela da carteira, e o orçamento como página própria),
 > Contratos, Preventivas (na tela, "Manutenção preventiva"), Equipamentos e
-> Notas fiscais, a ordem pela coluna, e a **agenda, fase A**
+> Notas fiscais, a ordem pela coluna, **contrato e chamado como páginas
+> próprias (19/11)**, e a **agenda, fase A**
 > ([agenda.md](../docs/modulos/agenda.md)). ⚠️ A agenda traz a **migration 092**:
 > rodar em produção ANTES do push, junto com 090 e 091. Falta subir, depois da
 > nota fiscal (adiado pelo Pedro em 18/11/2026). O próximo passo está em
-> [redesenho-admin.md](../docs/modulos/redesenho-admin.md#próximo-passo-18112026);
-> ver também [roadmap.md](roadmap.md).
+> [redesenho-admin.md](../docs/modulos/redesenho-admin.md#próximo-passo-19112026),
+> que também traz a **ronda de UX de 19/11**, toda feita no mesmo dia (menos
+> Relatórios, adiado: vai virar um dashboard). ⚠️ Ela mexeu também no pool do
+> banco (`src/db.js`, idle 10 min), que sobe junto com a branch. Ver também
+> [roadmap.md](roadmap.md).
 
 > ⏳ **Nota fiscal pelo Omie: NFS-e e DANFE prontas no código, falta subir
 > (17–18/11/2026).** Em ordem: (1) `node scripts/migrate.js

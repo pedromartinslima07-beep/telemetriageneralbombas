@@ -31,7 +31,8 @@ const _NAV_GRUPOS = [
     tambem: ["condominio"] },
   { id: "chamados", rotulo: "Chamados",
     icone: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
-    membros: [["chamados", "Chamados"], ["whatsapp", "WhatsApp"]] },
+    membros: [["chamados", "Chamados"], ["whatsapp", "WhatsApp"]],
+    tambem: ["chamado-detalhe"] },
   { id: "os", rotulo: "O.S.",
     icone: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
     membros: [["ordens-servico", "O.S."]],
@@ -42,7 +43,8 @@ const _NAV_GRUPOS = [
     tambem: ["orcamento-detalhe"] },
   { id: "financeiro", rotulo: "Financeiro",
     icone: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/>',
-    membros: [["notas", "Notas fiscais"], ["contratos", "Contratos"]] },
+    membros: [["notas", "Notas fiscais"], ["contratos", "Contratos"]],
+    tambem: ["contrato-detalhe"] },
   { id: "relatorios", rotulo: "Relatórios",
     icone: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
     membros: [["relatorios", "Relatórios"]] },
@@ -150,7 +152,10 @@ function _navSincronizar() {
   const vis = g ? _navMembrosVisiveis(g) : [];
   // Subaba só quando há o que escolher, e nunca por cima da ficha (ela tem as
   // abas dela).
-  if (vis.length < 2 || _navAtual === "condominio") { sub.hidden = true; sub.innerHTML = ""; return; }
+  // Nem por cima das páginas de documento (O.S., orçamento, contrato,
+  // chamado): elas têm o "← Voltar", e a subaba ao lado dele confundia.
+  const naPaginaDoc = _navAtual === "condominio" || /-detalhe$/.test(_navAtual || "");
+  if (vis.length < 2 || naPaginaDoc) { sub.hidden = true; sub.innerHTML = ""; return; }
   sub.hidden = false;
   sub.innerHTML = vis.map(([s, rot]) => {
     const n = _navBadgeDe(s);
@@ -167,10 +172,13 @@ function _navSincronizar() {
   const orig = window.showSection;
   if (typeof orig !== "function") return;
   // Páginas de documento: não são subaba, acendem o grupo pelo "tambem".
-  const pagina = (n) => n === "condominio" || n === "os-detalhe" || n === "orcamento-detalhe";
+  const pagina = (n) => n === "condominio" || n === "os-detalhe" || n === "orcamento-detalhe"
+    || n === "contrato-detalhe" || n === "chamado-detalhe";
   window.showSection = function (name, ...resto) {
     // Sair da página do orçamento com alteração não salva pergunta antes.
     if (typeof _avPodeSair === "function" && !_avPodeSair(name)) return;
+    if (typeof _ctrPodeSair === "function") _ctrPodeSair(name);
+    if (typeof _chPodeSair === "function") _chPodeSair(name);
     if (!pagina(name) && document.querySelector(".nav-grupos") && !_navSecaoVisivel(name)) {
       const g = _navGrupoDe(name);
       const sub = g && _navMembrosVisiveis(g)[0]?.[0];

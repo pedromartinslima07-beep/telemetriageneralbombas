@@ -997,6 +997,8 @@ o "porquê" em [`decisions.md`](decisions.md).
 | 4 | Tema claro no painel (app mobile fica como está) + forma de sistema de gestão (sem chanfro, cartões, abas segmentadas) | ✅ 18/11 (mesma branch) |
 | 5 | Retirar telas antigas (autorizado em 18/11): gaveta e modal antigo de KPIs; ficha com recorte do operador | ✅ 18/11 (mesma branch) |
 | 6 | Molde da O.S. nas listas: O.S. (página própria), Chamados (painel ao lado), Orçamentos (uma tabela da carteira, sem agrupar por prédio) e Contratos | ✅ 18/11 (mesma branch), incluindo o orçamento como página própria (`#/orcamentos/<id>`) com linha do tempo; depois Preventivas ("Planos" saiu da tela), Equipamentos e Notas fiscais |
+| 7 | Contrato e chamado como páginas próprias (`#/contratos/<id>`, `#/chamados/<id>`); a lista de Chamados mantém o painel | ✅ 19/11 (mesma branch) |
+| 8 | Ronda de UX (19/11): cartões cortados em Painel/Telemetria/Mapa, Condomínios e Relatórios fora do molde, selos em caixa alta, faixa na borda, botão duplicado em Orçamentos, data da Preventivas, botão repetido em Equipamentos, espera da Agenda | ✅ 19/11 — itens 1, 2 e 4 a 9 feitos; o 3 (Relatórios) adiado: vai virar um dashboard, a planejar. Ver a seção "Ronda de UX" em [`redesenho-admin.md`](../docs/modulos/redesenho-admin.md) |
 
 ---
 
