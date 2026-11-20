@@ -82,8 +82,8 @@ como o de 18/11. O script fica pronto (só aceita chamadas `Listar`/`Pesquisar`/
 > cópia, ligar um à mão, ver na lista de Condomínios e na página do prédio,
 > abrir pela página e desfazer. **Não testado com clientes reais:** as chaves
 > do Omie estão só no Railway; a primeira cópia dos clientes acontece na
-> primeira volta do job em produção, depois do deploy. ⚠️ **096 em produção
-> antes do push.** Se os prédios de produção não tiverem CNPJ, todos os
+> primeira volta do job em produção, depois do deploy. ✅ **096 em produção
+> (20/11/2026).** Se os prédios de produção não tiverem CNPJ, todos os
 > contratos caem em "Sem prédio" e são ligados à mão (as sugestões por nome
 > ajudam).
 
@@ -135,7 +135,7 @@ como o de 18/11. O script fica pronto (só aceita chamadas `Listar`/`Pesquisar`/
 > `FaturarContrato` saiu da documentação do Omie e nunca foi chamado: a
 > primeira chamada real será a do Pedro. Proposta: na primeira vez, faturar
 > **um contrato só** e conferir nota e boleto no Omie antes do resto. ⚠️
-> **097 em produção e `OMIE_EMISSAO=1` no Railway antes do primeiro lote**;
+> ✅ **097 em produção (20/11/2026).** Falta `OMIE_EMISSAO=1` no Railway antes do primeiro lote;
 > e a partir daí **ninguém fatura contrato pela tela do Omie**.
 >
 > **O boleto (20/11/2026).** Em out–nov/2026, 226 de 239 títulos tinham

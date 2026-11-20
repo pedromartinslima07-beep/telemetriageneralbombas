@@ -43,8 +43,8 @@ aliases:
 
 - ✅ **Painel novo só para alguns logins** (20/11/2026, código). O redesenho e
   a emissão pelo Omie sobem valendo só para os e-mails da `PAINEL_NOVO`; os
-  outros logins veem a cópia congelada do admin de antes. ⏳ Falta pôr a
-  variável no Railway. Ver
+  outros logins veem a cópia congelada do admin de antes. ✅ Na main e
+  090–097 em produção (20/11/2026). ⏳ Falta pôr a variável no Railway. Ver
   [`../docs/modulos/painel-novo.md`](../docs/modulos/painel-novo.md).
 
 - ✅ **Lista de O.S. paginada** (13/11/2026). O `LIMIT 200` fixo escondia as
@@ -947,9 +947,9 @@ por rateio proporcional, com prévia antes.
 
 | Etapa | O quê | Estado |
 |---|---|---|
-| 1 | `omie.service.js` + migration 090 (natureza da linha, colunas `nota_*`, cache do cliente) | ✅ código · ⏳ 090 em prod |
+| 1 | `omie.service.js` + migration 090 (natureza da linha, colunas `nota_*`, cache do cliente) | ✅ código · ✅ 090 em prod (20/11/2026) |
 | 2 | NFS-e do orçamento só de serviço: modal com confirmação peça/serviço, prévia, OS no molde, `FaturarOS`, Atualizar | ✅ código · ⏳ primeira nota real |
-| 3 | DANFE: seletor de produto do Omie por peça (catálogo local de 1.318, sugestão + busca + memória), rateio do serviço nas peças, pedido no molde, `IncluirPedido` + `FaturarPedidoVenda`, leitura da NF-e. Migration 091 | ✅ código (18/11/2026) · ⏳ 091 em prod · ⏳ primeira DANFE real |
+| 3 | DANFE: seletor de produto do Omie por peça (catálogo local de 1.318, sugestão + busca + memória), rateio do serviço nas peças, pedido no molde, `IncluirPedido` + `FaturarPedidoVenda`, leitura da NF-e. Migration 091 | ✅ código (18/11/2026) · ✅ 091 em prod (20/11/2026) · ⏳ primeira DANFE real |
 
 **Para a etapa 2 ir ao ar, nesta ordem:**
 1. Rodar a 090 em produção **antes** do push, porque a lista de orçamentos
@@ -1064,7 +1064,7 @@ Pedido do Pedro em 18/11/2026. Ver [agenda.md](../docs/modulos/agenda.md).
 
 | Fase | O quê | Status |
 |---|---|---|
-| A | Agenda no painel: compromissos à mão com repetição, retornos de O.S., contratos, preventivas, faturamento dos contratos do Omie (só leitura, só admin) | ✅ 18/11 (branch `feature/admin-condominio`; ⏳ 092 em produção antes do push) |
+| A | Agenda no painel: compromissos à mão com repetição, retornos de O.S., contratos, preventivas, faturamento dos contratos do Omie (só leitura, só admin) | ✅ 18/11 (✅ 092 em produção e na main, 20/11/2026) |
 | B | Dia e técnico marcados na preventiva e no chamado; técnico vê a semana no app | 📋 falta decidir se o técnico vê |
 | C | Contas a pagar e a receber do Omie | 📋 |
 | D | Emitir as notas das preventivas | ❌ descartada: o Omie já fatura os contratos (seria nota em dobro) |

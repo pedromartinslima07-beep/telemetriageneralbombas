@@ -24,9 +24,10 @@ aliases:
 > **Colaboradores** (etapa 11), e Configurações com o menu à esquerda
 > (etapa 12): **todas as telas no código**, e os layouts antigos que
 > elas guardavam escondidos no HTML já saíram (limpeza de 20/11). **Falta:** Relatórios (dashboard, a
-> definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
-> para a main: 090, 091, 092, 093, 094, 095, 096 e 097 em produção,** e
-> **`PAINEL_NOVO` no Railway com o e-mail do login que vai usar o painel
+> definir com o Pedro) e o teste com o perfil operador. ✅ **090, 091, 092,
+> 093, 094, 095, 096 e 097 aplicadas em produção em 20/11/2026** (conferidas
+> no `information_schema` antes e depois), e a branch foi para a main no mesmo
+> dia. ⏳ Falta **`PAINEL_NOVO` no Railway com o e-mail do login que vai usar o painel
 > novo** (sem ela ninguém vê o novo: todos ficam no de antes, ver
 > [painel-novo.md](../docs/modulos/painel-novo.md)). (097 = lote do
 > faturamento, fase 2: além dela, `OMIE_EMISSAO=1` no Railway e ninguém mais
@@ -56,9 +57,8 @@ aliases:
 > [roadmap.md](roadmap.md).
 
 > ⏳ **Nota fiscal pelo Omie: NFS-e e DANFE prontas no código, falta subir
-> (17–18/11/2026).** Em ordem: (1) `node scripts/migrate.js
-> 090_nota_fiscal_omie.sql --prod` e `node scripts/migrate.js
-> 091_nota_fiscal_danfe.sql --prod`, **antes** do push; (2) merge da branch
+> (17–18/11/2026).** Em ordem: (1) ✅ 090 e 091 em produção (20/11/2026);
+> (2) ✅ na main (20/11/2026, junto com a `feature/admin-condominio`); antes era: merge da branch
 > `feature/nota-fiscal-omie` na main e push; (3) abrir o modal uma vez para o
 > catálogo do Omie carregar (~1 min); (4) `OMIE_EMISSAO=1` no Railway e a
 > primeira nota de **cada tipo acompanhada**, em orçamentos que já seriam

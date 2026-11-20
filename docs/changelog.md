@@ -18327,3 +18327,13 @@ login. O lote do faturamento e a emissão de nota recusam com 403 quem não est�
 na lista. Painel antigo conferido contra o servidor novo nas 15 telas.
 Teste `scripts/testes/painel-novo.test.js` (35). Ver
 [painel-novo.md](modulos/painel-novo.md).
+
+## Migrations 090 a 097 em produção e branch na main (2026-11-20)
+
+As oito migrations da `feature/nota-fiscal-omie` e da
+`feature/admin-condominio` (nota fiscal, catálogo do Omie, agenda,
+compromisso ligado ao chamado, peças da O.S., notas do condomínio, clientes do
+Omie e lote do faturamento) foram aplicadas em produção antes do push,
+conferidas no `information_schema` antes (nenhuma existia) e depois (todas lá).
+A branch entrou na main por fast-forward. Em produção o painel novo só aparece
+para os e-mails da `PAINEL_NOVO` ([painel-novo.md](modulos/painel-novo.md)).
