@@ -2101,6 +2101,43 @@ Versões: `admin.css?v=355`, `admin-colab-lista.js?v=1`, `admin-busca.js?v=4`.
 
 ---
 
+## Etapa 12 no código: Configurações com o menu à esquerda (20/11/2026)
+
+Pedido do Pedro: *"sim"* (a última tela da ordem). Configurações não é
+lista: é uma tela de ajustes, e a maquete pedia **o menu à esquerda** no
+lugar das abas.
+
+| Antes | Agora |
+|---|---|
+| Faixa de abas: Conta · Usuários · IA · Notificações · Operacional · SLA · Manutenção · Integrações | **Menu à esquerda**, com ícone, na ordem da maquete: Conta · **Usuários e acesso** · Notificações · **Prazos (SLA)** · **Operação** · **Atendimento com IA** · Integrações · **Limpeza de dados** |
+| Sem título de seção | O **título e a frase** da seção em cima do conteúdo ("Limpeza de dados — Quanto tempo o banco guarda leituras, alertas resolvidos e conversas fechadas.") |
+| Cartões no estilo antigo | Os mesmos cartões na placa do molde (fundo branco, fio, canto de 12 px) |
+| Mensagem "salvo" em verde claro e "erro" em vermelho claro, quase invisíveis no fundo branco | Verde e vermelho escuros do molde (`--ls-ok-t`, `--ls-ri-t`) |
+| — | No celular o menu vira uma faixa que rola de lado |
+
+⚠️ **SÓ A CASCA MUDOU.** Os itens do menu são **os mesmos botões** das
+abas de antes (o mesmo `#cfgTabs`, a classe `wa-tab`, o mesmo
+`data-cfg-tab`), então `_cfgMostrarTab`, `_CFG_TABS`, a delegação do clique
+e a regra de quem vê o quê (`renderConfiguracoes` esconde as seções de
+gestão para quem não é admin master) não mudaram. O miolo de cada seção
+(`.cfg-body`) está **intacto**: ids, `data-cfg-action`, carregamentos e
+salvamentos são os de sempre. O `public/admin-config.js` (novo) só desenha o
+ícone de cada item e escreve o título e a frase da seção, embrulhando o
+`_cfgMostrarTab`.
+
+### Testado (banco de teste, 20/11/2026)
+
+Na tela aberta, sem erro: as **oito seções**, uma a uma (o conteúdo certo
+aparece, o título muda, os dados carregam, rede toda 200); **Salvar de
+verdade** em Notificações e em Operação com os mesmos valores (200, e a
+mensagem em verde escuro); celular sem rolagem lateral. **Não feito:**
+trocar senha, criar usuário, rodar limpeza agora, salvar a IA e testar
+integrações — gravam ou disparam coisa real, e são as funções de sempre.
+
+Versões: `admin.css?v=357`, `admin-config.js?v=1`. Nenhum endpoint novo.
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -2123,6 +2160,7 @@ aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
 | 9 | **Preventivas** no molde, com o mês no cabeçalho e a tira dos 12 meses (20/11) | `admin-prev-lista.js` |
 | 10 | **Equipamentos** no molde, com a ficha no painel ao lado (20/11) | `admin-eq-lista.js` |
 | 11 | **Colaboradores** no molde (20/11) | `admin-colab-lista.js` |
+| 12 | **Configurações** com o menu à esquerda (20/11) | `admin-config.js` |
 
 Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
 abrindo por endereço, e os blocos movidos voltam para elas.
@@ -2134,7 +2172,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
    ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11, rotas paginadas) (lista única, "solicitado" vira
    estado, termina no aprovado) · ~~Condomínios~~ (✅ 20/11, lista + página do prédio
    em 3 colunas no lugar das 10 abas) · ~~Preventivas~~ (✅ 20/11, com a tira dos 12 meses) ·
-   ~~Equipamentos~~ (✅ 20/11) · ~~Colaboradores~~ (✅ 20/11) · Configurações (menu à esquerda). Molde:
+   ~~Equipamentos~~ (✅ 20/11) · ~~Colaboradores~~ (✅ 20/11) · ~~Configurações~~ (✅ 20/11, menu à esquerda). **As telas do redesenho estão todas no código.** Molde:
    chips, busca, Exportar, seleção em lote, ordem pela coluna, paginação,
    painel ao lado.
 2. **Relatórios:** o Pedro quer um dashboard; perguntar o que ele deve

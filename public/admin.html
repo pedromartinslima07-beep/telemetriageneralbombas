@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=355">
+  <link rel="stylesheet" href="/static/admin.css?v=357">
 </head>
 <body>
   <div id="appLoader">
@@ -1791,21 +1791,34 @@
 
       <div class="section" data-section="config">
 
-        <!-- Tabs no topo -->
-        <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-          <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
-            <div class="wa-tabs" id="cfgTabs" role="tablist" style="border-bottom:none;margin-top:0;">
-              <button class="wa-tab is-active" data-cfg-tab="conta">Conta</button>
-              <button class="wa-tab" data-cfg-tab="usuarios">Usuários</button>
-              <button class="wa-tab" data-cfg-tab="ia">IA</button>
-              <button class="wa-tab" data-cfg-tab="notificacoes">Notificações</button>
-              <button class="wa-tab" data-cfg-tab="operacional">Operacional</button>
-              <button class="wa-tab" data-cfg-tab="sla">SLA</button>
-              <button class="wa-tab" data-cfg-tab="manutencao">Manutenção</button>
-              <button class="wa-tab" data-cfg-tab="integracoes">Integrações</button>
-            </div>
-          </div>
-        </div>
+        <!-- ⚠️ O MENU À ESQUERDA (redesenho, etapa 12 — 20/11/2026), como a
+             maquete desenhou. São OS MESMOS botões das abas de antes (mesmo
+             #cfgTabs, mesma classe wa-tab, mesmo data-cfg-tab): o
+             _cfgMostrarTab e a delegação do clique não mudaram. Só a ordem e
+             os nomes. O miolo de cada seção (.cfg-body) está intacto: ids,
+             data-cfg-action e salvamentos são os de sempre.
+             O título e a frase da seção são escritos pelo admin-config.js. -->
+        <div class="ls cfx">
+          <header class="cfx-cab">
+            <h1 class="cfx-h1">Configurações</h1>
+            <p class="cfx-frase">Os ajustes do sistema, por seção. Cada seção tem o seu próprio Salvar.</p>
+          </header>
+          <div class="cfx-grade">
+            <nav class="cfx-nav" id="cfgTabs" role="tablist" aria-label="Seções das configurações">
+              <button class="wa-tab cfx-item is-active" data-cfg-tab="conta" data-ic="user" data-desc="Sua senha e os aparelhos que entram sem código.">Conta</button>
+              <button class="wa-tab cfx-item" data-cfg-tab="usuarios" data-ic="users" data-desc="Quem entra no painel: administradores, visualizadores e clientes.">Usuários e acesso</button>
+              <button class="wa-tab cfx-item" data-cfg-tab="notificacoes" data-ic="bell" data-desc="Quem recebe os e-mails de alerta e de quanto em quanto tempo o sistema checa os aparelhos.">Notificações</button>
+              <button class="wa-tab cfx-item" data-cfg-tab="sla" data-ic="clock" data-desc="O prazo de primeira resposta e de resolução de cada prioridade de chamado.">Prazos (SLA)</button>
+              <button class="wa-tab cfx-item" data-cfg-tab="operacional" data-ic="gauge" data-desc="O GPS dos técnicos: frequência e por quanto tempo a trilha fica guardada.">Operação</button>
+              <button class="wa-tab cfx-item" data-cfg-tab="ia" data-ic="message-circle" data-desc="Quando e como a IA responde no WhatsApp, a sessão de atendimento e a curadoria das conversas.">Atendimento com IA</button>
+              <button class="wa-tab cfx-item" data-cfg-tab="integracoes" data-ic="plug" data-desc="Omie, WhatsApp, e-mail e os outros serviços ligados ao sistema.">Integrações</button>
+              <button class="wa-tab cfx-item" data-cfg-tab="manutencao" data-ic="database" data-desc="Quanto tempo o banco guarda leituras, alertas resolvidos e conversas fechadas.">Limpeza de dados</button>
+            </nav>
+            <div class="cfx-corpo">
+              <div class="cfx-tit">
+                <h2 id="cfxTit">Conta</h2>
+                <p id="cfxDesc">Sua senha e os aparelhos que entram sem código.</p>
+              </div>
 
         <!-- ── BODY: CONTA ── -->
         <div class="cfg-body" id="cfgBodyConta">
@@ -2243,6 +2256,10 @@
             <div class="cfg-empty">Carregando status…</div>
           </div>
         </div>
+
+            </div><!-- /cfx-corpo -->
+          </div><!-- /cfx-grade -->
+        </div><!-- /cfx -->
 
       </div><!-- /section config -->
 
@@ -2970,6 +2987,7 @@
 <script src="/static/admin-prev-lista.js?v=2" defer></script>
 <script src="/static/admin-eq-lista.js?v=1" defer></script>
 <script src="/static/admin-colab-lista.js?v=1" defer></script>
+<script src="/static/admin-config.js?v=1" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>

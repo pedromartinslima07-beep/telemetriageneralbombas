@@ -21,7 +21,8 @@ aliases:
 > (`admin-lista.js`) com as listas de **O.S.**, **Orçamentos** e
 > **Condomínios** nele, e a página do prédio em 3 colunas, e
 > **Preventivas** (etapa 9), **Equipamentos** (etapa 10) e
-> **Colaboradores** (etapa 11). **Falta:** Configurações no molde, Relatórios (dashboard, a
+> **Colaboradores** (etapa 11), e Configurações com o menu à esquerda
+> (etapa 12): **todas as telas no código**. **Falta:** Relatórios (dashboard, a
 > definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
 > para a main: 090, 091, 092, 093, 094 e 095 em produção.** Maquete no repo:
 > `/dev/_redesenho-preview.html`. Ver

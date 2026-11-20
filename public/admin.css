@@ -13913,3 +13913,48 @@ a.ls-bt { text-decoration: none; }
 .cb-ch-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ls-tinta-2); }
 .cb-obs { margin: 0; white-space: pre-wrap; color: var(--ls-tinta); font-size: 13px; line-height: 1.5; }
 @media (max-width: 768px) { #cbLsRoot .ls-tab td:first-child { grid-column: 1; } }
+
+/* ════════════════════════════════════════════════════════════════════════
+   CONFIGURAÇÕES COM O MENU À ESQUERDA (20/11/2026) — admin-config.js
+   Só a casca: o miolo das seções (.cfg-body, .cfg-card…) segue com o CSS de
+   sempre, com os acertos de cor e de placa abaixo.
+   ════════════════════════════════════════════════════════════════════════ */
+.cfx-cab { display: flex; flex-direction: column; gap: 2px; }
+.cfx-h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cfx-frase { margin: 0; color: var(--ls-tinta-2); font-size: 14.5px; }
+.cfx-grade { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 18px; align-items: start; }
+.cfx-nav {
+  position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; padding: 8px;
+  background: var(--ls-placa); border: 1px solid var(--ls-fio); border-radius: 12px; box-shadow: 0 1px 2px rgba(6,16,51,.04);
+}
+.cfx-nav .wa-tab.cfx-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; height: auto; min-height: 38px; margin: 0; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: none; color: var(--ls-tinta-2); font: inherit; font-size: 13.5px; font-weight: 500;
+  text-align: left; cursor: pointer; box-shadow: none;
+}
+.cfx-nav .wa-tab.cfx-item::after { display: none; }
+.cfx-nav .wa-tab.cfx-item svg.lucide { width: 17px; height: 17px; color: var(--ls-muted); flex: none; }
+.cfx-nav .wa-tab.cfx-item:hover { background: var(--ls-hover); color: var(--ls-tinta); }
+.cfx-nav .wa-tab.cfx-item.is-active { background: var(--ls-sel); color: var(--ls-mar); font-weight: 600; }
+.cfx-nav .wa-tab.cfx-item.is-active svg.lucide { color: var(--ls-mar-2); }
+.cfx-nav .wa-tab.cfx-item:focus-visible { outline: 2px solid var(--ls-mar-2); outline-offset: -2px; }
+.cfx-corpo { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.cfx-tit h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.015em; color: var(--ls-tinta); }
+.cfx-tit p { margin: 3px 0 0; color: var(--ls-tinta-2); font-size: 13.5px; }
+
+/* O miolo de sempre, na placa do molde. */
+.cfx .cfx-corpo .card { background: var(--ls-placa); border: 1px solid var(--ls-fio); border-radius: 12px; box-shadow: 0 1px 2px rgba(6,16,51,.04); }
+.cfx .cfg-card-head h3, .cfx .cfg-card-title { color: var(--ls-tinta); }
+.cfx .cfg-card-head p, .cfx .cfg-card-desc, .cfx .cfg-hint { color: var(--ls-muted); }
+.cfx .cfg-msg.ok { color: var(--ls-ok-t); font-weight: 600; }
+.cfx .cfg-msg.err { color: var(--ls-ri-t); font-weight: 600; }
+.cfx .cfg-body > .cfg-actions { padding: 0 2px; }
+
+@media (max-width: 900px) {
+  .cfx-grade { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .cfx-nav {
+    position: static; flex-direction: row; overflow-x: auto; scrollbar-width: none; padding: 6px;
+  }
+  .cfx-nav::-webkit-scrollbar { display: none; }
+  .cfx-nav .wa-tab.cfx-item { width: auto; flex: none; white-space: nowrap; }
+}

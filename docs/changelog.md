@@ -18237,3 +18237,14 @@ lado com os chamados abertos com ela, contato e documentos. As ações são os
 `data-action` de sempre. O Ctrl+K abre a pessoa direto no painel. Nenhum
 endpoint novo. `admin.css?v=355`, `admin-colab-lista.js?v=1`. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Redesenho, etapa 12: Configurações com o menu à esquerda (2026-11-20)
+
+As abas de Configurações viram um menu à esquerda, com ícone, na ordem da
+maquete (Conta, Usuários e acesso, Notificações, Prazos (SLA), Operação,
+Atendimento com IA, Integrações, Limpeza de dados), com o título e a frase da
+seção em cima do conteúdo. Só a casca: são os mesmos botões e o mesmo miolo
+de cada seção, com os mesmos salvamentos. As mensagens de "salvo" e "erro"
+ficaram legíveis no fundo branco. `admin-config.js` (novo),
+`admin.css?v=357`. Com esta etapa, todas as telas do redesenho estão no
+código. Ver [redesenho-admin.md](modulos/redesenho-admin.md).
