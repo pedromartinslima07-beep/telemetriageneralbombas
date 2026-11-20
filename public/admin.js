@@ -5811,6 +5811,24 @@ function _ctrsGetStatusKey(ct) {
   return "ativo";
 }
 
+// ⚠️ "FORA DO OMIE" (20/11/2026). Contrato ativo aqui cujo prédio não tem
+// nenhum contrato ATIVO no Omie ligado a ele: ou o cliente saiu e o contrato
+// do sistema ficou ativo por esquecimento, ou o cliente ficou e não está sendo
+// faturado. Em produção eram 11 (todos com o do Omie encerrado ou suspenso).
+// Lê a cópia do Omie (window.GBOmie, admin-omie-contratos.js); enquanto ela
+// não carregou, ninguém é "fora do Omie" e a aba fica escondida.
+// Devolve null, ou o texto do que o Omie tem para o prédio.
+function _ctrsForaDoOmie(ct) {
+  if (!ct.ativo || !ct.condominio_id || !window.GBOmie?.carregado?.()) return null;
+  const doPredio = window.GBOmie.doPredio(ct.condominio_id);
+  if (doPredio.some(k => k.ativo)) return null;
+  if (!doPredio.length) return "nenhum contrato no Omie para este prédio";
+  return "no Omie: " + doPredio.map(k => `${k.numero || "s/ número"} ${String(k.situacao_rotulo || "").toLowerCase()}`).join(", ");
+}
+
+// A cópia do Omie chega depois da lista: a aba e as linhas acompanham.
+document.addEventListener("gb:omie-contratos", () => { if (_ctrsLista.length) { _ctrsRender(); _ctrsRenderKpi(); } });
+
 async function _ctrsCarregar() {
   const tbody = document.getElementById("ctrsTbody");
   const empty = document.getElementById("ctrsEmpty");
@@ -5835,7 +5853,8 @@ function _ctrsRender() {
   const _ctrsRank = { vencido: 0, vencendo: 1, ativo: 2, inativo: 3 };
   const filtrados = _ctrsLista.filter(ct => {
     const sk = _ctrsGetStatusKey(ct);
-    if (_ctrsTabAtual !== "todos" && sk !== _ctrsTabAtual) return false;
+    if (_ctrsTabAtual === "foraomie") { if (!_ctrsForaDoOmie(ct)) return false; }
+    else if (_ctrsTabAtual !== "todos" && sk !== _ctrsTabAtual) return false;
     if (_ctrsTipoFiltro && ct.servico_tipo !== _ctrsTipoFiltro) return false;
     if (q && !(ct.condominio_nome || "").toLowerCase().includes(q)) return false;
     return true;
@@ -5853,6 +5872,13 @@ function _ctrsRender() {
   document.getElementById("ctrsCtAtivo").textContent    = count("ativo");
   document.getElementById("ctrsCtVencendo").textContent = count("vencendo");
   document.getElementById("ctrsCtVencido").textContent  = count("vencido");
+  const nFora = _ctrsLista.filter(_ctrsForaDoOmie).length;
+  const elFora = document.getElementById("ctrsCtForaOmie");
+  if (elFora) {
+    elFora.textContent = nFora;
+    const aba = elFora.closest("[data-ctrs-tab]");
+    if (aba) aba.hidden = !window.GBOmie?.carregado?.();
+  }
 
   const navBadge = document.getElementById("navBadgeContratos");
   const vencendo = count("vencendo") + count("vencido");
@@ -5902,6 +5928,7 @@ function _ctrsRender() {
       ? `${_ctrFmtData(ct.inicio_em)} a ${_ctrFmtData(ct.fim_em)}`
       : `desde ${_ctrFmtData(ct.inicio_em)}`;
     const zsCls = zs === "aguardando" ? " os-sub-atencao" : (zs === "assinado" ? " os-sub-ok" : "");
+    const fora = _ctrsForaDoOmie(ct);
     return `<tr class="orc-row pro-row" tabindex="0" data-ctrs-row="${ct.id}" data-ctrs-condo="${ct.condominio_id}" data-ctrs-status="${ct.zapsign_status || ''}">
       <td class="pro-cli">
         <span class="pro-cli-nome">${cliente}</span>
@@ -5912,6 +5939,7 @@ function _ctrsRender() {
       <td class="pro-sit">
         <span class="os-sit-linha"><span class="orc-status-pill ${ct.ativo ? (_clsPill[st.cls] || "orc-status-pend") : "orc-status-off"}">${ct.ativo ? st.texto : "Encerrado"}</span></span>
         <span class="os-sub${zsCls}">${_assinaturaTxt[zs] || _waEscaparHtml(zs)}</span>
+        ${fora ? `<span class="os-sub os-sub-atencao" title="Ativo aqui, sem contrato ativo no Omie">fora do Omie · ${_waEscaparHtml(fora)}</span>` : ""}
       </td>
       <td class="pro-acao">${actionBtn}</td>
     </tr>`;
@@ -5940,10 +5968,12 @@ function _ctrsRenderKpi() {
     vencidos.length && vencendo.length ? pl(vencendo.length, "vencendo em 30 dias", "vencendo em 30 dias") : "",
   ].filter(Boolean).join(" · ");
   let acao = "";
+  const nFora = _ctrsLista.filter(_ctrsForaDoOmie).length;
+  if (nFora) acao += ` <button type="button" class="os-resumo-acao" data-ctrs-ir-aba="foraomie">${pl(nFora, "ativo fora do Omie", "ativos fora do Omie")} →</button>`;
   if (vencidos.length) {
-    acao = ` <button type="button" class="os-resumo-acao" data-ctrs-ir-aba="vencido">${pl(vencidos.length, "vencido", "vencidos")} →</button>`;
+    acao += ` <button type="button" class="os-resumo-acao" data-ctrs-ir-aba="vencido">${pl(vencidos.length, "vencido", "vencidos")} →</button>`;
   } else if (vencendo.length) {
-    acao = ` <button type="button" class="os-resumo-acao" data-ctrs-ir-aba="vencendo">${pl(vencendo.length, "vence", "vencem")} nos próximos 30 dias →</button>`;
+    acao += ` <button type="button" class="os-resumo-acao" data-ctrs-ir-aba="vencendo">${pl(vencendo.length, "vence", "vencem")} nos próximos 30 dias →</button>`;
   }
   grid.innerHTML = `<span>${partes}.</span>${acao}`;
 }

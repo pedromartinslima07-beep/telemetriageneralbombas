@@ -18352,3 +18352,17 @@ o botão do cabeçalho e o endereço antigo `#/financeiro/contratos`.
 `admin-nav.js?v=16`, `admin-financeiro.js?v=2`,
 `admin-omie-contratos.js?v=3`. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Contratos em duas abas, "Fora do Omie" e o "&amp;" dos nomes (2026-11-20)
+
+Pedido do Pedro. A tela Contratos separa **No Omie** e **Assinados no
+sistema** em duas abas, com a contagem dos ativos. Nos assinados, a aba nova
+**"Fora do Omie"** lista o contrato ativo aqui cujo prédio não tem contrato
+ativo no Omie (11 em produção; a linha diz "fora do Omie · no Omie: 2025/00033
+encerrado"), e a frase do cartão leva a ela. Conferido nos dois sentidos:
+ligar um contrato ativo do Omie ao prédio tira o contrato da aba. E o nome do
+cliente do Omie chegava com entidade HTML ("AIR CLUB &amp; RESIDENCES") e a
+tela mostrava "&amp;amp;": a sincronização agora desfaz as entidades
+(`_texto` em `omie-faturamento.service.js`); em produção corrige na próxima
+cópia, de hora em hora. `admin.js?v=417`, `admin-omie-contratos.js?v=4`,
+`admin-financeiro.js?v=3`, `admin.css?v=373`.

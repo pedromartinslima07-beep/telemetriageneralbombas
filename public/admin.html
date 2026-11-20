@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=372">
+  <link rel="stylesheet" href="/static/admin.css?v=373">
 </head>
 <body>
   <div id="appLoader">
@@ -662,9 +662,16 @@
 
       <!-- ===== SECTION: CONTRATOS ===== -->
       <div class="section" data-section="contratos">
+        <!-- Duas abas (20/11/2026, pedido do Pedro): a cobrança no Omie e os
+             contratos assinados no sistema. Uma de cada vez; a troca mora em
+             admin-omie-contratos.js. -->
+        <div class="ct-abas fn-seg" role="tablist" aria-label="Quais contratos">
+          <button type="button" role="tab" data-ct-aba="omie" class="is-on" aria-selected="true">No Omie <span class="wa-count" id="ctAbaOmie">…</span></button>
+          <button type="button" role="tab" data-ct-aba="sistema" aria-selected="false">Assinados no sistema <span class="wa-count" id="ctAbaSistema">…</span></button>
+        </div>
+
         <!-- Os contratos do Omie, ligados ao prédio (admin-omie-contratos.js,
-             integração com o Omie, fase 1, 20/11/2026). O cartão de baixo são
-             os contratos assinados pelo sistema, como sempre. -->
+             integração com o Omie, fase 1, 20/11/2026). -->
         <div id="ocLsRoot" class="ls"></div>
 
         <section class="card al-card ctrs-sistema">
@@ -693,6 +700,8 @@
               <button class="wa-tab" data-ctrs-tab="ativo" type="button">Ativos <span class="wa-count" id="ctrsCtAtivo">0</span></button>
               <button class="wa-tab" data-ctrs-tab="vencendo" type="button">Vencendo <span class="wa-count" id="ctrsCtVencendo">0</span></button>
               <button class="wa-tab" data-ctrs-tab="vencido" type="button">Vencidos <span class="wa-count" id="ctrsCtVencido">0</span></button>
+              <!-- Ativo aqui, sem contrato ativo no Omie para o prédio (20/11/2026). Ver _ctrsForaDoOmie. -->
+              <button class="wa-tab" data-ctrs-tab="foraomie" type="button" hidden title="Contrato ativo aqui e nenhum contrato ativo no Omie para o prédio">Fora do Omie <span class="wa-count" id="ctrsCtForaOmie">0</span></button>
             </div>
             <div class="al-filters">
               <select id="ctrsTipoFilter" class="select" style="width:auto;">
@@ -2509,7 +2518,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=416" defer></script>
+<script src="/static/admin.js?v=417" defer></script>
 <script src="/static/admin-condominio.js?v=14" defer></script>
 <script src="/static/lucide.min.js" defer></script>
 <script src="/static/admin-nav.js?v=16" defer></script>
@@ -2519,7 +2528,7 @@
 <script src="/static/admin-carteira.js?v=10" defer></script>
 <script src="/static/admin-agenda.js?v=7" defer></script>
 <script src="/static/admin-despacho.js?v=2" defer></script>
-<script src="/static/admin-financeiro.js?v=2" defer></script>
+<script src="/static/admin-financeiro.js?v=3" defer></script>
 <script src="/static/admin-lista.js?v=2" defer></script>
 <script src="/static/admin-os-lista.js?v=3" defer></script>
 <script src="/static/admin-orc-lista.js?v=3" defer></script>
@@ -2528,7 +2537,7 @@
 <script src="/static/admin-prev-lista.js?v=3" defer></script>
 <script src="/static/admin-eq-lista.js?v=2" defer></script>
 <script src="/static/admin-colab-lista.js?v=2" defer></script>
-<script src="/static/admin-omie-contratos.js?v=3" defer></script>
+<script src="/static/admin-omie-contratos.js?v=4" defer></script>
 <script src="/static/admin-faturamento-lote.js?v=3" defer></script>
 <script src="/static/admin-config.js?v=1" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>

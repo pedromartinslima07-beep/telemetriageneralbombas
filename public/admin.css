@@ -12688,3 +12688,12 @@ a.ls-bt { text-decoration: none; }
 .oc-bts { margin-top: 8px; }
 .oc-campo { display: grid; gap: 4px; font-size: 12px; color: var(--ls-muted); }
 .oc-campo .cbx-campo { width: 100%; }
+
+/* Contratos: as duas abas (No Omie | Assinados no sistema), 20/11/2026. Reusa
+   o .fn-seg do Financeiro; aqui só o espaço. */
+.ct-abas { margin: 0 0 14px; }
+.ct-abas .wa-count { margin-left: 2px; }
+@media (max-width: 720px) {
+  .ct-abas { display: flex; width: 100%; }
+  .ct-abas button { flex: 1; justify-content: center; }
+}

@@ -1642,6 +1642,15 @@ Agenda mostrava) viram **uma tela**, `#/financeiro`, em
 > carregou), o botão "Contratos" do cabeçalho e os avisos de vencido levam a
 > `#/contratos`; o endereço antigo `#/financeiro/contratos` também. O texto
 > abaixo descreve a etapa 5 como foi feita.
+>
+> **Duas abas em Contratos (20/11/2026, pedido do Pedro):** **No Omie** (a
+> cobrança, com "Sem prédio") e **Assinados no sistema**, uma de cada vez, com
+> a contagem dos ativos em cada. A escolha fica no navegador; o "Contratos por
+> mês" do Financeiro abre na do Omie, os avisos de vencido na dos assinados. Os
+> assinados ganharam a aba **"Fora do Omie"**: contrato ativo aqui cujo prédio
+> não tem contrato ativo no Omie (em produção, 11, todos com o do Omie
+> encerrado ou suspenso), com o que o Omie tem na linha
+> (`_ctrsForaDoOmie`).
 
 ### Como é
 

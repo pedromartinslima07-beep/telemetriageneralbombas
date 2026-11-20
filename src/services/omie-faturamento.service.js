@@ -22,6 +22,16 @@ const NOME = "faturamento_contratos";
 const INTERVALO_MINIMO_MS = 2 * 60 * 1000;
 
 // "dd/mm/aaaa" → "aaaa-mm-dd" (ou null)
+// ⚠️ O OMIE DEVOLVE TEXTO COM ENTIDADE HTML (20/11/2026). O nome do cliente
+// vem "AIR CLUB &amp; RESIDENCES", e a tela, que escapa o que mostra, exibia
+// "&amp;amp;". Desfaz as entidades na cópia; o escape fica só na tela.
+function _texto(s) {
+  if (s == null || s === "") return null;
+  return String(s)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&(amp|lt|gt|quot|apos);/g, (_, e) => ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[e]);
+}
+
 function _data(br) {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(br || "").trim());
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
@@ -143,8 +153,8 @@ async function sincronizar({ forcar = false } = {}) {
            nome_fantasia = EXCLUDED.nome_fantasia, email = EXCLUDED.email, cidade = EXCLUDED.cidade,
            inativo = EXCLUDED.inativo, atualizado_em = NOW()`,
         [cs.map(c => c.codigo_cliente_omie), cs.map(c => String(c.cnpj_cpf || "").replace(/\D/g, "").slice(0, 14) || null),
-         cs.map(c => c.razao_social || null), cs.map(c => c.nome_fantasia || null), cs.map(c => c.email || null),
-         cs.map(c => c.cidade || null), cs.map(c => c.inativo === "S")]
+         cs.map(c => _texto(c.razao_social)), cs.map(c => _texto(c.nome_fantasia)), cs.map(c => c.email || null),
+         cs.map(c => _texto(c.cidade)), cs.map(c => c.inativo === "S")]
       );
       const detalhe = { contratos: contratos.length, notas_de_contrato: nNotas, notas_lidas: notas.length,
                         clientes: clientes ? clientes.length : null, erro_clientes: erroClientes };

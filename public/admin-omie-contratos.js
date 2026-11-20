@@ -294,6 +294,44 @@
 
   const ativa = () => document.querySelector('.section[data-section="contratos"]')?.classList.contains("is-active");
 
+  // ===== as duas abas da tela (No Omie | Assinados no sistema) =====
+  // Uma de cada vez. A escolha fica no navegador de quem olha (conveniência);
+  // quem chega por um atalho (Financeiro, página do prédio) cai na aba certa.
+  const ABA_CHAVE = "contratos:aba";
+  let abaAtual = (() => { try { return localStorage.getItem(ABA_CHAVE) === "sistema" ? "sistema" : "omie"; } catch (e) { return "omie"; } })();
+  function contarAbas() {
+    const elO = document.getElementById("ctAbaOmie");
+    const elS = document.getElementById("ctAbaSistema");
+    if (elO) elO.textContent = st.dados ? String(lista0().filter(k => k.ativo).length) : "…";
+    if (elS) elS.textContent = typeof _ctrsLista !== "undefined" && Array.isArray(_ctrsLista) ? String(_ctrsLista.filter(c => c.ativo).length) : "…";
+  }
+  function mostrarAba(aba) {
+    if (aba === "omie" || aba === "sistema") {
+      abaAtual = aba;
+      try { localStorage.setItem(ABA_CHAVE, aba); } catch (e) {}
+    }
+    const raiz = document.getElementById("ocLsRoot");
+    const cartao = document.querySelector('.section[data-section="contratos"] .ctrs-sistema');
+    if (raiz) raiz.style.display = abaAtual === "omie" ? "" : "none";
+    if (cartao) cartao.style.display = abaAtual === "sistema" ? "" : "none";
+    document.querySelectorAll("[data-ct-aba]").forEach(b => {
+      const on = b.dataset.ctAba === abaAtual;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-selected", String(on));
+    });
+    contarAbas();
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-ct-aba]");
+    if (b) mostrarAba(b.dataset.ctAba);
+  });
+  document.addEventListener("gb:omie-contratos", contarAbas);
+  if (typeof window._ctrsRender === "function") {
+    const origRender = window._ctrsRender;
+    window._ctrsRender = function (...a) { const r = origRender.apply(this, a); contarAbas(); return r; };
+  }
+  window.GBContratosAba = { mostrar: mostrarAba };
+
   window.GBOmie = {
     carregado: () => !!st.dados,
     // Os ativos: quantos e quanto por mês (a faixa do Financeiro).
@@ -305,6 +343,7 @@
     doPredio: id => lista0().filter(k => Number(k.condominio_id) === Number(id)).sort((a, b) => b.ativo - a.ativo),
     abrir(codigo) {
       showSection("contratos");
+      mostrarAba("omie");
       lista.montar();
       Promise.resolve(st.dados ? null : carregar()).then(() => lista.selecionar(Number(codigo)));
     },
@@ -314,7 +353,7 @@
   const origShow = window.showSection;
   window.showSection = function (name, ...resto) {
     const r = origShow.call(this, name, ...resto);
-    if (name === "contratos" && gestao()) { lista.montar(); carregar(); }
+    if (name === "contratos" && gestao()) { mostrarAba(); lista.montar(); carregar(); }
     return r;
   };
   // A lista de Condomínios e a página do prédio precisam dos contratos do Omie

@@ -94,7 +94,7 @@
     const totalAcao = n.comErro + n.semNota + n.vencidos + n.vencendo;
     return `
       <div class="fn-faixa${ehAdmin() ? "" : " is-3"}">
-        <button type="button" class="fn-num is-link" data-fn-contratos>
+        <button type="button" class="fn-num is-link" data-fn-contratos="${n.fonte === "no Omie" ? "omie" : "sistema"}">
           <span>Contratos por mês</span><b>${moeda(n.receita)}</b>
           <small>${n.ativos} contrato${n.ativos === 1 ? "" : "s"} ativo${n.ativos === 1 ? "" : "s"} ${n.fonte} · ver contratos</small>
         </button>
@@ -173,7 +173,7 @@
   document.addEventListener("click", (e) => {
     if (!e.target.closest('.section[data-section="financeiro"]')) return;
     let el;
-    if (e.target.closest("[data-fn-contratos]")) { irParaContratos(); return; }
+    if ((el = e.target.closest("[data-fn-contratos]"))) { irParaContratos(null, el.dataset.fnContratos || null); return; }
     if (e.target.closest("[data-fn-omie]")) { if (typeof _agAbrirFaturamento === "function") _agAbrirFaturamento(comp()); return; }
     if ((el = e.target.closest("[data-fn-ir]"))) {
       const [modo, aba] = el.dataset.fnIr.split(":");
@@ -187,9 +187,13 @@
 
   // Leva à tela Contratos (Carteira); com `aba`, já no filtro dos contratos
   // assinados (vencido, vencendo).
-  function irParaContratos(aba) {
+  // "Contratos por mês" é a cobrança: abre na aba do Omie. Os avisos de
+  // vencido/vencendo são dos assinados no sistema: abrem nessa aba.
+  function irParaContratos(aba, qual) {
     history.pushState(null, "", "#/contratos");
     showSection("contratos");
+    const alvo = aba ? "sistema" : qual;
+    if (alvo) window.GBContratosAba?.mostrar(alvo);
     if (aba) setTimeout(() => document.querySelector(`.section[data-section="contratos"] [data-ctrs-tab="${aba}"]`)?.click(), 0);
   }
 
