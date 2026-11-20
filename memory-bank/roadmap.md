@@ -41,6 +41,12 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Painel novo só para alguns logins** (20/11/2026, código). O redesenho e
+  a emissão pelo Omie sobem valendo só para os e-mails da `PAINEL_NOVO`; os
+  outros logins veem a cópia congelada do admin de antes. ⏳ Falta pôr a
+  variável no Railway. Ver
+  [`../docs/modulos/painel-novo.md`](../docs/modulos/painel-novo.md).
+
 - ✅ **Lista de O.S. paginada** (13/11/2026). O `LIMIT 200` fixo escondia as
   O.S. mais antigas (havia 226), e parecia que elas tinham sido apagadas. Agora
   a rota pagina e a tabela mostra 25/50/100 por página. Ver

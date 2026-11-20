@@ -25,6 +25,8 @@
 //
 // ⚠️ ESCREVE NO BANCO DE TESTE e apaga o que criou (códigos acima de 9e14).
 require("dotenv").config({ quiet: true });
+// O lote só abre para os logins do painel novo (PAINEL_NOVO).
+process.env.PAINEL_NOVO = "teste-painel@exemplo.invalid";
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const { resolverDatabaseUrl } = require("../../src/db-url");
@@ -232,7 +234,7 @@ async function main() {
   app.use("/agenda", require("../../src/routes/agenda.routes"));
   const srv = app.listen(0);
   const base = "http://127.0.0.1:" + srv.address().port;
-  const H = role => ({ Authorization: "Bearer " + jwt.sign({ id: 1, role }, process.env.JWT_SECRET, { expiresIn: "5m" }), "Content-Type": "application/json" });
+  const H = role => ({ Authorization: "Bearer " + jwt.sign({ id: 1, role, email: "teste-painel@exemplo.invalid" }, process.env.JWT_SECRET, { expiresIn: "5m" }), "Content-Type": "application/json" });
   try {
     let x = await fetch(`${base}/agenda/faturamento/lote?competencia=${comp}`, { headers: H("admin") });
     const j = await x.json();

@@ -21,6 +21,9 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+// O lote grava no Omie: só os logins do painel novo (PAINEL_NOVO), ver
+// src/services/painel-novo.service.js.
+const { painelNovoOnly } = require("../services/painel-novo.service");
 const fat = require("../services/omie-faturamento.service");
 const lote = require("../services/omie-lote.service");
 
@@ -282,13 +285,13 @@ const _loteErro = (res, err, onde) => {
 };
 
 // GET /agenda/faturamento/lote?competencia=AAAA-MM
-router.get("/faturamento/lote", masterAdminOnly, async (req, res) => {
+router.get("/faturamento/lote", masterAdminOnly, painelNovoOnly, async (req, res) => {
   try { res.json(await lote.montar(String(req.query.competencia || lote.competenciaAtual()))); }
   catch (err) { _loteErro(res, err, "GET"); }
 });
 
 // POST /agenda/faturamento/lote/tirar { competencia, omie_contrato, tirar }
-router.post("/faturamento/lote/tirar", masterAdminOnly, async (req, res) => {
+router.post("/faturamento/lote/tirar", masterAdminOnly, painelNovoOnly, async (req, res) => {
   const b = req.body || {};
   try { res.json(await lote.tirar(String(b.competencia || ""), b.omie_contrato, b.tirar !== false, req.user.id)); }
   catch (err) { _loteErro(res, err, "tirar"); }
@@ -296,7 +299,7 @@ router.post("/faturamento/lote/tirar", masterAdminOnly, async (req, res) => {
 
 // POST /agenda/faturamento/lote/confirmar { competencia, contratos: [...], valor_total }
 // ⚠️ GRAVA NO OMIE. Responde 202 e o envio segue; a tela acompanha pelo GET.
-router.post("/faturamento/lote/confirmar", masterAdminOnly, async (req, res) => {
+router.post("/faturamento/lote/confirmar", masterAdminOnly, painelNovoOnly, async (req, res) => {
   const b = req.body || {};
   try { res.status(202).json(await lote.confirmar(String(b.competencia || ""), b.contratos, b.valor_total, req.user.id)); }
   catch (err) { _loteErro(res, err, "confirmar"); }
@@ -304,14 +307,14 @@ router.post("/faturamento/lote/confirmar", masterAdminOnly, async (req, res) => 
 
 // POST /agenda/faturamento/lote/boleto { competencia, omie_contrato }
 // ⚠️ GRAVA NO OMIE: gera o boleto do título que saiu sem boleto.
-router.post("/faturamento/lote/boleto", masterAdminOnly, async (req, res) => {
+router.post("/faturamento/lote/boleto", masterAdminOnly, painelNovoOnly, async (req, res) => {
   const b = req.body || {};
   try { res.json(await lote.gerarBoleto(String(b.competencia || ""), b.omie_contrato, req.user.id)); }
   catch (err) { _loteErro(res, err, "boleto"); }
 });
 
 // POST /agenda/faturamento/lote/liberar { competencia, omie_contrato }
-router.post("/faturamento/lote/liberar", masterAdminOnly, async (req, res) => {
+router.post("/faturamento/lote/liberar", masterAdminOnly, painelNovoOnly, async (req, res) => {
   const b = req.body || {};
   try { res.json(await lote.liberar(String(b.competencia || ""), b.omie_contrato, req.user.id)); }
   catch (err) { _loteErro(res, err, "liberar"); }

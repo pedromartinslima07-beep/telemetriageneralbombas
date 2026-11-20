@@ -597,6 +597,30 @@ router.post("/verify-otp", otpLimiter, async (req, res) => {
 });
 
 /**
+ * GET /auth/painel — qual painel do admin este login vê ("novo" | "antigo").
+ * Grava (ou apaga) o cookie `gb_painel` que o GET /admin/painel lê para
+ * escolher a página. Chamado pelo `painel-escolha.js` no carregamento das
+ * duas páginas; se a resposta não bate com a página aberta, ela recarrega.
+ * Ver src/services/painel-novo.service.js.
+ */
+router.get("/painel", authRequired, (req, res) => {
+  const painelNovo = require("../services/painel-novo.service");
+  const painel = painelNovo.painelDoUsuario(req.user);
+  if (painel === "novo") {
+    res.cookie(painelNovo.COOKIE, painelNovo.valorCookie(req.user.email), {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "lax",
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+    });
+  } else {
+    res.clearCookie(painelNovo.COOKIE, { httpOnly: true, secure: isProd, sameSite: "lax" });
+  }
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ painel });
+});
+
+/**
  * GET /auth/me  — usado pelo app pra validar JWT salvo e obter dados frescos
  */
 router.get("/me", authRequired, async (req, res) => {

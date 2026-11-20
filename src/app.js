@@ -432,9 +432,16 @@ app.get("/", _htmlNoCache, (req, res) =>
 app.get("/login", _htmlNoCache, (req, res) =>
   enviarHtml(res, path.join(__dirname, "../public/login.html"))
 );
-app.get("/admin/painel", _htmlNoCache, (req, res) =>
-  enviarHtml(res, path.join(__dirname, "../public/admin.html"))
-);
+// ⚠️ DOIS PAINÉIS NO MESMO ENDEREÇO (20/11/2026). O redesenho só vale para os
+// e-mails da PAINEL_NOVO; os outros recebem a cópia congelada do admin de
+// antes (public/legado/, da main em 288abad). Quem decide é o cookie assinado
+// `gb_painel` (o token mora no localStorage e não vem neste pedido). Ver
+// src/services/painel-novo.service.js e docs/modulos/painel-novo.md.
+app.get("/admin/painel", _htmlNoCache, (req, res) => {
+  const { paginaDoPainel } = require("./services/painel-novo.service");
+  res.setHeader("Vary", "Cookie");
+  return enviarHtml(res, paginaDoPainel(req));
+});
 app.get("/cliente/painel", _htmlNoCache, (req, res) =>
   enviarHtml(res, path.join(__dirname, "../public/cliente.html"))
 );

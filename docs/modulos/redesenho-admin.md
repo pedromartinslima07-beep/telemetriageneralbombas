@@ -10,6 +10,10 @@ aliases:
 ---
 # Redesenho do painel admin — o condomínio como eixo (✅ fases 1 a 5 prontas, 18/11/2026)
 
+> **Sobe só para alguns logins (20/11/2026).** Em produção o painel novo vale
+> só para os e-mails da `PAINEL_NOVO`; os outros veem a cópia congelada do
+> admin de antes. Ver [painel-novo.md](painel-novo.md).
+
 Plano aprovado pelo Pedro em 18/11/2026. **As cinco fases estão implementadas
 na branch `feature/admin-condominio`** (sem merge, sem deploy) — ver as seções
 "O que foi implementado" no fim. O

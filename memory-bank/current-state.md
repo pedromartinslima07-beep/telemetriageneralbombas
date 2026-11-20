@@ -81,6 +81,15 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Dois painéis do admin no mesmo endereço (20/11/2026, branch sem deploy)
+
+`/admin/painel` entrega o painel novo só aos e-mails da `PAINEL_NOVO`; os
+outros recebem `public/legado/admin.html` (o admin da `main` em `288abad`).
+Quem escolhe é o cookie assinado `gb_painel`, gravado pelo `GET /auth/painel`.
+O lote do faturamento e a emissão de nota exigem login liberado
+(`painelNovoOnly`). Conserto no painel antigo vai na cópia. Ver
+[painel-novo.md](../docs/modulos/painel-novo.md).
+
 ### ⚠️ Ficha do condomínio e endereço por tela (18/11/2026, branch sem deploy)
 
 **Lista de Condomínios** (mesma branch, 19/11/2026): frase no lugar dos

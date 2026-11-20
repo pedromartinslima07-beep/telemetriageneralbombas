@@ -14,6 +14,8 @@
 const express = require("express");
 const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
+// Emitir nota grava no Omie: só os logins do painel novo (PAINEL_NOVO).
+const { painelNovoOnly } = require("../services/painel-novo.service");
 const nota = require("../services/nota-fiscal.service");
 const catalogo = require("../services/omie-produtos.service");
 
@@ -61,7 +63,7 @@ router.post("/orcamentos/avulsos/:id/nota/previa", authRequired, gestaoOnly, asy
   } catch (err) { return _falha(res, "POST nota/previa", err); }
 });
 
-router.post("/orcamentos/avulsos/:id/nota/emitir", authRequired, gestaoOnly, async (req, res) => {
+router.post("/orcamentos/avulsos/:id/nota/emitir", authRequired, gestaoOnly, painelNovoOnly, async (req, res) => {
   const id = _id(req, res); if (!id) return;
   try {
     const b = req.body || {};

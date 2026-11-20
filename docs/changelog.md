@@ -18314,3 +18314,16 @@ já tem boleto e só então gera (`GerarBoleto`). Migration 097 ganhou
 `boleto_gerado` e `boleto_pedido_em`; rota `POST
 /agenda/faturamento/lote/boleto`. `admin-faturamento-lote.js?v=3`,
 `admin.css?v=372`.
+
+## Painel novo só para alguns logins (2026-11-20)
+
+Pedido do Pedro: subir o redesenho e a emissão pelo Omie valendo só para um
+login. A variável `PAINEL_NOVO` (e-mails separados por vírgula; `*` = todos)
+diz quem vê o painel novo; os outros recebem em `/admin/painel` a cópia
+congelada do admin da `main` (`public/legado/`, de `288abad`). A página é
+escolhida pelo cookie assinado `gb_painel`, que o novo `GET /auth/painel`
+grava, e o `painel-escolha.js` recarrega quando a página aberta não é a do
+login. O lote do faturamento e a emissão de nota recusam com 403 quem não está
+na lista. Painel antigo conferido contra o servidor novo nas 15 telas.
+Teste `scripts/testes/painel-novo.test.js` (35). Ver
+[painel-novo.md](modulos/painel-novo.md).

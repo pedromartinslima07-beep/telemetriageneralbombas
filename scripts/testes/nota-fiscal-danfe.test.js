@@ -26,6 +26,8 @@ if (resolverDatabaseUrl({}).alvo !== "TESTE") {
   process.exit(1);
 }
 process.env.OMIE_EMISSAO = "1";
+// As rotas de emissão só abrem para os logins do painel novo.
+process.env.PAINEL_NOVO = "teste-painel@exemplo.invalid";
 
 const express = require("express");
 const jwt = require("jsonwebtoken");
@@ -181,7 +183,7 @@ Object.assign(omie, {
   app.use("/admin", require("../../src/routes/nota-fiscal.routes").notaFiscalRouter);
   const srv = app.listen(0);
   const base = `http://127.0.0.1:${srv.address().port}/admin`;
-  const tk = jwt.sign({ id: 1, role: "admin" }, process.env.JWT_SECRET, { expiresIn: "10m" });
+  const tk = jwt.sign({ id: 1, role: "admin", email: "teste-painel@exemplo.invalid" }, process.env.JWT_SECRET, { expiresIn: "10m" });
   const H = { "Content-Type": "application/json", Authorization: `Bearer ${tk}` };
   const post = async (p, body) => { const x = await fetch(base + p, { method: "POST", headers: H, body: JSON.stringify(body || {}) }); return [x.status, await x.json()]; };
 

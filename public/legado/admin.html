@@ -1,0 +1,2906 @@
+<!doctype html>
+<html lang="pt-br" data-painel="antigo">
+<head>
+  <meta charset="utf-8" />
+  <script src="/static/painel-escolha.js?v=1"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GENERAL • Telemetria Admin</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png?v=3" />
+  <!-- ⚠️ `?app=` escolhe o `start_url` do manifest. Sem ele, o ícone
+     instalado no Android abre no /login em vez desta tela — o iOS não se
+     importa, ele usa a página aberta na hora de instalar. Ver o bloco do
+     manifest em src/app.js. -->
+<link rel="manifest" href="/manifest.json?app=admin">
+  <meta name="theme-color" content="#F5A623">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Telemetria">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/leaflet.css">
+  <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
+       lá embaixo. Ver CLAUDE.md raiz. -->
+  <link rel="stylesheet" href="/static/legado/admin.css?v=273">
+</head>
+<body>
+  <div id="appLoader">
+    <div class="app-loader-inner">
+      <img src="/static/login-logo.png" class="app-loader-logo" alt="GENERAL" />
+      <div class="app-loader-spinner"></div>
+    </div>
+  </div>
+
+<div class="layout">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <img class="sidebar-brand-logo sidebar-brand-full" src="/static/login-logo.png" alt="GENERAL" />
+          <img class="sidebar-brand-logo sidebar-brand-mini" src="/static/logo-menu.png" alt="GENERAL" />
+        </div>
+      </div>
+
+      <nav class="nav">
+
+        <span class="nav-section-label">Agora</span>
+        <button class="nav-item" data-section="alertas" data-label="Alertas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="nav-item-label">Alertas</span>
+          <span class="nav-badge" id="navBadgeAlertas" style="display:none;">0</span>
+        </button>
+        <button class="nav-item" data-section="whatsapp" data-label="Atendimento" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          <span class="nav-item-label">Atendimento</span>
+          <span class="nav-badge" id="navBadgeWhatsapp" style="display:none;">0</span>
+        </button>
+        <button class="nav-item" data-section="chamados" data-label="Chamados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+            <line x1="4" y1="22" x2="4" y2="15"/>
+          </svg>
+          <span class="nav-item-label">Chamados</span>
+          <span class="nav-badge" id="navBadgeChamados" style="display:none;">0</span>
+        </button>
+
+        <span class="nav-section-label">Em curso</span>
+        <button class="nav-item" data-section="ordens-servico" data-label="O.S.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <path d="M9 14l2 2 4-4"/>
+          </svg>
+          <span class="nav-item-label">Ordens de Serviço</span>
+        </button>
+        <button class="nav-item" data-section="orcamentos" data-label="Orçamentos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          <span class="nav-item-label">Orçamentos</span>
+          <span class="nav-badge" id="navBadgeOrcamentos" style="display:none;">0</span>
+        </button>
+
+        <span class="nav-section-label">Cadastro</span>
+        <button class="nav-item" data-section="cadastros" data-label="Clientes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+            <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+            <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+            <line x1="10" y1="6" x2="14" y2="6"/>
+            <line x1="10" y1="10" x2="14" y2="10"/>
+            <line x1="10" y1="14" x2="14" y2="14"/>
+            <line x1="10" y1="18" x2="14" y2="18"/>
+          </svg>
+          <span class="nav-item-label">Clientes</span>
+        </button>
+        <button class="nav-item" data-section="tecnicos" data-label="Colaboradores">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span class="nav-item-label">Colaboradores</span>
+        </button>
+        <button class="nav-item" data-section="equipamentos" data-label="Equipamentos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <path d="M14 14h3v3h-3z"/>
+            <path d="M20 14v3M17 20h4"/>
+          </svg>
+          <span class="nav-item-label">Equipamentos</span>
+        </button>
+        <button class="nav-item" data-section="contratos" data-label="Contratos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span class="nav-item-label">Contratos</span>
+          <span class="nav-badge" id="navBadgeContratos" style="display:none;">0</span>
+        </button>
+        <button class="nav-item" data-section="planos" data-label="Planos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <path d="M9 16l2 2 4-4"/>
+          </svg>
+          <span class="nav-item-label">Planos</span>
+          <span class="nav-badge" id="navBadgePlanos" style="display:none;">0</span>
+        </button>
+
+        <span class="nav-section-label">Análise</span>
+        <button class="nav-item active" data-section="dashboard" data-label="Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+          <span class="nav-item-label">Dashboard</span>
+        </button>
+        <button class="nav-item" data-section="telemetria" data-label="Telemetria">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12h4l3-9 4 18 3-9h4"/>
+          </svg>
+          <span class="nav-item-label">Telemetria</span>
+        </button>
+        <button class="nav-item" data-section="mapa" data-label="Mapa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          <span class="nav-item-label">Mapa</span>
+        </button>
+        <button class="nav-item" data-section="relatorios" data-label="Relatórios">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span class="nav-item-label">Relatórios</span>
+        </button>
+
+        <span class="nav-section-label">Sistema</span>
+        <button class="nav-item" data-section="config" data-label="Configurações">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span class="nav-item-label">Configurações</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="sidebar-user-avatar" id="sidebarUserAvatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-role" id="sidebarUserRole">Admin</div>
+            <div class="sidebar-user-label" id="sidebarUserLabel">Painel Geral</div>
+          </div>
+        </div>
+        <button class="nav-item nav-item-logout" id="btnSair" data-label="Sair">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          <span class="nav-item-label">Sair</span>
+        </button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+
+    <div class="content-header">
+      <button class="topbar-toggle" id="btnSidebarToggleIn" aria-label="Abrir/fechar menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <h1 class="topbar-title" id="topbarTitleDesktop">Dashboard</h1>
+
+      <div class="topbar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="topbarSearch" placeholder="Buscar condomínio, device, chamado…" />
+        <span class="topbar-search-key">⌘K</span>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnAtualizar" title="Atualizar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btnOffline" title="Verificar Offline">
+          <!-- wi-fi off: mesma arte do ICON_WIFI_OFF em admin.js -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h.01"/>
+            <path d="M8.5 16.43a5 5 0 0 1 7 0"/>
+            <path d="M5 12.86a10 10 0 0 1 5.17-2.69"/>
+            <path d="M19 12.86a10 10 0 0 0-2.01-1.52"/>
+            <path d="M2 8.82a15 15 0 0 1 4.18-2.64"/>
+            <path d="M22 8.82a15 15 0 0 0-11.29-3.76"/>
+            <path d="m2 2 20 20"/>
+          </svg>
+        </button>
+        <div class="topbar-user">
+          <div class="topbar-user-avatar" id="topbarUserAvatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="topbar-user-meta">
+            <span class="topbar-user-name" id="topbarUserName">Admin</span>
+            <span class="topbar-user-role" id="topbarUserRole">Painel Geral</span>
+          </div>
+        </div>
+        <span class="statusMsg" id="statusMsg"></span>
+      </div>
+    </div>
+
+    <!-- Page content -->
+    <div class="content">
+
+      <!-- ===== SECTION: DASHBOARD ===== -->
+      <div class="section is-active" data-section="dashboard">
+
+        <!-- Stats -->
+        <div id="resumoGrid" class="resumo-grid"></div>
+
+        <!-- ===== Mission Control Grid: Mapa | Alertas | Atividade ===== -->
+        <div class="mc-grid">
+
+          <!-- Mapa estilizado -->
+          <section class="card mc-map">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                  <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+                </svg>
+                Mapa de Monitoramento
+              </h2>
+              <div class="mc-map-legend">
+                <span class="mc-leg ok">OK</span>
+                <span class="mc-leg warn">Alerta</span>
+                <span class="mc-leg bad">Crítico</span>
+              </div>
+            </div>
+            <div class="mc-map-canvas" id="mcMapCanvas">
+              <!-- Leaflet monta o mapa nesse container. Pinos são injetados em JS por _statusData. -->
+            </div>
+          </section>
+
+          <!-- Alertas críticos -->
+          <section class="card mc-alerts">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Alertas Críticos
+              </h2>
+              <button class="btn-link" data-section-go="alertas">Ver todos →</button>
+            </div>
+            <div class="mc-alerts-list" id="mcAlertsList">
+              <div class="mc-empty">Carregando…</div>
+            </div>
+          </section>
+
+          <!-- Atividade em tempo real -->
+          <section class="card mc-activity">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Atividade em Tempo Real
+              </h2>
+              <span class="mc-live">
+                <span class="mc-live-dot"></span>
+                LIVE
+              </span>
+            </div>
+            <div class="mc-activity-list" id="mcActivityList">
+              <div class="mc-empty">Aguardando eventos…</div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ===== Linha financeira: contratos + MRR ===== -->
+        <section class="card mc-fin">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+              Contratos
+            </h2>
+            <button class="btn-link" data-section-go="cadastros">Gerenciar →</button>
+          </div>
+          <div class="mc-fin-row" id="mcContratosRow">
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">MRR mensal</div>
+              <div class="mc-fin-value" id="mcContrMrr">—</div>
+            </div>
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">Contratos ativos</div>
+              <div class="mc-fin-value" id="mcContrAtivos">—</div>
+            </div>
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">Vencendo em 30d</div>
+              <div class="mc-fin-value" id="mcContrVencendo">—</div>
+            </div>
+            <div class="mc-fin-item">
+              <div class="mc-fin-label">Vencidos</div>
+              <div class="mc-fin-value" id="mcContrVencidos">—</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Linha inferior: Conversas + Telemetria ===== -->
+        <div class="mc-bottom">
+
+          <!-- Conversas Recentes -->
+          <section class="card mc-conv">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                </svg>
+                Conversas Recentes
+              </h2>
+              <button class="btn-link" data-section-go="whatsapp">Ver todas →</button>
+            </div>
+            <div class="mc-conv-list" id="mcConvList">
+              <div class="mc-empty">Sem conversas recentes</div>
+            </div>
+          </section>
+
+          <!-- Telemetria em Tempo Real -->
+          <section class="card mc-telem">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12h4l3-9 4 18 3-9h4"/>
+                </svg>
+                Telemetria em Tempo Real
+              </h2>
+              <span class="mc-live">
+                <span class="mc-live-dot"></span>
+                LIVE
+              </span>
+            </div>
+            <div class="mc-telem-list" id="mcTelemList">
+              <div class="mc-empty">Aguardando leituras…</div>
+            </div>
+          </section>
+
+        </div>
+      </div><!-- /section dashboard -->
+
+      <!-- ===== SECTION: ALERTAS ===== -->
+      <div class="section" data-section="alertas">
+        <!-- ⚠️ A faixa de KPI desta tela era uma SEGUNDA CÓPIA da barra de
+             abas: os cinco cards mostravam Críticos/Atenção/Normais/Resolvidos
+             com os mesmos números das abas logo abaixo, e clicar num card só
+             trocava a aba. Nenhuma capacidade se perdeu ao removê-la — o
+             filtro continua todo nas abas. O único número que a faixa tinha e
+             as abas não têm é o tempo médio, que virou leitura na barra.
+             Para trazer a faixa de volta: reinserir
+             `<div class="resumo-grid" id="alKpiGrid">` aqui e as chamadas de
+             `kpi(...)` em `_alRenderKpis` (admin.js). -->
+        <div class="ch-layout">
+          <div class="ch-list-col">
+            <div class="ch-toolbar">
+              <div class="wa-tabs al-tabs" role="tablist">
+                <button class="wa-tab al-tab is-active" data-al-tab="todos">Todos <span class="wa-count al-count" id="alCountTodos">0</span></button>
+                <button class="wa-tab al-tab" data-al-tab="critico">Críticos <span class="wa-count al-count" id="alCountCritico">0</span></button>
+                <button class="wa-tab al-tab" data-al-tab="atencao">Atenção <span class="wa-count al-count" id="alCountAtencao">0</span></button>
+                <button class="wa-tab al-tab" data-al-tab="normal">Normais <span class="wa-count al-count" id="alCountNormal">0</span></button>
+                <button class="wa-tab al-tab" data-al-tab="resolvido">Resolvidos <span class="wa-count al-count" id="alCountResolvido">0</span></button>
+              </div>
+              <select id="alFiltroTipo" class="input" style="width:180px;">
+                <option value="">Todos os tipos</option>
+                <option value="dispositivo_offline">Dispositivo offline</option>
+                <option value="nivel_baixo">Nível baixo</option>
+                <option value="nivel_muito_baixo">Nível muito baixo</option>
+                <option value="chamado">Chamados</option>
+              </select>
+              <input id="alBusca" class="input" placeholder="Buscar por condomínio, tipo…">
+              <!-- Único número que as abas não respondem: quanto tempo um
+                   alerta leva para ser resolvido. Leitura de instrumento, não
+                   card. -->
+              <div class="al-medida" title="Tempo médio entre abrir e resolver, nos alertas resolvidos">
+                <span class="al-medida-lbl">Tempo médio</span>
+                <span class="al-medida-val" id="alTempoMedio">—</span>
+              </div>
+            </div>
+            <div class="tableWrap ch-table-wrap al-tableWrap">
+              <table class="al-table">
+                <thead>
+                  <tr>
+                    <!-- Molde do `planos`, igual ao de Chamados: o alerta é
+                         UMA célula (o que aconteceu + onde). Tipo e Condomínio
+                         viraram título e linha de apoio; Tempo desceu para
+                         baixo da data, que é onde ele sempre foi um delta; e a
+                         coluna AÇÕES — que tinha um único ícone e ficava vazia
+                         na maioria das linhas — deixou de ser coluna: o botão
+                         de resolver mora ao lado do próprio status. -->
+                    <th style="width:74px">ID</th>
+                    <th>Alerta</th>
+                    <th style="width:132px">Severidade</th>
+                    <th style="width:118px">Status</th>
+                    <th style="width:150px">Quando</th>
+                  </tr>
+                </thead>
+                <tbody id="alTbody"></tbody>
+              </table>
+            </div>
+            <div class="al-pagination">
+              <span class="hint" id="alPageInfo">—</span>
+              <div class="al-pag-btns">
+                <button class="btn btn-sm" id="alBtnPagAnt" type="button">◀</button>
+                <button class="btn btn-sm" id="alBtnPagProx" type="button">▶</button>
+              </div>
+              <select id="alPageSize" class="select" style="width:auto;">
+                <option value="10" selected>10 por página</option>
+                <option value="25">25 por página</option>
+                <option value="50">50 por página</option>
+              </select>
+            </div>
+          </div>
+
+          <aside class="ch-detail-col al-painel" id="alPainel">
+            <div class="al-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p>Clique numa linha pra ver os detalhes do alerta</p>
+            </div>
+          </aside>
+        </div>
+      </div><!-- /section alertas -->
+
+      <!-- ===== SECTION: CADASTROS (Clientes) ===== -->
+      <div class="section" data-section="cadastros">
+        <!-- KPIs -->
+        <div class="resumo-grid" id="cliKpiGrid" style="margin-bottom:16px;"></div>
+
+        <!-- Layout split lista + detalhe -->
+        <div class="ch-layout">
+          <!-- Lista -->
+          <div class="ch-list-col">
+            <div class="ch-toolbar" style="justify-content:space-between;">
+              <div class="wa-tabs" role="tablist">
+                <button class="wa-tab is-active" data-cli-tab="todos">Todos <span class="wa-count" id="cliCtTodos">0</span></button>
+                <button class="wa-tab" data-cli-tab="ativo">Ativos <span class="wa-count" id="cliCtAtivos">0</span></button>
+                <button class="wa-tab" data-cli-tab="inativo">Inativos <span class="wa-count" id="cliCtInativos">0</span></button>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="cliBusca" class="input" style="width:200px;" placeholder="Buscar condomínio…">
+                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-cliente">+ Novo cliente</button>
+              </div>
+            </div>
+            <div class="tableWrap ch-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <!-- Molde do `planos`: cidade, responsável e CNPJ descem
+                         para a linha de apoio do nome. As colunas CNPJ e
+                         CONTRATO ficavam inteiras em "—" quando a carteira não
+                         tem o dado — e coluna morta ocupa largura sem informar.
+                         Na linha de apoio, dado ausente simplesmente não
+                         aparece. -->
+                    <th>Cliente</th>
+                    <th style="width:150px">Contrato</th>
+                  </tr>
+                </thead>
+                <tbody id="cliTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Detalhe -->
+          <aside class="ch-detail-col" id="cliDetailCol">
+            <div class="ch-detail-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <p>Selecione um cliente para ver os detalhes</p>
+            </div>
+          </aside>
+        </div>
+
+        <!-- Formulários de infraestrutura (ocultos, mantidos para compatibilidade) -->
+        <div style="display:none;">
+          <!-- Cadastro de reservatório (inputs mantidos para criarReservatorio()) -->
+          <section class="card">
+            <div class="section-body">
+              <div class="grid-2">
+                <div class="field">
+                  <select id="resCondominio" class="select"><option value="">Selecione…</option></select>
+                </div>
+                <div class="field">
+                  <select id="resTipo" class="select">
+                    <option value="superior">Superior</option>
+                    <option value="inferior">Inferior</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+                <div class="field col-2"><input id="resNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" /></div>
+                <div class="field col-2"><input id="resDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" /></div>
+                <div class="field"><input id="resAlturaTotalM" class="input" type="number" step="0.01" min="0" /></div>
+                <div class="field"><input id="resAdcZero" class="input" type="number" step="1" min="0" /></div>
+                <div class="field"><input id="resAdcPorMetro" class="input" type="number" step="1" min="1" /></div>
+                <div class="field"><input id="resFaixaSondaM" class="input" type="number" step="0.01" min="0" /></div>
+                <div class="field col-2"><input id="resLimiarBomba" class="input" type="number" step="1" min="0" /></div>
+              </div>
+              <div class="form-footer" style="margin-top:16px;">
+                <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
+                <span id="msgReservatorio" class="hint"></span>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div><!-- /section cadastros -->
+
+      <!-- ===== SECTION: CHAMADOS ===== -->
+      <div class="section" data-section="chamados">
+        <!-- KPIs -->
+        <div class="resumo-grid" id="chKpiGrid" style="margin-bottom:16px;"></div>
+
+        <!-- Layout principal: lista + detalhe -->
+        <div class="ch-layout">
+          <!-- Coluna lista -->
+          <div class="ch-list-col">
+            <div class="ch-toolbar">
+              <div class="wa-tabs" role="tablist">
+                <button class="wa-tab is-active" data-ch-tab="todos">Todos <span class="wa-count" id="chCtTodos">0</span></button>
+                <button class="wa-tab" data-ch-tab="aberto">Abertos <span class="wa-count" id="chCtAbertos">0</span></button>
+                <button class="wa-tab" data-ch-tab="em_atendimento">Em atend. <span class="wa-count" id="chCtAtend">0</span></button>
+                <button class="wa-tab" data-ch-tab="fechado">Resolvidos <span class="wa-count" id="chCtFechados">0</span></button>
+                <button class="wa-tab" data-ch-tab="cancelado">Cancelados <span class="wa-count" id="chCtCancel">0</span></button>
+                <button class="wa-tab" data-ch-tab="p1">P1 Crítico <span class="wa-count" id="chCtEmerg">0</span></button>
+                <!-- ⚠️ PREVENTIVA SEPARADA DO RESTO (04/09/2026, pedido do Pedro:
+                     "na tela de chamados do admin separe preventiva do restante,
+                     porque hoje está poluindo"). O job gera uma por prédio por
+                     mês — 69 de uma vez em 04/09 —, e elas afogavam os chamados
+                     que alguém abriu de fato.
+                     ⚠️ "Todos" passou a ser TUDO MENOS preventiva; a aba própria
+                     mostra só elas. Duas listas, cada uma respondendo uma
+                     pergunta, em vez de uma que não responde nenhuma.
+                     ⚠️ O corte é pela ORIGEM (`plano_manutencao_id`), nunca pela
+                     prioridade: preventiva é P4, mas nem todo P4 é preventiva. -->
+                <button class="wa-tab" data-ch-tab="preventiva">Preventivas <span class="wa-count" id="chCtPrev">0</span></button>
+              </div>
+              <input id="chBusca" class="input" placeholder="Buscar chamado…">
+              <button class="btn btn-sm btnAccent viewer-only-hide" id="btnNovoChamado" style="white-space:nowrap;">+ Novo chamado</button>
+            </div>
+            <div class="tableWrap ch-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <!-- Molde do `planos`: o chamado é UMA célula (título +
+                         linha de apoio com condomínio e categoria), como lá o
+                         plano é título + condomínio + última execução. Nada
+                         saiu da tela — Condomínio e Categoria desceram para a
+                         linha de apoio, e as duas colunas que sobravam viraram
+                         largura para o título, que era o que vinha truncado. -->
+                    <th style="width:72px">ID</th>
+                    <th>Chamado</th>
+                    <th style="width:104px">Prioridade</th>
+                    <th style="width:120px">Status</th>
+                    <th style="width:104px">Aberto em</th>
+                  </tr>
+                </thead>
+                <tbody id="chTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Painel de detalhe -->
+          <aside class="ch-detail-col" id="chDetailCol">
+            <div class="ch-detail-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+              <p>Selecione um chamado para ver os detalhes</p>
+            </div>
+          </aside>
+        </div>
+      </div><!-- /section chamados -->
+
+      <!-- ===== SECTION: ORDENS DE SERVIÇO ===== -->
+      <div class="section" data-section="ordens-servico">
+        <!-- KPIs -->
+        <div class="resumo-grid" id="osKpiGrid" style="margin-bottom:16px;"></div>
+
+        <section class="card" style="min-height:calc(100vh - 220px);">
+          <div class="cardHead">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <path d="M9 14l2 2 4-4"/>
+              </svg>
+              Ordens de Serviço
+            </h2>
+            <span class="hint">Documentos finalizados pelos técnicos no campo</span>
+          </div>
+
+          <div class="os-toolbar">
+            <div class="wa-tabs" role="tablist">
+              <button class="wa-tab is-active" data-os-tab="todas" type="button">Todas <span class="wa-count" id="osCtTodas">0</span></button>
+              <button class="wa-tab" data-os-tab="finalizadas" type="button">Finalizadas <span class="wa-count" id="osCtFinal">0</span></button>
+              <button class="wa-tab" data-os-tab="rascunho" type="button">Em rascunho <span class="wa-count" id="osCtRascunho">0</span></button>
+              <!-- ⚠️ "A enviar" é a pergunta que o escritório faz de verdade
+                   no fim da semana: finalizada, com e-mail no cadastro, e que
+                   ainda não foi para o cliente. Sem esta aba isso só se
+                   responde abrindo uma O.S. por vez. -->
+              <button class="wa-tab" data-os-tab="a-enviar" type="button">A enviar <span class="wa-count" id="osCtAEnviar">0</span></button>
+            </div>
+            <input id="osBusca" class="input" placeholder="Buscar por número, condomínio, técnico…" />
+          </div>
+
+          <!-- Barra de seleção em massa — some quando não há nada selecionado -->
+          <div id="osBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
+            <span id="osBulkCount" style="color:var(--text);font-weight:600;"></span>
+            <button class="btn btn-sm btnAccent" id="osBulkEmail" type="button">Enviar por e-mail</button>
+            <button class="btn btn-sm" id="osBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
+          </div>
+
+          <div class="tableWrap os-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:32px"><input type="checkbox" id="osChkAll" class="viewer-only-hide"></th>
+                  <th style="width:120px">Número</th>
+                  <th style="width:120px">Criada em</th>
+                  <th>Condomínio</th>
+                  <th style="width:160px">Técnico</th>
+                  <th style="white-space:nowrap">Tipos de serviço</th>
+                  <th style="width:120px">Resultado</th>
+                  <th style="width:96px">Status</th>
+                  <th style="width:132px">E-mail</th>
+                  <th style="width:110px" class="right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="osTableBody"></tbody>
+            </table>
+          </div>
+          <div id="osEmpty" class="mc-empty" style="display:none;padding:24px;text-align:center;">
+            Nenhuma O.S. encontrada com esses filtros.
+          </div>
+          <div class="al-pagination" id="osPaginacao">
+            <span class="hint" id="osPageInfo">—</span>
+            <div class="al-pag-btns">
+              <button class="btn btn-sm" id="osBtnPagAnt" type="button" title="Página anterior">◀</button>
+              <button class="btn btn-sm" id="osBtnPagProx" type="button" title="Próxima página">▶</button>
+            </div>
+            <select id="osPageSize" class="select" style="width:auto;">
+              <option value="25">25 por página</option>
+              <option value="50" selected>50 por página</option>
+              <option value="100">100 por página</option>
+            </select>
+          </div>
+        </section>
+      </div><!-- /section ordens-servico -->
+
+      <!-- ===== SECTION: ORÇAMENTOS ===== -->
+      <div class="section" data-section="orcamentos">
+
+        <!-- Abas principais da seção -->
+        <div class="orc-main-tabs" id="orcMainTabs">
+          <button class="orc-main-tab is-active" data-orc-modo="avulso" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Criar orçamento
+          </button>
+          <button class="orc-main-tab" data-orc-modo="os" type="button">
+            Solicitados pelos técnicos <span class="wa-count" id="navBadgeOrcamentosOS" style="display:none;">0</span>
+          </button>
+        </div>
+
+        <!-- ===== MODO AVULSO ===== -->
+        <div id="orcModoAvulso">
+          <!-- KPIs -->
+          <!-- O aviso das respostas que ninguem abriu. Fica ACIMA dos KPIs
+               porque nao e metrica: e trabalho parado esperando alguem. Some
+               sozinho quando a ultima ficha e aberta. Ver migration 076. -->
+          <div class="av-aviso" id="avAvisoRespostas" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>
+            <span data-aviso-txt></span>
+            <button type="button" class="btn btn-sm" id="avAvisoVer">Ver</button>
+          </div>
+          <div class="resumo-grid" id="avKpiGrid" style="margin-bottom:16px;"></div>
+
+          <!-- Master-detail: condomínios (esq) → orçamentos do condomínio (dir).
+               Mesma distribuição da aba "Solicitados pelos técnicos": toolbar
+               dentro do card da lista + lista larga / painel estreito. -->
+          <div class="ch-layout">
+            <!-- Coluna: lista de condomínios -->
+            <div class="ch-list-col">
+              <div class="ch-toolbar">
+                <div class="wa-tabs" role="tablist">
+                  <button class="wa-tab is-active" data-av-tab="todos" type="button">Todos <span class="wa-count" id="avCtTodos">0</span></button>
+                  <button class="wa-tab" data-av-tab="rascunho" type="button">Rascunho <span class="wa-count" id="avCtRascunho">0</span></button>
+                  <button class="wa-tab" data-av-tab="enviado" type="button">Enviado <span class="wa-count" id="avCtEnviado">0</span></button>
+                  <button class="wa-tab" data-av-tab="aprovado" type="button">Aprovado <span class="wa-count" id="avCtAprovado">0</span></button>
+                  <!-- ⚠️ ESTA ABA NÃO É UM STATUS, e é a única assim. As outras
+                       filtram `status`; esta filtra "o cliente respondeu"
+                       (`respondido_em`), que atravessa aprovado E recusado. É a
+                       pergunta que o escritório faz de verdade — "o que voltou
+                       do síndico?" —, e que antes só se respondia abrindo ficha
+                       por ficha, porque na lista um aprovado pelo cliente e um
+                       aprovado no escritório eram idênticos. -->
+                  <button class="wa-tab" data-av-tab="respondidos" type="button">Respondidos <span class="wa-count" id="avCtRespondidos">0</span></button>
+                </div>
+                <input id="avBusca" class="input" placeholder="Buscar condomínio ou Nº…">
+                <button class="btn btnAccent btn-sm viewer-only-hide" id="avBtnNovo" type="button">+ Novo orçamento</button>
+              </div>
+              <div class="tableWrap ch-table-wrap">
+                <div id="avCondoList" class="av-condo-list"></div>
+                <div id="avEmpty" class="al-empty" style="display:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                  <p>Nenhum orçamento. Clique em "+ Novo orçamento".</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Painel: orçamentos do condomínio selecionado -->
+            <aside class="ch-detail-col" id="avCondoDetail">
+              <div class="ch-detail-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <p>Selecione um condomínio para ver os orçamentos</p>
+              </div>
+            </aside>
+          </div>
+        </div><!-- /avulso -->
+
+        <!-- ===== MODO OS ===== -->
+        <!-- ⚠️ MESMO ESQUELETO DA ABA "Criar orçamento" (02/09/2026), e isso
+             é a correção de uma divergência, não uma preferência nova: as duas
+             abas vivem na MESMA seção, a um clique uma da outra, e uma era
+             tabela de 7 colunas enquanto a outra era master-detail agrupado
+             por condomínio. A pergunta que as duas respondem é a mesma —
+             "o que este prédio está esperando de orçamento?" —, e agrupar por
+             condomínio é o que permite responder de uma vez: um técnico pediu
+             três coisas no mesmo prédio, e são três linhas soltas na tabela.
+             Componentes reaproveitados inteiros (av-condo-row, av-dot,
+             av-orc-item): nenhuma classe nova de estrutura. -->
+        <div id="orcModoOS" style="display:none;">
+          <div class="resumo-grid" id="orcKpiGrid" style="margin-bottom:16px;"></div>
+
+          <div class="ch-layout">
+            <!-- Coluna: condomínios com pedido de orçamento -->
+            <div class="ch-list-col">
+              <div class="ch-toolbar">
+                <div class="wa-tabs" role="tablist">
+                  <button class="wa-tab is-active" data-orc-tab="todos" type="button">Todos <span class="wa-count" id="orcCtTodos">0</span></button>
+                  <!-- ⚠️ ESTA ABA FALTAVA, e a falta era o defeito: o pedido do
+                       técnico ainda sem orçamento criado tem `orcamento_status`
+                       NULO, então não caía em nenhuma das quatro abas antigas —
+                       só em "Todos". É o estado que mais precisa aparecer aqui. -->
+                  <button class="wa-tab" data-orc-tab="solicitado" type="button">Solicitados <span class="wa-count" id="orcCtSolicitado">0</span></button>
+                  <button class="wa-tab" data-orc-tab="pendente" type="button">Em orçamento <span class="wa-count" id="orcCtPendente">0</span></button>
+                  <button class="wa-tab" data-orc-tab="aprovado" type="button">Aprovados <span class="wa-count" id="orcCtAprovado">0</span></button>
+                  <button class="wa-tab" data-orc-tab="rejeitado" type="button">Rejeitados <span class="wa-count" id="orcCtRejeitado">0</span></button>
+                </div>
+                <input id="orcBusca" class="input" placeholder="Buscar condomínio ou técnico…">
+                <select id="orcFiltroCondo" class="select">
+                  <option value="">Todos os condomínios</option>
+                </select>
+              </div>
+              <div class="tableWrap ch-table-wrap">
+                <div id="orcCondoList" class="av-condo-list"></div>
+                <div id="orcEmpty" class="al-empty" style="display:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                  <p>Nenhum pedido de orçamento.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Painel: os pedidos do condomínio selecionado.
+                 ⚠️ SEM `al-painel` — ele traz `padding: 18px`, e a lista de
+                 itens tem de encostar na borda como a do `#avCondoDetail`. -->
+            <aside class="ch-detail-col" id="orcPainel">
+              <div class="ch-detail-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <p>Selecione um condomínio para ver os pedidos</p>
+              </div>
+            </aside>
+          </div>
+        </div><!-- /os -->
+
+      </div><!-- /section orcamentos -->
+
+      <!-- ===== SECTION: CONTRATOS ===== -->
+      <div class="section" data-section="contratos">
+
+        <!-- KPIs -->
+        <div class="resumo-grid" id="ctrsKpiGrid" style="margin-bottom:16px;"></div>
+
+        <section class="card al-card">
+          <div class="cardHead al-head">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              Contratos
+            </h2>
+            <button class="btn btnAccent btn-sm viewer-only-hide" id="ctrsBtnNovo" type="button">
+              + Novo contrato
+            </button>
+          </div>
+
+          <div class="al-toolbar">
+            <div class="wa-tabs" role="tablist">
+              <button class="wa-tab is-active" data-ctrs-tab="todos" type="button">Todos <span class="wa-count" id="ctrsCtTodos">0</span></button>
+              <button class="wa-tab" data-ctrs-tab="ativo" type="button">Ativos <span class="wa-count" id="ctrsCtAtivo">0</span></button>
+              <button class="wa-tab" data-ctrs-tab="vencendo" type="button">Vencendo <span class="wa-count" id="ctrsCtVencendo">0</span></button>
+              <button class="wa-tab" data-ctrs-tab="vencido" type="button">Vencidos <span class="wa-count" id="ctrsCtVencido">0</span></button>
+            </div>
+            <div class="al-filters">
+              <select id="ctrsTipoFilter" class="select" style="width:auto;">
+                <option value="">Todos os serviços</option>
+                <option value="bombas">Bombas</option>
+                <option value="piscina">Piscina</option>
+              </select>
+              <input id="ctrsBusca" class="input" placeholder="Buscar cliente…">
+            </div>
+          </div>
+
+          <div class="al-grid" style="grid-template-columns:1fr;">
+            <div class="al-tableWrap">
+              <table class="orc-table" id="ctrsTable">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th style="width:90px">Serviço</th>
+                    <th style="width:100px">Periodicidade</th>
+                    <th style="width:110px">Valor/mês</th>
+                    <th style="width:85px">Início</th>
+                    <th style="width:90px">Vencimento</th>
+                    <th style="width:120px">Status</th>
+                    <th style="width:44px"></th>
+                  </tr>
+                </thead>
+                <tbody id="ctrsTbody"></tbody>
+              </table>
+              <div id="ctrsEmpty" class="al-empty" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <p>Nenhum contrato encontrado.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Mini-modal: seleção de cliente para novo contrato -->
+        <div id="ctrsPickerModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true">
+          <div class="av-modal-backdrop" id="ctrsPickerBackdrop"></div>
+          <div class="av-modal-dialog" style="max-width:400px;padding:0;overflow:hidden;">
+            <div class="modalHead">
+              <div class="modalTitle">Selecionar cliente</div>
+              <button class="btn btn-sm" id="ctrsPickerClose" type="button">Fechar</button>
+            </div>
+            <div style="padding:12px 16px 8px;">
+              <input id="ctrsPickerBusca" class="input" placeholder="Buscar cliente…" style="width:100%;" autocomplete="off">
+            </div>
+            <div id="ctrsPickerList" style="max-height:320px;overflow-y:auto;padding:0 8px 8px;"></div>
+          </div>
+        </div>
+
+      </div><!-- /section contratos -->
+
+      <!-- ===== SECTION: WHATSAPP ===== -->
+      <div class="section" data-section="whatsapp">
+        <section class="card wa-card">
+          <div class="cardHead wa-head">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Atendimento
+            </h2>
+            <span class="hint">Central de atendimento + IA</span>
+          </div>
+
+          <div class="wa-grid">
+            <!-- Coluna 1: lista de conversas -->
+            <aside class="wa-list-col">
+              <div class="wa-list-head">
+                <input id="waBusca" class="input" placeholder="Buscar conversa…">
+                <div class="wa-tabs" role="tablist">
+                  <button class="wa-tab is-active" data-wa-tab="todos">Todos <span class="wa-count" id="waCountTodos">0</span></button>
+                  <button class="wa-tab" data-wa-tab="nao-respondidas">Não respondidas <span class="wa-count" id="waCountNaoResp">0</span></button>
+                  <button class="wa-tab" data-wa-tab="em-atendimento">Em atendimento <span class="wa-count" id="waCountAtend">0</span></button>
+                  <button class="wa-tab" data-wa-tab="resolvidas">Resolvidas <span class="wa-count" id="waCountResolv">0</span></button>
+                </div>
+              </div>
+              <div class="wa-list" id="waList">
+                <div class="mc-empty">Carregando…</div>
+              </div>
+              <div class="wa-list-foot hint" id="waListFoot">—</div>
+            </aside>
+
+            <!-- Coluna 2: chat -->
+            <section class="wa-chat-col">
+              <div class="wa-chat-head" id="waChatHead">
+                <div class="wa-chat-empty-head">Selecione uma conversa</div>
+              </div>
+              <div class="wa-chat-body" id="waChatBody">
+                <div class="wa-chat-empty">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <p>Clique numa conversa pra ver o histórico</p>
+                </div>
+              </div>
+              <div class="wa-chat-input" id="waChatInput" style="display:none;">
+                <textarea id="waMsgInput" class="input" rows="1" placeholder="Digite uma mensagem…"></textarea>
+                <button class="btn btnAccent" id="waBtnEnviar" type="button">Enviar</button>
+              </div>
+            </section>
+
+            <!-- Coluna 3: informações -->
+            <aside class="wa-info-col" id="waInfoCol">
+              <div class="wa-info-empty">Selecione uma conversa pra ver detalhes</div>
+            </aside>
+          </div>
+        </section>
+      </div><!-- /section whatsapp -->
+
+      <!-- ===== STUB SECTIONS (em breve) ===== -->
+      <div class="section" data-section="telemetria">
+
+        <!-- KPIs de telemetria -->
+        <div class="resumo-grid tel-kpi-grid" id="telKpiGrid"></div>
+
+        <!-- Linha única: Níveis (tanques) + Reservatórios Críticos.
+             O Histórico virou modal (abre ao clicar num tanque). -->
+        <div class="tel-row tel-row-main">
+          <section class="card tel-card-niveis">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 21h18"/><rect x="5"  y="10" width="3" height="9"/><rect x="10" y="5"  width="3" height="14"/><rect x="15" y="13" width="3" height="6"/>
+                </svg>
+                Níveis dos Reservatórios
+              </h2>
+              <div class="tel-filtros">
+                <select id="telFiltroCondominio" class="tel-select">
+                  <option value="">Todos os condomínios</option>
+                </select>
+                <select id="telFiltroTipo" class="tel-select">
+                  <option value="">Todos os tipos</option>
+                </select>
+                <select id="telFiltroSituacao" class="tel-select">
+                  <option value="">Todas as situações</option>
+                  <option value="offline">Somente offline</option>
+                  <option value="com_alerta">Somente com alerta</option>
+                </select>
+                <button class="btn btn-sm" data-action="tel-ver-todos" id="btnTelVerTodos" title="Ver todos em tela cheia">Ver todos</button>
+                <button class="btn btnAccent btn-sm" data-action="novo-reservatorio" id="btnNovoReservatorio" style="display:none;">+ Novo</button>
+              </div>
+            </div>
+            <div class="tel-tanques-grid" id="telNiveisChart"></div>
+            <div class="tel-niveis-empty mc-empty" id="telNiveisEmpty" style="display:none;">Nenhum reservatório encontrado para os filtros.</div>
+          </section>
+
+          <div class="tel-col-right">
+            <section class="card tel-card-criticos">
+              <div class="cardHead">
+                <h2>
+                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Reservatórios Críticos
+                </h2>
+                <button class="btn-link" data-section-go="alertas">Ver alertas →</button>
+              </div>
+              <div class="tel-criticos-list" id="telCriticosList">
+                <div class="mc-empty">Carregando…</div>
+              </div>
+            </section>
+
+            <section class="card tel-card-eventos">
+              <div class="cardHead">
+                <h2>
+                  <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  Últimos Eventos
+                </h2>
+              </div>
+              <div class="tel-eventos-list" id="telEventosList">
+                <div class="mc-empty" style="padding:20px;">Carregando…</div>
+              </div>
+              <div class="tel-eventos-foot">
+                <button class="btn btnAccent btn-sm" data-section-go="alertas">Ver todos os eventos →</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Histórico de Níveis — modal (padrão modalBox do sistema), abre ao
+             clicar num tanque -->
+        <div class="tel-hist-modal" id="telHistModal">
+          <div class="modalBox tel-hist-box">
+            <div class="modalHead">
+              <div>
+                <div class="modalTitle" id="telHistModalTitulo">Histórico de Níveis</div>
+                <div class="modalSub" id="telHistModalSub">Nível ao longo do tempo</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button id="btnTelExportarPdf" class="btn btn-sm" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="margin-right:5px;vertical-align:-2px;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>PDF
+                </button>
+                <button class="btn btn-sm" data-action="tel-hist-fechar">Fechar</button>
+              </div>
+            </div>
+            <div class="modalBody">
+              <!-- Período e números na MESMA faixa: eram duas linhas somando
+                   ~150px num modal cujo gráfico tinha 320px. -->
+              <div class="tel-hist-barra">
+                <div class="tel-historico-ctrls">
+                  <button class="tel-range-btn is-active" data-range="24" data-action="tel-range">24h</button>
+                  <button class="tel-range-btn" data-range="72" data-action="tel-range">3d</button>
+                  <button class="tel-range-btn" data-range="168" data-action="tel-range">7d</button>
+                  <button class="tel-range-btn" data-range="720" data-action="tel-range">30d</button>
+                  <button class="tel-range-btn" data-range="1440" data-action="tel-range">60d</button>
+                </div>
+                <div class="tel-hist-stats" id="telHistStats"></div>
+              </div>
+              <div class="tel-historico-chart" id="telHistoricoChart"></div>
+              <div class="tel-historico-empty" id="telHistoricoEmpty" style="display:none;"></div>
+            </div>
+
+            <!-- selects ocultos: alimentam _telEscolherReservatoriosParaHistorico -->
+            <select id="telHistCondominio" hidden></select>
+            <select id="telHistReservatorio" hidden></select>
+            <span id="telHistoricoLegend" hidden></span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="section" data-section="mapa">
+        <!-- ⚠️ Estes quatro contam CONDOMÍNIO, e os do Dashboard contam
+             aparelho. Era exatamente esta a contradição que a decisão nº 4
+             ataca: "OFFLINE 4" lá e "OFFLINE 1" aqui pareciam números
+             brigando, e nenhum dos dois declarava de quê. Aqui um condomínio
+             só entra em "Offline" quando TODOS os reservatórios dele estão
+             mudos — ver `_mpAtualizarKpis`.
+             O `id` fica no <span> interno de propósito: o JS escreve
+             `textContent` nele, e escrever no `.rc-value` apagaria a
+             unidade. -->
+        <!-- KPIs -->
+        <div class="mp-kpis">
+          <div class="rc rc-neutral rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+              <div class="rc-label">Total</div>
+            </div>
+            <div class="rc-value"><span id="mpKpiTotal">—</span><span class="rc-unid">cond.</span></div>
+            <div class="rc-hint">cadastrados</div>
+          </div>
+          <div class="rc rc-ok rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+              <div class="rc-label">Online</div>
+            </div>
+            <div class="rc-value"><span id="mpKpiOnline">—</span><span class="rc-unid">cond.</span></div>
+            <div class="rc-hint">sem alerta nem offline</div>
+          </div>
+          <div class="rc rc-bad rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+              <div class="rc-label">Crítico</div>
+            </div>
+            <div class="rc-value"><span id="mpKpiCritico">—</span><span class="rc-unid">cond.</span></div>
+            <div class="rc-hint">com alerta em aberto</div>
+          </div>
+          <div class="rc rc-warn rc-static">
+            <div class="rc-head">
+              <div class="rc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M5 12.86a10 10 0 0 1 5.17-2.69"/><path d="M19 12.86a10 10 0 0 0-2.01-1.52"/><path d="M2 8.82a15 15 0 0 1 4.18-2.64"/><path d="M22 8.82a15 15 0 0 0-11.29-3.76"/><path d="m2 2 20 20"/></svg></div>
+              <div class="rc-label">Offline</div>
+            </div>
+            <div class="rc-value"><span id="mpKpiOffline">—</span><span class="rc-unid">cond.</span></div>
+            <div class="rc-hint">todos os aparelhos mudos</div>
+          </div>
+        </div>
+
+        <!-- Grid principal: mapa + painel lateral -->
+        <div class="mp-grid">
+          <section class="card mp-map-card" id="mpMapCard">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                Mapa de Condomínios
+              </h2>
+              <div class="mp-map-actions">
+                <div class="mc-map-legend">
+                  <span class="mc-leg ok">OK</span>
+                  <span class="mc-leg warn">Alerta</span>
+                  <span class="mc-leg bad">Crítico</span>
+                </div>
+                <button type="button" class="mp-fs-btn" id="mpBtnFullscreen" data-action="mp-fullscreen" title="Tela cheia (ESC para sair)" aria-label="Tela cheia">
+                  <svg class="mp-fs-ico-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+                  <svg class="mp-fs-ico-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>
+                  <span class="mp-fs-label">Tela cheia</span>
+                </button>
+              </div>
+            </div>
+            <div class="mp-map-canvas" id="mpMapCanvas">
+              <div class="mp-map-loading" id="mpMapLoading">
+                <span class="mp-map-spinner"></span>
+                <span>Carregando mapa…</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="card mp-panel">
+            <div class="mp-panel-head">
+              <div class="mp-panel-title">
+                <h3 id="mpCondoNome">Selecione um condomínio</h3>
+                <span id="mpCondoEndereco" class="mp-panel-sub">Clique em um pino no mapa para ver detalhes</span>
+              </div>
+              <div class="mp-panel-actions">
+                <button class="mp-fs-close" id="mpBtnFsClose" data-action="mp-fs-close" title="Fechar" aria-label="Fechar painel">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="mp-tabs" role="tablist">
+              <button class="mp-tab is-active" data-tab="visao">Visão Geral</button>
+              <button class="mp-tab" data-tab="reservatorios">Reservatórios</button>
+              <button class="mp-tab" data-tab="bombas">Bombas</button>
+              <button class="mp-tab" data-tab="alertas">Alertas</button>
+              <button class="mp-tab" data-tab="chamados">Chamados</button>
+            </div>
+
+            <div class="mp-tab-body" id="mpTabBody">
+              <div class="mp-empty">Nenhum condomínio selecionado.</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Linha inferior: 3 cards -->
+        <div class="mp-bottom">
+          <section class="card">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Alertas Recentes
+              </h2>
+              <button class="btn-link" data-section-go="alertas">Ver todos →</button>
+            </div>
+            <div class="mp-alerts" id="mpAlertsList">
+              <div class="mc-empty">Carregando…</div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Distribuição por Zona
+              </h2>
+            </div>
+            <div class="mp-donut" id="mpZonaChart"></div>
+            <div class="mp-donut-legend" id="mpZonaLegend"></div>
+          </section>
+
+          <section class="card">
+            <div class="cardHead">
+              <h2>
+                <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Últimas Atualizações
+              </h2>
+            </div>
+            <div class="mp-updates" id="mpUpdatesList">
+              <div class="mc-empty">Carregando…</div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+
+      <div class="section" data-section="tecnicos">
+        <div class="ch-layout">
+          <div class="ch-list-col">
+            <div class="ch-toolbar" style="justify-content:space-between;">
+              <div class="wa-tabs" role="tablist">
+                <button class="wa-tab is-active" data-tec-tab="todos">Todos <span class="wa-count" id="tecCtTodos">0</span></button>
+                <button class="wa-tab" data-tec-tab="tecnico">Técnico <span class="wa-count" id="tecCtTecnico">0</span></button>
+                <button class="wa-tab" data-tec-tab="adm">Adm <span class="wa-count" id="tecCtAdm">0</span></button>
+                <button class="wa-tab" data-tec-tab="gestor">Gestor <span class="wa-count" id="tecCtGestor">0</span></button>
+                <button class="wa-tab" data-tec-tab="ti">TI <span class="wa-count" id="tecCtTi">0</span></button>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="tecBusca" class="input" style="width:200px;" placeholder="Buscar colaborador…">
+                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-tecnico">+ Novo colaborador</button>
+              </div>
+            </div>
+            <div class="tableWrap ch-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th style="width:100px;">Cargo</th>
+                    <th>Especialidade</th>
+                    <th style="width:84px;">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tecTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <aside class="ch-detail-col" id="tecDetailCol">
+            <div class="ch-detail-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              <p>Selecione um colaborador para ver os detalhes</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: EQUIPAMENTOS ===== -->
+      <!-- Fase A do módulo: identidade + etiqueta QR. A bancada (estados,
+           dias parado, peças, orçamento) é Fase B. Ver docs/modulos/equipamentos.md -->
+      <div class="section" data-section="equipamentos">
+        <div class="card">
+          <div class="cardHead">
+            <h3>Equipamentos etiquetados</h3>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input id="eqBusca" class="input" style="width:220px;" placeholder="Código, apelido, série…">
+              <select id="eqFiltroStatus" class="input" style="width:180px;">
+                <option value="">Todos os estados</option>
+                <option value="etiqueta_livre">Etiqueta em branco</option>
+                <option value="instalado">No condomínio</option>
+                <option value="oficina">Na oficina</option>
+                <option value="pronto">Pronta para devolver</option>
+                <option value="baixado">Baixada</option>
+              </select>
+              <button class="btn btnAccent btn-sm" id="btnEqNovoLote">+ Gerar etiquetas</button>
+            </div>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:120px;">Código</th>
+                  <th>Equipamento</th>
+                  <th>Condomínio</th>
+                  <th style="width:170px;">Estado</th>
+                  <th style="width:120px;">Lote</th>
+                </tr>
+              </thead>
+              <tbody id="eqTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="cardHead"><h3>Imprimir folha de etiquetas</h3></div>
+          <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <label class="f" style="flex:1 1 180px;">
+              <span>Lote</span>
+              <select id="eqLotePrint" class="input"></select>
+            </label>
+            <label class="f" style="flex:1 1 240px;">
+              <span>Formato da folha</span>
+              <select id="eqFormatoPrint" class="input">
+                <option value="corte">Papel comum — quadrada 65 × 65 mm, só QR (12 por folha)</option>
+                <option value="grande">Grande — 130 × 80 mm, papel comum p/ plastificar (3 por folha)</option>
+                <option value="pimacoA4263">Pimaco A4263 / Avery L7163 — 99 × 38,1 mm (14 por folha)</option>
+              </select>
+            </label>
+            <button class="btn btnAccent" id="btnEqImprimir">Abrir PDF</button>
+            <button class="btn btnDanger" id="btnEqApagarLote" style="display:none;">Apagar lote</button>
+          </div>
+
+          <details style="padding:0 16px 4px;">
+            <summary class="muted" style="cursor:pointer;font-size:12px;">
+              Calibrar impressora (só se a grade não cair em cima do adesivo)
+            </summary>
+            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:12px 0 0;">
+              <label class="f" style="flex:0 1 140px;">
+                <span>Deslocar → (mm)</span>
+                <input type="number" id="eqCalDx" class="input" step="0.5" min="-5" max="5" placeholder="0">
+              </label>
+              <label class="f" style="flex:0 1 140px;">
+                <span>Deslocar ↓ (mm)</span>
+                <input type="number" id="eqCalDy" class="input" step="0.5" min="-5" max="5" placeholder="0">
+              </label>
+              <label class="f" style="flex:0 1 140px;">
+                <span>Escala (%)</span>
+                <input type="number" id="eqCalEscala" class="input" step="0.1" min="90" max="110" placeholder="100">
+              </label>
+            </div>
+            <p class="muted" style="font-size:12px;line-height:1.6;margin:8px 0 0;">
+              <b>Primeiro tente imprimir em "Tamanho real" / 100%</b> — nunca
+              "Ajustar à página". Na maioria dos casos é só isso.<br>
+              Se a grade erra em cima e embaixo mas <b>acerta no meio da folha</b>,
+              a impressora encolheu a página: meça no papel a distância do topo
+              da 1ª etiqueta ao topo da 7ª (deve dar <b>228,6 mm</b>) e ponha em
+              Escala o resultado de 228,6 ÷ medido × 100.<br>
+              Se o erro é igual na folha inteira, é só deslocamento: use os campos
+              de mm com o sinal invertido (saiu 1 mm baixo demais → −1).
+            </p>
+          </details>
+
+          <p class="muted" style="padding:0 16px 16px;font-size:12px;line-height:1.6;">
+            Papel comum descola em casa de máquinas (umidade, graxa, calor).
+            Use etiqueta adesiva de poliéster/vinil — ou papel adesivo com fita
+            transparente larga por cima.
+          </p>
+        </div>
+
+        <!-- Reaproveitar etiqueta: cadastro feito na etiqueta errada, com a
+             bomba na mão. Card inteiro só existe pro admin master (a trava de
+             verdade e o masterAdminOnly da rota) - ver _eqBindEventos. -->
+        <div class="card" style="margin-top:16px;display:none;" id="eqCardDesfazer">
+          <div class="cardHead"><h3>Reaproveitar etiqueta</h3></div>
+          <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <label class="f" style="flex:1 1 220px;">
+              <span>Código da etiqueta</span>
+              <input id="eqDesfazerCodigo" class="input" placeholder="990H-3TJP" autocomplete="off">
+            </label>
+            <button class="btn btnDanger" id="btnEqDesfazer">Desfazer cadastro</button>
+          </div>
+          <p class="muted" style="padding:0 16px 16px;font-size:12px;line-height:1.6;">
+            Apaga o cadastro posto nesta etiqueta e devolve ela a
+            <b>em branco</b>, para ser vinculada de novo. Serve para o cadastro
+            feito na etiqueta errada.<br>
+            <b>Só funciona enquanto o vínculo é a única coisa que existe.</b> Se
+            a etiqueta já tem foto, chamado, orçamento, O.S. ou qualquer outra
+            movimentação, o sistema recusa e diz o que impede - aí o caminho é
+            dar baixa, que preserva o histórico.
+          </p>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: PLANOS DE MANUTENÇÃO ===== -->
+      <div class="section" data-section="planos">
+        <div class="resumo-grid" id="pmKpiGrid" style="margin-bottom:16px;"></div>
+
+        <!-- Responsáveis por zona não têm card próprio: aparecem (e são editados)
+             no cabeçalho de cada grupo de zona da tabela abaixo. -->
+
+        <section class="card al-card">
+          <div class="cardHead al-head">
+            <h2>
+              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+                <path d="M9 16l2 2 4-4"/>
+              </svg>
+              Planos de manutenção preventiva
+            </h2>
+            <button class="btn btnAccent btn-sm viewer-only-hide" id="pmBtnNovo" type="button" style="margin-left:auto;">
+              + Novo plano
+            </button>
+          </div>
+
+          <div class="al-toolbar">
+            <!-- ⚠️ O MÊS É UM SELETOR, NÃO O RELÓGIO DO SERVIDOR (04/09/2026).
+                 A tela só sabia olhar o mês corrente: escalar uma preventiva
+                 para outubro gravava certo no banco e a tela seguia dizendo
+                 "Sem responsável" — a pessoa faz a ação, ela funciona, e a tela diz
+                 que não aconteceu nada. Mesma peça da tela de Preventivas do
+                 operador, no registro do admin. -->
+            <div class="pm-mesnav">
+              <button class="pm-mes-nav" type="button" data-pm-mes="-1" aria-label="Mês anterior">←</button>
+              <span class="pm-mes-rot" id="pmMesRot">—</span>
+              <button class="pm-mes-nav" type="button" data-pm-mes="1" aria-label="Mês seguinte">→</button>
+              <button class="pm-mes-hoje" type="button" data-pm-mes="0" id="pmMesHoje" hidden>hoje</button>
+            </div>
+            <div class="wa-tabs" role="tablist">
+              <!-- ⚠️ AS ABAS FALAM DO MÊS, NÃO DA DATA DO PLANO (04/09/2026).
+                   Antes eram Vencidos · Em andamento · Este mês · Em dia, e elas
+                   misturavam duas perguntas: a data da PRÓXIMA visita e o
+                   andamento da ATUAL. Visto na tela: "Este mês 0" ao lado de
+                   "Em andamento 69" — as duas verdadeiras, e contraditórias na
+                   leitura, porque falavam de coisas diferentes.
+                   Hoje elas seguem o ciclo do serviço: sem responsável → com
+                   responsável → em campo → feita. Mais duas do CADASTRO, que é a
+                   outra pergunta legítima da tela: quem está de fora (sem plano) e
+                   o que está pausado. -->
+              <button class="wa-tab is-active" data-pm-tab="todos" type="button">Todos <span class="wa-count" id="pmCtTodos">0</span></button>
+              <button class="wa-tab" data-pm-tab="sem-dono" type="button">Sem responsável <span class="wa-count" id="pmCtSemDono">0</span></button>
+              <button class="wa-tab" data-pm-tab="com-dono" type="button">Com responsável <span class="wa-count" id="pmCtComDono">0</span></button>
+              <button class="wa-tab" data-pm-tab="em-campo" type="button">Em campo <span class="wa-count" id="pmCtEmCampo">0</span></button>
+              <button class="wa-tab" data-pm-tab="feitas" type="button">Feitas <span class="wa-count" id="pmCtFeitas">0</span></button>
+              <!-- ⚠️ ESTA ABA NÃO LISTA PLANOS, e é a única assim: são os
+                   prédios ATIVOS que não têm plano nenhum. A tela lista planos,
+                   então quem está fora era invisível — 16 de 88 em 04/09. -->
+              <button class="wa-tab" data-pm-tab="sem-plano" type="button">Sem plano <span class="wa-count" id="pmCtSemPlano">0</span></button>
+              <button class="wa-tab" data-pm-tab="inativos" type="button">Inativos <span class="wa-count" id="pmCtInativos">0</span></button>
+            </div>
+            <div class="al-filters">
+              <input id="pmBusca" class="input" placeholder="Buscar condomínio ou título…">
+            </div>
+          </div>
+
+          <!-- Barra de seleção em massa — some quando não há nada selecionado -->
+          <div id="pmBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
+            <span id="pmBulkCount" style="color:var(--text);font-weight:600;"></span>
+            <!-- ⚠️ ESCALAR E GERAR CHAMADO EM LOTE (04/09/2026). A simulação do
+                 fluxo mostrou que o backend de escalar JÁ ACEITAVA lote (o
+                 `POST /operador/preventivas/atribuir` recebe `plano_ids`), e a
+                 tela oferecia uma linha por vez: 5 prédios eram 5 diálogos.
+                 O de gerar chamado não tem lote no backend — a tela faz o laço,
+                 e é por isso que ele mostra progresso e conta os que falharam. -->
+            <button class="btn btn-sm btnAccent" id="pmBulkEscalar" type="button">Escalar técnico</button>
+            <button class="btn btn-sm" id="pmBulkChamado" type="button">Gerar chamados</button>
+            <button class="btn btn-sm" id="pmBulkEditar" type="button">Editar selecionados</button>
+            <button class="btn btn-sm" id="pmBulkAtivar" type="button">Ativar selecionados</button>
+            <button class="btn btn-sm" id="pmBulkDesativar" type="button">Desativar selecionados</button>
+            <button class="btn btn-sm" id="pmBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
+          </div>
+
+          <div class="al-grid" style="grid-template-columns: 1fr;">
+            <div class="al-tableWrap">
+              <table class="orc-table pm-table">
+                <thead>
+                  <tr>
+                    <th style="width:32px"><input type="checkbox" id="pmChkAll" class="viewer-only-hide"></th>
+                    <!-- ⚠️ O SUJEITO DA LINHA É O PRÉDIO, não "o plano"
+                         (04/09/2026). Medido antes: a palavra "Preventiva"
+                         saía a 12px/600 em branco e o nome do prédio a
+                         10,5px/400 em cinza — o destaque estava no que era
+                         igual em 75 dos 76 planos, e o dado que identifica a
+                         linha era o texto mais apagado da célula.
+                         ⚠️ "Periodicidade" SAIU: dizia "Mensal" 76 vezes em 76.
+                         Vira etiqueta na linha, e só quando NÃO for mensal. -->
+                    <th>Prédio</th>
+                    <th style="width:210px">Este mês</th>
+                    <th style="width:150px">Próxima</th>
+                    <th style="width:132px"><span class="sr-only">Ações</span></th>
+                  </tr>
+                </thead>
+                <tbody id="pmTableBody"></tbody>
+              </table>
+              <div id="pmEmpty" class="al-empty" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <p>Nenhum plano. Clique em "+ Novo plano".</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div><!-- /section planos -->
+
+      <!-- Modal de plano (criar/editar) — usa pmModal próprio pra não conflitar com overlay global -->
+      <div id="pmModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true">
+        <div class="av-modal-backdrop" id="pmModalBackdrop"></div>
+        <!-- Casca compartilhada em vez de estilo inline: assim herda o fio do
+             topo, o respiro do cabeçalho/rodapé e o aperto de tela baixa,
+             como os outros modais. Ids preservados (o JS injeta corpo e
+             rodapé por getElementById). -->
+        <div class="av-modal-dialog" style="max-width:560px;padding:0;overflow:hidden;">
+          <div class="modalHead">
+            <div>
+              <div id="pmModalTitulo" class="modalTitle">Novo plano</div>
+              <div id="pmModalSubtitulo" class="modalSub">Preencha os dados para criar um plano de manutenção</div>
+            </div>
+            <button class="btn btn-sm" id="pmModalClose" type="button" aria-label="Fechar">Fechar</button>
+          </div>
+          <!-- Corpo injetado pelo JS -->
+          <div id="pmModalBody" class="modalBody"></div>
+          <!-- Rodapé com botões, injetados pelo JS -->
+          <div id="pmModalFooter" class="modalFoot"></div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: RELATÓRIOS ===== -->
+      <div class="section" data-section="relatorios">
+
+        <!-- Painel ao vivo — estado operacional agora, sem filtro de período.
+             Sem chamados em risco nem técnicos com abertos → colapsa numa linha
+             de status ("Tudo operacional"); o JS controla via .is-collapsed. -->
+        <div class="card rel-card-vivo" id="relVivoCard" style="padding:0;overflow:hidden;margin-bottom:12px;">
+          <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="rel-card-title">
+              <span class="rel-card-icon rel-icon-vivo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </span>
+              Painel ao vivo
+            </span>
+            <span style="display:flex;align-items:center;gap:6px;">
+              <button class="btn btn-sm" data-rel-action="atualizar-painel">Atualizar</button>
+              <button class="rel-vivo-toggle" data-rel-action="toggle-painel" aria-label="Expandir ou recolher painel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </span>
+          </div>
+          <div class="rel-vivo-status">
+            <span class="rel-vivo-dot" id="relVivoDot"></span>
+            <span id="relVivoStatusTxt">Carregando…</span>
+          </div>
+          <div class="rel-vivo-grid">
+            <div>
+              <p class="rel-ct-head">
+                <span>Chamados em risco <span style="font-size:11px;color:var(--muted);">(passou da metade do prazo)</span></span>
+                <span id="relVivoRiscoCount" class="rel-count-badge rel-count-neutral">–</span>
+              </p>
+              <div class="tableWrap" style="max-height:260px;">
+                <table><thead><tr>
+                  <!-- Molde do `planos`, como em Chamados e Alertas: condomínio
+                       e técnico descem para a linha de apoio do título. O painel
+                       ocupa metade da largura do card, e com cinco colunas o
+                       título quebrava em três linhas. -->
+                  <th>Chamado</th><th style="width:88px">Prioridade</th>
+                  <!-- Era "Uso do TTR", em percentual. Ver `_relTtrPrazo` no admin.js. -->
+                  <th style="width:136px">Prazo</th>
+                </tr></thead><tbody id="relVivoRiscoBody"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
+              </div>
+            </div>
+            <div>
+              <p class="rel-ct-head">
+                <span>Workload por técnico</span>
+                <span id="relVivoWorkloadCount" class="rel-count-badge rel-count-neutral">–</span>
+              </p>
+              <div class="tableWrap" style="max-height:260px;">
+                <table><thead><tr>
+                  <th>Técnico</th><th style="width:64px;text-align:right;">Abertos</th>
+                  <th style="width:48px;text-align:right;">P1</th><th style="width:48px;text-align:right;">P2</th>
+                  <th style="width:48px;text-align:right;">P3</th><th style="width:48px;text-align:right;">P4</th>
+                </tr></thead><tbody id="relVivoWorkloadBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exportar relatórios — card único: tabs (segmented) trocam só os
+             filtros específicos; De/Até/Condomínio são comuns e ficam fixos.
+             Sem gráfico/preview: análise fica no Excel. -->
+        <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
+          <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="rel-card-title">
+              <span class="rel-card-icon rel-icon-export">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </span>
+              Exportar relatórios
+            </span>
+            <div class="rel-seg" id="relSeg" role="tablist">
+              <button class="rel-seg-btn is-active" data-rel-tab="chamados" role="tab">Chamados</button>
+              <button class="rel-seg-btn" data-rel-tab="alertas" role="tab">Alertas</button>
+              <button class="rel-seg-btn" data-rel-tab="telemetria" role="tab">Telemetria</button>
+            </div>
+          </div>
+          <div class="rel-chips">
+            <button class="rel-chip" data-rel-preset="7d">7 dias</button>
+            <button class="rel-chip" data-rel-preset="30d">30 dias</button>
+            <button class="rel-chip" data-rel-preset="mes">Este mês</button>
+            <button class="rel-chip" data-rel-preset="mes-ant">Mês anterior</button>
+          </div>
+          <div class="filter-bar rel-export-fields">
+            <div class="field"><label class="lbl">De</label><input type="date" id="relExpIni" class="input rel-date" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Até</label><input type="date" id="relExpFim" class="input rel-date" style="width:136px;"></div>
+            <div class="field"><label class="lbl">Condomínio</label><select id="relExpCondo" class="input rel-sel" style="width:170px;"><option value="">Todos</option></select></div>
+
+            <div class="rel-filtros-esp is-active" data-rel-esp="chamados">
+              <div class="field"><label class="lbl">Status</label>
+                <select id="relExpChStatus" class="input rel-sel" style="width:140px;">
+                  <option value="">Todos</option><option value="aberto">Aberto</option>
+                  <option value="em_atendimento">Em atendimento</option><option value="fechado">Fechado</option>
+                </select>
+              </div>
+              <div class="field"><label class="lbl">Prioridade</label>
+                <select id="relExpChPrioridade" class="input rel-sel" style="width:132px;">
+                  <option value="">Todas</option><option value="p4">P4 Agendado</option>
+                  <option value="p3">P3 Controlado</option><option value="p2">P2 Alta</option>
+                  <option value="p1">P1 Crítico</option>
+                </select>
+              </div>
+              <div class="field"><label class="lbl">Técnico</label><select id="relExpChTecnico" class="input rel-sel" style="width:150px;"><option value="">Todos</option></select></div>
+            </div>
+
+            <div class="rel-filtros-esp" data-rel-esp="alertas">
+              <div class="field"><label class="lbl">Tipo</label>
+                <select id="relExpAlTipo" class="input rel-sel" style="width:160px;">
+                  <option value="">Todos</option>
+                  <option value="offline">Offline</option>
+                  <option value="nivel_critico">Nível crítico</option>
+                  <option value="nivel_baixo">Nível baixo</option>
+                  <option value="nivel_muito_baixo">Nível muito baixo</option>
+                </select>
+              </div>
+              <div class="field"><label class="lbl">Status</label>
+                <select id="relExpAlStatus" class="input rel-sel" style="width:132px;">
+                  <option value="">Todos</option><option value="ativo">Ativo</option><option value="resolvido">Resolvido</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="rel-filtros-esp" data-rel-esp="telemetria">
+              <div class="field"><label class="lbl">Device ID</label><input type="text" id="relExpTelDevice" class="input" placeholder="Opcional" style="width:154px;"></div>
+              <span class="rel-exp-note">Agregado diário por reservatório</span>
+            </div>
+
+            <button class="btn btn-sm btnAccent" data-rel-action="exportar-csv" style="align-self:flex-end;">Exportar CSV</button>
+          </div>
+        </div>
+
+      </div><!-- /section relatorios -->
+
+      <div class="section" data-section="config">
+
+        <!-- Tabs no topo -->
+        <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
+          <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
+            <div class="wa-tabs" id="cfgTabs" role="tablist" style="border-bottom:none;margin-top:0;">
+              <button class="wa-tab is-active" data-cfg-tab="conta">Conta</button>
+              <button class="wa-tab" data-cfg-tab="usuarios">Usuários</button>
+              <button class="wa-tab" data-cfg-tab="ia">IA</button>
+              <button class="wa-tab" data-cfg-tab="notificacoes">Notificações</button>
+              <button class="wa-tab" data-cfg-tab="operacional">Operacional</button>
+              <button class="wa-tab" data-cfg-tab="sla">SLA</button>
+              <button class="wa-tab" data-cfg-tab="manutencao">Manutenção</button>
+              <button class="wa-tab" data-cfg-tab="integracoes">Integrações</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: CONTA ── -->
+        <div class="cfg-body" id="cfgBodyConta">
+          <div class="cfg-grid">
+            <!-- Trocar senha -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <div>
+                  <h3>Alterar senha</h3>
+                  <p>Atualize sua senha de acesso ao painel.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field"><label class="lbl">Senha atual</label><input type="password" id="cfgSenhaAtual" class="input" autocomplete="current-password"></div>
+                <div class="field"><label class="lbl">Nova senha</label><input type="password" id="cfgSenhaNova" class="input" autocomplete="new-password"></div>
+                <div class="field"><label class="lbl">Confirmar nova senha</label><input type="password" id="cfgSenhaNovaConf" class="input" autocomplete="new-password"></div>
+                <div class="cfg-actions">
+                  <span id="cfgSenhaMsg" class="cfg-msg"></span>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="trocar-senha">Salvar nova senha</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dispositivos confiáveis -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <div>
+                  <h3>Dispositivos confiáveis</h3>
+                  <p>Dispositivos que dispensam código 2FA.</p>
+                </div>
+              </div>
+              <div id="cfgDispLista" class="cfg-disp-lista">
+                <div class="cfg-empty">Carregando…</div>
+              </div>
+              <div class="cfg-actions" style="margin-top:12px;">
+                <span></span>
+                <button class="btn btn-sm" data-cfg-action="sair-todos" style="border-color:rgba(248,113,113,.4);color:#f87171;">Sair de todos os dispositivos</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: USUÁRIOS ── -->
+        <div class="cfg-body" id="cfgBodyUsuarios" style="display:none;">
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div class="cfg-card-head" style="padding:14px 16px;border-bottom:1px solid var(--border);">
+              <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <div style="flex:1;">
+                <h3>Usuários do sistema</h3>
+                <p>Administradores, visualizadores e clientes cadastrados.</p>
+              </div>
+              <button class="btn btnAccent btn-sm viewer-only-hide" data-cfg-action="novo-usuario">+ Novo usuário</button>
+            </div>
+            <div class="tableWrap" style="max-height:560px;">
+              <table>
+                <thead><tr>
+                  <th>Nome</th><th>Email</th><th style="width:120px">Tipo</th>
+                  <th style="width:180px">Condomínio</th><th style="width:110px">Cadastrado em</th>
+                  <th style="width:220px">Ações</th>
+                </tr></thead>
+                <tbody id="cfgUsuariosBody"><tr><td colspan="6" class="cfg-empty">Carregando…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: IA ── -->
+        <div class="cfg-body" id="cfgBodyIa" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v0a3 3 0 0 0-3 3v1a3 3 0 0 0 1 5.83V19a3 3 0 0 0 6 0V6a4 4 0 0 0 0-4Z"/><path d="M12 2a4 4 0 0 1 4 4v0a3 3 0 0 1 3 3v1a3 3 0 0 1-1 5.83V19a3 3 0 0 1-6 0"/></svg>
+                <div>
+                  <h3>Comportamento da IA</h3>
+                  <p>Controle quando, como e com qual modelo o assistente responde clientes no WhatsApp.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="cfg-toggle-row">
+                  <div>
+                    <strong>IA ativa</strong>
+                    <p>Quando desligada, mensagens recebidas no WhatsApp ficam aguardando resposta humana.</p>
+                  </div>
+                  <label class="cfg-switch">
+                    <input type="checkbox" id="cfgIaEnabled">
+                    <span class="cfg-slider"></span>
+                  </label>
+                </div>
+
+                <div class="field"><label class="lbl">Modelo OpenAI</label>
+                  <select id="cfgIaModelo" class="input" style="max-width:240px;">
+                    <option value="gpt-4o-mini">gpt-4o-mini (rápido, econômico)</option>
+                    <option value="gpt-4o">gpt-4o (mais preciso, ~20× custo)</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label class="lbl" style="display:flex;justify-content:space-between;align-items:center;">
+                    System prompt
+                    <button class="btn-link" data-cfg-action="restaurar-prompt" style="font-size:11px;">Restaurar padrão</button>
+                  </label>
+                  <textarea id="cfgIaPrompt" class="input" rows="14" style="font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;"></textarea>
+                  <p class="cfg-hint">Define personalidade, tom e regras de classificação. Mudanças entram em vigor na próxima mensagem.</p>
+                </div>
+
+                <div class="cfg-actions">
+                  <span id="cfgIaMsg" class="cfg-msg"></span>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="salvar-ia">Salvar configurações de IA</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Tempo de sessão de atendimento</h3>
+                  <p>Se o cliente ficar sem responder por mais desse tempo, o próximo contato abre uma nova sessão e a IA faz o primeiro atendimento do zero.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Timeout de inatividade (horas)</label>
+                  <input type="number" id="cfgWaSessaoTimeout" class="input" min="1" max="72" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 1 e 72 horas. Padrão recomendado: 8h (um turno comercial). Sessões assumidas por humano não são afetadas.</p>
+                </div>
+                <div class="cfg-actions">
+                  <span id="cfgWaSessaoMsg" class="cfg-msg"></span>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="salvar-wa-sessao">Salvar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <div>
+                  <h3>Curadoria de conversas</h3>
+                  <p>Marque a qualidade de cada atendimento no painel do WhatsApp. Conversas "Excelente" e "Boa" alimentam o dataset de treinamento da IA. Aqui você exporta esse dataset.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div id="cfgCuradoriaStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Excelente</div><div class="rc-value" id="cfgCurExc">—</div></div>
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Boa</div><div class="rc-value" id="cfgCurBoa">—</div></div>
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Aceitável</div><div class="rc-value" id="cfgCurAce">—</div></div>
+                  <div class="rc rc-static rc-neutral"><div class="rc-label">Ruim</div><div class="rc-value" id="cfgCurRuim">—</div></div>
+                </div>
+                <p class="cfg-hint" id="cfgCurHint">PII (CPF, telefone, email, CEP) é automaticamente substituído por tokens antes do download.</p>
+                <div class="cfg-actions">
+                  <span id="cfgCurMsg" class="cfg-msg"></span>
+                  <button class="btn btn-sm" data-cfg-action="recarregar-curadoria">Atualizar</button>
+                  <button class="btn btnAccent btn-sm" data-cfg-action="exportar-curadoria">Baixar dataset .jsonl</button>
+                </div>
+              </div>
+            </div>
+          </div><!-- /cfg-grid oculto -->
+        </div>
+
+        <!-- ── BODY: NOTIFICAÇÕES ── -->
+        <div class="cfg-body" id="cfgBodyNotificacoes" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <div>
+                  <h3>Emails de alerta</h3>
+                  <p>Quem recebe notificações por email quando um dispositivo fica offline ou um nível chega ao crítico.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Destinatários</label>
+                  <input type="text" id="cfgEmailDestinatario" class="input" placeholder="email1@empresa.com, email2@empresa.com">
+                  <p class="cfg-hint">Múltiplos emails separados por vírgula. Deixe vazio pra desabilitar notificações por email.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Frequência da verificação offline</h3>
+                  <p>De quanto em quanto tempo o sistema checa se algum dispositivo parou de enviar dados.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Intervalo (minutos)</label>
+                  <input type="number" id="cfgOfflineIntervalo" class="input" min="1" max="60" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 1 e 60 minutos. Valor menor = detecção mais rápida, mais carga no banco.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cfg-actions" style="margin-top:12px;">
+            <span id="cfgNotifMsg" class="cfg-msg"></span>
+            <button class="btn btnAccent btn-sm" data-cfg-action="salvar-notificacoes">Salvar notificações</button>
+          </div>
+        </div>
+
+        <!-- ── BODY: OPERACIONAL ── -->
+        <div class="cfg-body" id="cfgBodyOperacional" style="display:none;">
+          <div class="cfg-grid">
+
+            <!-- 1. Frequência do GPS dos técnicos -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <div>
+                  <h3>Frequência do GPS</h3>
+                  <p>De quantos em quantos segundos o app do técnico envia a posição. Valor menor = mapa mais atualizado, mais consumo de bateria.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Intervalo (segundos)</label>
+                  <input type="number" id="cfgGpsFrequencia" class="input" min="30" max="300" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 30 e 300 segundos (5 min). Padrão: 60 segundos. A janela ativa do GPS é 08h–18h.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Retenção do histórico de localização -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Retenção do histórico de GPS</h3>
+                  <p>Por quantas horas o sistema guarda a trilha completa de cada técnico. Útil pra reconstruir caminhos passados.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Manter histórico por (horas)</label>
+                  <input type="number" id="cfgGpsRetencaoHoras" class="input" min="1" max="720" style="max-width:120px;">
+                  <p class="cfg-hint">Entre 1 e 720 horas (30 dias). Padrão: 24h. 168h = 7 dias.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="cfg-actions" style="margin-top:12px;">
+            <span id="cfgOperMsg" class="cfg-msg"></span>
+            <button class="btn btnAccent btn-sm" data-cfg-action="salvar-operacional">Salvar</button>
+          </div>
+        </div>
+
+        <!-- ── BODY: SLA ── -->
+        <div class="cfg-body" id="cfgBodySla" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card cfg-card-wide">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <div class="cfg-card-title">Metas de SLA por Prioridade</div>
+                  <div class="cfg-card-desc">TTFR = tempo até primeira resposta da equipe · TTR = tempo até resolução</div>
+                </div>
+              </div>
+              <div class="sla-table-wrap">
+                <table class="sla-table">
+                  <thead>
+                    <tr>
+                      <th>Prioridade</th>
+                      <th>TTFR (min)</th>
+                      <th>TTR (min)</th>
+                      <th style="text-align:right;">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="slaTableBody">
+                    <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Carregando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="cfg-actions" style="margin-top:4px;">
+                <span id="cfgSlaMsg" class="cfg-msg"></span>
+              </div>
+            </div>
+
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                <div>
+                  <div class="cfg-card-title">Como funciona</div>
+                </div>
+              </div>
+              <ul class="sla-info-list">
+                <li><strong>TTFR</strong> (Time To First Response) — minutos até o primeiro contato da equipe com o chamado (atribuir, responder, iniciar atendimento).</li>
+                <li><strong>TTR</strong> (Time To Resolution) — minutos totais para fechar o chamado.</li>
+                <li>Chamados que ultrapassam o TTFR sem resposta exibem o badge <span class="ch-sla-badge">⚠ SLA</span> na lista.</li>
+                <li>Chamados que ultrapassam o TTR sem fechamento exibem o badge <span class="ch-sla-ttr-badge">⏱ TTR</span>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: MANUTENÇÃO ── -->
+        <div class="cfg-body" id="cfgBodyManutencao" style="display:none;">
+          <div class="cfg-grid">
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+                <div>
+                  <h3>Limpeza de leituras antigas</h3>
+                  <p>Sensores enviam dados a cada 5 min — a tabela cresce ~86 mil linhas por dia. Esta limpeza apaga leituras antigas todo dia pra manter o banco enxuto.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Guardar leituras por (dias)</label>
+                  <input type="number" id="cfgLeiturasRetencaoDias" class="input" min="7" max="3650" style="max-width:120px;">
+                  <p class="cfg-hint">Leituras com mais que isso são apagadas automaticamente todo dia. Mínimo 7 dias (proteção contra erro). Padrão: 60 dias.</p>
+                </div>
+                <div class="field">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="cfgLeiturasDryRun">
+                    <span><strong>Modo seguro (só conta, não apaga)</strong></span>
+                  </label>
+                  <p class="cfg-hint">Quando ligado, o job apenas calcula quantas linhas seriam apagadas — não apaga nada. Use pra confirmar o volume na primeira execução, depois desligue.</p>
+                </div>
+              </div>
+              <div class="cfg-actions" style="margin-top:8px;">
+                <span id="cfgManutMsg" class="cfg-msg"></span>
+                <button class="btn btn-sm" data-cfg-action="rodar-limpeza-leituras">▶ Rodar agora</button>
+                <button class="btn btnAccent btn-sm" data-cfg-action="salvar-manutencao">Salvar</button>
+              </div>
+            </div>
+
+            <div class="card cfg-card" id="cfgManutResultadoCard" style="display:none;">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Última execução — Leituras</h3>
+                  <p id="cfgManutResultadoSub">Detalhes do último ciclo de limpeza de leituras.</p>
+                </div>
+              </div>
+              <div id="cfgManutResultadoBody" style="padding:4px 2px;"></div>
+            </div>
+
+            <!-- ── Fase 9E: limpeza de alertas resolvidos antigos ── -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>
+                  <h3>Limpeza de alertas resolvidos</h3>
+                  <p>Alertas de telemetria que foram resolvidos há mais que o tempo configurado são apagados (junto com seus comentários). O histórico ainda fica em Relatórios.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Guardar alertas resolvidos por (dias)</label>
+                  <input type="number" id="cfgAlertasRetencaoDias" class="input" min="30" max="3650" style="max-width:120px;">
+                  <p class="cfg-hint">Mínimo 30 dias. Padrão: 365 (1 ano).</p>
+                </div>
+                <div class="field">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="cfgAlertasDryRun">
+                    <span><strong>Modo seguro (só conta, não apaga)</strong></span>
+                  </label>
+                  <p class="cfg-hint">Quando ligado, o job apenas calcula quantos alertas seriam apagados.</p>
+                </div>
+              </div>
+              <div class="cfg-actions" style="margin-top:8px;">
+                <span id="cfgAlertasMsg" class="cfg-msg"></span>
+                <button class="btn btn-sm" data-cfg-action="rodar-limpeza-alertas">▶ Rodar agora</button>
+                <button class="btn btnAccent btn-sm" data-cfg-action="salvar-alertas-retencao">Salvar</button>
+              </div>
+            </div>
+
+            <div class="card cfg-card" id="cfgAlertasResultadoCard" style="display:none;">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Última execução — Alertas</h3>
+                  <p>Detalhes do último ciclo de limpeza de alertas.</p>
+                </div>
+              </div>
+              <div id="cfgAlertasResultadoBody" style="padding:4px 2px;"></div>
+            </div>
+
+            <!-- ── Fase 9E: limpeza de conversas WhatsApp fechadas antigas ── -->
+            <div class="card cfg-card">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                <div>
+                  <h3>Limpeza de conversas fechadas</h3>
+                  <p>Apaga conversas fechadas há mais que o tempo configurado, junto com as mensagens. Não mexe no app do cliente — só na cópia que aparece na central de atendimento aqui.</p>
+                </div>
+              </div>
+              <div class="cfg-form">
+                <div class="field">
+                  <label class="lbl">Guardar conversas fechadas por (dias)</label>
+                  <input type="number" id="cfgConversasRetencaoDias" class="input" min="30" max="3650" style="max-width:120px;">
+                  <p class="cfg-hint">Mínimo 30 dias. Padrão: 365 (1 ano). A IA perde o contexto histórico do cliente quando a conversa antiga é apagada.</p>
+                </div>
+                <div class="field">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="cfgConversasDryRun">
+                    <span><strong>Modo seguro (só conta, não apaga)</strong></span>
+                  </label>
+                  <p class="cfg-hint">Quando ligado, mostra quantas conversas e mensagens seriam apagadas.</p>
+                </div>
+              </div>
+              <div class="cfg-actions" style="margin-top:8px;">
+                <span id="cfgConversasMsg" class="cfg-msg"></span>
+                <button class="btn btn-sm" data-cfg-action="rodar-limpeza-conversas">▶ Rodar agora</button>
+                <button class="btn btnAccent btn-sm" data-cfg-action="salvar-conversas-retencao">Salvar</button>
+              </div>
+            </div>
+
+            <div class="card cfg-card" id="cfgConversasResultadoCard" style="display:none;">
+              <div class="cfg-card-head">
+                <svg class="cfg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <h3>Última execução — Conversas</h3>
+                  <p>Detalhes do último ciclo de limpeza de conversas.</p>
+                </div>
+              </div>
+              <div id="cfgConversasResultadoBody" style="padding:4px 2px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BODY: INTEGRAÇÕES ── -->
+        <div class="cfg-body" id="cfgBodyIntegracoes" style="display:none;">
+          <div class="cfg-actions" style="margin-bottom:12px;justify-content:flex-end;">
+            <button class="btn btn-sm" data-cfg-action="testar-integracoes">↻ Testar conexões</button>
+          </div>
+          <div class="cfg-int-grid" id="cfgIntGrid">
+            <div class="cfg-empty">Carregando status…</div>
+          </div>
+        </div>
+
+      </div><!-- /section config -->
+
+      <!-- Modal exclusivo da seção Configurações (evita conflito com modais existentes) -->
+      <div id="cfgModalOverlay" class="modalOverlay" style="display:none;">
+        <div class="modalBox" id="cfgModalBox"></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ===== DRAWER: Detalhe do condomínio ===== -->
+<div id="drawerOverlay" class="drawer-overlay"></div>
+<div id="drawerPanel" class="drawer-panel">
+  <div class="drawer-head">
+    <h3 id="drawerTitle">Condomínio</h3>
+    <button class="btn btn-sm" id="btnFecharDrawer">Fechar</button>
+  </div>
+  <div class="drawer-tabs">
+    <button class="drawer-tab active" data-action="drawer-tab" data-tab="telemetria">Telemetria</button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="chamados">
+      Chamados
+      <span class="drawer-tab-badge" id="drawerBadgeChamados"></span>
+    </button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="whatsapp">
+      Atendimento
+      <span class="drawer-tab-badge" id="drawerBadgeWhatsapp"></span>
+    </button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="os">O.S.</button>
+    <button class="drawer-tab" data-action="drawer-tab" data-tab="orcamentos">Orçamentos</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-pane is-active" id="drawerPaneTelemetria" data-pane="telemetria"></div>
+    <div class="drawer-pane" id="drawerPaneChamados" data-pane="chamados"></div>
+    <div class="drawer-pane" id="drawerPaneWhatsapp" data-pane="whatsapp"></div>
+    <div class="drawer-pane" id="drawerPaneOS" data-pane="os"></div>
+    <div class="drawer-pane" id="drawerPaneOrcamentos" data-pane="orcamentos"></div>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div id="cardTip" class="cardTip" style="display:none;"></div>
+
+<!-- Modal: resumo card details -->
+<div id="modalOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox">
+    <div class="modalHead">
+      <div>
+        <div id="modalTitle" class="modalTitle">Detalhes</div>
+        <div id="modalSub" class="modalSub">—</div>
+      </div>
+      <button class="btn btn-sm" id="btnFecharModal">Fechar</button>
+    </div>
+    <div class="modalBody">
+      <div class="modalTools">
+        <input id="modalBusca" class="modalBusca" placeholder="Buscar…" oninput="renderModalLista()" />
+        <span id="modalCount" class="modalCount">0 itens</span>
+      </div>
+      <div class="modalListWrap">
+        <table class="modalTable">
+          <thead>
+            <tr>
+              <th class="m-stat-th"></th>
+              <th>Condomínio</th>
+              <th id="modalThCol2">Device</th>
+              <th>Detalhe</th>
+              <th class="right">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="modalTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: detalhe de Ordem de Serviço -->
+<div id="osModalOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="width:min(1000px, 96vw);">
+    <div class="modalHead">
+      <div>
+        <div id="osModalTitle" class="modalTitle">Ordem de Serviço</div>
+        <div id="osModalSub" class="modalSub">—</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-sm" id="osBtnPdf" type="button">📄 PDF</button>
+        <button class="btn btn-sm" id="osBtnEmail" type="button">✉️ E-mail</button>
+        <button class="btn btn-sm btnAccent" id="osBtnEditar" type="button">Editar</button>
+        <button class="btn btn-sm" id="osBtnSalvar" type="button" style="display:none;">Salvar</button>
+        <button class="btn btn-sm" id="osBtnCancelarEdicao" type="button" style="display:none;">Cancelar</button>
+        <button class="btn btn-sm" id="osBtnFechar" type="button">Fechar</button>
+      </div>
+    </div>
+    <div class="modalBody" id="osModalBody">
+      <div class="mc-empty">Carregando…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: lightbox de foto da O.S. -->
+<div id="osFotoLightbox" class="modalOverlay" style="display:none;z-index:9999;">
+  <div style="position:relative;max-width:96vw;max-height:96vh;">
+    <button class="btn btn-sm" id="osFotoLightboxClose" type="button" style="position:absolute;top:-44px;right:0;">Fechar</button>
+    <img id="osFotoLightboxImg" alt="Foto da O.S." style="max-width:96vw;max-height:90vh;border-radius:8px;border:1px solid var(--border);" />
+  </div>
+</div>
+
+<!-- Modal: exclusão permanente de condomínio -->
+<div id="hardDeleteOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox is-perigo" style="max-width:440px;">
+    <div class="modalHead">
+      <div class="modalTitle" style="color:var(--danger);">&#9888; Exclusão permanente</div>
+      <button class="btn btn-sm" id="btnFecharHardDelete">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;">
+      <p id="hardDeleteMsg" style="margin:0 0 16px;line-height:1.5;color:var(--text-muted);font-size:13px;"></p>
+      <p style="margin:0 0 16px;line-height:1.5;color:var(--danger);font-size:13px;font-weight:600;">
+        Esta ação apagará permanentemente o condomínio e tudo dele: reservatórios, leituras, alertas, chamados, O.S. em rascunho, orçamentos, planos e contratos. Condomínio com O.S. finalizada não pode ser excluído — use "Inativar".
+      </p>
+      <!-- Preenchido por _hardDeleteCarregarLogins(): lista os logins de cliente
+           que serão apagados junto. Fica oculto quando não há nenhum. -->
+      <div id="hardDeleteLogins" style="display:none;margin:0 0 16px;padding:12px;border:1px solid var(--danger);border-radius:8px;line-height:1.5;font-size:13px;"></div>
+      <label class="f" style="margin-bottom:20px;">
+        <span>Confirme sua senha de acesso</span>
+        <input type="password" id="hardDeleteSenha" placeholder="Senha" autocomplete="current-password" />
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm" id="btnCancelarHardDelete">Cancelar</button>
+        <button class="btn btn-sm btnDanger" id="btnConfirmarHardDelete">Excluir permanentemente</button>
+      </div>
+      <div id="hardDeleteErr" style="margin-top:12px;font-size:12px;color:var(--danger);display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: cancelar chamado (admin/gerente)
+     Existe por causa do MOTIVO. Fechar é um clique porque o desfecho está no
+     resto da ficha (O.S., avaliação, histórico); cancelar não deixa rastro
+     nenhum do porquê — e "por que este chamado sumiu?" é a pergunta que vem
+     três semanas depois, quando ninguém lembra. -->
+<div id="cancelarChamadoOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:460px;">
+    <div class="modalHead">
+      <div class="modalTitle">Cancelar chamado</div>
+      <button class="btn btn-sm" id="btnFecharCancelarChamado">Fechar</button>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;">
+      <p id="ccMsg" style="margin:0 0 4px;line-height:1.5;font-size:13px;"></p>
+      <p style="margin:0 0 16px;line-height:1.5;color:var(--muted);font-size:12px;">
+        Cancelar tira o chamado da fila sem contá-lo como serviço prestado — ele
+        fica fora da taxa de resolução e do tempo médio. Para registrar que o
+        serviço foi feito, use <strong>Fechar</strong>. Dá para reabrir depois.
+      </p>
+      <label class="f" style="margin-bottom:20px;">
+        <span>Motivo do cancelamento</span>
+        <textarea id="ccMotivo" class="input" rows="3" maxlength="500" style="resize:vertical;"
+          placeholder="Ex.: duplicado do CH-0042 · aberto por engano · cliente desistiu"></textarea>
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm" id="btnDesistirCancelarChamado">Voltar</button>
+        <button class="btn btn-sm btnAccent" id="btnConfirmarCancelarChamado">Cancelar chamado</button>
+      </div>
+      <div id="ccErr" style="margin-top:12px;font-size:12px;color:var(--danger);display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: novo chamado (admin) -->
+<div id="novoChamadoOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:560px;">
+    <div class="modalHead" style="align-items:flex-start;">
+      <div>
+        <div class="modalTitle">Novo chamado</div>
+        <div class="modalSub">Preencha os dados para registrar um chamado</div>
+      </div>
+      <button class="btn btn-sm" id="btnFecharNovoChamado">✕</button>
+    </div>
+    <div class="modalBody" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;">
+
+      <!-- Identificação -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div class="modal-sec-title">Identificação</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label class="f">
+            <span>Título <span style="color:var(--danger)">*</span></span>
+            <input id="ncTitulo" class="input" type="text" maxlength="255" placeholder="Ex: Bomba parou de funcionar">
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label class="f">
+              <span>Condomínio</span>
+              <select id="ncCondo" class="select"><option value="">Sem condomínio</option></select>
+            </label>
+            <label class="f">
+              <span>Categoria</span>
+              <select id="ncCategoria" class="select">
+                <option value="outro">Outro</option>
+                <option value="vazamento">Vazamento</option>
+                <option value="bomba_falha">Falha de bomba</option>
+                <option value="nivel_baixo">Nível baixo</option>
+                <option value="sem_agua">Sem água</option>
+                <option value="ruido">Ruído</option>
+                <option value="manutencao">Manutenção</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Serviço já autorizado ────────────────────────────────────────────
+           ⚠️ SÓ APARECE QUANDO O PRÉDIO ESCOLHIDO TEM ORÇAMENTO APROVADO
+           ESPERANDO. Bloco vazio permanente vira ruído em todo chamado que
+           não tem nada a ver com orçamento — e são a maioria. Preenchido por
+           `_ncCarregarOrcamentos`, a partir de
+           GET /admin/condominios/:id/orcamentos-pendentes. -->
+      <div id="ncOrcBloco" class="nc-orc" style="display:none;">
+        <div class="modal-sec-title">Serviço já autorizado</div>
+        <p class="nc-orc-lede">Este prédio tem orçamento aprovado esperando
+          execução. Amarrando o chamado a ele, o orçamento sai de "Aprovados"
+          sozinho quando o técnico fechar a O.S.</p>
+        <div id="ncOrcLista" class="nc-orc-lista"></div>
+        <input type="hidden" id="ncOrcamento" value="">
+      </div>
+
+      <!-- Prioridade ────────────────────────────────────────────────────────
+           ⚠️ OS QUATRO BOTÕES SÃO DESENHADOS PELO JS, a partir de
+           GET /chamados/prioridades. Eles eram markup fixo com o prazo escrito
+           à mão — "≤ 3h", "24-48h", "≤ 72h" —, e o "24-48h" prometia uma janela
+           que a cláusula 7 da minuta não dá (ela diz "até 48 horas"). Pior:
+           editar o SLA em Configurações não mudava o que estava escrito aqui.
+           O prazo agora vem de `sla_definicoes`, uma fonte só. -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div class="modal-sec-title">Prioridade</div>
+        <div class="nc-prio-grid" id="ncPrioGrid"></div>
+        <p class="nc-prio-nota" id="ncPrioNota" hidden></p>
+        <input type="hidden" id="ncPrioridade" value="p3">
+      </div>
+
+      <!-- Detalhes -->
+      <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div class="modal-sec-title">Detalhes</div>
+        <label class="f">
+          <span>Descrição <span style="color:var(--danger)">*</span></span>
+          <textarea id="ncDescricao" class="input" rows="4" maxlength="4000"
+            style="resize:vertical;font-size:13px;padding:8px 10px;"
+            placeholder="Descreva o problema em detalhes…"></textarea>
+        </label>
+      </div>
+
+    </div>
+    <!-- Rodapé -->
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);display:flex;align-items:center;gap:8px;">
+      <span id="ncMsg" style="font-size:12px;color:var(--muted);flex:1;"></span>
+      <button class="btn btn-sm" id="btnCancelarNovoChamado">Cancelar</button>
+      <button class="btn btn-sm btnAccent" id="btnSalvarNovoChamado">Criar chamado</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: editar condomínio ───────────────────────────────────────────────────
+     Janela de altura fixa com trilho (`.modalBox.is-split`), mesmo padrão do
+     modal de orçamento: só a coluna de campos rola. Antes o mapa era o último
+     bloco de um formulário de 14 campos em coluna única, e "Salvar alterações"
+     vinha depois dele — as duas coisas mais usadas da tela só apareciam
+     rolando até o fim. Agora mapa, status e ações moram no trilho e não saem
+     da vista.
+     A faixa de abas com uma aba só ("Dados") saiu; o pane e o `_editAtivarTab`
+     continuam no lugar para quando voltar a existir mais de uma. -->
+<div id="editOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox is-split edit-box">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle">Editar condomínio</div>
+        <div id="editSub" class="modalSub"> </div>
+      </div>
+      <button class="btn btn-sm" id="btnFecharModalEditar">Fechar</button>
+    </div>
+    <div class="modalBody">
+      <!-- ⚠️ `.edit-tab-pane` fica ENTRE o corpo e o layout: precisa ser flex
+           também, senão a cadeia de altura quebra aqui e o formulário vaza
+           pra fora da janela — mesma pegadinha do `#avModalBody` no modal de
+           orçamento. O CSS de `.edit-box .edit-tab-pane` cuida disso. -->
+      <div class="edit-tab-pane" data-edit-pane="dados">
+        <form id="editForm" class="modal-split">
+          <input type="hidden" id="editId" />
+
+          <!-- ── Coluna que rola: os campos ── -->
+          <div class="modal-split-form">
+            <div class="modal-sec-title">Identificação</div>
+            <div class="edit-grid">
+              <div class="f eg-3">
+                <span>CNPJ <em>preenche o resto</em></span>
+                <div class="edit-cnpj">
+                  <input id="editCnpj" class="cep-input" placeholder="00.000.000/0001-00" maxlength="18" />
+                  <button type="button" class="btn btn-sm" id="btnBuscarCnpjEdit">Buscar dados</button>
+                </div>
+                <div class="edit-field-msg" id="msgCnpjEdit"></div>
+              </div>
+              <label class="f eg-3"><span>Razão social <b>*</b></span><input id="editNome" required /></label>
+              <label class="f eg-6"><span>Nome fantasia <em>é este que o painel mostra</em></span><input id="editNomeFantasia" placeholder="Nome principal de exibição" /></label>
+            </div>
+
+            <div class="modal-sec-title">Endereço</div>
+            <div class="edit-grid">
+              <label class="f eg-2 cep-field">
+                <span>CEP <em>auto-preenche</em></span>
+                <input id="editCep" class="cep-input" maxlength="9" inputmode="numeric" placeholder="00000-000" data-cep-target-prefix="edit" />
+                <span class="cep-msg" id="editCepMsg"></span>
+              </label>
+              <label class="f eg-4"><span>Logradouro</span><input id="editEndereco" placeholder="Rua, número" /></label>
+              <label class="f eg-3"><span>Bairro</span><input id="editBairro" /></label>
+              <label class="f eg-2"><span>Cidade</span><input id="editCidade" /></label>
+              <label class="f eg-1"><span>UF</span><input id="editUf" maxlength="2" /></label>
+            </div>
+
+            <div class="modal-sec-title">Contato e operação</div>
+            <div class="edit-grid">
+              <label class="f eg-3"><span>Responsável</span><input id="editResponsavel" placeholder="Síndico ou responsável" /></label>
+              <label class="f eg-3"><span>Telefone</span><input id="editTelefone" placeholder="(11) 99999-9999" /></label>
+              <label class="f eg-4"><span>E-mail <em>destino dos orçamentos; separe vários por vírgula</em></span><input id="editEmail" type="text" placeholder="contato@condominio.com.br" /></label>
+              <label class="f eg-2"><span>Zona de atendimento</span><input id="editZona" placeholder="Ex: Zona Norte" /></label>
+              <label class="f eg-6"><span>Observações</span><input id="editObs" /></label>
+            </div>
+          </div>
+
+          <!-- ── Trilho: mapa, status e ações ── -->
+          <aside class="modal-rail edit-rail">
+            <div class="edit-status">
+              <label class="fCheck">
+                <input type="checkbox" id="editAtivo" />
+                <span>Ativo</span>
+              </label>
+              <p class="edit-status-hint">Desmarcado, o condomínio some do painel e o login do cliente para de funcionar.</p>
+            </div>
+
+            <div class="edit-loc">
+              <div class="modal-sec-title edit-loc-title">
+                <span>Localização</span>
+                <button type="button" class="btn btn-sm" data-action="buscar-coords" data-prefix="edit">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  Buscar pelo endereço
+                </button>
+              </div>
+              <div class="mini-mapa" id="editMiniMapa"></div>
+              <div class="loc-hint">Arraste o pino para ajustar.</div>
+              <div class="edit-coords">
+                <label class="f"><span>Latitude</span><input id="editLat" type="number" step="any" /></label>
+                <label class="f"><span>Longitude</span><input id="editLng" type="number" step="any" /></label>
+              </div>
+              <div class="loc-msg" id="editLocMsg"></div>
+            </div>
+
+            <div class="edit-acoes">
+              <div class="edit-msg" id="editMsg"></div>
+              <button class="btn btnAccent" type="submit">Salvar alterações</button>
+              <button class="btn" type="button" id="btnCancelarEdicao">Cancelar</button>
+            </div>
+
+            <div class="edit-danger master-only-hide">
+              <button class="modalFoot-danger" type="button" id="btnHardDeleteNoEdit">Excluir permanentemente</button>
+            </div>
+          </aside>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: nova device key -->
+
+<!-- Modal: editar reservatório -->
+<div id="editResOverlay" class="modalOverlay" style="display:none;">
+  <!-- Largura fixada em 720px: com os 1100px padrão do .modalBox, sete campos
+       (a maioria numérica) esticavam para ~520px cada — "ADC zero" ocupava
+       meia tela. -->
+  <div class="modalBox" style="max-width:720px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle">Editar reservatório</div>
+        <div id="editResSub" class="modalSub"> </div>
+      </div>
+      <button class="btn btn-sm" id="btnFecharModalEditarRes">Fechar</button>
+    </div>
+    <div class="modalBody">
+      <div class="modalTools">
+        <div class="modalCount" id="editResMsg"></div>
+      </div>
+      <form id="editResForm" class="formGrid">
+        <input type="hidden" id="editResId" />
+        <div class="modal-sec-title" style="grid-column:1/-1;">Identificação</div>
+        <label class="f"><span>Nome *</span><input id="editResNome" required /></label>
+        <label class="f"><span>Tipo *</span>
+          <select id="editResTipo" class="select">
+            <option value="superior">Superior</option>
+            <option value="inferior">Inferior</option>
+            <option value="outro">Outro</option>
+          </select>
+        </label>
+        <label class="fCheck" style="grid-column:1/-1;">
+          <input type="checkbox" id="editResAtivo" />
+          <span>Ativo</span>
+        </label>
+
+        <!-- Os dois rótulos abaixo tinham estilo inline em caixa baixa, sem
+             régua — destoavam do resto do sistema. (Evitar escrever nomes de
+             tag entre sinais de menor/maior dentro de comentário: as
+             ferramentas que contam tags por regex leem como tag real.) -->
+        <div class="modal-sec-title" style="grid-column:1/-1;">Calibração da sonda</div>
+        <label class="f"><span>Altura total (m)</span><input id="editResAlturaTotalM" type="number" step="0.01" min="0" /></label>
+        <label class="f"><span>ADC zero</span><input id="editResAdcZero" type="number" step="1" min="0" /></label>
+        <label class="f"><span>ADC por metro</span><input id="editResAdcPorMetro" type="number" step="1" min="1" /></label>
+        <label class="f"><span>Faixa sonda (m)</span><input id="editResFaixaSondaM" type="number" step="0.01" min="0" /></label>
+
+        <div class="modal-sec-title" style="grid-column:1/-1;">Detecção da bomba</div>
+        <label class="f" style="grid-column:1/-1;"><span>Limiar do sensor (RMS)</span><input id="editResLimiarBomba" type="number" step="1" min="0" placeholder="Ex: 50" /></label>
+
+        <!-- A chave nova aparece AQUI, no mesmo modal do botão que a gera.
+             Antes abria um segundo modal (deviceKeyOverlay) que, por ter o
+             mesmo z-index e vir antes no HTML, nascia atrás deste — o usuário
+             via o painel travado e nenhuma chave. Nasce escondido; quem mostra
+             é mostrarDeviceKeyModal(). -->
+        <div id="editResKeyBloco" style="grid-column:1/-1;display:none;">
+          <div class="modal-sec-title">Nova chave gerada</div>
+          <p class="modal-alerta">Salve esta chave agora — ela não será exibida novamente.</p>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+            <input id="deviceKeyValue" class="input" readonly
+                   style="font-family:ui-monospace,Consolas,monospace;font-size:13px;flex:1;cursor:text;" />
+            <button class="btn btnAccent" type="button" id="btnCopiarDeviceKey"
+                    style="white-space:nowrap;min-width:80px;">Copiar</button>
+          </div>
+          <div id="deviceKeyCopiadoMsg" style="display:none;font-size:12px;color:var(--ok);font-weight:600;margin-top:8px;">✓ Copiado!</div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Os botões viviam soltos dentro do corpo (`.formActions`), então este
+         era o único modal do sistema sem rodapé fixo.
+         "Nova chave" invalida a chave atual e o ESP32 **para de enviar** até
+         ser regravado — consequência que só existia num `title=`, invisível.
+         Vai para a esquerda, discreta, com o aviso ao lado. -->
+    <div class="modalFoot">
+      <button class="modalFoot-danger" type="button" id="btnRegenKeyRes"
+              form="editResForm">Gerar nova chave (device key)</button>
+      <span class="modalFoot-msg">o ESP32 para de enviar até ser regravado</span>
+      <div class="modalFoot-actions">
+        <button class="btn btn-sm" type="button" id="btnCancelarEdicaoRes">Cancelar</button>
+        <button class="btn btnAccent btn-sm" type="submit" form="editResForm">Salvar alterações</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MOBILE TOP BAR ===== -->
+<header class="mob-topbar">
+  <img src="/static/login-logo.png" class="mob-top-logo" alt="GENERAL" />
+  <span class="mob-top-title" id="topbarTitle">Dashboard</span>
+  <button class="mob-top-btn" id="mobBtnOffline" aria-label="Verificar Offline" title="Verificar Offline">
+    <!-- wi-fi off: mesma arte do ICON_WIFI_OFF em admin.js -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h.01"/>
+      <path d="M8.5 16.43a5 5 0 0 1 7 0"/>
+      <path d="M5 12.86a10 10 0 0 1 5.17-2.69"/>
+      <path d="M19 12.86a10 10 0 0 0-2.01-1.52"/>
+      <path d="M2 8.82a15 15 0 0 1 4.18-2.64"/>
+      <path d="M22 8.82a15 15 0 0 0-11.29-3.76"/>
+      <path d="m2 2 20 20"/>
+    </svg>
+  </button>
+  <button class="mob-top-btn" id="mobBtnAtualizar" aria-label="Atualizar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+  </button>
+</header>
+
+<!-- ===== MOBILE BOTTOM NAV ===== -->
+<nav class="mob-nav">
+  <button class="mob-nav-item active" data-mob-section="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+    </svg>
+    <span>Dashboard</span>
+  </button>
+  <button class="mob-nav-item" data-mob-section="alertas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+    <span>Alertas</span>
+    <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
+  </button>
+  <button class="mob-nav-item" data-mob-section="cadastros">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    <span>Cadastros</span>
+  </button>
+  <button class="mob-nav-item" data-mob-section="chamados">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+    </svg>
+    <span>Chamados</span>
+    <span class="mob-nav-badge" id="mobBadgeChamados"></span>
+  </button>
+  <button class="mob-nav-item" id="mobBtnSair">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+    <span>Sair</span>
+  </button>
+</nav>
+
+<script src="/static/apexcharts.min.js"></script>
+<script src="/static/leaflet.js"></script>
+<!-- ⚠️ SEM `defer`, e ANTES do admin.js: ele é `defer` e chama
+     `CondoPicker.montar` na abertura do modal. Mesma razão do leaflet. -->
+<script src="/static/condo-picker.js?v=2"></script>
+<script src="/static/inatividade.js?v=10" defer></script>
+<!-- Modal de edição/criação de orçamento avulso -->
+<!-- ⚠️ `aria-labelledby` aponta para o número do orçamento, que o JS
+     renderiza no corpo. Sem ele o leitor de tela anunciava só "diálogo" e
+     parava — o documento não tinha nome. -->
+<div id="avModal" class="av-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="avModalTitulo">
+  <div class="av-modal-backdrop" id="avModalBackdrop"></div>
+  <div class="av-modal-dialog">
+    <div id="avModalBody"></div>
+  </div>
+</div>
+
+<!-- Modal: novo/editar contrato do condomínio -->
+<div id="ctrOverlay" class="modalOverlay" style="display:none;">
+  <!-- Largura 640 → 1000 e corpo em duas colunas: eram 12+ campos empilhados
+       numa coluna estreita, rolando, numa tela de 1440. Mesmo problema (e
+       mesma correção) do modal de orçamento. Todos os ids preservados — o
+       JS de contratos lê 69 deles por getElementById. -->
+  <div class="modalBox" style="max-width:1000px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle" id="ctrTitulo">Novo contrato</div>
+        <div class="modalSub" id="ctrSub"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="ctrStatusBadge" style="display:none;"></span>
+        <button class="btn btn-sm" id="ctrBtnFechar">Fechar</button>
+      </div>
+    </div>
+    <div class="modalBody">
+      <input type="hidden" id="ctrId" />
+      <input type="hidden" id="ctrCondoId" />
+
+      <div class="modal-2col">
+      <div class="modal-col">
+
+      <div class="modal-sec-title">Dados do contrato</div>
+      <div class="modal-fields-2">
+        <label class="f">
+          <span>Tipo de serviço <span style="color:var(--danger)">*</span></span>
+          <select id="ctrServicoTipo" class="select">
+            <option value="bombas">Bombas hidráulicas</option>
+            <option value="piscina">Piscina</option>
+            <option value="dedetizacao">Dedetização</option>
+            <option value="desratizacao">Desratização</option>
+          </select>
+        </label>
+        <label class="f" id="ctrQtdBombasWrap">
+          <span>Qtd. de bombas</span>
+          <input id="ctrQtdBombas" class="input" type="number" min="1" max="100" placeholder="ex: 4" />
+        </label>
+      </div>
+
+      <div class="modal-fields-2">
+        <label class="f">
+          <span>Periodicidade <span style="color:var(--danger)">*</span></span>
+          <select id="ctrTipo" class="select">
+            <option value="mensal">Mensal</option>
+            <option value="semestral">Semestral</option>
+            <option value="anual">Anual</option>
+          </select>
+        </label>
+        <label class="f">
+          <span>Valor mensal (R$) <span style="color:var(--danger)">*</span></span>
+          <input id="ctrValor" class="input" type="number" min="0" step="0.01" placeholder="0,00" inputmode="decimal" />
+        </label>
+      </div>
+
+      <div class="modal-fields-2">
+        <label class="f">
+          <span>Início <span style="color:var(--danger)">*</span></span>
+          <input id="ctrInicio" class="input" type="date" />
+        </label>
+        <label class="f">
+          <span>Fim <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
+          <input id="ctrFim" class="input" type="date" />
+        </label>
+      </div>
+
+      <div class="modal-fields-2">
+        <label class="f">
+          <span>Forma de pagamento</span>
+          <select id="ctrFormaPagto" class="select">
+            <option value="">—</option>
+            <option value="pix">PIX</option>
+            <option value="boleto">Boleto</option>
+            <option value="transferencia">Transferência</option>
+            <option value="cartao">Cartão</option>
+            <option value="outro">Outro</option>
+          </select>
+        </label>
+        <label class="f">
+          <span>Dia do vencimento <span style="font-size:10px;color:var(--muted);font-weight:400;">(1–28)</span></span>
+          <input id="ctrDiaVenc" class="input" type="number" min="1" max="28" placeholder="ex: 10" />
+        </label>
+      </div>
+
+      <div class="modal-fields-2">
+        <label class="f">
+          <span>Número do contrato <span style="font-size:10px;color:var(--muted);font-weight:400;">(opcional)</span></span>
+          <input id="ctrNumero" class="input" type="text" maxlength="40" placeholder="ex: CT-2026-0001" />
+        </label>
+        <label class="check-field" style="align-self:flex-end;padding-bottom:10px;">
+          <input type="checkbox" id="ctrRenovAuto" />
+          Renovação automática
+        </label>
+      </div>
+
+      </div><!-- /modal-col esquerda -->
+
+      <div class="modal-col">
+
+      <!-- Os dois textos vieram da coluna esquerda: lá ela ficava ~380px mais
+           alta que esta, e a divisão passa a ser "termos comerciais" à
+           esquerda, "conteúdo e partes" à direita. -->
+      <div>
+        <div class="modal-sec-title">Conteúdo do contrato</div>
+        <label class="f" style="margin-bottom:12px;">
+          <span>Descrição dos serviços <span style="font-size:10px;color:var(--muted);font-weight:400;">(aparece no contrato)</span></span>
+          <textarea id="ctrDescServico" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Ex: Manutenção preventiva e corretiva de 8 bombas de recalque, 2 de incêndio…"></textarea>
+        </label>
+        <label class="f">
+          <span>Observações internas</span>
+          <textarea id="ctrObs" class="input" rows="2" maxlength="4000" style="resize:vertical;font-size:13px;padding:8px 10px;" placeholder="Notas internas, não aparecem no contrato…"></textarea>
+        </label>
+      </div>
+
+      <!-- Signatários -->
+      <div>
+        <div class="modal-sec-title">Signatários para assinatura digital</div>
+        <div class="modal-fields-2">
+          <label class="f">
+            <span>Representante do cliente (nome)</span>
+            <input id="ctrSignNome" class="input" type="text" maxlength="200" placeholder="Nome do responsável" />
+          </label>
+          <label class="f">
+            <span>E-mail do representante <span style="color:var(--danger)">*</span></span>
+            <input id="ctrSignEmail" class="input" type="email" maxlength="200" placeholder="email@condominio.com.br" />
+          </label>
+          <label class="f">
+            <span>Representante General Bombas</span>
+            <input id="ctrSignGeralNome" class="input" type="text" maxlength="200" placeholder="Nome do representante" />
+          </label>
+          <label class="f">
+            <span>E-mail General Bombas</span>
+            <input id="ctrSignGeralEmail" class="input" type="email" maxlength="200" placeholder="comercial@generalbombas.com" />
+          </label>
+        </div>
+        <!-- "Enviar para assinatura" dispara e-mail para pessoas reais e está
+             escondido dentro de "Mais ações". Este bloco diz PRA QUEM vai,
+             antes do clique. Preenchido por _ctrAtualizarDestinatarios(). -->
+        <div class="modal-consequencia" id="ctrEnvioDest"></div>
+      </div>
+
+      <!-- Painel de assinatura (só em edição com zapsign_status) -->
+      <div id="ctrAssinaturaPainel" style="display:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;background:rgba(255,255,255,.03);">
+        <div class="modal-sec-title">Assinatura digital</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div id="ctrUrlClienteRow" style="display:none;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Link do cliente</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="ctrUrlCliente" class="input" style="font-size:11px;" readonly />
+              <button class="btn btn-sm" data-ctr-copy="ctrUrlCliente">Copiar</button>
+            </div>
+          </div>
+          <div id="ctrUrlGeralRow" style="display:none;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Link General Bombas</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="ctrUrlGeral" class="input" style="font-size:11px;" readonly />
+              <button class="btn btn-sm" data-ctr-copy="ctrUrlGeral">Copiar</button>
+            </div>
+          </div>
+          <div id="ctrDocUrlRow" style="display:none;">
+            <a id="ctrDocUrlLink" class="btn btn-sm btnAccent" href="#" target="_blank">⬇ Baixar contrato assinado</a>
+          </div>
+        </div>
+      </div>
+
+      </div><!-- /modal-col direita -->
+      </div><!-- /modal-2col -->
+    </div>
+
+    <div class="modalFoot">
+      <span id="ctrMsg" class="modalFoot-msg"></span>
+      <div class="modalFoot-actions">
+        <div class="ctr-more-wrap" id="ctrMoreWrap">
+          <button class="btn btn-sm" id="ctrBtnMais" type="button" style="display:none;">Mais ações ⌄</button>
+          <div class="ctr-more-menu" id="ctrMoreMenu">
+            <button class="ctr-more-item" id="ctrBtnPdf" style="display:none;">⬇ Baixar PDF</button>
+            <button class="ctr-more-item" id="ctrBtnAtualizarStatus" style="display:none;">↻ Atualizar status</button>
+            <button class="ctr-more-item" id="ctrBtnEnviarAssinatura" style="display:none;">✉ Enviar para assinatura</button>
+            <div class="ctr-more-sep"></div>
+            <button class="ctr-more-item ctr-more-item--danger" id="ctrBtnEncerrar" style="display:none;">Inativar contrato</button>
+            <button class="ctr-more-item ctr-more-item--danger" id="ctrBtnExcluir" style="display:none;">Excluir contrato</button>
+          </div>
+        </div>
+        <button class="btn btn-sm" id="ctrBtnCancelar">Cancelar</button>
+        <button class="btn btn-sm btnAccent" id="ctrBtnSalvar">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: visualizar contrato assinado (somente leitura) ═══ -->
+<div id="ctrViewerOverlay" class="modalOverlay" style="display:none;">
+  <div class="modalBox" style="max-width:560px;">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle" id="ctrViewerTitulo">Contrato</div>
+        <div class="modalSub" id="ctrViewerSub"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="ctrViewerBadge" style="display:none;"></span>
+        <button class="btn btn-sm" id="ctrViewerBtnFechar">Fechar</button>
+      </div>
+    </div>
+    <div class="modalBody" style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Grid de dados do contrato -->
+      <div id="ctrViewerGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px;"></div>
+
+      <!-- Descrição dos serviços -->
+      <div id="ctrViewerDescWrap" style="display:none;">
+        <div class="modal-sec-title">Descrição dos serviços</div>
+        <div id="ctrViewerDesc" style="font-size:13px;color:var(--text);line-height:1.55;white-space:pre-wrap;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;"></div>
+      </div>
+
+      <!-- Assinatura digital -->
+      <div id="ctrViewerSignWrap" style="display:none;border-top:1px solid var(--border);padding-top:14px;">
+        <div class="modal-sec-title">Assinatura digital</div>
+        <div id="ctrViewerSignInfo" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
+      </div>
+
+      <!-- Rodapé -->
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:14px;">
+        <span id="ctrViewerMsg" style="font-size:12px;color:var(--muted);flex:1;"></span>
+        <a id="ctrViewerDownload" class="btn btn-sm btnAccent" href="#" target="_blank" style="display:none;">⬇ Baixar contrato assinado</a>
+        <button class="btn btn-sm" id="ctrViewerBtnPdf">⬇ PDF</button>
+        <button class="btn btn-sm" id="ctrViewerBtnFechar2">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<script src="/static/legado/admin.js?v=365" defer></script>
+<script src="/static/mob-sidebar.js" defer></script>
+<script src="/static/register-sw.js?v=51" defer></script>
+</body>
+</html>

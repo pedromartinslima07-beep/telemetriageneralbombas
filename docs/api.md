@@ -88,6 +88,7 @@ segue no comportamento padrão do Express.
 |---|---|---|
 | POST | `/auth/registrar` | masterAdmin (cadastra usuário) |
 | GET | `/auth/me` | autenticado (dados do usuário logado) |
+| GET | `/auth/painel` | autenticado. `{ painel: "novo" \| "antigo" }` e grava/apaga o cookie `gb_painel` que escolhe a página do `/admin/painel` (ver [painel-novo.md](modulos/painel-novo.md)) |
 | POST | `/auth/trocar-senha` | autenticado |
 | GET | `/auth/dispositivos` | autenticado (lista trusted devices) |
 | DELETE | `/auth/dispositivos/:id` · `/auth/dispositivos` | autenticado (revoga 1 / todos) |

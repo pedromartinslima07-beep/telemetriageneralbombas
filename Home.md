@@ -60,6 +60,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`redesenho-admin.md`](docs/modulos/redesenho-admin.md) — 📋 plano aprovado: o condomínio como eixo do admin, menu de 15 para 9, fundo claro `#fluxo`
 - [`agenda.md`](docs/modulos/agenda.md) — agenda da empresa: compromissos, retornos, contratos, preventivas e o faturamento dos contratos do Omie (só leitura) `#fluxo`
 - [`omie-integracao.md`](docs/modulos/omie-integracao.md) — plano do que trazer do Omie: contratos ligados ao prédio, faturamento do dia 1, contas a receber (marcar à mão e conferir pelo arquivo do banco), a pagar, cadastro e caixa `#fluxo`
+- [`painel-novo.md`](docs/modulos/painel-novo.md) — o painel novo e a emissão pelo Omie só para os e-mails da `PAINEL_NOVO`; os outros logins veem a cópia congelada do admin de antes `#fluxo`
 - [`painel-operador.md`](docs/modulos/painel-operador.md) — painel do turno: a fila ordenada pelo SLA que estoura primeiro, com a evidência dentro do item `#fluxo`
 
 ## ⚙️ Convenções
