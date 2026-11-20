@@ -18227,3 +18227,13 @@ mesma ficha que o QR abre). Gerar e Imprimir etiquetas no cabeçalho. O que se
 faz com a bomba continua na ficha do QR. Nenhum endpoint novo.
 `admin.css?v=354`, `admin-eq-lista.js?v=1`. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Redesenho, etapa 11: Colaboradores no molde (2026-11-20)
+
+A lista de Colaboradores entra no molde (`admin-colab-lista.js`): chips
+Ativos · Técnicos · Escritório · Inativos · Todos, colunas Nome · Função ·
+Agora (GPS e disponível/ocupado) · Chamados abertos, e a pessoa no painel ao
+lado com os chamados abertos com ela, contato e documentos. As ações são os
+`data-action` de sempre. O Ctrl+K abre a pessoa direto no painel. Nenhum
+endpoint novo. `admin.css?v=355`, `admin-colab-lista.js?v=1`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).

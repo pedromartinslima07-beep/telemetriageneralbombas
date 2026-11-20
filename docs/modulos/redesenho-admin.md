@@ -2064,6 +2064,43 @@ Versões: `admin.css?v=354`, `admin-eq-lista.js?v=1`. Nenhum endpoint novo.
 
 ---
 
+## Etapa 11 no código: Colaboradores no molde (20/11/2026)
+
+Pedido do Pedro: *"segue"*. Sexta tela no molde
+(`public/admin-colab-lista.js`, novo), com o painel ao lado.
+
+| Antes | Agora |
+|---|---|
+| Abas Todos · Técnico · Adm · Gestor · TI | Chips **Ativos** (padrão) · **Técnicos** · **Escritório** (adm, gestor, TI) · Inativos (só se houver) · Todos |
+| Colunas Nome · Cargo · Especialidade · Status (disponível/ocupado) | **Nome** (foto ou sigla, telefone) · **Função** (com a especialidade) · **Agora** (técnico: online, sem sinal ou offline pelo GPS do mapa, e disponível/ocupado) · **Chamados abertos** |
+| Painel antigo com selos de estilo próprio | Painel do molde: o agora, os **chamados abertos com ele** (link para a página de cada um) e os resolvidos, contato (com "login do app: não tem — crie em Editar"), documentos e observações |
+| — | Frase: pessoas, técnicos (quantos online e disponíveis) e chamados abertos com eles; busca sem acento; Exportar; ordem pela coluna |
+
+Ações no painel: **Editar**, **Marcar ocupado/disponível**, **Ver na
+agenda** e **Excluir**, mais **Novo colaborador** no cabeçalho — os mesmos
+`data-action` de sempre (`novo-tecnico`, `editar-tecnico`, `toggle-tec-disp`,
+`excluir-tecnico`), tratados pela delegação do body no admin.js. Duplo
+clique abre o Editar. O **Ctrl+K** ("Pessoas") agora abre a tela com a pessoa
+já no painel (`window.GBColab.abrir`); antes só abria a tela.
+
+⚠️ **Nenhuma regra nova, nenhuma rota nova.** `_tecnicosData`,
+`_tecLocs`/`_tecStale`, `_tecCargoLabel`, `_tecIniciais`. O layout antigo
+fica escondido (`.tec-antigo[hidden]`); o embrulho de `renderTecnicos`
+redesenha a tela nova.
+
+### Testado (banco de teste, 20/11/2026)
+
+Na tela aberta, sem erro e rede toda 200: as visões (Escritório só com o
+gestor), Editar abrindo o modal de sempre, o chamado do painel abrindo
+`#/chamados/1181` e o voltar devolvendo à lista, o Ctrl+K abrindo a Marina no
+painel, e **Marcar ocupado e de volta disponível de verdade** (a linha e o
+botão mudam juntos; o banco ficou como estava). Celular sem rolagem lateral.
+**Não feito:** criar e excluir (as funções de sempre).
+
+Versões: `admin.css?v=355`, `admin-colab-lista.js?v=1`, `admin-busca.js?v=4`.
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -2085,6 +2122,7 @@ aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
 | 8 | **Condomínios** no molde e a **página do prédio em 3 colunas** (20/11) | `admin-condo-lista.js`, `admin-condominio.js` |
 | 9 | **Preventivas** no molde, com o mês no cabeçalho e a tira dos 12 meses (20/11) | `admin-prev-lista.js` |
 | 10 | **Equipamentos** no molde, com a ficha no painel ao lado (20/11) | `admin-eq-lista.js` |
+| 11 | **Colaboradores** no molde (20/11) | `admin-colab-lista.js` |
 
 Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
 abrindo por endereço, e os blocos movidos voltam para elas.
@@ -2096,7 +2134,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
    ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11, rotas paginadas) (lista única, "solicitado" vira
    estado, termina no aprovado) · ~~Condomínios~~ (✅ 20/11, lista + página do prédio
    em 3 colunas no lugar das 10 abas) · ~~Preventivas~~ (✅ 20/11, com a tira dos 12 meses) ·
-   ~~Equipamentos~~ (✅ 20/11) · Colaboradores · Configurações (menu à esquerda). Molde:
+   ~~Equipamentos~~ (✅ 20/11) · ~~Colaboradores~~ (✅ 20/11) · Configurações (menu à esquerda). Molde:
    chips, busca, Exportar, seleção em lote, ordem pela coluna, paginação,
    painel ao lado.
 2. **Relatórios:** o Pedro quer um dashboard; perguntar o que ele deve

@@ -113,7 +113,8 @@
     for (const t of arr(col.tecnicos())) {
       if (t.ativo === false) continue;
       out.push({ g: "Pessoas", ic: "user", t: t.nome, s: (typeof _tecCargoLabel !== "undefined" && _tecCargoLabel[t.cargo]) || t.cargo || "",
-        extra: `${t.email || ""} ${t.telefone || ""}`, abrir: () => { showSection("tecnicos"); } });
+        // Abre a tela já com a pessoa no painel (admin-colab-lista.js, 20/11/2026).
+        extra: `${t.email || ""} ${t.telefone || ""}`, abrir: () => { if (window.GBColab) window.GBColab.abrir(t.id); else showSection("tecnicos"); } });
     }
     // Telas e ações: só as que o perfil vê.
     const vis = s => typeof _navSecaoVisivel !== "function" || _navSecaoVisivel(s);

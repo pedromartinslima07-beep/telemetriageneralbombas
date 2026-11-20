@@ -134,8 +134,8 @@ com a nota livre, o aviso aos síndicos em lote e a tira dos 12 meses da
 preventiva (migration 095). **Etapa 9 (20/11):** **Preventivas** no molde
 (o mês no cabeçalho, a zona como coluna, a tira dos 12 meses, a preventiva no
 painel ao lado). **Etapa 10 (20/11):** **Equipamentos** no molde (a ficha do
-QR lida no painel ao lado; o que se faz com a bomba segue na ficha). As
-outras listas entram no mesmo molde.
+QR lida no painel ao lado; o que se faz com a bomba segue na ficha).
+**Etapa 11 (20/11):** **Colaboradores** no molde. Falta Configurações.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma
