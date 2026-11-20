@@ -18285,3 +18285,32 @@ gravado no Omie. Rotas `GET /contratos/omie`, `PUT`/`DELETE
 /contratos/omie/clientes/:codigo/condominio`. `admin-omie-contratos.js?v=2`,
 `admin-condo-lista.js?v=8`, `admin-condominio.js?v=14`, `admin.css?v=366`.
 Ver [omie-integracao.md](modulos/omie-integracao.md).
+
+## Omie, fase 2: o lote do faturamento dos contratos, com a confirmação do Pedro (2026-11-20)
+
+Pedido do Pedro: a cobrança vai acompanhar só o que o sistema emitir, então a
+emissão veio antes. O painel do faturamento do mês virou o **lote**: o
+sistema monta quem entra, quem fica de fora e por quê, e quem já tem nota
+pela tela do Omie; o Pedro marca quem vai, tira quem quiser e confirma. **O
+sistema nunca fatura sozinho.** O dia em que o lote é proposto é
+configurável (padrão 1, ou o próximo dia útil) e muda no próprio painel.
+Travas contra nota em dobro: uma linha por contrato no mês, a nota do mês na
+cópia, a lista de pendentes do próprio Omie antes de enviar, lista e total
+iguais aos da tela, e queda sem resposta que não vai de novo sozinha. A
+sincronização devolve a nota e o boleto ao item. Levantado pela API (só
+leitura): os 81 contratos ativos cobram no Sicredi e o faturamento era feito
+à mão em lote (79 em 01/10, 70 em 03/11). Migration **097**; exige
+`OMIE_EMISSAO=1`. Rotas `/agenda/faturamento/lote*`.
+`admin-faturamento-lote.js?v=2`, `admin-agenda.js?v=7`, `admin.css?v=371`.
+Ver [omie-integracao.md](modulos/omie-integracao.md).
+
+## Omie, fase 2: aviso de nota sem boleto e "Gerar boleto" (2026-11-20)
+
+Pedido do Pedro. O Omie costuma gerar o boleto junto com a nota (226 de 239
+títulos de out–nov), mas não é garantido pela API. O lote agora avisa "N
+notas sem boleto" e, na linha do faturado, mostra "Sem boleto no Omie" com o
+botão **"Gerar boleto"**, que pede confirmação, pergunta ao Omie se o título
+já tem boleto e só então gera (`GerarBoleto`). Migration 097 ganhou
+`boleto_gerado` e `boleto_pedido_em`; rota `POST
+/agenda/faturamento/lote/boleto`. `admin-faturamento-lote.js?v=3`,
+`admin.css?v=372`.

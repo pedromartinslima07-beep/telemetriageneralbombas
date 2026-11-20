@@ -10816,6 +10816,62 @@ a.os-link { color: var(--text); }
 .ag-fat-pe { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .ag-fat-sinc { font-size: 12px; color: var(--tinta-2); }
 
+/* o lote do faturamento (Omie, fase 2: admin-faturamento-lote.js) */
+.fl.ag-fat { width: min(920px, 96vw); max-height: 92vh; display: flex; flex-direction: column; }
+.fl .modalBody { flex: 1 1 auto; min-height: 0; }
+.fl .modalSub { line-height: 1.5; }
+.fl-link { background: none; border: 0; padding: 0; font: inherit; color: var(--tinta); text-decoration: underline; cursor: pointer; }
+.fl-dia { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fl-dia input { width: 56px; padding: 4px 6px; font: inherit; border: 1px solid var(--fio-esc); border-radius: 6px; background: #fff; color: var(--tinta); }
+.fl-aviso { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: #fff; box-shadow: inset 3px 0 0 var(--atencao-t), inset 0 0 0 1px var(--fio-esc); font-size: 13px; color: var(--atencao-t); }
+.fl-aviso.is-risco { color: var(--risco-t); box-shadow: inset 3px 0 0 var(--risco-t), inset 0 0 0 1px var(--fio-esc); }
+.fl-aviso.is-ok { color: var(--ok-t); box-shadow: inset 3px 0 0 var(--ok-t), inset 0 0 0 1px var(--fio-esc); }
+.fl-bt-boleto { margin-top: 6px; }
+.fl-faixa { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.fl-faixa > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: #fff; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--fio-esc); }
+.fl-faixa span { font-size: 11.5px; color: var(--tinta-2); }
+.fl-faixa b { font-size: 18px; color: var(--tinta); }
+.fl-faixa small { font-size: 11.5px; color: var(--tinta-2); }
+.fl-rodando { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--tinta); color: #fff; font-size: 13px; font-weight: 600; }
+.fl-h { margin: 16px 0 6px; font-size: 13px; font-weight: 700; color: var(--tinta); }
+.fl-h.is-risco { color: var(--risco-t); }
+.fl-h.is-ok { color: var(--ok-t); }
+.fl-det > summary { cursor: pointer; }
+.fl-det[open] > summary { margin-bottom: 6px; }
+.fl-exp { margin: 0 0 8px; font-size: 12.5px; color: var(--tinta-2); line-height: 1.5; }
+.fl-vazio { margin: 4px 0; font-size: 13px; color: var(--tinta-2); }
+.fl-tab { width: 100%; border-collapse: collapse; font-size: 12.5px; background: #fff; border-radius: 8px; overflow: hidden; }
+.fl-tab th, .fl-tab td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--fio-esc); color: var(--tinta); }
+.fl-tab th { font-size: 11.5px; font-weight: 600; color: var(--tinta-2); }
+.fl-tab tr.is-erro td { background: var(--chapa-cl); }
+.fl-tab .fl-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fl-tab .fl-ck { width: 28px; }
+.fl-tab .fl-acao { width: 1%; white-space: nowrap; text-align: right; }
+.fl-nome { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--tinta); text-align: left; cursor: pointer; }
+.fl-nome:hover { text-decoration: underline; }
+.fl-sub { display: block; font-size: 11.5px; color: var(--tinta-2); }
+.fl-msg { display: block; margin-top: 2px; font-size: 11.5px; color: var(--risco-t); }
+.fl-pe, .fl-confirma { position: sticky; bottom: -18px; margin: 16px -20px -18px; padding: 12px 20px; background: var(--chapa-es); border-top: 1px solid var(--fio-esc); }
+.fl-pe { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fl-sinc { font-size: 12px; color: var(--tinta-2); }
+.fl-bts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.fl-confirma p { margin: 0 0 6px; font-size: 13px; color: var(--tinta); }
+.fl .modalHead > div { min-width: 0; }
+.fl .modalHead > .btn { flex-shrink: 0; }
+.fl-tab td { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .fl-faixa { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* a linha empilha: o nome em cima, valor e botão embaixo */
+  /* a regra global "table { min-width: 520px }" do celular empurrava a linha para fora */
+  .fl-tab, .fl-tab tbody { display: block; width: 100%; min-width: 0; }
+  .fl-tab thead { display: none; }
+  .fl-tab tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 10px; border-bottom: 1px solid var(--fio-esc); }
+  .fl-tab td { display: block; padding: 0; border: 0; }
+  .fl-tab td:not(.fl-ck):not(.fl-num):not(.fl-acao) { flex: 1 1 calc(100% - 40px); min-width: 0; }
+  .fl-tab .fl-num { margin-left: auto; }
+  .fl-tab .fl-acao { width: auto; }
+}
+
 @media (max-width: 1100px) {
   .ag-semana { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

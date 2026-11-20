@@ -749,6 +749,36 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 097 — o lote do faturamento dos contratos (20/11/2026)
+
+Integração com o Omie, fase 2 ([omie-integracao.md](modulos/omie-integracao.md)).
+
+**`omie_faturamento_itens`** — **uma linha por (competência, contrato)**
+(`UNIQUE`), que é o que impede faturar o mesmo contrato duas vezes no mês. A
+linha nasce quando o Pedro tira o contrato do lote ou quando o envio começa;
+quem só "entra" no lote não tem linha.
+
+| Coluna | Tipo | O quê |
+|---|---|---|
+| `competencia` | VARCHAR(7) | `AAAA-MM` |
+| `omie_contrato` | BIGINT | `omie_contratos.omie_codigo` (sem FK: a cópia é refeita) |
+| `status` | VARCHAR(10) | `tirado` · `enviando` · `faturado` · `erro` (o Omie recusou; pode ir de novo) · `incerto` (caiu sem resposta; não vai de novo sozinho) |
+| `valor` / `conta_corrente` | NUMERIC / BIGINT | o que foi enviado |
+| `omie_os` | BIGINT | `nCodOS` devolvido pelo `FaturarContrato` |
+| `omie_status` / `omie_mensagem` | VARCHAR(40) / TEXT | `cCodStatus` ou o faultcode, e a mensagem |
+| `nfse_numero` | VARCHAR(30) | volta pela sincronização (nota com a mesma OS) |
+| `titulo_omie`, `titulo_vencimento`, `titulo_valor`, `titulo_status` | | a conta a receber, pela nota |
+| `boleto_numero` / `boleto_bancario` | VARCHAR(30) | `cNumBoleto` / `cNumBancario` (o nosso número) |
+| `boleto_gerado` | BOOLEAN | o título tem boleto (`boleto.cGerado = S`); `FALSE` = o painel avisa "sem boleto" |
+| `boleto_pedido_em` | TIMESTAMPTZ | quando o sistema pediu o `GerarBoleto`; trava o pedido em dobro por 10 min sem resposta |
+| `por_usuario` | FK usuarios, SET NULL | quem confirmou ou tirou |
+| `enviado_em` | TIMESTAMPTZ | |
+
+E duas colunas na cópia: **`omie_contratos.conta_corrente`** (`infAdic.nCodCC`,
+a conta em que o contrato cobra; o lote só leva Sicredi `5960922842` e
+Bradesco `6109178168`) e **`omie_contrato_notas.omie_os`**
+(`OrdemServico.nCodigoOS`, indexada: é por ela que a nota volta ao item).
+
 ## 096 — clientes do Omie e o elo do contrato com o prédio (20/11/2026)
 
 Integração com o Omie, fase 1 ([omie-integracao.md](modulos/omie-integracao.md)).

@@ -352,6 +352,10 @@ async function _agAbrirForm(dia, item) {
 // ── o faturamento do Omie ──────────────────────────────────────────────────
 
 async function _agAbrirFaturamento(comp) {
+  // Desde a fase 2 do Omie (20/11/2026) o painel do mês é o LOTE do
+  // faturamento (admin-faturamento-lote.js): o mesmo retrato, mais conferir,
+  // tirar e confirmar. O painel abaixo fica só se aquele script não carregar.
+  if (window.GBLote) return window.GBLote.abrir(comp);
   _agFecharForm();
   const ov = document.createElement("div");
   ov.id = "agOverlay";

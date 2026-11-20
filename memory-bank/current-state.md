@@ -118,6 +118,10 @@ são ganchos vazios que o molde embrulha. Só a nav antiga continua escondida.
 pelo job do faturamento, migration 096) ou à mão; aparecem também na lista de
 Condomínios e na página do prédio. Plano das outras fases em
 [`../docs/modulos/omie-integracao.md`](../docs/modulos/omie-integracao.md).
+**Omie, fase 2 (20/11):** o painel do faturamento do mês é o lote
+(`admin-faturamento-lote.js`): o sistema prepara, o Pedro confere e confirma,
+e só então o Omie fatura (`FaturarContrato`). Nenhuma nota real emitida ainda;
+migration 097.
 **Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):
 Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
 lado; as telas antigas seguem alcançáveis por link.

@@ -296,6 +296,11 @@ faturamento só `masterAdminOnly`.
 | DELETE | `/agenda/compromissos/:id` | marca apagado |
 | GET | `/agenda/faturamento?competencia=AAAA-MM` | retrato do faturamento dos contratos do Omie |
 | POST | `/agenda/faturamento/atualizar` | copia de novo do Omie (intervalo mínimo 2 min) |
+| GET | `/agenda/faturamento/lote?competencia=AAAA-MM` | o lote do mês (migration 097): `itens` com `estado` (`entra`, `tirado`, `fora` + `motivo`/`motivo_tipo`, `enviando`, `faturado`, `erro`, `incerto`), `resumo`, `dia_proposto`, `dia_configurado`, `emissao_ligada`, `rodando` |
+| POST | `/agenda/faturamento/lote/tirar` | `{ competencia, omie_contrato, tirar }`: tira do lote (ou devolve); 409 se já foi enviado |
+| POST | `/agenda/faturamento/lote/confirmar` | ⚠️ **grava no Omie**. `{ competencia, contratos, valor_total }` → 202 e o envio segue (um `FaturarContrato` por vez; a tela acompanha pelo GET). 503 sem `OMIE_EMISSAO=1`; 409 se a lista ou o total não batem com o lote de agora, ou se já há lote rodando; 400 fora do mês corrente; 502 se o Omie não diz quem está pendente |
+| POST | `/agenda/faturamento/lote/boleto` | ⚠️ **grava no Omie**. `{ competencia, omie_contrato }`: gera o boleto do título que saiu sem boleto (antes pergunta ao Omie se já tem; se tem, só guarda: `ja_tinha`). 503 sem `OMIE_EMISSAO=1`; 409 se já tem boleto, foi pago/cancelado ou o pedido está em andamento; 502 recusa do Omie; 504 sem resposta |
+| POST | `/agenda/faturamento/lote/liberar` | `{ competencia, omie_contrato }`: o `incerto` sem nota volta ao lote |
 
 ## Assinatura de contratos
 

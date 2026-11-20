@@ -129,6 +129,76 @@ async function nfsePorOs(nCodigoOS) {
   }
 }
 
+// ── Faturamento de contrato (fase 2 da integração) ──────────────────────────
+
+// ⚠️ MORA EM /servicos/contratofat/, não em /servicos/contrato/ (a mesma
+// armadilha do FaturarOS). Lido na doc em 20/11/2026.
+//
+// Os contratos que o Omie considera PENDENTES no mês: ativos, na vigência,
+// com o dia de faturamento já alcançado e AINDA NÃO FATURADOS neste mês
+// (`cEtapa "20"`). É a última trava contra nota em dobro: quem não está aqui
+// não vai. Só leitura.
+async function contratosPendentesDeFaturar() {
+  const j = await chamar("servicos/contratofat/", "ObterContratos", { cEtapa: "20" });
+  return (j.listaContratos || []).map(c => Number(c.nCodCtr)).filter(Boolean);
+}
+
+// ⚠️ GRAVA NO OMIE: gera a OS do mês, que vira NFS-e, conta a receber e
+// boleto (pela regra de vencimento e pela conta do contrato). Só recebe o
+// código; não há data, competência nem vencimento para passar. Devolve
+// `{ nCodOS, cCodStatus, cDescStatus }`; status diferente de "0" é recusa.
+async function faturarContrato(nCodCtr) {
+  return chamar("servicos/contratofat/", "FaturarContrato", { nCodCtr });
+}
+
+// ── Boleto do título (financas/contareceberboleto/, lido na doc 20/11/2026) ──
+// `nCodTitulo` = codigo_lancamento_omie do ListarContasReceber. A resposta
+// traz cNumBoleto, cNumBancario (o nosso número), dDtEmBol, cCodBarras e
+// cLinkBoleto (o PDF, que VALE 24 H: não se guarda o link). O status é
+// `cDesStatus` (sem "c"), diferente do contrato; "0" é sucesso.
+
+// Só leitura: o boleto que o título já tem, ou null.
+async function obterBoleto(nCodTitulo) {
+  try {
+    const j = await chamar("financas/contareceberboleto/", "ObterBoleto", { nCodTitulo });
+    if (j && j.cCodStatus != null && String(j.cCodStatus) !== "0") return null;
+    return j && (j.cNumBancario || j.cNumBoleto) ? j : null;
+  } catch (e) {
+    if (e.naoEncontrado) return null;
+    throw e;
+  }
+}
+
+// ⚠️ GRAVA NO OMIE: registra o boleto do título no banco da conta.
+async function gerarBoleto(nCodTitulo) {
+  const j = await chamar("financas/contareceberboleto/", "GerarBoleto", { nCodTitulo });
+  if (j && j.cCodStatus != null && String(j.cCodStatus) !== "0") {
+    throw new OmieErro(String(j.cDesStatus || `GerarBoleto recusou (status ${j.cCodStatus}).`).trim(), { call: "GerarBoleto" });
+  }
+  return j;
+}
+
+// Títulos a receber incluídos num intervalo (ListarContasReceber, 100 por
+// página). `de`/`ate` em "dd/mm/aaaa".
+async function listarContasReceber({ de, ate }) {
+  const todos = [];
+  for (let p = 1; p <= 30; p++) {
+    let j;
+    try {
+      j = await chamar("financas/contareceber/", "ListarContasReceber", {
+        pagina: p, registros_por_pagina: 100, apenas_importado_api: "N",
+        filtrar_por_emissao_de: de, filtrar_por_emissao_ate: ate,
+      });
+    } catch (e) {
+      if (e.naoEncontrado) break;
+      throw e;
+    }
+    todos.push(...(j.conta_receber_cadastro || []));
+    if (p >= (j.total_de_paginas || 1)) break;
+  }
+  return todos;
+}
+
 // ── Produtos (catálogo para a DANFE) ────────────────────────────────────────
 
 // O Omie corta em 100 por página mesmo pedindo mais: ~1.300 itens
@@ -205,6 +275,11 @@ module.exports = {
   faturarOs,
   statusOs,
   nfsePorOs,
+  contratosPendentesDeFaturar,
+  faturarContrato,
+  listarContasReceber,
+  obterBoleto,
+  gerarBoleto,
   listarProdutos,
   listarPedidos,
   consultarPedidoPorIntegracao,

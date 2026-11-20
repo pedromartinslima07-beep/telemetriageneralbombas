@@ -22,6 +22,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const { masterAdminOnly } = require("../middleware/masterAdminOnly");
 const fat = require("../services/omie-faturamento.service");
+const lote = require("../services/omie-lote.service");
 
 const router = express.Router();
 router.use(authRequired, gestaoOnly);
@@ -228,11 +229,15 @@ router.get("/", async (req, res) => {
         });
       }
       if (r && r.esperados > 0) {
-        const diaFat = `${comp}-${String(Math.min(r.dia_faturamento || 1, 28)).padStart(2, "0")}`;
+        // O dia proposto do lote (fase 2): o dia configurado, ou o próximo dia útil.
+        const diaFat = (await lote.diaProposto(comp).catch(() => null))?.data
+          || `${comp}-${String(Math.min(r.dia_faturamento || 1, 28)).padStart(2, "0")}`;
         if (_spMeiaNoite(diaFat) >= ini && _spMeiaNoite(diaFat) < fim) {
           itens.push({
             id: `fat-${comp}`, fonte: "omie", tipo: "faturamento", competencia: comp,
-            titulo: `Faturar contratos no Omie: ${r.faturados} de ${r.esperados}`,
+            titulo: r.faturados >= r.esperados
+              ? `Contratos faturados: ${r.faturados} de ${r.esperados}`
+              : `Conferir e faturar os contratos: ${r.faturados} de ${r.esperados}`,
             inicio: _spMeiaNoite(diaFat).toISOString(), dia_inteiro: true, so_admin: true, editavel: false,
             concluido: r.faturados >= r.esperados,
           });
@@ -265,6 +270,51 @@ router.post("/faturamento/atualizar", masterAdminOnly, async (req, res) => {
     console.error("[agenda] atualizar faturamento:", err.message);
     res.status(err.status && err.status < 600 ? err.status : 502).json({ error: "O Omie não respondeu: " + err.message });
   }
+});
+
+// ── O lote do faturamento (Omie, fase 2; migration 097). Só o admin. ──────
+// Nada aqui fatura sozinho: só o POST /confirmar chama o Omie, com a lista e
+// o total que a tela mostrou. Ver src/services/omie-lote.service.js.
+const _loteErro = (res, err, onde) => {
+  if (err instanceof lote.LoteErro) return res.status(err.status).json({ error: err.message, contratos: err.contratos });
+  console.error(`[agenda] lote ${onde}:`, err);
+  res.status(500).json({ error: "Erro no lote do faturamento." });
+};
+
+// GET /agenda/faturamento/lote?competencia=AAAA-MM
+router.get("/faturamento/lote", masterAdminOnly, async (req, res) => {
+  try { res.json(await lote.montar(String(req.query.competencia || lote.competenciaAtual()))); }
+  catch (err) { _loteErro(res, err, "GET"); }
+});
+
+// POST /agenda/faturamento/lote/tirar { competencia, omie_contrato, tirar }
+router.post("/faturamento/lote/tirar", masterAdminOnly, async (req, res) => {
+  const b = req.body || {};
+  try { res.json(await lote.tirar(String(b.competencia || ""), b.omie_contrato, b.tirar !== false, req.user.id)); }
+  catch (err) { _loteErro(res, err, "tirar"); }
+});
+
+// POST /agenda/faturamento/lote/confirmar { competencia, contratos: [...], valor_total }
+// ⚠️ GRAVA NO OMIE. Responde 202 e o envio segue; a tela acompanha pelo GET.
+router.post("/faturamento/lote/confirmar", masterAdminOnly, async (req, res) => {
+  const b = req.body || {};
+  try { res.status(202).json(await lote.confirmar(String(b.competencia || ""), b.contratos, b.valor_total, req.user.id)); }
+  catch (err) { _loteErro(res, err, "confirmar"); }
+});
+
+// POST /agenda/faturamento/lote/boleto { competencia, omie_contrato }
+// ⚠️ GRAVA NO OMIE: gera o boleto do título que saiu sem boleto.
+router.post("/faturamento/lote/boleto", masterAdminOnly, async (req, res) => {
+  const b = req.body || {};
+  try { res.json(await lote.gerarBoleto(String(b.competencia || ""), b.omie_contrato, req.user.id)); }
+  catch (err) { _loteErro(res, err, "boleto"); }
+});
+
+// POST /agenda/faturamento/lote/liberar { competencia, omie_contrato }
+router.post("/faturamento/lote/liberar", masterAdminOnly, async (req, res) => {
+  const b = req.body || {};
+  try { res.json(await lote.liberar(String(b.competencia || ""), b.omie_contrato, req.user.id)); }
+  catch (err) { _loteErro(res, err, "liberar"); }
 });
 
 // POST /agenda/compromissos

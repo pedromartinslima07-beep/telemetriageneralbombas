@@ -2249,7 +2249,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 ### Para subir para produção (o Pedro decide quando)
 
 1. Rodar em produção, **antes** do push, as migrations **090, 091, 092,
-   093, 094, 095 e 096** (094 = peças da O.S., fase B; 095 = notas e avisos do
+   093, 094, 095, 096 e 097** (094 = peças da O.S., fase B; 095 = notas e avisos do
    prédio; conferir antes no `information_schema` o que já está lá; eu sou
    bloqueado de rodar com `--prod`, quem roda é ele).
 2. Merge da `feature/nota-fiscal-omie` na main → merge desta → push (= deploy).

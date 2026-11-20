@@ -24,7 +24,7 @@ Omie, como o faturamento das preventivas no começo do mês. Branch
 | Retorno de O.S. | "Retorno pedido na OS-…" no dia sugerido pelo técnico | `ordens_servico.retorno_sugerido_em` (finalizada, `necessario_retorno`) | gestão |
 | Contrato | "Contrato de X termina" no `fim_em` | `contratos` (ativos) | gestão |
 | Preventivas | "Preventivas de novembro: N feitas, M a fazer", no dia 1 | `chamados` com `plano_manutencao_id` e `competencia` | gestão |
-| Faturamento Omie | "Faturar contratos no Omie: 77 de 81", no dia de faturamento | cópia do Omie (`omie_contratos`, `omie_contrato_notas`) | só o **admin** |
+| Faturamento Omie | "Conferir e faturar os contratos: 77 de 81", no dia proposto do lote (`omie.faturamento_dia` ou o próximo dia útil, desde a 097; abre o lote: ver [omie-integracao.md](omie-integracao.md)) | cópia do Omie (`omie_contratos`, `omie_contrato_notas`) | só o **admin** |
 
 O operador não tem a agenda (a rota é `gestaoOnly`; o item some do menu dele).
 

@@ -101,15 +101,82 @@ como o de 18/11. O script fica pronto (só aceita chamadas `Listar`/`Pesquisar`/
   assinado; o do Omie é a cobrança; os dois ficam ligados, nenhum substitui o
   outro.
 
-### 2. O faturamento do dia 1
+### 2. O faturamento do dia 1 ✅ no código (20/11/2026, migration 097)
+
+> **Feito, sem faturar nada de verdade ainda.** No dia proposto (o dia
+> configurado em `omie.faturamento_dia`, padrão 1, ou o próximo dia útil) a
+> Agenda mostra "Conferir e faturar os contratos". O painel do mês virou o
+> **lote** (`admin-faturamento-lote.js`, aberto por `_agAbrirFaturamento`, o
+> mesmo da Agenda, do Financeiro e do Hoje): quem entra (com a conta, o valor
+> e a caixa "vai agora"), quem já tem nota pela tela do Omie, quem ficou de
+> fora e por quê (vigência acabada, conta fora do Sicredi/Bradesco, contrato
+> não ativo, valor zerado), os tirados (com "Devolver"), o envio sem resposta
+> (com "Não saiu, liberar") e os faturados pelo sistema (OS, NFS-e,
+> vencimento, nosso número). "Faturar N · R$ X" abre a confirmação com o
+> total e o banco; só "Sim, faturar" chama o Omie
+> (`servicos/contratofat/` `FaturarContrato`, um por vez). O dia muda no
+> próprio painel.
+>
+> **As travas contra nota em dobro** (src/services/omie-lote.service.js):
+> uma linha por (competência, contrato) em `omie_faturamento_itens`; quem tem
+> nota do mês na cópia fica fora; antes de enviar, o Omie diz quem considera
+> pendente no mês (`ObterContratos cEtapa 20`) e só esses vão; a lista e o
+> total têm de bater com o que a tela mostrou; um lote por vez; queda sem
+> resposta vira `incerto` e não vai de novo sozinha. A sincronização de hora
+> em hora devolve a nota (pela OS) e o título com o boleto (pela nota) ao
+> item, e resolve o incerto quando a nota aparece. Exige **`OMIE_EMISSAO=1`**
+> no servidor; sem ela o painel monta o lote e avisa que confirmar não envia.
+>
+> **Testado:** `scripts/testes/omie-lote.test.js` 36/36, com o Omie simulado
+> do começo ao fim. Na tela (banco de teste, 1900px e 375px) com a cópia real
+> de novembro (77 com nota pela tela do Omie, 4 com vigência acabada) e
+> contratos de mentira para o lote, tirar, devolver, mudar o dia e a recusa
+> sem `OMIE_EMISSAO`. **Nenhuma nota real foi emitida.** O
+> `FaturarContrato` saiu da documentação do Omie e nunca foi chamado: a
+> primeira chamada real será a do Pedro. Proposta: na primeira vez, faturar
+> **um contrato só** e conferir nota e boleto no Omie antes do resto. ⚠️
+> **097 em produção e `OMIE_EMISSAO=1` no Railway antes do primeiro lote**;
+> e a partir daí **ninguém fatura contrato pela tela do Omie**.
+>
+> **O boleto (20/11/2026).** Em out–nov/2026, 226 de 239 títulos tinham
+> boleto gerado pelo Omie no mesmo dia da nota: o contrato manda boleto
+> (`emailCliente.cEnviarBoleto`) e a conta do Sicredi tem cobrança. O
+> esperado é o `FaturarContrato` sair igual, mas a doc não garante. Por isso
+> a sincronização guarda se o título tem boleto (`boleto_gerado`), e o painel
+> avisa **"N notas sem boleto"** no topo e, na linha, "Sem boleto no Omie" com
+> o botão **"Gerar boleto"** (confirmação com prédio, valor, vencimento e
+> banco). Só então o sistema pergunta ao Omie se o título já tem boleto
+> (`ObterBoleto`, alguém pode ter gerado pela tela de lá: aí só guarda) e,
+> se não tem, gera (`financas/contareceberboleto/` `GerarBoleto`). Recusa do
+> Omie libera para pedir de novo; queda sem resposta trava 10 min. Título
+> pago ou cancelado não pede. Exige `OMIE_EMISSAO=1`. Testado com o Omie
+> simulado (`omie-lote.test.js` 48/48) e na tela; **nunca chamado de
+> verdade**.
 
 - Já existe: "Faturar contratos no Omie: 77 de 81" na Agenda. Vira uma tela
   do mês: **quem foi faturado, quem não foi e por quê** (vigência vencida,
   contrato pausado, nota rejeitada), com o número da nota e o PDF.
-- ⚠️ **O sistema não emite essas notas.** Quem emite é o faturamento de
-  contratos do próprio Omie; emitir dos dois lados dá nota em dobro. Se a API
-  deixar **disparar o faturamento do contrato** pelo Omie, o botão "faturar os
-  que faltam" manda o Omie fazer. A confirmar no levantamento.
+- (Plano original, já resolvido acima.) ⚠️ Emitir dos dois lados dá nota em
+  dobro. A API deixa **disparar o faturamento do contrato** pelo Omie
+  (`FaturarContrato`): o sistema manda o Omie fazer, e a nota continua sendo
+  do Omie.
+- ✅ **Conferido pela API (20/11/2026): hoje o faturamento é feito à mão, em
+  lote.** Das 173 NFS-e de 01/10 a 20/11, 157 são de contrato. Elas saíram
+  em dois lotes: 79 no dia 01/10, todas às 11h, e 70 no dia 03/11, às 16h
+  (primeiro dia útil depois do feriado de 02/11); o resto são avulsas dos
+  dias seguintes. Todas foram incluídas e emitidas pelo mesmo usuário
+  (`P001010854`). Um faturamento automático rodaria no dia 1 mesmo caindo no
+  domingo (01/11) e não esperaria a tarde do dia útil. A API não mostra a
+  configuração de faturamento automático do contrato, então o Pedro confirma
+  no Omie que não há nada agendado. Se o sistema passar a disparar o lote,
+  **ninguém fatura mais pela tela do Omie**.
+- ✅ **Decidido pelo Pedro (20/11/2026): o sistema nunca fatura sozinho.** No
+  dia do faturamento ele **avisa e prepara o lote** (quem entra, valor, conta
+  Sicredi, e quem fica de fora e por quê); o Pedro confere, tira quem
+  quiser e **confirma**. Só então as notas saem. **O dia é dele:** o dia do
+  mês em que o lote é proposto fica nas configurações (padrão 1; dia que cai
+  em fim de semana ou feriado passa para o próximo dia útil), e dá para
+  faturar antes ou depois da data proposta. Sem a confirmação, nada sai.
 - Notas por prédio na página dele (contrato e avulsas), com o link do PDF.
 
 ### 3. Contas a receber: quem pagou, quem atrasou
@@ -149,6 +216,30 @@ segue com a conciliação dele, e o sistema não grava baixa lá.
 o Pedro vai mandar um arquivo de exemplo (um mês antigo serve). Cada banco
 tem o seu layout de retorno CNAB, então o leitor nasce para os dois.
 
+✅ **Decidido pelo Pedro (20/11/2026): a cobrança acompanha só o que o
+próprio sistema emitir.** Os boletos que ficaram sem baixa no Omie (a pessoa
+anterior não dava baixa) não entram. Por isso a fase 2 (emissão) vem antes da
+3, e cada título emitido pelo sistema guarda o código do Omie.
+
+**As contas no Omie (lidas pela API em 20/11/2026, só leitura).** São 14
+contas; ficam só as duas que cobram e estão ativas:
+
+| `nCodCC` | Banco | Descrição no Omie | Usada em |
+|---|---|---|---|
+| `5960922842` | 748 Sicredi | "Sicredi" | **todos os 81 contratos ativos** (R$ 59.035,16/mês) |
+| `6109178168` | 237 Bradesco | "BRADESCO *" | as OS e as DANFEs faturadas pelo sistema (`MOLDE_NFSE`/`MOLDE_NFE`) |
+
+Ficam de fora: dois Bradesco inativos (`5964451788`, `5988516657`; este
+ainda tem 2 contratos suspensos), "Sicred - Visa" (é cartão, tipo CR), a
+Aplicação Bradesco, Caixa, Original, Omie.CASH, Letsbank, Justa e os caixas
+internos. Ou seja, **não é escolha caso a caso**: contrato cobra no Sicredi,
+OS faturada cobra no Bradesco.
+
+Na primeira página de títulos a receber (100 de 5.692), só 11 tinham
+`boleto.cGerado = S`; o resto é título sem boleto gerado pelo Omie. A
+emissão da fase 2 precisa confirmar como o boleto sai (gerado pelo Omie na
+conta de cobrança ou registrado no banco por fora).
+
 ### 4. Contas a pagar na Agenda
 
 Era a fase C da [agenda.md](agenda.md): os vencimentos a pagar
@@ -175,6 +266,8 @@ ainda vai ser desenhado com o Pedro.
 
 ## Ordem proposta
 
-1 → 3 → 2 → 4 → 5 → 6. Contratos ligados ao prédio são a base de tudo (o
+**1 → 2 → 3 → 4 → 5 → 6** (mudou em 20/11/2026: a cobrança só acompanha o
+que o sistema emitir, então a emissão vem antes). Era 1 → 3 → 2 → … .
+Contratos ligados ao prédio são a base de tudo (o
 título a receber e a nota só viram "do prédio X" com esse elo); contas a
 receber é o que mais pesa para quem cuida de tudo sozinho.

@@ -4,11 +4,11 @@
 // agenda (migration 092). SÓ LEITURA: nenhuma chamada daqui inclui, altera ou
 // fatura nada no Omie.
 //
-// ⚠️ AS NOTAS DAS PREVENTIVAS SAEM PELO OMIE, NÃO POR NÓS. O faturamento de
-// contratos do Omie emite todas de uma vez no começo do mês (71 em
-// 03/11/2026). O que este serviço faz é copiar os contratos e as NFS-e que
-// cada um gerou, para a agenda dizer "78 de 81 faturados" e listar o que
-// falta. Emitir daqui daria nota em dobro.
+// ⚠️ ESTE SERVIÇO SÓ COPIA. Até novembro/2026 o faturamento dos contratos
+// era feito à mão na tela do Omie, em lote (71 em 03/11/2026). Desde a fase 2
+// (migration 097) o lote pode sair pelo sistema, com a confirmação do Pedro:
+// isso mora em omie-lote.service.js. Aqui se copiam os contratos e as NFS-e
+// que cada um gerou, para a agenda dizer "78 de 81 faturados".
 //
 // ⚠️ "CONSUMO REDUNDANTE": o Omie recusa a mesma consulta repetida em menos
 // de ~1 min (`REDUNDANT`, "Aguarde N segundos"). Por isso a cópia vive no
@@ -105,45 +105,47 @@ async function sincronizar({ forcar = false } = {}) {
     let nNotas = 0;
     try {
       await client.query("BEGIN");
-      for (const c of contratos) {
-        const k = c.cabecalho || {};
-        await client.query(
-          `INSERT INTO omie_contratos (omie_codigo, numero, omie_cliente, situacao, valor_mensal, dia_faturamento, vigencia_inicio, vigencia_fim, atualizado_em)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
-           ON CONFLICT (omie_codigo) DO UPDATE SET numero = EXCLUDED.numero, omie_cliente = EXCLUDED.omie_cliente,
-             situacao = EXCLUDED.situacao, valor_mensal = EXCLUDED.valor_mensal, dia_faturamento = EXCLUDED.dia_faturamento,
-             vigencia_inicio = EXCLUDED.vigencia_inicio, vigencia_fim = EXCLUDED.vigencia_fim, atualizado_em = NOW()`,
-          [k.nCodCtr, k.cNumCtr || null, k.nCodCli || null, k.cCodSit || null, Number(k.nValTotMes || 0),
-           k.nDiaFat || null, _data(k.dVigInicial), _data(k.dVigFinal)]
-        );
-      }
-      for (const n of notas) {
-        const ctr = n.OrdemServico?.nCodigoContrato;
-        if (!ctr) continue; // nota avulsa, não é de contrato
-        const emitida = _data(n.Emissao?.cDataEmissao);
-        if (!emitida) continue;
-        await client.query(
-          `INSERT INTO omie_contrato_notas (omie_nfse, omie_contrato, numero_nfse, competencia, emitida_em, valor, status, atualizado_em)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
-           ON CONFLICT (omie_nfse) DO UPDATE SET status = EXCLUDED.status, valor = EXCLUDED.valor, atualizado_em = NOW()`,
-          [n.Cabecalho?.nCodNF, ctr, String(n.Cabecalho?.nNumeroNFSe || ""), emitida.slice(0, 7), emitida,
-           Number(n.Cabecalho?.nValorNFSe || n.OrdemServico?.nValorOS || 0), n.Cabecalho?.cStatusNFSe || null]
-        );
-        nNotas++;
-      }
-      for (const c of clientes || []) {
-        if (!c.codigo_cliente_omie) continue;
-        const doc = String(c.cnpj_cpf || "").replace(/\D/g, "").slice(0, 14) || null;
-        await client.query(
-          `INSERT INTO omie_clientes (omie_codigo, documento, razao_social, nome_fantasia, email, cidade, inativo, atualizado_em)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
-           ON CONFLICT (omie_codigo) DO UPDATE SET documento = EXCLUDED.documento, razao_social = EXCLUDED.razao_social,
-             nome_fantasia = EXCLUDED.nome_fantasia, email = EXCLUDED.email, cidade = EXCLUDED.cidade,
-             inativo = EXCLUDED.inativo, atualizado_em = NOW()`,
-          [c.codigo_cliente_omie, doc, c.razao_social || null, c.nome_fantasia || null,
-           c.email || null, c.cidade || null, c.inativo === "S"]
-        );
-      }
+      // ⚠️ UMA GRAVAÇÃO POR TABELA (unnest), não uma por linha (20/11/2026):
+      // com os clientes da 096 eram ~800 idas ao banco dentro da transação, e
+      // contra o banco de teste remoto a cópia passava de 4 minutos. Cada lista
+      // sai sem chave repetida, senão o ON CONFLICT recusa o lote inteiro.
+      const unicos = (lista, chave) => [...new Map(lista.map(x => [String(chave(x)), x])).values()];
+      const ks = unicos(contratos.map(c => ({ k: c.cabecalho || {}, cc: c.infAdic?.nCodCC || null })).filter(x => x.k.nCodCtr), x => x.k.nCodCtr);
+      if (ks.length) await client.query(
+        `INSERT INTO omie_contratos (omie_codigo, numero, omie_cliente, situacao, valor_mensal, dia_faturamento, vigencia_inicio, vigencia_fim, conta_corrente, atualizado_em)
+         SELECT *, NOW() FROM unnest($1::bigint[], $2::text[], $3::bigint[], $4::text[], $5::numeric[], $6::int[], $7::date[], $8::date[], $9::bigint[])
+         ON CONFLICT (omie_codigo) DO UPDATE SET numero = EXCLUDED.numero, omie_cliente = EXCLUDED.omie_cliente,
+           situacao = EXCLUDED.situacao, valor_mensal = EXCLUDED.valor_mensal, dia_faturamento = EXCLUDED.dia_faturamento,
+           vigencia_inicio = EXCLUDED.vigencia_inicio, vigencia_fim = EXCLUDED.vigencia_fim,
+           conta_corrente = EXCLUDED.conta_corrente, atualizado_em = NOW()`,
+        [ks.map(x => x.k.nCodCtr), ks.map(x => x.k.cNumCtr || null), ks.map(x => x.k.nCodCli || null), ks.map(x => x.k.cCodSit || null),
+         ks.map(x => Number(x.k.nValTotMes || 0)), ks.map(x => x.k.nDiaFat || null), ks.map(x => _data(x.k.dVigInicial)),
+         ks.map(x => _data(x.k.dVigFinal)), ks.map(x => x.cc)]
+      );
+      const ns = unicos(notas.map(n => ({ n, ctr: n.OrdemServico?.nCodigoContrato, emitida: _data(n.Emissao?.cDataEmissao) }))
+        .filter(x => x.ctr && x.emitida && x.n.Cabecalho?.nCodNF), x => x.n.Cabecalho.nCodNF); // sem contrato = nota avulsa
+      nNotas = ns.length;
+      if (ns.length) await client.query(
+        `INSERT INTO omie_contrato_notas (omie_nfse, omie_contrato, numero_nfse, competencia, emitida_em, valor, status, omie_os, atualizado_em)
+         SELECT *, NOW() FROM unnest($1::bigint[], $2::bigint[], $3::text[], $4::text[], $5::date[], $6::numeric[], $7::text[], $8::bigint[])
+         ON CONFLICT (omie_nfse) DO UPDATE SET status = EXCLUDED.status, valor = EXCLUDED.valor,
+           omie_os = COALESCE(EXCLUDED.omie_os, omie_contrato_notas.omie_os), atualizado_em = NOW()`,
+        [ns.map(x => x.n.Cabecalho.nCodNF), ns.map(x => x.ctr), ns.map(x => String(x.n.Cabecalho?.nNumeroNFSe || "")),
+         ns.map(x => x.emitida.slice(0, 7)), ns.map(x => x.emitida),
+         ns.map(x => Number(x.n.Cabecalho?.nValorNFSe || x.n.OrdemServico?.nValorOS || 0)),
+         ns.map(x => x.n.Cabecalho?.cStatusNFSe || null), ns.map(x => x.n.OrdemServico?.nCodigoOS || null)]
+      );
+      const cs = unicos((clientes || []).filter(c => c.codigo_cliente_omie), c => c.codigo_cliente_omie);
+      if (cs.length) await client.query(
+        `INSERT INTO omie_clientes (omie_codigo, documento, razao_social, nome_fantasia, email, cidade, inativo, atualizado_em)
+         SELECT *, NOW() FROM unnest($1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::boolean[])
+         ON CONFLICT (omie_codigo) DO UPDATE SET documento = EXCLUDED.documento, razao_social = EXCLUDED.razao_social,
+           nome_fantasia = EXCLUDED.nome_fantasia, email = EXCLUDED.email, cidade = EXCLUDED.cidade,
+           inativo = EXCLUDED.inativo, atualizado_em = NOW()`,
+        [cs.map(c => c.codigo_cliente_omie), cs.map(c => String(c.cnpj_cpf || "").replace(/\D/g, "").slice(0, 14) || null),
+         cs.map(c => c.razao_social || null), cs.map(c => c.nome_fantasia || null), cs.map(c => c.email || null),
+         cs.map(c => c.cidade || null), cs.map(c => c.inativo === "S")]
+      );
       const detalhe = { contratos: contratos.length, notas_de_contrato: nNotas, notas_lidas: notas.length,
                         clientes: clientes ? clientes.length : null, erro_clientes: erroClientes };
       await client.query(
@@ -152,6 +154,10 @@ async function sincronizar({ forcar = false } = {}) {
         [NOME, detalhe]
       );
       await client.query("COMMIT");
+      // O lote do faturamento (fase 2): a nota e o boleto de cada contrato que
+      // o sistema faturou voltam ao item. Falha aqui não desfaz a cópia.
+      try { detalhe.lote = await require("./omie-lote.service").conciliar(); }
+      catch (e) { detalhe.erro_lote = String(e.message).slice(0, 300); }
       return { ok: true, ...detalhe };
     } catch (e) {
       await client.query("ROLLBACK").catch(() => {});

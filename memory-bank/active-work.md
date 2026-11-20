@@ -25,7 +25,9 @@ aliases:
 > (etapa 12): **todas as telas no código**, e os layouts antigos que
 > elas guardavam escondidos no HTML já saíram (limpeza de 20/11). **Falta:** Relatórios (dashboard, a
 > definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
-> para a main: 090, 091, 092, 093, 094, 095 e 096 em produção.** (096 = clientes
+> para a main: 090, 091, 092, 093, 094, 095, 096 e 097 em produção.** (097 = lote do
+> faturamento, fase 2: além dela, `OMIE_EMISSAO=1` no Railway e ninguém mais
+> fatura contrato pela tela do Omie. 096 = clientes
 > do Omie, fase 1 da integração: ver [omie-integracao.md](../docs/modulos/omie-integracao.md).) Maquete no repo:
 > `/dev/_redesenho-preview.html`. Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md#onde-paramos-19112026-fim-do-dia--retomar-daqui).
