@@ -12697,3 +12697,19 @@ a.ls-bt { text-decoration: none; }
   .ct-abas { display: flex; width: 100%; }
   .ct-abas button { flex: 1; justify-content: center; }
 }
+
+/* Chamado: "O turno" (migration 098, 20/11/2026). O que o turno pediu ao
+   escritório e o pedido do escritório para o turno. */
+.ch-esc-linha { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; }
+.ch-esc-linha.is-pede { border-color: var(--accent); background: rgba(251,179,41,.08); }
+.ch-esc-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
+.ch-esc-txt b { font-weight: 700; }
+.ch-esc-txt small { color: var(--muted); font-size: 12px; }
+.ch-esc-novo { margin-top: 8px; }
+.ch-esc-campo { display: flex; flex-direction: column; gap: 8px; }
+.ch-esc-campo textarea { width: 100%; resize: vertical; }
+.ch-esc-acoes { display: flex; gap: 8px; justify-content: flex-end; }
+.ch-esc-nota { color: var(--muted); font-size: 12px; }
+/* display:flex e .btn passam por cima do atributo hidden: sem isto o campo
+   aparecia antes do clique e o botão não sumia depois. */
+.ch-esc-campo[hidden], .ch-esc-novo .btn[hidden] { display: none; }

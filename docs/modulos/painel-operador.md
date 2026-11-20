@@ -1912,6 +1912,55 @@ fila. Conferir com:
 node scripts/auditar-rbac.js operador
 ```
 
+## O escritório e o turno (20/11/2026, migration 098)
+
+Pedido do Pedro, depois de uma varredura que propôs seis formas de ligar o
+admin a esta tela; ele escolheu três.
+
+**1. Hoje na agenda (trilho, entre "Equipe agora" e "Despachados hoje").** O
+que o escritório marcou na Agenda e cai hoje: compromissos com prédio (com
+as repetições, pela mesma `_ocorrencias` do `agenda.routes.js`) e os retornos
+pedidos nas O.S. Cada linha: hora (ou "Dia todo"), título, prédio e quem vai
+(o técnico do chamado ligado à visita; sem chamado, o responsável do
+compromisso). Responde "quem já tem compromisso hoje", para não despachar
+quem tem visita marcada. ⚠️ O que é **só do admin** (`so_admin`), o
+faturamento do Omie, o fim de contrato e o resumo das preventivas **não
+vêm**. Viaja no mesmo `GET /operador/fila` (`agenda_hoje`): `null` quando a
+leitura falhou (a tela diz "Não consegui ler a agenda de hoje", nunca "nada
+marcado"), `[]` quando não há nada. Erro na agenda não derruba a fila.
+
+**2. Pedido do escritório (selo).** O admin marca um chamado com o motivo
+("cliente reclamou, ir hoje"). Aqui vira uma linha abaixo do prédio, no item
+e na ficha: **"Pedido do escritório · motivo (quem)"**. ⚠️ **Não reordena a
+fila**: ela é pelo prazo que estoura primeiro, que é a tese desta tela. Quem
+quer pressa sobe a prioridade, que muda o prazo. ⚠️ A classe é `esc-marca`,
+não `marca`: `.marca` já é o logo da barra, e o `.marca span` dele pintou o
+selo em mono caixa-alta na primeira versão.
+
+**3. Precisa do escritório (o caminho de volta).** Na ficha, o botão
+**"Precisa do escritório"** abre um campo ("O que o escritório precisa
+resolver?") e grava. O chamado entra no **"Precisa de você"** do Hoje do
+admin ("O turno pediu: …") até alguém clicar **"Pedido atendido"** na página
+do chamado. No item fica a linha "Esperando o escritório · motivo". Não
+confirma: não apaga nem fecha nada, e desfaz a um clique ("Não precisa mais
+do escritório").
+
+Rotas: `PUT/DELETE /chamados/:id/escritorio` (gestão) e
+`PUT/DELETE /chamados/:id/pede-escritorio` (adminOnly, inclui o operador).
+Ver [api.md](../api.md) e [banco-de-dados.md](../banco-de-dados.md).
+
+**E um defeito antigo, achado no caminho:** a linha do tempo da ficha lia
+`criado_em`, `descricao` e `campo`, que o `GET /chamados/:id/historico` não
+devolve (ele devolve `alterado_em`, `campo_alterado`, `valor_anterior`,
+`valor_novo`). Toda linha saía **"--:-- alteração"**. Agora cada mudança tem
+frase (`eventoTxt`), e o que não é de hoje leva a data na frente
+(`quandoEv`).
+
+Teste: `scripts/testes/chamado-escritorio.test.js` (22: permissões, 400 sem
+motivo, 409 em chamado fechado, as marcas na lista do admin e na fila, a
+agenda de hoje com o `so_admin` e o apagado de fora, o histórico na ordem).
+Conferido na tela, nos dois painéis, com cliques.
+
 ## Pendências
 
 - ⏳ **A migration 079 não rodou em produção.** Só no banco de teste. Sem ela,

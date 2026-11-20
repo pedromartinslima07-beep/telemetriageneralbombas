@@ -27,6 +27,10 @@ Omie, como o faturamento das preventivas no começo do mês. Branch
 | Faturamento Omie | "Conferir e faturar os contratos: 77 de 81", no dia proposto do lote (`omie.faturamento_dia` ou o próximo dia útil, desde a 097; abre o lote: ver [omie-integracao.md](omie-integracao.md)) | cópia do Omie (`omie_contratos`, `omie_contrato_notas`) | só o **admin** |
 
 O operador não tem a agenda (a rota é `gestaoOnly`; o item some do menu dele).
+Desde 20/11/2026 ele **vê o dia de hoje** no painel do turno ("Hoje na
+agenda", no trilho), pelo `GET /operador/fila`: compromissos que não são só do
+admin e os retornos de O.S. Ver
+[painel-operador.md](painel-operador.md#o-escritório-e-o-turno-20112026-migration-098).
 
 ## Telas
 

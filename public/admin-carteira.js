@@ -154,6 +154,16 @@ function _icFila() {
       quando: ch.criado_em, acao: ch.tecnico_nome ? "Abrir chamado" : "Atribuir técnico", attr: `data-ic-chamado="${ch.id}"` });
   }
 
+  // O turno pediu o escritório (migration 098): fica aqui até alguém dar
+  // como resolvido na página do chamado.
+  for (const ch of (_chamadosData || []).filter(ch => ch.pede_escritorio_em && _chEmAberto(ch.status))) {
+    itens.push({ tipo: "chamados", q: "agora", cor: "at", ic: "hand-helping", ord: 1,
+      condo: ch.condominio_id, condoNome: _icNomeCondo(ch.condominio_id, ch.condominio_nome),
+      t: `O turno pediu: ${ch.pede_escritorio_motivo || "veja o chamado"}`,
+      m: `#${ch.id} · ${ch.titulo || "Chamado"}${ch.pede_escritorio_por_nome ? " · por " + ch.pede_escritorio_por_nome : ""}`,
+      quando: ch.pede_escritorio_em, acao: "Abrir chamado", attr: `data-ic-chamado="${ch.id}"` });
+  }
+
   const av = Array.isArray(_avData) ? _avData : [];
   for (const o of av.filter(o => o.nota_status === "erro")) {
     itens.push({ tipo: "faturamento", q: "agora", cor: "ri", ic: "file-warning", ord: 3,

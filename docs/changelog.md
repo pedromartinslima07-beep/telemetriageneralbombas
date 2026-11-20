@@ -18366,3 +18366,25 @@ tela mostrava "&amp;amp;": a sincronização agora desfaz as entidades
 (`_texto` em `omie-faturamento.service.js`); em produção corrige na próxima
 cópia, de hora em hora. `admin.js?v=417`, `admin-omie-contratos.js?v=4`,
 `admin-financeiro.js?v=3`, `admin.css?v=373`.
+
+## O escritório e o painel do turno (2026-11-20)
+
+Pedido do Pedro, das seis formas propostas de ligar o admin ao painel do
+líder do turno, as três que ele quis:
+
+- **Hoje na agenda** no trilho do turno: os compromissos de hoje que não são
+  só do admin e os retornos de O.S., com hora, prédio e quem vai.
+- **Pedido do escritório**: o admin marca um chamado com o motivo, na página
+  do chamado (cartão "O turno"); no turno vira selo no item e na ficha. Não
+  reordena a fila.
+- **Precisa do escritório**: o turno marca na ficha; entra no "Precisa de
+  você" do Hoje do admin ("O turno pediu: …") até alguém clicar "Pedido
+  atendido".
+
+Migration 098 (seis colunas em `chamados`), rotas
+`PUT/DELETE /chamados/:id/escritorio` e `/pede-escritorio`, `agenda_hoje` e as
+marcas no `GET /operador/fila`. Conserto de passagem: a linha do tempo da
+ficha do turno mostrava "--:-- alteração" em toda linha (lia campos que a rota
+não devolve). Teste `chamado-escritorio.test.js` (22). `operador.js?v=87`,
+`operador.css?v=116`, `admin.js?v=420`, `admin.css?v=375`,
+`admin-carteira.js?v=11`.

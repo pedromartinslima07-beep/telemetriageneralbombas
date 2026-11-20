@@ -41,6 +41,11 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **O escritório e o painel do turno** (20/11/2026, código). Hoje na
+  agenda no trilho do turno, "Pedido do escritório" (selo) e "Precisa do
+  escritório" (volta ao Hoje do admin). Migration 098: ✅ produção (20/11/2026). Ver
+  [`../docs/modulos/painel-operador.md`](../docs/modulos/painel-operador.md).
+
 - ✅ **Painel novo só para alguns logins** (20/11/2026, código). O redesenho e
   a emissão pelo Omie sobem valendo só para os e-mails da `PAINEL_NOVO`; os
   outros logins veem a cópia congelada do admin de antes. ✅ Na main e

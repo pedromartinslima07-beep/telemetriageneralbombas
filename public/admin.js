@@ -4307,6 +4307,8 @@ function _chFmtCampo(campo) {
     tecnico_id:      "Técnico",
     condominio_id:   "Condomínio",
     devolvido:       "Devolvido para a fila",
+    pedido_escritorio:  "Pedido do escritório",
+    precisa_escritorio: "O turno pediu o escritório",
   })[campo] || campo;
 }
 
@@ -4338,6 +4340,22 @@ function _chRenderHistEntry(h) {
         <div class="ch-hist-titulo">Técnico devolveu o chamado para a fila</div>
         <div class="ch-hist-meta">${_waEscaparHtml(String(h.valor_novo || "-"))}</div>
         ${osTxt}
+        <div class="ch-hist-meta">${autor} · ${quando}</div>
+      </div>
+    </div>`;
+  }
+  // As marcas da migration 098: o motivo é texto, e "→ —" lia mal.
+  if (h.campo_alterado === "pedido_escritorio" || h.campo_alterado === "precisa_escritorio") {
+    const pedido = h.campo_alterado === "pedido_escritorio";
+    const titulo = h.valor_novo
+      ? (pedido ? "Pedido do escritório para o turno" : "O turno pediu o escritório")
+      : (pedido ? "Pedido do escritório retirado" : "Pedido do turno resolvido");
+    const texto = h.valor_novo || h.valor_anterior;
+    return `<div class="ch-hist-item">
+      <div class="ch-hist-dot"></div>
+      <div class="ch-hist-body">
+        <div class="ch-hist-titulo">${titulo}</div>
+        ${texto ? `<div class="ch-hist-meta">${_waEscaparHtml(String(texto))}</div>` : ""}
         <div class="ch-hist-meta">${autor} · ${quando}</div>
       </div>
     </div>`;
@@ -4416,6 +4434,93 @@ function _chRenderAvaliacaoCard(ch) {
     ${coment ? `<div class="ch-aval-coment">"${coment}"</div>` : `<div class="ch-aval-coment ch-aval-vazio">Sem comentário escrito.</div>`}
   </div>`;
 }
+
+// ═══ O ESCRITÓRIO E O TURNO (migration 098, 20/11/2026) ═══
+// Duas marcas no chamado. "Precisa do escritório" vem do painel do turno
+// (o líder marca o que depende de alguém daqui) e entra no "Precisa de você"
+// do Hoje; daqui se dá como resolvido. "Pedido do escritório" vai daqui para
+// o turno: um selo com o motivo no item e na ficha de lá. ⚠️ Não reordena a
+// fila do turno, que é pelo prazo; quem quer pressa sobe a prioridade.
+function _chRenderEscritorio(ch) {
+  if (typeof _isOperador !== "undefined" && _isOperador) return "";
+  const aberto = ch.status === "aberto" || ch.status === "em_atendimento";
+  if (!aberto && !ch.escritorio_motivo && !ch.pede_escritorio_motivo) return "";
+  const quem = (nome, em) => [nome ? _waEscaparHtml(nome) : "", em ? fmtData(em) : ""].filter(Boolean).join(" · ");
+  const pede = ch.pede_escritorio_motivo ? `
+    <div class="ch-esc-linha is-pede">
+      <div class="ch-esc-txt"><b>O turno pediu o escritório</b><span>${_waEscaparHtml(ch.pede_escritorio_motivo)}</span>
+        <small>${quem(ch.pede_escritorio_por_nome, ch.pede_escritorio_em)}</small></div>
+      <button type="button" class="btn btn-sm" data-ch-esc="resolver" data-ch-id="${ch.id}" title="Tira o pedido do Hoje. O chamado continua aberto.">Pedido atendido</button>
+    </div>` : "";
+  const pedido = ch.escritorio_motivo ? `
+    <div class="ch-esc-linha">
+      <div class="ch-esc-txt"><b>Pedido do escritório para o turno</b><span>${_waEscaparHtml(ch.escritorio_motivo)}</span>
+        <small>${quem(ch.escritorio_por_nome, ch.escritorio_em)}</small></div>
+      <button type="button" class="btn btn-sm" data-ch-esc="retirar" data-ch-id="${ch.id}">Retirar</button>
+    </div>` : (aberto ? `
+    <div class="ch-esc-novo" data-ch-esc-form="${ch.id}">
+      <button type="button" class="btn btn-sm" data-ch-esc="abrir" data-ch-id="${ch.id}">Marcar para o turno</button>
+      <div class="ch-esc-campo" hidden>
+        <textarea class="input" rows="2" maxlength="300" placeholder="O que o turno precisa saber? Ex.: cliente reclamou, ir hoje"></textarea>
+        <div class="ch-esc-acoes">
+          <button type="button" class="btn btn-sm" data-ch-esc="cancelar" data-ch-id="${ch.id}">Voltar</button>
+          <button type="button" class="btn btn-sm btnAccent" data-ch-esc="marcar" data-ch-id="${ch.id}">Marcar</button>
+        </div>
+        <small class="ch-esc-nota">Aparece como selo no item e na ficha do painel do turno. Não muda a ordem da fila, que é pelo prazo.</small>
+      </div>
+    </div>` : "");
+  return `<div class="ch-det-section ch-esc">
+    <div class="ch-det-sec-title">O turno</div>
+    ${pede}${pedido}
+  </div>`;
+}
+
+async function _chEscGravar(id, tipo, ligar, motivo) {
+  const r = await fetch(`/chamados/${id}/${tipo}`, {
+    method: ligar ? "PUT" : "DELETE",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: ligar ? JSON.stringify({ motivo }) : undefined,
+  });
+  const j = await lerRespostaJson(r, "Chamado");
+  if (!r.ok) throw new Error(j.error || "Erro ao gravar");
+  await carregarChamados();
+  _chHistCache.delete(id); // a marca entrou no histórico: buscar de novo
+  const ch = (_chamadosData || []).find(c => c.id === id);
+  if (ch && document.getElementById("chDetailCol")) renderChDetalhe(ch);
+  if (typeof _icRenderSeAtiva === "function") _icRenderSeAtiva();
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-ch-esc]");
+  if (!b) return;
+  const id = Number(b.dataset.chId);
+  const acao = b.dataset.chEsc;
+  const form = b.closest("[data-ch-esc-form]");
+  if (acao === "abrir" || acao === "cancelar") {
+    const campo = form?.querySelector(".ch-esc-campo");
+    if (!campo) return;
+    campo.hidden = acao === "cancelar";
+    form.querySelector('[data-ch-esc="abrir"]').hidden = acao === "abrir";
+    if (acao === "abrir") campo.querySelector("textarea")?.focus();
+    return;
+  }
+  let tipo, ligar, motivo = "";
+  if (acao === "marcar") {
+    motivo = String(form?.querySelector("textarea")?.value || "").trim();
+    if (!motivo) { form?.querySelector("textarea")?.focus(); return; }
+    tipo = "escritorio"; ligar = true;
+  } else if (acao === "retirar") { tipo = "escritorio"; ligar = false; }
+  else if (acao === "resolver") { tipo = "pede-escritorio"; ligar = false; }
+  else return;
+  const rot = b.textContent;
+  b.disabled = true; b.textContent = "Gravando…";
+  try {
+    await _chEscGravar(id, tipo, ligar, motivo);
+  } catch (err) {
+    alert(err.message);
+    b.disabled = false; b.textContent = rot;
+  }
+});
 
 function renderChDetalhe(ch) {
   // ⚠️ UM DESENHO, DOIS LUGARES (19/11/2026). Na página do chamado
@@ -4582,6 +4687,7 @@ function renderChDetalhe(ch) {
       <div class="ch-pag-tempo">${linhaTempo}</div>
       <div class="os-colunas ch-pag-corpo">
         <div class="os-col-trabalho">
+          ${_chRenderEscritorio(ch)}
           ${descHtml}
           ${motivoHtml}
           ${_chRenderAvaliacaoCard(ch)}
@@ -4611,6 +4717,8 @@ function renderChDetalhe(ch) {
     </div>
 
     ${linhaTempo}
+
+    ${_chRenderEscritorio(ch)}
 
     ${descHtml}
 

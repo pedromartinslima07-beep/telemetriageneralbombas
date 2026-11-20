@@ -313,10 +313,28 @@ function item(c, nova) {
         <b class="onde-nome">${condo ? escapar(condo.nome) : "Sem condomínio vinculado"}</b>
         <span class="num">#${c.id} · ${haQuanto(c.minutos_abertos)}</span>
       </div>
+      ${marcasHtml(c)}
       ${prova}
       <div class="item-acoes">${acoes}</div>
     </div>
   </article>`;
+}
+
+/* AS MARCAS DO CHAMADO (migration 098, 20/11/2026).
+   "Pedido do escritório": o admin marcou o chamado com um motivo. É SELO,
+   não ordem: a fila continua pelo prazo que estoura primeiro, que é a tese
+   desta tela. "Precisa do escritório": o turno marcou que depende de alguém
+   do escritório; a linha lembra que o pedido está feito. */
+function marcasHtml(c) {
+  const out = [];
+  if (c.escritorio) {
+    out.push(`<p class="esc-marca" data-m="esc">${I.alerta || ""}<span><b>Pedido do escritório</b> · ${escapar(c.escritorio.motivo)}${
+      c.escritorio.por ? ` <span class="esc-marca-quem">(${escapar(primeiroNome(c.escritorio.por))})</span>` : ""}</span></p>`);
+  }
+  if (c.pede_escritorio) {
+    out.push(`<p class="esc-marca" data-m="pede"><span><b>Esperando o escritório</b> · ${escapar(c.pede_escritorio.motivo)}</span></p>`);
+  }
+  return out.join("");
 }
 
 /* ── Estado e carga ──────────────────────────────────────────────────── */
@@ -544,6 +562,10 @@ function trilho() {
         </div>`).join("")}</div>` : `<p class="vazio-lado">Nenhum técnico ativo.</p>`}
     </div>
     <div>
+      <h2>Hoje na agenda</h2>
+      ${agendaHtml()}
+    </div>
+    <div>
       <h2>Despachados hoje</h2>
       ${emRota.length ? `<div class="chapa">${emRota.map((c) => `
         <div class="tec">
@@ -553,6 +575,26 @@ function trilho() {
     </div>
     </div>
   </aside>`;
+}
+
+/* HOJE NA AGENDA (20/11/2026). O que o escritório marcou na Agenda para
+   hoje: visitas, retornos pedidos na O.S., compromissos com prédio. Responde
+   "quem já tem compromisso hoje", para não despachar quem tem visita marcada.
+   null = a leitura falhou (dizer "nada marcado" seria afirmar calma que
+   ninguém verificou); [] = nada marcado. */
+function agendaHtml() {
+  const a = DADOS.agenda_hoje;
+  if (a == null) return `<p class="vazio-lado">Não consegui ler a agenda de hoje.</p>`;
+  if (!a.length) return `<p class="vazio-lado">Nada marcado para hoje.</p>`;
+  return `<div class="chapa">${a.map((x) => {
+    const quando = x.dia_inteiro ? "Dia todo" : hora(x.inicio);
+    const sub = [x.condominio ? x.condominio.nome : "", x.quem ? primeiroNome(x.quem) : ""].filter(Boolean);
+    return `
+    <div class="tec ag">
+      <div class="tec-nome"><span class="ag-h">${quando}</span> ${escapar(x.titulo)}</div>
+      ${sub.length ? `<div class="tec-est">${sub.map(escapar).join(" · ")}</div>` : ""}
+    </div>`;
+  }).join("")}</div>`;
 }
 
 function iniciais(nome) {
@@ -1560,8 +1602,8 @@ async function dlgFicha(id) {
         <div class="linha-tempo">
           ${(Array.isArray(hist) && hist.length) ? hist.map((h) => `
             <div class="ev">
-              <span class="ev-h">${hora(h.criado_em)}</span>
-              <span class="ev-t">${escapar(h.descricao || h.campo || "alteração")}</span>
+              <span class="ev-h">${quandoEv(h.alterado_em)}</span>
+              <span class="ev-t">${escapar(eventoTxt(h))}</span>
             </div>`).join("") : `<p class="vazio-lado">Nada registrado além da abertura.</p>`}
         </div>
         <div class="ficha-lado">
@@ -1572,6 +1614,13 @@ async function dlgFicha(id) {
             <div class="dado"><span>Aberto</span><b>${hora(c.criado_em)} · ${haQuanto(naFila?.minutos_abertos)}</b></div>
             <div class="dado"><span>Técnico</span><b>${escapar(c.tecnico_nome || "sem técnico")}</b></div>
           </div>
+          ${(c.escritorio_motivo || c.pede_escritorio_motivo) ? `<div>
+            <h4>O escritório</h4>
+            ${c.escritorio_motivo ? `<p class="esc-marca" data-m="esc"><span><b>Pedido do escritório</b> · ${escapar(c.escritorio_motivo)}${
+              c.escritorio_por_nome ? ` <span class="esc-marca-quem">(${escapar(c.escritorio_por_nome)})</span>` : ""}</span></p>` : ""}
+            ${c.pede_escritorio_motivo ? `<p class="esc-marca" data-m="pede"><span><b>Esperando o escritório</b> · ${escapar(c.pede_escritorio_motivo)}${
+              c.pede_escritorio_por_nome ? ` <span class="esc-marca-quem">(pedido por ${escapar(c.pede_escritorio_por_nome)})</span>` : ""}</span></p>` : ""}
+          </div>` : ""}
           <div>
             <h4>O prédio</h4>
             <div class="dado"><span>Telemetria</span><b>${naFila?.tem_telemetria ? "Instalada" : "Não instalada"}</b></div>
@@ -1583,6 +1632,9 @@ async function dlgFicha(id) {
       <div class="ficha-pe">
         <p>${escapar(c.descricao || "")}</p>
         <button class="btn btn-fio" data-acao="fechar">Fechar</button>
+        ${(c.status === "aberto" || c.status === "em_atendimento") ? (c.pede_escritorio_motivo
+          ? `<button class="btn btn-fio" data-acao="pede-desfazer" data-id="${c.id}">Não precisa mais do escritório</button>`
+          : `<button class="btn btn-fio" data-acao="pede-escritorio" data-id="${c.id}">Precisa do escritório</button>`) : ""}
         ${(c.status === "aberto" || c.status === "em_atendimento") ? `
           <button class="btn" data-acao="resolver" data-id="${c.id}">Dar como resolvido</button>` : ""}
       </div>
@@ -1608,6 +1660,81 @@ async function dlgFicha(id) {
    volta, desfaz o que volta), pede antes. Cancelar continua fora: é da
    gestão, e o backend recusa o operador. */
 let _fichaAtual = null;
+
+/* A linha do tempo da ficha. ⚠️ ELA LIA CAMPOS QUE A ROTA NÃO DEVOLVE
+   (criado_em, descricao, campo): o GET /chamados/:id/historico devolve
+   alterado_em, campo_alterado, valor_anterior e valor_novo. Toda linha saía
+   "--:-- alteração" (achado em 20/11/2026). */
+// Hoje, só a hora; outro dia, a data na frente. Num chamado de 114 dias a
+// hora sozinha não diz quando foi.
+function quandoEv(iso) {
+  if (!iso) return "--:--";
+  const d = new Date(iso);
+  if (d.toDateString() === new Date().toDateString()) return hora(iso);
+  return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + hora(iso);
+}
+const _EV_STATUS = { aberto: "aberto", em_atendimento: "em atendimento", fechado: "resolvido", cancelado: "cancelado" };
+function eventoTxt(h) {
+  const quem = h.alterado_por_nome ? ` (${primeiroNome(h.alterado_por_nome)})` : "";
+  const novo = h.valor_novo;
+  switch (h.campo_alterado) {
+    case "criado": return "Chamado aberto" + quem;
+    case "status": return `Status: ${_EV_STATUS[novo] || novo || "—"}` + quem;
+    case "prioridade": return `Prioridade: ${prioRot(novo)}` + quem;
+    case "tecnico_id": return (novo ? "Técnico atribuído" : "Técnico retirado") + quem;
+    case "devolvido": return `Técnico devolveu para a fila: ${novo || "sem motivo"}` + quem;
+    case "pedido_escritorio": return (novo ? `Pedido do escritório: ${novo}` : "Pedido do escritório retirado") + quem;
+    case "precisa_escritorio": return (novo ? `Pediu o escritório: ${novo}` : "Escritório resolveu o pedido") + quem;
+    default: return "Alteração" + quem;
+  }
+}
+
+/* PRECISA DO ESCRITÓRIO (migration 098, 20/11/2026). O turno marca o
+   chamado que depende de alguém do escritório; ele entra no "Precisa de
+   você" do Hoje do admin até alguém dar como resolvido. Não confirma: não
+   apaga nem fecha nada, e desfaz a um clique. Pede o motivo, porque o
+   escritório precisa saber o que fazer. */
+function pedirEscritorio(id) {
+  const cx = document.querySelector("#fundo .ficha");
+  if (!cx) return;
+  cancelarConfirma();
+  const pe = cx.querySelector(".ficha-pe");
+  if (pe) pe.hidden = true;
+  const el = document.createElement("div");
+  el.className = "confirma pede";
+  el.innerHTML =
+    `<label class="confirma-txt" for="pedeMotivo">O que o escritório precisa resolver?` +
+    `<span>Aparece no painel do escritório até alguém dar como resolvido.</span></label>` +
+    `<textarea id="pedeMotivo" class="pede-campo" maxlength="300" rows="2" placeholder="Ex.: síndico quer orçamento antes do serviço"></textarea>` +
+    `<button type="button" class="btn btn-fio" data-acao="confirma-nao">Voltar</button>` +
+    `<button type="button" class="btn" data-acao="pede-enviar" data-id="${id}">Mandar para o escritório</button>`;
+  if (pe) pe.insertAdjacentElement("afterend", el); else cx.appendChild(el);
+  _confirmaAtiva = { el, pe, aoSim: null, foco: document.activeElement };
+  el.querySelector("textarea").focus();
+}
+
+async function marcarEscritorio(id, ligar) {
+  const btn = document.querySelector(`#fundo [data-acao="${ligar ? "pede-enviar" : "pede-desfazer"}"][data-id="${id}"]`);
+  const motivo = ligar ? String(document.getElementById("pedeMotivo")?.value || "").trim() : "";
+  if (ligar && !motivo) { avisar("Escreva o que o escritório precisa resolver."); document.getElementById("pedeMotivo")?.focus(); return; }
+  const rotulo = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Gravando…"; }
+  try {
+    const r = await fetch(`/chamados/${id}/pede-escritorio`, {
+      method: ligar ? "PUT" : "DELETE",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: ligar ? JSON.stringify({ motivo }) : undefined,
+    });
+    const d = await lerJson(r, "Escritório");
+    if (!r.ok) throw new Error(d.error || "Erro ao gravar o pedido");
+    await carregar();
+    await dlgFicha(id);
+    avisar(ligar ? "Pedido mandado para o escritório." : "Pedido ao escritório retirado.", true);
+  } catch (e) {
+    avisar(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = rotulo; }
+  }
+}
 
 function pedirResolver(id) {
   const t = _fichaAtual && _fichaAtual.id === id ? _fichaAtual.titulo : "";
@@ -2435,6 +2562,9 @@ document.addEventListener("click", (e) => {
     if (a === "salvar-senha") return salvarSenha();
     if (a === "ficha") return dlgFicha(Number(b.dataset.id));
     if (a === "resolver") return pedirResolver(Number(b.dataset.id));
+    if (a === "pede-escritorio") return pedirEscritorio(Number(b.dataset.id));
+    if (a === "pede-enviar") return marcarEscritorio(Number(b.dataset.id), true);
+    if (a === "pede-desfazer") return marcarEscritorio(Number(b.dataset.id), false);
     if (a === "despacho") return dlgDespacho(Number(b.dataset.id));
     if (a === "salvar-novo") return salvarNovo();
     if (a === "escolher") return pedirDespacho(Number(b.dataset.chamado), Number(b.dataset.tec), b);

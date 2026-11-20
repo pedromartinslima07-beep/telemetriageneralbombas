@@ -27,7 +27,8 @@ aliases:
 > definir com o Pedro) e o teste com o perfil operador. ✅ **090, 091, 092,
 > 093, 094, 095, 096 e 097 aplicadas em produção em 20/11/2026** (conferidas
 > no `information_schema` antes e depois), e a branch foi para a main no mesmo
-> dia. ⏳ Falta **`PAINEL_NOVO` no Railway com o e-mail do login que vai usar o painel
+> dia. ✅ **098 (o escritório e o turno) em produção em 20/11/2026**, antes do
+> push. ⏳ Falta **`PAINEL_NOVO` no Railway com o e-mail do login que vai usar o painel
 > novo** (sem ela ninguém vê o novo: todos ficam no de antes, ver
 > [painel-novo.md](../docs/modulos/painel-novo.md)). (097 = lote do
 > faturamento, fase 2: além dela, `OMIE_EMISSAO=1` no Railway e ninguém mais

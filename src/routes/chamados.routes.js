@@ -2,7 +2,7 @@ const express = require("express");
 const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
-const { GESTAO_ROLES } = require("../middleware/gestaoOnly");
+const { GESTAO_ROLES, gestaoOnly } = require("../middleware/gestaoOnly");
 const { salvarFotoMensagemChamado } = require("../services/chamado-mensagens.service");
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
 const { resolverTecnico } = require("../services/chamado-atribuicao.service");
@@ -349,6 +349,10 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
          ch.primeira_resposta_em,
          ch.tecnico_a_caminho_em,
          ch.tecnico_chegou_em,
+         ch.escritorio_motivo, ch.escritorio_em,
+         (SELECT nome FROM usuarios WHERE id = ch.escritorio_por) AS escritorio_por_nome,
+         ch.pede_escritorio_motivo, ch.pede_escritorio_em,
+         (SELECT nome FROM usuarios WHERE id = ch.pede_escritorio_por) AS pede_escritorio_por_nome,
          COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          u.nome  AS responsavel_nome,
          t.nome  AS tecnico_nome,
@@ -1118,6 +1122,75 @@ router.post("/:id/devolver", authRequired, async (req, res) => {
 // GET /chamados/:id/historico — timeline cronológica de mudanças do chamado.
 // Retorna linhas de historico_chamados + nome do autor (LEFT JOIN usuarios).
 // alterado_por = NULL significa "sistema" (IA, jobs).
+// ═══ O escritório e o turno conversando pelo chamado (migration 098) ═══
+//
+// PUT/DELETE /chamados/:id/escritorio      — "Pedido do escritório" (gestão)
+// PUT/DELETE /chamados/:id/pede-escritorio — "Precisa do escritório" (o turno
+//                                            marca; quem resolve é qualquer um
+//                                            do adminOnly: o turno desfaz o que
+//                                            marcou por engano, o escritório dá
+//                                            como resolvido)
+//
+// ⚠️ O pedido do escritório NÃO reordena a fila do turno: ela é ordenada pelo
+// prazo que estoura primeiro, e essa é a tese da tela (painel-operador.md). A
+// marca é um selo com o motivo, nada mais. Quem quer mais pressa sobe a
+// prioridade, que já muda o prazo.
+//
+// Só chamado em aberto recebe marca (fechado ou cancelado: 409). Marcar e
+// desmarcar ficam no historico_chamados.
+const _MARCAS = {
+  escritorio:        { col: "escritorio",      campo: "pedido_escritorio" },
+  "pede-escritorio": { col: "pede_escritorio", campo: "precisa_escritorio" },
+};
+
+async function _marcar(req, res, tipo, ligar) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  const m = _MARCAS[tipo];
+  const motivo = String(req.body?.motivo || "").trim();
+  if (ligar && !motivo) return res.status(400).json({ error: "Escreva o motivo." });
+  if (ligar && motivo.length > 300) return res.status(400).json({ error: "Motivo com mais de 300 caracteres." });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const a = await client.query(
+      `SELECT status, ${m.col}_motivo AS motivo FROM chamados WHERE id = $1 FOR UPDATE`, [id]);
+    if (!a.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Chamado não encontrado" }); }
+    const antes = a.rows[0];
+    if (ligar && !["aberto", "em_atendimento"].includes(antes.status)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "Este chamado não está mais em aberto." });
+    }
+    if (!ligar && !antes.motivo) { await client.query("ROLLBACK"); return res.json({ ok: true, ja_estava: true }); }
+    if (ligar) {
+      await client.query(
+        `UPDATE chamados SET ${m.col}_motivo = $2::varchar, ${m.col}_por = $3::int, ${m.col}_em = NOW(), atualizado_em = NOW()
+          WHERE id = $1`, [id, motivo, req.user.id]);
+    } else {
+      await client.query(
+        `UPDATE chamados SET ${m.col}_motivo = NULL, ${m.col}_por = NULL, ${m.col}_em = NULL, atualizado_em = NOW()
+          WHERE id = $1`, [id]);
+    }
+    await client.query(
+      `INSERT INTO historico_chamados (chamado_id, campo_alterado, valor_anterior, valor_novo, alterado_por)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, m.campo, antes.motivo || null, ligar ? motivo : null, req.user.id]);
+    await client.query("COMMIT");
+    return res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error(`[chamados] ${ligar ? "PUT" : "DELETE"} /:id/${tipo}:`, err);
+    return res.status(500).json({ error: "Erro ao gravar a marca do chamado" });
+  } finally {
+    client.release();
+  }
+}
+
+router.put("/:id/escritorio", authRequired, gestaoOnly, (req, res) => _marcar(req, res, "escritorio", true));
+router.delete("/:id/escritorio", authRequired, gestaoOnly, (req, res) => _marcar(req, res, "escritorio", false));
+router.put("/:id/pede-escritorio", authRequired, adminOnly, (req, res) => _marcar(req, res, "pede-escritorio", true));
+router.delete("/:id/pede-escritorio", authRequired, adminOnly, (req, res) => _marcar(req, res, "pede-escritorio", false));
+
 router.get("/:id/historico", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -1159,7 +1232,9 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
          cw.telefone AS cliente_telefone,
          cw.nome     AS cliente_nome,
          pm.titulo   AS plano_titulo,
-         os.id       AS ordem_servico_id
+         os.id       AS ordem_servico_id,
+         (SELECT nome FROM usuarios WHERE id = ch.escritorio_por)      AS escritorio_por_nome,
+         (SELECT nome FROM usuarios WHERE id = ch.pede_escritorio_por) AS pede_escritorio_por_nome
        FROM chamados ch
        LEFT JOIN condominios c  ON c.id  = ch.condominio_id
        LEFT JOIN usuarios u     ON u.id  = ch.responsavel_id

@@ -2287,7 +2287,7 @@ body.com-ficha{overflow:hidden}
    folha carregava o estilo de um controle que nunca foi renderizado. */
 .ficha-pane{padding:18px 22px 20px;display:grid;grid-template-columns:1fr 240px;gap:26px}
 .linha-tempo{display:flex;flex-direction:column;gap:0;min-width:0}
-.ev{display:grid;grid-template-columns:74px 1fr;gap:14px;padding:9px 0;border-bottom:1px solid var(--fio-esc)}
+.ev{display:grid;grid-template-columns:96px 1fr;gap:14px;padding:9px 0;border-bottom:1px solid var(--fio-esc)}
 .ev:last-child{border-bottom:0}
 .ev-h{
   font-family:var(--mono);font-size:12px;
@@ -4272,3 +4272,31 @@ body.tela-equip .marca span{display:block}
 @media (prefers-reduced-motion:reduce){
   .eq-scan-btn{transition:none}
 }
+
+/* ── O escritório e o turno (migration 098, 20/11/2026) ─────────────────
+   As marcas do chamado: uma linha de frase no item, logo abaixo do prédio.
+   ⚠️ Sem preenchimento de cor: a Regra do Campo Único deixa o âmbar cheio
+   para o botão que grava e para o relógio estourado. A marca é tinta. */
+.esc-marca{
+  display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;
+  font-size:13.5px;line-height:1.45;color:var(--text);max-width:68ch;
+}
+.esc-marca b{font-weight:700;color:var(--accent)}
+.esc-marca[data-m="pede"] b{color:var(--crista)}
+.esc-marca svg{flex-shrink:0;margin-top:2px;color:var(--accent)}
+.esc-marca-quem{color:var(--text-dim)}
+/* Na ficha a peça é clara: a tinta troca. */
+.ficha .esc-marca{color:var(--tinta);margin:4px 0 8px}
+.ficha .esc-marca b{color:var(--atencao-t)}
+.ficha .esc-marca[data-m="pede"] b{color:var(--tinta-2)}
+.ficha .esc-marca-quem{color:var(--tinta-2)}
+/* O pedido ao escritório usa a barra da confirmação, com um campo. */
+.pede .pede-campo{
+  flex-basis:100%;width:100%;min-height:58px;resize:vertical;
+  padding:9px 11px;border:1px solid var(--fio-esc);border-radius:6px;
+  background:#fff;color:var(--tinta);font:inherit;font-size:14px;line-height:1.4;
+}
+.pede .pede-campo:focus{outline:2px solid var(--accent-3);outline-offset:1px}
+/* Hoje na agenda: mesma chapa da equipe; a hora na frente, em mono. */
+.tec.ag .tec-nome{white-space:normal}
+.ag-h{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);margin-right:4px}

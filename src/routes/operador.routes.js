@@ -83,7 +83,7 @@ const SQL_EQUIPE = `
  */
 router.get("/fila", authRequired, adminOnly, async (req, res) => {
   try {
-    const [chamadosRes, reservRes, tecnicosRes, condosRes] = await Promise.all([
+    const [chamadosRes, reservRes, tecnicosRes, condosRes, agendaHoje] = await Promise.all([
       pool.query(`
         WITH base AS (
           SELECT
@@ -91,6 +91,10 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
             ch.status, ch.criado_em, ch.conversa_id, ch.plano_manutencao_id,
             ch.primeira_resposta_em, ch.tecnico_a_caminho_em, ch.tecnico_chegou_em,
             ch.condominio_id,
+            ch.escritorio_motivo, ch.escritorio_em,
+            (SELECT nome FROM usuarios WHERE id = ch.escritorio_por) AS escritorio_por_nome,
+            ch.pede_escritorio_motivo, ch.pede_escritorio_em,
+            (SELECT nome FROM usuarios WHERE id = ch.pede_escritorio_por) AS pede_escritorio_por_nome,
             c.nome, c.nome_fantasia, c.bairro, c.cidade, c.lat, c.lng,
             t.id AS tecnico_id, t.nome AS tecnico_nome,
             sd.ttfr_min, sd.ttr_min, sd.sla_chegada_min,
@@ -181,6 +185,10 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
           FROM condominios
          WHERE ativo = true AND lat IS NOT NULL AND lng IS NOT NULL
       `),
+
+      // A agenda de hoje (20/11/2026): o que o escritório marcou na Agenda.
+      // Erro aqui não derruba a fila: a tela do turno vem primeiro.
+      agendaDoDia().catch((e) => { console.error("[operador] agenda do dia:", e.message); return null; }),
     ]);
 
     // Reservatórios agrupados por condomínio.
@@ -240,6 +248,12 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
           lng: c.lng == null ? null : Number(c.lng),
         } : null,
         tecnico: c.tecnico_id ? { id: c.tecnico_id, nome: c.tecnico_nome } : null,
+        // As marcas da migration 098. O pedido do escritório é só selo: não
+        // entra na ordenação logo abaixo.
+        escritorio: c.escritorio_motivo
+          ? { motivo: c.escritorio_motivo, em: c.escritorio_em, por: c.escritorio_por_nome } : null,
+        pede_escritorio: c.pede_escritorio_motivo
+          ? { motivo: c.pede_escritorio_motivo, em: c.pede_escritorio_em, por: c.pede_escritorio_por_nome } : null,
         a_caminho_em: c.tecnico_a_caminho_em,
         chegou_em: c.tecnico_chegou_em,
         reservatorios,
@@ -289,12 +303,88 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
         banda: piorBanda(porCondo.get(c.id)),
       })),
       limiares: { baixo: NIVEL_BAIXO, critico: NIVEL_CRITICO },
+      // null = não deu para ler (a tela diz isso); [] = nada marcado hoje.
+      agenda_hoje: agendaHoje,
     });
   } catch (err) {
     console.error("[operador] GET /fila:", err);
     return res.status(500).json({ error: "Erro ao carregar a fila do turno" });
   }
 });
+
+/**
+ * A agenda de hoje para o turno (20/11/2026, pedido do Pedro).
+ *
+ * O que o escritório marcou na Agenda do admin e cai hoje (no relógio de São
+ * Paulo): os compromissos lançados à mão, com as repetições, e os retornos
+ * pedidos nas O.S. A pergunta que responde no trilho é "quem já tem
+ * compromisso hoje", para o líder não despachar alguém que tem visita marcada.
+ *
+ * ⚠️ O que é "só do admin" (so_admin) NÃO vem: reunião interna, pagamento e o
+ * faturamento do Omie não são assunto do turno. Também ficam fora contratos
+ * que terminam e o resumo das preventivas, que a Agenda mostra para a gestão.
+ *
+ * ⚠️ A REPETIÇÃO É A MESMA DA AGENDA: usa o _ocorrencias do agenda.routes.js.
+ * Duas regras de "repete toda semana" divergiriam no primeiro mês de 31 dias.
+ */
+async function agendaDoDia() {
+  const { _ocorrencias } = require("./agenda.routes");
+  const SP = 3 * 60 * 60 * 1000;
+  const dia = new Date(Date.now() - SP).toISOString().slice(0, 10);
+  const ini = new Date(`${dia}T00:00:00-03:00`);
+  const fim = new Date(ini.getTime() + 86400000);
+  const [rc, ro] = await Promise.all([
+    pool.query(
+      `SELECT c.id, c.titulo, c.tipo, c.inicio, c.fim, c.dia_inteiro, c.repeticao, c.repete_ate,
+              c.condominio_id, COALESCE(NULLIF(cd.nome_fantasia,''), cd.nome) AS condominio_nome,
+              u.nome AS responsavel_nome, c.chamado_id, t.nome AS tecnico_nome
+         FROM compromissos c
+         LEFT JOIN condominios cd ON cd.id = c.condominio_id
+         LEFT JOIN usuarios u ON u.id = c.responsavel_id
+         LEFT JOIN chamados ch ON ch.id = c.chamado_id
+         LEFT JOIN tecnicos t ON t.id = ch.tecnico_id
+        WHERE c.apagado_em IS NULL AND NOT c.so_admin
+          AND c.inicio < $2
+          AND (c.repeticao <> 'nenhuma' OR COALESCE(c.fim, c.inicio) >= $1)`,
+      [ini.toISOString(), fim.toISOString()]
+    ),
+    pool.query(
+      `SELECT os.id, os.numero, os.condominio_id,
+              COALESCE(NULLIF(cd.nome_fantasia,''), cd.nome) AS condominio_nome
+         FROM ordens_servico os
+         LEFT JOIN condominios cd ON cd.id = os.condominio_id
+        WHERE os.necessario_retorno = TRUE AND os.finalizada_em IS NOT NULL
+          AND os.retorno_sugerido_em = $1::date`,
+      [dia]
+    ),
+  ]);
+  const itens = [];
+  for (const c of rc.rows) {
+    const dur = c.fim ? new Date(c.fim) - new Date(c.inicio) : 0;
+    for (const d of _ocorrencias(c, ini, fim)) {
+      itens.push({
+        tipo: c.tipo, titulo: c.titulo, inicio: d.toISOString(),
+        fim: c.fim ? new Date(d.getTime() + dur).toISOString() : null,
+        dia_inteiro: !!c.dia_inteiro,
+        condominio: c.condominio_id ? { id: c.condominio_id, nome: c.condominio_nome } : null,
+        // Quem vai: o técnico do chamado ligado à visita; sem chamado, o
+        // responsável marcado no compromisso.
+        quem: c.tecnico_nome || c.responsavel_nome || null,
+        chamado_id: c.chamado_id || null,
+      });
+    }
+  }
+  for (const o of ro.rows) {
+    itens.push({
+      tipo: "retorno", titulo: `Retorno pedido na ${o.numero}`, inicio: ini.toISOString(), fim: null,
+      dia_inteiro: true, condominio: o.condominio_id ? { id: o.condominio_id, nome: o.condominio_nome } : null,
+      quem: null, chamado_id: null,
+    });
+  }
+  // Dia inteiro primeiro, depois pela hora.
+  itens.sort((a, b) => (b.dia_inteiro - a.dia_inteiro) || (new Date(a.inicio) - new Date(b.inicio)));
+  return itens;
+}
 
 /**
  * A pior banda entre os reservatórios de um prédio.

@@ -81,6 +81,13 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ O escritório e o turno conversam pelo chamado (20/11/2026, migration 098)
+
+Duas marcas em `chamados`: "Pedido do escritório" (admin → turno, selo; não
+reordena a fila) e "Precisa do escritório" (turno → Hoje do admin, até
+"Pedido atendido"). O `GET /operador/fila` traz também `agenda_hoje`. Ver
+[painel-operador.md](../docs/modulos/painel-operador.md#o-escritório-e-o-turno-20112026-migration-098).
+
 ### ⚠️ Dois painéis do admin no mesmo endereço (20/11/2026, branch sem deploy)
 
 `/admin/painel` entrega o painel novo só aos e-mails da `PAINEL_NOVO`; os

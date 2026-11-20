@@ -749,6 +749,21 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 098 — o escritório e o turno pelo chamado (20/11/2026)
+
+Duas marcas em `chamados`, uma em cada direção
+([painel-operador.md](modulos/painel-operador.md#o-escritório-e-o-turno-20112026-migration-098)).
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| `escritorio_motivo` / `escritorio_por` / `escritorio_em` | VARCHAR(300) / FK usuarios (SET NULL) / TIMESTAMPTZ | "Pedido do escritório": o admin marca o chamado para o turno. Selo no painel do turno; não muda a ordem da fila |
+| `pede_escritorio_motivo` / `pede_escritorio_por` / `pede_escritorio_em` | idem | "Precisa do escritório": o turno marca; entra no "Precisa de você" do Hoje até alguém dar como atendido |
+
+Índice parcial `chamados_pede_escritorio_idx` em `pede_escritorio_em`.
+Marcar e desmarcar gravam em `historico_chamados` (`campo_alterado` =
+`pedido_escritorio` / `precisa_escritorio`, o motivo no `valor_novo`; ao
+desmarcar, no `valor_anterior`). ✅ Teste e ✅ produção (20/11/2026).
+
 ## 097 — o lote do faturamento dos contratos (20/11/2026)
 
 Integração com o Omie, fase 2 ([omie-integracao.md](modulos/omie-integracao.md)).
