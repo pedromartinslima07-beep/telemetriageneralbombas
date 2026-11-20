@@ -544,6 +544,14 @@ Detalhe e o porquê de cada uma em
 
 ## Funcionalidades prontas (✅)
 
+**Relatórios — dashboard de gestão (20/11/2026, painel novo)**
+- `GET /relatorios/dashboard?periodo=mes|ant|tri|ano` + `public/admin-relatorios.js`:
+  seis números contra o período anterior (o período em curso compara com o
+  mesmo pedaço do anterior), e os blocos atendimento e prazo, dinheiro (só
+  admin), técnicos, prédios e equipamentos. Exportar saiu daqui e mora em cada
+  lista; a tela antiga segue no painel de antes. Ver
+  [relatorios-dashboard.md](../docs/modulos/relatorios-dashboard.md).
+
 **Telemetria & alertas**
 - Ingestão ESP32 com write-threshold e auto-resolve de offline.
 - Job offline (alerta após N min sem leitura, idempotente).

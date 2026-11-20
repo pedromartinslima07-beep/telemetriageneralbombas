@@ -23,8 +23,9 @@ aliases:
 > **Preventivas** (etapa 9), **Equipamentos** (etapa 10) e
 > **Colaboradores** (etapa 11), e Configurações com o menu à esquerda
 > (etapa 12): **todas as telas no código**, e os layouts antigos que
-> elas guardavam escondidos no HTML já saíram (limpeza de 20/11). **Falta:** Relatórios (dashboard, a
-> definir com o Pedro) e o teste com o perfil operador. ✅ **090, 091, 092,
+> elas guardavam escondidos no HTML já saíram (limpeza de 20/11). ✅ **Relatórios virou dashboard em 20/11** (maquete aprovada, rota
+> `GET /relatorios/dashboard`, ver [relatorios-dashboard.md](../docs/modulos/relatorios-dashboard.md)).
+> **Falta:** o teste com o perfil operador. ✅ **090, 091, 092,
 > 093, 094, 095, 096 e 097 aplicadas em produção em 20/11/2026** (conferidas
 > no `information_schema` antes e depois), e a branch foi para a main no mesmo
 > dia. ✅ **098 (o escritório e o turno) em produção em 20/11/2026**, antes do

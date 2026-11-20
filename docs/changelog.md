@@ -18409,3 +18409,15 @@ mês anterior, e os blocos Atendimento e prazo, Dinheiro, Técnicos e Prédios e
 equipamentos, com gráficos em SVG na própria página. Exportar sai de
 Relatórios. `_redesenho-preview.css?v=4`, `_redesenho-preview-2.js?v=4`. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md#relatórios-vira-dashboard-maquete-20112026).
+
+## Relatórios vira dashboard (2026-11-20)
+
+Maquete aprovada pelo Pedro e implementada no mesmo dia, no painel novo.
+`GET /relatorios/dashboard?periodo=mes|ant|tri|ano` (`relatorios.routes.js`,
+`gestaoOnly`; dinheiro só para o admin) e `public/admin-relatorios.js?v=2` na
+seção `relatorios`, que troca o painel ao vivo e o exportar pelo `#relDash`
+(a tela antiga segue no painel de antes). `admin.js?v=422` (o
+`renderRelatorios` só roda sem o `#relDash`), `admin.css?v=377` (bloco `rd-`
+e a tela na lista de exceções do raio zero). Sem migration. Teste
+`relatorios-dashboard.test.js` (25). Ver
+[relatorios-dashboard.md](modulos/relatorios-dashboard.md).

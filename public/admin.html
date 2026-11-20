@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=375">
+  <link rel="stylesheet" href="/static/admin.css?v=377">
 </head>
 <body>
   <div id="appLoader">
@@ -1209,134 +1209,11 @@
 
       <!-- ===== SECTION: RELATÓRIOS ===== -->
       <div class="section" data-section="relatorios">
-
-        <!-- Painel ao vivo — estado operacional agora, sem filtro de período.
-             Sem chamados em risco nem técnicos com abertos → colapsa numa linha
-             de status ("Tudo operacional"); o JS controla via .is-collapsed. -->
-        <div class="card rel-card-vivo" id="relVivoCard" style="padding:0;overflow:hidden;margin-bottom:12px;">
-          <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-            <span class="rel-card-title">
-              <span class="rel-card-icon rel-icon-vivo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              </span>
-              Painel ao vivo
-            </span>
-            <span style="display:flex;align-items:center;gap:6px;">
-              <button class="btn btn-sm" data-rel-action="atualizar-painel">Atualizar</button>
-              <button class="rel-vivo-toggle" data-rel-action="toggle-painel" aria-label="Expandir ou recolher painel">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-            </span>
-          </div>
-          <div class="rel-vivo-status">
-            <span class="rel-vivo-dot" id="relVivoDot"></span>
-            <span id="relVivoStatusTxt">Carregando…</span>
-          </div>
-          <div class="rel-vivo-grid">
-            <div>
-              <p class="rel-ct-head">
-                <span>Chamados em risco <span style="font-size:11px;color:var(--muted);">(passou da metade do prazo)</span></span>
-                <span id="relVivoRiscoCount" class="rel-count-badge rel-count-neutral">–</span>
-              </p>
-              <div class="tableWrap" style="max-height:260px;">
-                <table><thead><tr>
-                  <!-- Molde do `planos`, como em Chamados e Alertas: condomínio
-                       e técnico descem para a linha de apoio do título. O painel
-                       ocupa metade da largura do card, e com cinco colunas o
-                       título quebrava em três linhas. -->
-                  <th>Chamado</th><th style="width:88px">Prioridade</th>
-                  <!-- Era "Uso do TTR", em percentual. Ver `_relTtrPrazo` no admin.js. -->
-                  <th style="width:136px">Prazo</th>
-                </tr></thead><tbody id="relVivoRiscoBody"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
-              </div>
-            </div>
-            <div>
-              <p class="rel-ct-head">
-                <span>Workload por técnico</span>
-                <span id="relVivoWorkloadCount" class="rel-count-badge rel-count-neutral">–</span>
-              </p>
-              <div class="tableWrap" style="max-height:260px;">
-                <table><thead><tr>
-                  <th>Técnico</th><th style="width:64px;text-align:right;">Abertos</th>
-                  <th style="width:48px;text-align:right;">P1</th><th style="width:48px;text-align:right;">P2</th>
-                  <th style="width:48px;text-align:right;">P3</th><th style="width:48px;text-align:right;">P4</th>
-                </tr></thead><tbody id="relVivoWorkloadBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Carregando…</td></tr></tbody></table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Exportar relatórios — card único: tabs (segmented) trocam só os
-             filtros específicos; De/Até/Condomínio são comuns e ficam fixos.
-             Sem gráfico/preview: análise fica no Excel. -->
-        <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-          <div class="rel-ct-head" style="display:flex;justify-content:space-between;align-items:center;">
-            <span class="rel-card-title">
-              <span class="rel-card-icon rel-icon-export">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </span>
-              Exportar relatórios
-            </span>
-            <div class="rel-seg" id="relSeg" role="tablist">
-              <button class="rel-seg-btn is-active" data-rel-tab="chamados" role="tab">Chamados</button>
-              <button class="rel-seg-btn" data-rel-tab="alertas" role="tab">Alertas</button>
-              <button class="rel-seg-btn" data-rel-tab="telemetria" role="tab">Telemetria</button>
-            </div>
-          </div>
-          <div class="rel-chips">
-            <button class="rel-chip" data-rel-preset="7d">7 dias</button>
-            <button class="rel-chip" data-rel-preset="30d">30 dias</button>
-            <button class="rel-chip" data-rel-preset="mes">Este mês</button>
-            <button class="rel-chip" data-rel-preset="mes-ant">Mês anterior</button>
-          </div>
-          <div class="filter-bar rel-export-fields">
-            <div class="field"><label class="lbl">De</label><input type="date" id="relExpIni" class="input rel-date" style="width:136px;"></div>
-            <div class="field"><label class="lbl">Até</label><input type="date" id="relExpFim" class="input rel-date" style="width:136px;"></div>
-            <div class="field"><label class="lbl">Condomínio</label><select id="relExpCondo" class="input rel-sel" style="width:170px;"><option value="">Todos</option></select></div>
-
-            <div class="rel-filtros-esp is-active" data-rel-esp="chamados">
-              <div class="field"><label class="lbl">Status</label>
-                <select id="relExpChStatus" class="input rel-sel" style="width:140px;">
-                  <option value="">Todos</option><option value="aberto">Aberto</option>
-                  <option value="em_atendimento">Em atendimento</option><option value="fechado">Fechado</option>
-                </select>
-              </div>
-              <div class="field"><label class="lbl">Prioridade</label>
-                <select id="relExpChPrioridade" class="input rel-sel" style="width:132px;">
-                  <option value="">Todas</option><option value="p4">P4 Agendado</option>
-                  <option value="p3">P3 Controlado</option><option value="p2">P2 Alta</option>
-                  <option value="p1">P1 Crítico</option>
-                </select>
-              </div>
-              <div class="field"><label class="lbl">Técnico</label><select id="relExpChTecnico" class="input rel-sel" style="width:150px;"><option value="">Todos</option></select></div>
-            </div>
-
-            <div class="rel-filtros-esp" data-rel-esp="alertas">
-              <div class="field"><label class="lbl">Tipo</label>
-                <select id="relExpAlTipo" class="input rel-sel" style="width:160px;">
-                  <option value="">Todos</option>
-                  <option value="offline">Offline</option>
-                  <option value="nivel_critico">Nível crítico</option>
-                  <option value="nivel_baixo">Nível baixo</option>
-                  <option value="nivel_muito_baixo">Nível muito baixo</option>
-                </select>
-              </div>
-              <div class="field"><label class="lbl">Status</label>
-                <select id="relExpAlStatus" class="input rel-sel" style="width:132px;">
-                  <option value="">Todos</option><option value="ativo">Ativo</option><option value="resolvido">Resolvido</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="rel-filtros-esp" data-rel-esp="telemetria">
-              <div class="field"><label class="lbl">Device ID</label><input type="text" id="relExpTelDevice" class="input" placeholder="Opcional" style="width:154px;"></div>
-              <span class="rel-exp-note">Agregado diário por reservatório</span>
-            </div>
-
-            <button class="btn btn-sm btnAccent" data-rel-action="exportar-csv" style="align-self:flex-end;">Exportar CSV</button>
-          </div>
-        </div>
-
+        <!-- Dashboard de gestão (20/11/2026): admin-relatorios.js, dados de
+             GET /relatorios/dashboard. O painel ao vivo e o exportar de antes
+             seguem só no painel antigo (public/legado/); exportar agora mora
+             em cada lista. Ver docs/modulos/relatorios-dashboard.md. -->
+        <div id="relDash" class="rd"></div>
       </div><!-- /section relatorios -->
 
       <div class="section" data-section="config">
@@ -2518,7 +2395,7 @@
 </div>
 
 
-<script src="/static/admin.js?v=421" defer></script>
+<script src="/static/admin.js?v=422" defer></script>
 <script src="/static/admin-condominio.js?v=14" defer></script>
 <script src="/static/lucide.min.js" defer></script>
 <script src="/static/admin-nav.js?v=16" defer></script>
@@ -2540,6 +2417,7 @@
 <script src="/static/admin-omie-contratos.js?v=4" defer></script>
 <script src="/static/admin-faturamento-lote.js?v=3" defer></script>
 <script src="/static/admin-config.js?v=1" defer></script>
+<script src="/static/admin-relatorios.js?v=2" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>

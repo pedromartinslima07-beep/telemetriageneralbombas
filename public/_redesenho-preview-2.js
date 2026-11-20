@@ -610,17 +610,139 @@
     icones();
   };
 
-  // ═══ RELATÓRIOS ═══════════════════════════════════════════════════════
+  // ═══ RELATÓRIOS: o dashboard de gestão (maquete, 20/11/2026) ══════════
+  // Respostas do Pedro: quem olha é ele, toda semana ou mês; abre no mês
+  // corrente contra o anterior; responde atendimento/prazo, dinheiro, técnicos
+  // e prédios/equipamentos; exportar saiu (cada lista tem o seu). Todo número
+  // leva para a lista. Contratos em --info-m e O.S. em --at-m (par validado:
+  // CVD ΔE 33), com legenda e o valor escrito embaixo.
+  let relPer = "mes";
+  const MESES = ["dez", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov"];
+  const REL = {
+    cham: [58, 61, 66, 72, 69, 63, 70, 74, 68, 77, 71, 64],
+    sla: [79, 80, 77, 74, 78, 82, 80, 76, 81, 79, 81, 87],
+    fatC: [96, 96, 98, 98, 101, 101, 103, 104, 104, 107, 108, 109],
+    fatO: [22, 28, 31, 25, 34, 30, 27, 38, 33, 29, 31.9, 39.3],
+  };
+  // [nome, valor, mês anterior, variação, menor é melhor, link, dica, unidade da variação]
+  const KPI = [
+    ["Chamados abertos", "64", "71", -10, true, "#/atendimento", "chamados abertos no mês"],
+    ["Tempo até atender", "2 h 10", "3 h 05", -30, true, "#/atendimento", "mediana, do chamado aberto ao técnico no local"],
+    ["Dentro do prazo", "87%", "81%", 6, false, "#/atendimento", "chamados fechados no prazo do contrato", " p.p."],
+    ["Faturado", "R$ 148,3 mil", "R$ 139,9 mil", 6, false, "#/financeiro", "contratos + O.S., pela data da nota"],
+    ["Orçamentos aprovados", "58%", "49%", 9, false, "#/orcamentos", "18 de 31 enviados no mês", " p.p."],
+    ["Preventivas feitas", "90%", "94%", -4, false, "#/preventivas", "52 de 58 previstas no mês", " p.p."],
+  ];
+  const TEC_REL = [
+    { t: 1, os: 41, horas: "96 h", ret: 1, prevF: 19, prevP: 20 },
+    { t: 2, os: 34, horas: "88 h", ret: 4, prevF: 17, prevP: 20 },
+    { t: 3, os: 29, horas: "71 h", ret: 0, prevF: 16, prevP: 18 },
+  ];
+  const PRED_REL = [[1, 14, 3], [2, 11, 1], [5, 9, 2], [3, 7, 0], [6, 5, 0]];
+  const EQ_REL = [
+    ["Bomba centrífuga 3 cv", "Schneider BC-92", 6, "4 prédios"],
+    ["Boia elétrica", "Anauger", 5, "5 prédios"],
+    ["Pressurizador", "Rowa SFL 20", 3, "2 prédios"],
+    ["Quadro de comando", "WEG", 2, "2 prédios"],
+  ];
+  const RES_REL = [[1, "Caixa superior", 9, "nível muito baixo"], [2, "Cisterna", 6, "sem sinal"], [5, "Cisterna", 4, "nível baixo"]];
+  const virg = v => String(v).replace(".", ",");
+
+  const delta = (v, menorMelhor, un) => {
+    if (!v) return `<span class="kd">igual</span>`;
+    const bom = menorMelhor ? v < 0 : v > 0;
+    return `<span class="kd ${bom ? "is-bom" : "is-mau"}">${ico(v > 0 ? "arrow-up-right" : "arrow-down-right")}${Math.abs(v)}${un || "%"}</span>`;
+  };
+  // topo arredondado (4px) e base reta no eixo
+  const coluna = (x, base, h, w) => `M${x},${base} v${-(h - 4)} q0,-4 4,-4 h${w - 8} q4,0 4,4 v${h - 4} z`;
+  // barras de uma série: 12 meses, o mês atual destacado e só ele com rótulo
+  function barras(vals, fmt, alto = 120) {
+    const w = 600, max = Math.max(...vals) * 1.15, bw = w / vals.length, bwi = bw * .56;
+    return `<svg class="gf" viewBox="0 0 ${w} ${alto + 22}" role="img" aria-label="Chamados abertos nos últimos 12 meses">
+      <line x1="0" x2="${w}" y1="${alto / 2}" y2="${alto / 2}" class="gf-grade"/>
+      <line x1="0" x2="${w}" y1="${alto}" y2="${alto}" class="gf-base"/>
+      ${vals.map((v, i) => { const h = alto * v / max, x = i * bw + bw * .22, ult = i === vals.length - 1;
+        return `<g class="gf-m"><rect x="${i * bw}" y="0" width="${bw}" height="${alto + 22}" class="gf-alvo"><title>${MESES[i]}: ${fmt(v)}</title></rect>
+          <path d="${coluna(x, alto, h, bwi)}" class="gf-b${ult ? " is-ult" : ""}"/>
+          ${ult ? `<text x="${x + bwi / 2}" y="${alto - h - 6}" class="gf-v">${fmt(v)}</text>` : ""}
+          <text x="${i * bw + bw / 2}" y="${alto + 16}" class="gf-x">${MESES[i]}</text></g>`; }).join("")}
+    </svg>`;
+  }
+  // empilhado de duas séries, com 2px de folga entre os segmentos
+  function empilhado(a, b, alto = 120) {
+    const w = 600, max = Math.max(...a.map((v, i) => v + b[i])) * 1.12, bw = w / a.length, bwi = bw * .56;
+    return `<svg class="gf" viewBox="0 0 ${w} ${alto + 22}" role="img" aria-label="Faturado por mês, contratos e O.S.">
+      <line x1="0" x2="${w}" y1="${alto}" y2="${alto}" class="gf-base"/>
+      ${a.map((v, i) => { const ha = alto * v / max, hb = alto * b[i] / max, x = i * bw + bw * .22;
+        return `<g class="gf-m"><rect x="${i * bw}" y="0" width="${bw}" height="${alto + 22}" class="gf-alvo"><title>${MESES[i]}: R$ ${virg((v + b[i]).toFixed(1))} mil (contratos ${virg(v)} · O.S. ${virg(b[i])})</title></rect>
+          <rect x="${x}" y="${alto - ha}" width="${bwi}" height="${ha}" class="gf-s1"/>
+          <path d="${coluna(x, alto - ha - 2, hb - 2, bwi)}" class="gf-s2"/>
+          ${i === a.length - 1 ? `<text x="${x + bwi / 2}" y="${alto - ha - hb - 6}" class="gf-v">${virg((v + b[i]).toFixed(1))}</text>` : ""}
+          <text x="${i * bw + bw / 2}" y="${alto + 16}" class="gf-x">${MESES[i]}</text></g>`; }).join("")}
+    </svg>`;
+  }
+  const medidor = (f, p) => `<span class="med"><span style="width:${Math.round(100 * f / p)}%"></span></span>`;
+  const relBloco = (t, sub, corpo, link) => `<section class="rel-bl"><header><h2>${t}</h2>${sub ? `<span class="muted">${sub}</span>` : ""}<span class="esp"></span>${link ? `<a class="lk rel-ir" href="${link[1]}">${link[0]}${ico("arrow-right")}</a>` : ""}</header>${corpo}</section>`;
+
   M.telas.relatorios = () => {
+    const per = { mes: ["Novembro de 2026", "comparado com outubro"], ant: ["Outubro de 2026", "comparado com setembro"],
+      tri: ["Setembro a novembro de 2026", "comparado com junho a agosto"], ano: ["Últimos 12 meses", "comparado com os 12 anteriores"] }[relPer];
+    const maxP = Math.max(...PRED_REL.map(p => p[1]));
     $("#pagina").innerHTML = `
-      <header class="pg-cab"><h1>Relatórios</h1><span class="pg-sub">Vai virar o dashboard</span></header>
-      <div class="pendente"><div class="pendente-corpo">
-        <h2>Esta tela espera a sua definição do dashboard</h2>
-        <p>Você pediu um dashboard no lugar do modelo de exportar. Antes de desenhar, preciso saber o que ele deve responder. Por exemplo: tempo de atendimento por mês, chamados por prédio, receita, preventivas cumpridas ou carga por técnico.</p>
-        <p>O que muda já: <b>exportar sai daqui</b> e vai para o botão “Exportar” de cada lista (O.S., Orçamentos, Financeiro e as outras), com os filtros que estiverem na tela. “Chamados em risco” já está no Atendimento, e a carga por técnico, na Agenda.</p>
-      </div></div>`;
+      <header class="pg-cab"><h1>Relatórios</h1><span class="pg-sub">${per[0]} · ${per[1]}</span><span class="esp"></span>
+        <div class="seg" role="group" aria-label="Período">${[["mes", "Este mês"], ["ant", "Mês passado"], ["tri", "Trimestre"], ["ano", "12 meses"]].map(([k, n]) => `<button type="button" class="${relPer === k ? "is-on" : ""}" data-rel-per="${k}">${n}</button>`).join("")}</div>
+      </header>
+      <div class="rel">
+        <div class="rel-kpi">${KPI.map(([n, v, ant, d, menor, h, dica, un]) => `
+          <a class="kpi" href="${h}" title="${esc(dica)}"><span class="kpi-n">${n}</span><b class="kpi-v">${v}</b>
+            <span class="kpi-c">${delta(d, menor, un)}<span class="muted">${ant} em outubro</span></span></a>`).join("")}</div>
+
+        <div class="rel-grade">
+          ${relBloco("Atendimento e prazo", "chamados abertos por mês", `
+            ${barras(REL.cham, v => String(v))}
+            <div class="rel-linha"><span class="muted">Dentro do prazo</span>${REL.sla.slice(-6).map((v, i) => `<span class="rel-pp${v >= 85 ? " is-ok" : v < 78 ? " is-ri" : ""}"><small>${MESES[6 + i]}</small>${v}%</span>`).join("")}</div>
+            <h3>Fora do prazo em novembro</h3>
+            <table class="rel-tb"><tbody>
+              <tr><td>${linkCondo(1)}</td><td class="num">3 chamados</td><td class="muted">pior: 26 h para atender, bomba parada</td></tr>
+              <tr><td>${linkCondo(5)}</td><td class="num">2 chamados</td><td class="muted">pior: 19 h, aberto no fim de semana</td></tr>
+              <tr><td>${linkCondo(2)}</td><td class="num">1 chamado</td><td class="muted">14 h, esperando peça</td></tr>
+            </tbody></table>`, ["Ver no Atendimento", "#/atendimento"])}
+
+          ${relBloco("Dinheiro", "faturado por mês, em R$ mil", `
+            <div class="leg"><span><i class="lg-1"></i>Contratos</span><span><i class="lg-2"></i>O.S. e orçamentos</span></div>
+            ${empilhado(REL.fatC, REL.fatO)}
+            <dl class="rel-fatos">
+              <div><dt>Contratos</dt><dd>R$ 109,0 mil <span class="muted">· 64 ativos</span></dd></div>
+              <div><dt>O.S. e orçamentos</dt><dd>R$ 39,3 mil <span class="muted">· 27 notas</span></dd></div>
+              <div><dt>Orçamentos</dt><dd>31 enviados, 18 aprovados <span class="muted">· R$ 52,4 mil aprovados</span></dd></div>
+              <div><dt>A receber</dt><dd>R$ 61,2 mil <span class="muted">·</span> <a class="lk rel-atr" href="#/financeiro">R$ 8,7 mil atrasados em 4 prédios</a></dd></div>
+            </dl>`, ["Ver no Financeiro", "#/financeiro"])}
+
+          ${relBloco("Técnicos", "novembro até hoje", `
+            <table class="rel-tb is-cab"><thead><tr><th>Técnico</th><th class="num">O.S.</th><th class="num">Em campo</th><th class="num">Retrabalho</th><th>Preventivas</th></tr></thead><tbody>
+              ${TEC_REL.map(r => `<tr><td>${tecNome(r.t)}</td><td class="num">${r.os}</td><td class="num">${r.horas}</td>
+                <td class="num">${r.ret >= 3 ? `<span class="selo at">${r.ret}</span>` : r.ret ? r.ret : `<span class="muted">0</span>`}</td>
+                <td><span class="prev-c">${medidor(r.prevF, r.prevP)}<span>${r.prevF} de ${r.prevP}</span></span></td></tr>`).join("")}
+            </tbody></table>
+            <p class="rel-nota">${ico("info")}Retrabalho é o chamado que volta no mesmo equipamento em até 30 dias. Os 4 do Marcos são em 2 prédios.</p>`, ["Ver na Agenda", "#/agenda"])}
+
+          ${relBloco("Prédios e equipamentos", "novembro", `
+            <h3 class="pri">Prédios com mais chamados</h3>
+            <div class="hbar">${PRED_REL.map(([c, n, fp]) => `<div class="hb-l"><span class="hb-n">${linkCondo(c)}</span><span class="hb-t"><span style="width:${100 * n / maxP}%"></span></span><span class="hb-v">${n}${fp ? `<small class="muted"> · ${fp} fora do prazo</small>` : ""}</span></div>`).join("")}</div>
+            <h3>Equipamentos que mais quebram</h3>
+            <table class="rel-tb"><tbody>${EQ_REL.map(([t, m, n, onde]) => `<tr><td>${t} <span class="muted">${m}</span></td><td class="num">${n >= 5 ? `<span class="selo at">${n} defeitos</span>` : `${n} defeitos`}</td><td class="muted">${onde}</td></tr>`).join("")}</tbody></table>
+            <h3>Reservatórios com mais alertas</h3>
+            <table class="rel-tb"><tbody>${RES_REL.map(([c, r, n, m]) => `<tr><td>${linkCondo(c)} <span class="muted">${r}</span></td><td class="num">${n} alertas</td><td class="muted">mais comum: ${m}</td></tr>`).join("")}</tbody></table>`, ["Ver no Monitoramento", "#/monitoramento"])}
+        </div>
+      </div>`;
     icones();
   };
+  document.addEventListener("click", e => {
+    const el = e.target.closest("[data-rel-per]");
+    if (!el) return;
+    relPer = el.dataset.relPer; M.telas.relatorios();
+    if (relPer !== "mes") toast("Na maquete os números não mudam; no sistema cada período recalcula");
+  });
 
   // ═══ BUSCA GLOBAL: documentos reais da maquete ═════════════════════════
   const idx = M.INDICE;

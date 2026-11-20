@@ -180,7 +180,9 @@ function showSection(name) {
     for (const ch of _chamadosAlertaAbertos())  _alertasIdsAck.add(`ch-${ch.id}`);
     _atualizarBadgeAlertas();
   }
-  if (name === "relatorios") {
+  // Painel novo (20/11/2026): a seção é o dashboard (admin-relatorios.js), e os
+  // blocos de antes (painel ao vivo, exportar) já não estão no HTML.
+  if (name === "relatorios" && !document.getElementById("relDash")) {
     renderRelatorios();
   }
   if (name === "config") {

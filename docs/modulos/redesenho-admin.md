@@ -2229,6 +2229,55 @@ Versões: `admin.js?v=416`, `admin.css?v=365`, `admin-colab-lista.js?v=2`,
 
 ---
 
+## Relatórios vira dashboard: maquete (20/11/2026)
+
+O Pedro respondeu, antes do desenho, o que o dashboard tem de responder:
+
+| Pergunta | Resposta |
+|---|---|
+| O que ele responde | As quatro áreas: **atendimento e prazo**, **dinheiro**, **técnicos** e **prédios e equipamentos** |
+| Quem olha | **O Pedro, toda semana ou mês**: uma visão de gestão, não o painel do dia (esse é o Hoje) |
+| Período ao abrir | **Mês corrente contra o anterior**, com troca para mês passado, trimestre e 12 meses |
+| Exportar | **Sai de Relatórios.** Cada lista tem o seu "Exportar", com o filtro da tela |
+
+Maquete em `/dev/_redesenho-preview.html#/relatorios` (`public/_redesenho-preview-2.js`,
+bloco RELATÓRIOS, e `_redesenho-preview.css`, bloco do dashboard). Dados de exemplo.
+
+**Como é:**
+
+- **Faixa de seis números** numa placa só, sem ícone e sem um cartão para cada
+  número, que é o defeito apontado em 18/11: chamados abertos, tempo até atender
+  (mediana), dentro do prazo, faturado, orçamentos aprovados e preventivas
+  feitas. Cada um mostra a variação contra o mês anterior, em verde ou vermelho
+  conforme seja bom ou ruim (em chamados e tempo, cair é bom), e o valor do mês
+  anterior. Todo número abre a lista correspondente.
+- **Atendimento e prazo:** chamados por mês nos 12 meses (só o mês atual em
+  cor cheia e com rótulo), a fileira dos últimos 6 meses de "dentro do prazo" e
+  os prédios com chamado fora do prazo no mês, com o pior caso.
+- **Dinheiro:** faturado por mês, empilhando contratos e O.S. (duas cores com
+  legenda), e embaixo contratos, O.S., orçamentos enviados contra aprovados e a
+  receber, com o atrasado em vermelho levando ao Financeiro.
+- **Técnicos:** O.S., horas em campo, retrabalho (chamado que volta no mesmo
+  equipamento em até 30 dias, com selo a partir de 3) e preventivas feitas
+  contra previstas.
+- **Prédios e equipamentos:** os prédios com mais chamados (barra horizontal,
+  com quantos fora do prazo), os equipamentos que mais quebram e os
+  reservatórios com mais alertas.
+
+✅ **Aprovada e implementada no mesmo dia:** ver
+[relatorios-dashboard.md](relatorios-dashboard.md). As três decisões abertas
+abaixo foram tomadas assim: horas em campo = chegada até o fim da O.S.;
+retrabalho = mesmo equipamento (sem equipamento, mesmo prédio e categoria);
+e "a receber" virou **"falta faturar"** (aprovados sem nota), porque contas a
+receber ainda não existe.
+
+**Para virar tela de verdade (era):** cada bloco precisa de rota (hoje só existem
+`/relatorios/chamados`, `/alertas`, `/telemetria` e `/painel-vivo`). Três
+números ainda não têm fonte certa e precisam ser decididos antes:
+**horas em campo** (check-in e check-out da O.S.?), **retrabalho** (mesmo
+equipamento ou mesmo prédio?) e **a receber/atrasado** (só os títulos que o
+sistema emitir, como foi decidido para contas a receber).
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -2266,8 +2315,9 @@ abrindo por endereço, e os blocos movidos voltam para elas.
    ~~Equipamentos~~ (✅ 20/11) · ~~Colaboradores~~ (✅ 20/11) · ~~Configurações~~ (✅ 20/11, menu à esquerda). **As telas do redesenho estão todas no código.** Molde:
    chips, busca, Exportar, seleção em lote, ordem pela coluna, paginação,
    painel ao lado.
-2. **Relatórios:** o Pedro quer um dashboard; perguntar o que ele deve
-   responder antes de desenhar (memória "Relatórios vira dashboard").
+2. ~~**Relatórios**~~ ✅ 20/11: maquete aprovada e dashboard no código
+   (`GET /relatorios/dashboard` + `admin-relatorios.js`). Ver
+   [relatorios-dashboard.md](relatorios-dashboard.md).
 3. **Perfil operador:** o Pedro mandou deixar para depois; testar as cinco
    telas novas com ele antes de subir.
 4. **Ordenar no celular** (seletor "Ordenar por" acima das listas).
