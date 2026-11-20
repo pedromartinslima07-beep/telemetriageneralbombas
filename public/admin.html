@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=352">
+  <link rel="stylesheet" href="/static/admin.css?v=354">
 </head>
 <body>
   <div id="appLoader">
@@ -1381,7 +1381,14 @@
       <!-- Fase A do módulo: identidade + etiqueta QR. A bancada (estados,
            dias parado, peças, orçamento) é Fase B. Ver docs/modulos/equipamentos.md -->
       <div class="section" data-section="equipamentos">
-        <div class="card">
+        <!-- A lista no molde (admin-eq-lista.js, 20/11/2026), com o
+             equipamento no painel ao lado. O cartão antigo da lista fica
+             escondido logo abaixo: _eqCarregar e _eqRender ainda desenham nele,
+             e o "Gerar etiquetas" usa o botão dele. Os cartões de imprimir a
+             folha e de desfazer cadastro continuam como eram. -->
+        <div id="eqLsRoot" class="ls"></div>
+
+        <div class="card eq-antigo" hidden>
           <div class="cardHead">
             <h3>Equipamentos</h3>
             <button class="btn btnAccent btn-sm" id="btnEqNovoLote" style="margin-left:auto;">+ Gerar etiquetas</button>
@@ -1419,7 +1426,7 @@
           </div>
         </div>
 
-        <div class="card" style="margin-top:16px;">
+        <div class="card" id="eqCardImprimir" style="margin-top:16px;">
           <div class="cardHead"><h3>Imprimir folha de etiquetas</h3></div>
           <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
             <label class="f" style="flex:1 1 180px;">
@@ -2956,6 +2963,7 @@
 <script src="/static/admin-orc-pecas.js?v=4" defer></script>
 <script src="/static/admin-condo-lista.js?v=5" defer></script>
 <script src="/static/admin-prev-lista.js?v=2" defer></script>
+<script src="/static/admin-eq-lista.js?v=1" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>

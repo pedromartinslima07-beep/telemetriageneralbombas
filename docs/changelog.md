@@ -18216,3 +18216,14 @@ de sempre. `GET /planos-manutencao/meses` aceita vir sem `condominio_id`
 (todos os planos). Reativar usa o PATCH (o menu antigo chamava DELETE).
 `admin.css?v=352`, `admin-prev-lista.js?v=2`. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Redesenho, etapa 10: Equipamentos no molde (2026-11-20)
+
+A lista de Equipamentos entra no molde (`admin-eq-lista.js`): chips Em uso ·
+No condomínio · Na oficina · Prontos para devolver · Etiquetas em branco ·
+Baixados · Todos, busca, Exportar, e o equipamento no painel ao lado (dados,
+idas à oficina, a linha do tempo e os orçamentos e O.S. da peça, lidos da
+mesma ficha que o QR abre). Gerar e Imprimir etiquetas no cabeçalho. O que se
+faz com a bomba continua na ficha do QR. Nenhum endpoint novo.
+`admin.css?v=354`, `admin-eq-lista.js?v=1`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).

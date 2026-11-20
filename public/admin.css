@@ -13880,3 +13880,16 @@ button.cp-fato:hover { border-color: var(--ls-fio-forte); background: var(--ls-h
   .pv-mes { flex: 1 1 100%; justify-content: space-between; }
   .pv-mes b { min-width: 0; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   EQUIPAMENTOS NO MOLDE (20/11/2026) — admin-eq-lista.js
+   ════════════════════════════════════════════════════════════════════════ */
+.eq-antigo[hidden] { display: none !important; }
+#eqLsRoot .ls-tab tbody tr.is-livre td b { font-weight: 500; }
+.eq-tl li.is-marco > i { background: var(--ls-mar); border-color: var(--ls-mar); }
+.eq-tl small { display: block; color: var(--ls-muted); font-size: 12px; margin-top: 1px; }
+.eq-obs { display: block; margin-top: 4px; padding: 6px 9px; border-radius: 7px; background: var(--ls-placa-2); color: var(--ls-tinta-2); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+a.ls-bt { text-decoration: none; }
+/* Os cartões de imprimir e desfazer seguem abaixo da lista. */
+.section[data-section="equipamentos"] > #eqLsRoot + .eq-antigo + .card { margin-top: 18px !important; }
+@media (max-width: 768px) { #eqLsRoot .ls-tab td:first-child { grid-column: 1; } }

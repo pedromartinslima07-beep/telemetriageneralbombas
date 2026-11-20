@@ -2009,6 +2009,61 @@ Versões: `admin.css?v=352`, `admin-prev-lista.js?v=2`,
 
 ---
 
+## Etapa 10 no código: Equipamentos no molde (20/11/2026)
+
+Pedido do Pedro: *"pode fazer"*. Quinta tela no molde
+(`public/admin-eq-lista.js`, novo), com o painel ao lado.
+
+| Antes | Agora |
+|---|---|
+| Abas Todos · No condomínio · Na oficina · Prontos para devolver · Etiquetas em branco · Baixados | Chips **Em uso** (padrão: tudo menos etiqueta em branco e baixado) · No condomínio · Na oficina · Prontos para devolver (só se houver) · Etiquetas em branco · Baixados (só se houver) · Todos |
+| Frase com "N prontos para devolver →" | A mesma frase, com atalho também para "N na oficina →" |
+| A linha abria a ficha do QR em outra aba | A linha abre o **painel ao lado**; "Abrir a ficha" (ou duplo clique) abre a ficha do QR em outra aba, como antes |
+| Busca no servidor (`?q=`) | Busca na lista carregada (as 500 de sempre), sem acento, também por lote e prédio |
+| "+ Gerar etiquetas" no cartão | **Gerar etiquetas** e **Imprimir etiquetas** no cabeçalho (o segundo rola até o cartão de impressão e põe o foco no lote) |
+| — | Exportar CSV, paginação, ordem pela coluna (Equipamento, Condomínio, Situação) |
+
+O painel lê a ficha (`GET /equipamentos/codigo/:codigo`, a mesma que o QR
+abre) na primeira vez que o equipamento é escolhido: **Dados** (código,
+tipo, marca e modelo, série, potência, onde está — "Oficina da General" na
+bancada —, desde quando no prédio, **idas à oficina** — 3 ou mais em âmbar,
+"vale pensar em trocar" —, fotos, defeito relatado), a **linha do tempo**
+(as 12 últimas movimentações, com autor, observação e o chamado, a O.S. ou o
+orçamento ligado, que abrem a página deles) e **Orçamentos e O.S. desta
+peça**. Etiqueta em branco tem "Como usar" no lugar.
+
+⚠️ **O que se faz com a bomba continua na ficha do QR** (`/e/<código>`):
+retirar, devolver, dar baixa, anotar, foto. É a tela da bancada e do
+técnico; uma versão "de escritório" que diverge dela é o que o projeto evita
+desde o começo. O painel leva para lá.
+
+⚠️ **Nenhuma regra nova, nenhuma rota nova.** `_eqDados`/`_eqCarregar`,
+`_EQ_STATUS_LABEL`/`_EQ_ABAS`/`_EQ_RANK` (estados, agrupamento e a ordem de
+trabalho: pronto, bancada, instalado, devolvido, etiqueta, baixado),
+`_eqNovoLote`. O cartão antigo da lista fica escondido (`.eq-antigo[hidden]`):
+`_eqCarregar` e `_eqRender` ainda desenham nele e o "Gerar etiquetas" usa o
+botão dele; o embrulho de `_eqRender` redesenha a tela nova e esquece as
+fichas lidas (podem ter mudado). Os cartões **Imprimir folha de etiquetas** e
+**Reaproveitar etiqueta** (admin master) continuam como eram, abaixo da
+lista.
+
+### Testado (banco de teste, 20/11/2026)
+
+1900×1000 e 390×844, sem erro: as visões, etiqueta em branco no painel,
+a bomba na bancada com dados, idas à oficina, linha do tempo e os dois
+orçamentos e a O.S. dela; o orçamento do painel abrindo
+`#/orcamentos/30` e o voltar devolvendo à lista; "Gerar etiquetas" até a
+pergunta (cancelada); "Imprimir etiquetas" rolando ao cartão com o foco no
+lote; rede toda 200. No celular o cartão saía com o selo numa linha e o nome
+na outra (a lista não tem coluna de seleção): corrigido, e "Lista" volta do
+painel. Passaram apagar-lote-etiquetas 12/12 e desfazer-cadastro-etiqueta
+29/29. **Não feito:** gerar lote e imprimir de verdade (as funções de
+sempre).
+
+Versões: `admin.css?v=354`, `admin-eq-lista.js?v=1`. Nenhum endpoint novo.
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -2029,6 +2084,7 @@ aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
 | 7 | **Orçamentos** numa lista só, do pedido ao aprovado (20/11) | `admin-orc-lista.js` |
 | 8 | **Condomínios** no molde e a **página do prédio em 3 colunas** (20/11) | `admin-condo-lista.js`, `admin-condominio.js` |
 | 9 | **Preventivas** no molde, com o mês no cabeçalho e a tira dos 12 meses (20/11) | `admin-prev-lista.js` |
+| 10 | **Equipamentos** no molde, com a ficha no painel ao lado (20/11) | `admin-eq-lista.js` |
 
 Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
 abrindo por endereço, e os blocos movidos voltam para elas.
@@ -2040,7 +2096,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
    ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11, rotas paginadas) (lista única, "solicitado" vira
    estado, termina no aprovado) · ~~Condomínios~~ (✅ 20/11, lista + página do prédio
    em 3 colunas no lugar das 10 abas) · ~~Preventivas~~ (✅ 20/11, com a tira dos 12 meses) ·
-   Equipamentos · Colaboradores · Configurações (menu à esquerda). Molde:
+   ~~Equipamentos~~ (✅ 20/11) · Colaboradores · Configurações (menu à esquerda). Molde:
    chips, busca, Exportar, seleção em lote, ordem pela coluna, paginação,
    painel ao lado.
 2. **Relatórios:** o Pedro quer um dashboard; perguntar o que ele deve
