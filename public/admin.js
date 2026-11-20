@@ -13186,14 +13186,40 @@ let _avPreencherPadraoAtivo = false; // trava contra chamadas concorrentes (evit
 let _avBindFeito   = false;
 let _avCondos      = []; // lista de condominios para o select
 
+// ⚠️ TRAZ TODOS, DE PÁGINA EM PÁGINA (20/11/2026). A rota cortava em 300 fixo
+// e os orçamentos mais antigos sumiam da tela como se tivessem sido apagados
+// (o mesmo defeito da O.S., corrigido em 13/11). A visão, os contadores e a
+// busca precisam do conjunto inteiro — quem pagina é a tabela.
+// Falhou qualquer página: não troca o que já estava na tela (meia lista
+// pareceria que o resto foi apagado).
+async function _orcTodasPaginas(url) {
+  const LOTE = 500;
+  const todas = [];
+  for (let offset = 0; offset < 100000; offset += LOTE) {
+    const sep = url.includes("?") ? "&" : "?";
+    const r = await fetch(`${url}${sep}limit=${LOTE}&offset=${offset}`, { headers: authHeaders() });
+    if (!r.ok) return null;
+    const pagina = await r.json();
+    todas.push(...pagina);
+    // A rota de pedidos são duas listas paginadas juntas: segue até a maior.
+    const h = n => { const v = r.headers.get(n); return v == null || v === "" ? NaN : Number(v); };
+    const fim = Number.isFinite(h("X-Total-Count-OS"))
+      ? Math.max(h("X-Total-Count-OS"), h("X-Total-Count-Bancada") || 0)
+      : h("X-Total-Count");
+    if (Number.isFinite(fim)) { if (offset + LOTE >= fim) break; }
+    else if (pagina.length < LOTE) break; // sem total no header: para na página incompleta
+  }
+  return todas;
+}
+
 async function carregarAvulsos() {
   try {
-    const [rAv, rCond] = await Promise.all([
-      fetch("/admin/orcamentos/avulsos", { headers: authHeaders() }),
+    const [av, rCond] = await Promise.all([
+      _orcTodasPaginas("/admin/orcamentos/avulsos"),
       fetch("/admin/condominios/lista", { headers: authHeaders() }),
     ]);
-    if (!rAv.ok) return;
-    _avData = await rAv.json();
+    if (!av) return;
+    _avData = av;
     if (rCond && rCond.ok) _avCondos = await rCond.json();
     _avRenderTudo();
   } catch (e) {
@@ -15896,9 +15922,9 @@ let _orcCondosCarregados = false;
 
 async function carregarOrcamentos() {
   try {
-    const r = await fetch("/admin/orcamentos", { headers: authHeaders() });
-    if (!r.ok) return;
-    _orcData = await r.json();
+    const todos = await _orcTodasPaginas("/admin/orcamentos");
+    if (!todos) return;
+    _orcData = todos;
     _orcRenderTudo();
     _orcAtualizarBadge();
     if (!_orcCondosCarregados) _orcPopularFiltroCondos();

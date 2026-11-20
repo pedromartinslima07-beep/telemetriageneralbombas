@@ -18132,3 +18132,12 @@ técnicos · Rascunhos · Esperando o cliente · Respondidos · Aprovados ·
 Recusados · Todos; Exportar; lote de PDFs e de baixa. As telas antigas ficam
 escondidas no HTML. Nenhum endpoint, nenhuma migration. Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Rotas de orçamento paginadas (2026-11-20)
+
+`GET /admin/orcamentos/avulsos` e `GET /admin/orcamentos` aceitam
+`limit`/`offset` e devolvem o total em `X-Total-Count` (a de pedidos também
+em `X-Total-Count-OS` e `X-Total-Count-Bancada`). Cortavam em 300 e 200 fixos,
+e os orçamentos mais antigos sumiam da tela. O admin traz todas as páginas.
+Sem parâmetro, as rotas respondem como antes. Nenhuma migration. Ver
+[api.md](api.md).

@@ -934,9 +934,27 @@ async function _garantirOrcamentoDaOs(osId, userId) {
 // Helpers de status: rascunho|enviado|aprovado|rejeitado (não há mais "pendente").
 const ORC_STATUS_VALIDOS = ["rascunho", "enviado", "aprovado", "rejeitado"];
 
-// GET /admin/orcamentos?status=&condominio_id=&data_ini=&data_fim=
-// Lista APENAS orçamentos originados de OS (orcamentos.os_id IS NOT NULL).
+// ⚠️ PAGINADAS, NÃO CORTADAS (20/11/2026). As duas listas de orçamento
+// tinham LIMIT fixo (300 documentos, 200 pedidos): acima disso os mais
+// antigos sumiam da tela como se tivessem sido apagados — o defeito que a
+// lista de O.S. teve até 13/11/2026. Agora quem chama pede a página
+// (limit/offset) e o total vem no header X-Total-Count. SEM PARÂMETRO a
+// resposta é a de antes (os mesmos 300/200 mais recentes), para não mudar
+// quem já chamava assim (testes, ficha do condomínio, Hoje).
+function _orcPagina(req, padrao) {
+  const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || padrao, 1), 500);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+  return { limit, offset };
+}
+
+// GET /admin/orcamentos?status=&condominio_id=&data_ini=&data_fim=&limit=&offset=
+// Os PEDIDOS dos técnicos: O.S. com orcamento_necessario (com ou sem
+// orçamento criado) + pedidos da bancada. São duas consultas, e cada uma
+// pagina por conta própria com o MESMO limit/offset: os totais saem
+// separados em X-Total-Count-OS e X-Total-Count-Bancada (e somados em
+// X-Total-Count). Quem quer tudo segue até offset >= o maior dos dois.
 router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
+  const { limit, offset } = _orcPagina(req, 200);
   const { status: rawStatus, condominio_id, data_ini, data_fim } = req.query;
   const status = _orcStatusIn(rawStatus);
 
@@ -967,6 +985,7 @@ router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT
+         COUNT(*) OVER()::int AS _total,
          os.id,
          os.numero,
          os.condominio_id,
@@ -1009,10 +1028,24 @@ router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
          CASE WHEN o.id IS NULL THEN 0
               WHEN o.status = 'rascunho' THEN 1
               ELSE 2 END,
-         os.finalizada_em DESC NULLS LAST
-       LIMIT 200`,
-      vals
+         os.finalizada_em DESC NULLS LAST,
+         -- desempate estável: sem ele a mesma linha pode cair em duas páginas
+         os.id DESC, o.id DESC NULLS LAST
+       LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`,
+      [...vals, limit, offset]
     );
+    let totalOS = r.rows.length ? r.rows[0]._total : null;
+    if (totalOS == null) {
+      // Página vazia (offset além do fim): o total ainda precisa ser dito.
+      const c = await pool.query(
+        `SELECT count(*)::int AS n
+           FROM ordens_servico os
+           LEFT JOIN orcamentos o ON o.os_id = os.id
+          WHERE ${where.join(" AND ")}`,
+        vals
+      );
+      totalOS = c.rows[0].n;
+    }
 
     // Orçamentos pedidos na bancada (origem 'bancada', migration 071). Também
     // foram solicitados por um técnico — só que sem O.S. por trás, então não
@@ -1038,6 +1071,7 @@ router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
 
     const rb = await pool.query(
       `SELECT
+         COUNT(*) OVER()::int AS _total,
          NULL::int           AS id,
          o.numero,
          o.condominio_id,
@@ -1083,18 +1117,30 @@ router.get("/orcamentos", authRequired, gestaoOnly, async (req, res) => {
        -- GROUP BY). Nao ha agregacao sobre condominios — o unico SUM e o dos
        -- itens —, entao a linha por orcamento continua a mesma.
        GROUP BY o.id, c.nome, c.nome_fantasia, uc.nome, ua.nome, e.codigo, e.apelido
-       ORDER BY o.criado_em DESC
-       LIMIT 200`,
-      valsB
+       ORDER BY o.criado_em DESC, o.id DESC
+       LIMIT $${valsB.length + 1} OFFSET $${valsB.length + 2}`,
+      [...valsB, limit, offset]
     );
+    let totalB = rb.rows.length ? rb.rows[0]._total : null;
+    if (totalB == null) {
+      const c = await pool.query(
+        `SELECT count(*)::int AS n FROM orcamentos o WHERE ${whereB.join(" AND ")}`,
+        valsB
+      );
+      totalB = c.rows[0].n;
+    }
 
     // Sem orçamento ainda vem primeiro (é o que a aba existe para cobrar),
     // depois rascunho, depois o resto — mesma regra do ORDER BY acima.
     const peso = (x) => (!x.orcamento_id ? 0 : x.orcamento_status === "rascunho" ? 1 : 2);
-    const linhas = [...r.rows.map(x => ({ ...x, fonte: "os" })), ...rb.rows]
+    const tira = ({ _total, ...x }) => x;
+    const linhas = [...r.rows.map(x => ({ ...tira(x), fonte: "os" })), ...rb.rows.map(tira)]
       .sort((a, b) => peso(a) - peso(b) ||
         new Date(b.finalizada_em || b.criado_em) - new Date(a.finalizada_em || a.criado_em));
 
+    res.set("X-Total-Count-OS", String(totalOS));
+    res.set("X-Total-Count-Bancada", String(totalB));
+    res.set("X-Total-Count", String(totalOS + totalB));
     return res.json(linhas);
   } catch (err) {
     console.error("[admin] GET /orcamentos:", err);
@@ -1396,10 +1442,14 @@ router.get("/orcamentos/:os_id/pdf", authRequired, gestaoOnly, async (req, res) 
 // ── Orçamentos avulsos (criados direto no admin) ──────────────────────────────
 
 // GET /admin/orcamentos/avulsos — lista
+// GET /admin/orcamentos/avulsos?limit=&offset= — TODOS os orçamentos, de
+// qualquer origem. Paginada (ver _orcPagina); total em X-Total-Count.
 router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => {
+  const { limit, offset } = _orcPagina(req, 300);
   try {
     const r = await pool.query(
-      `SELECT o.id, o.numero, o.status, o.valido_ate, o.data_documento, o.criado_em, o.origem, o.tipo,
+      `SELECT COUNT(*) OVER()::int AS _total,
+              o.id, o.numero, o.status, o.valido_ate, o.data_documento, o.criado_em, o.origem, o.tipo,
               o.os_id, os.numero AS os_numero,
               -- ⚠️ O PEDIDO DO TÉCNICO VIAJA JUNTO (02/09/2026). Quando o
               -- orçamento nasceu de uma O.S., o modal mostra no trilho o que o
@@ -1512,10 +1562,14 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
           ORDER BY (c2.status IN ('aberto','em_atendimento')) DESC, c2.criado_em DESC
           LIMIT 1
        ) ch ON true
-       ORDER BY o.criado_em DESC
-       LIMIT 300`
+       ORDER BY o.criado_em DESC, o.id DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
-    return res.json(r.rows);
+    let total = r.rows.length ? r.rows[0]._total : null;
+    if (total == null) total = (await pool.query("SELECT count(*)::int AS n FROM orcamentos")).rows[0].n;
+    res.set("X-Total-Count", String(total));
+    return res.json(r.rows.map(({ _total, ...o }) => o));
   } catch (err) {
     console.error("[admin] GET /orcamentos/avulsos:", err);
     return res.status(500).json({ error: "Erro ao listar orçamentos" });

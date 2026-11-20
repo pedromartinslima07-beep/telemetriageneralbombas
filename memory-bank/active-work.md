@@ -19,7 +19,7 @@ aliases:
 > Atendimento (filas Chamados | Conversas), Agenda como quadro de despacho
 > com arrastar e soltar, Financeiro, e (20/11) o **molde de lista**
 > (`admin-lista.js`) com as listas de **O.S.** e **Orçamentos** nele. **Falta:**
-> paginar as rotas de orçamento (LIMIT 300/200) e as listas no molde (Condomínios com a página em 3 colunas, Preventivas,
+> as listas no molde (Condomínios com a página em 3 colunas, Preventivas,
 > Equipamentos, Colaboradores, Configurações), Relatórios (dashboard, a
 > definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
 > para a main: 090, 091, 092 e 093 em produção.** Maquete no repo:

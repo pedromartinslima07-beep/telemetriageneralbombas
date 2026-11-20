@@ -1776,10 +1776,20 @@ painel **marca a resposta como vista** (é ver); a baixa continua à parte.
 Os carregadores (`carregarAvulsos`, `carregarOrcamentos`) engolem a falha
 calados; o embrulho deles é o que deixa a tela dizer "não consegui carregar".
 
-⚠️ **Limite antigo que continua:** as rotas cortam em **300** documentos e
-**200** pedidos (`LIMIT` fixo). É o mesmo defeito que a O.S. tinha até
-13/11/2026 (as mais antigas somem como se apagadas). Com a paginação na tela,
-a próxima a fazer é paginar as duas rotas como a de O.S. (`X-Total-Count`).
+✅ **Rotas paginadas (20/11/2026).** Elas cortavam em **300** documentos e
+**200** pedidos (`LIMIT` fixo), o mesmo defeito que a O.S. tinha até
+13/11/2026 (as mais antigas somem como se apagadas). Agora aceitam
+`limit`/`offset` e dizem o total no header; `carregarAvulsos` e
+`carregarOrcamentos` trazem tudo de 500 em 500 (`_orcTodasPaginas` no
+admin.js) e, se uma página falha, não trocam o que já estava na tela. Sem
+parâmetro as rotas respondem como antes. A de pedidos são duas consultas
+(O.S. e bancada), cada uma paginada com o mesmo `limit`/`offset`, com os
+totais em `X-Total-Count-OS` e `X-Total-Count-Bancada`. Testado batendo nas
+rotas (páginas de 2 e 3 somam a lista inteira, sem repetir; página além do
+fim vem vazia com o total; filtro de status com página) e nos testes
+`excluir-pedido-orcamento`, `orcamento-vincula-os` e `orc-aprovados-feitos`
+(todos passando). O banco de teste tem 10 orçamentos: o laço de 500 em 500 do
+navegador só foi visto com **uma** página.
 
 ### Testado (banco de teste, 20/11/2026)
 
@@ -1825,7 +1835,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 
 1. **As listas restantes no molde da maquete** (`_redesenho-preview-2.js` é a
    referência de cada uma), agora com `GBLista.criar` (ver etapa 6):
-   ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11; falta paginar as rotas, ver etapa 7) (lista única, "solicitado" vira
+   ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11, rotas paginadas) (lista única, "solicitado" vira
    estado, termina no aprovado) · **Condomínios** (lista + página do prédio
    em 3 colunas no lugar das 10 abas) · Preventivas (tira dos 12 meses) ·
    Equipamentos · Colaboradores · Configurações (menu à esquerda). Molde:
