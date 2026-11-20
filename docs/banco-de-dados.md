@@ -747,6 +747,25 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 095 — `condominio_notas`: notas e avisos do prédio (20/11/2026)
+
+| Coluna | Tipo | O quê |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `condominio_id` | INTEGER NOT NULL → `condominios(id)` ON DELETE CASCADE | |
+| `tipo` | VARCHAR(10) NOT NULL DEFAULT `nota`, CHECK `nota` \| `aviso` | nota livre do escritório ou aviso mandado ao síndico |
+| `texto` | TEXT NOT NULL | a nota, ou a mensagem do aviso |
+| `assunto` | VARCHAR(200) | só no aviso |
+| `enviado_para` | TEXT | só no aviso: os e-mails do cadastro que receberam |
+| `autor_id` | INTEGER → `usuarios(id)` ON DELETE SET NULL | quem escreveu ou mandou |
+| `criado_em` | TIMESTAMPTZ NOT NULL DEFAULT now() | |
+
+Índice `(condominio_id, criado_em DESC)`. Nota: o escritório inteiro
+escreve; apaga o autor ou a gestão. Aviso não se apaga (registro do que foi
+dito ao cliente). Aparecem no histórico da página do prédio. Fluxo em
+[redesenho-admin.md](modulos/redesenho-admin.md). ✅ Teste (20/11/2026).
+⏳ **Falta produção** (antes do push, depois de 090–094).
+
 ## 094 — peças da O.S.: usadas e a orçar (20/11/2026)
 
 - `os_pecas.situacao` VARCHAR(10), CHECK `usada` | `a_orcar` | NULL. NULL = não se

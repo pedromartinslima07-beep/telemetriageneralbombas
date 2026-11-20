@@ -172,7 +172,7 @@
       const algumMarc = marcaveis.some(x => st.marc.has(cfg.chave(x)));
 
       const barraLote = lote && st.marc.size ? `<div class="ls-lote" role="region" aria-label="Ações em lote">
-          <b>${st.marc.size} ${st.marc.size === 1 ? "selecionada" : "selecionadas"}</b>
+          <b>${st.marc.size} ${cfg.selecionados ? cfg.selecionados(st.marc.size) : (st.marc.size === 1 ? "selecionada" : "selecionadas")}</b>
           ${cfg.lote(marcados()).map(([k, nome, ic, n]) => `<button type="button" class="ls-bt is-p is-lote" data-ls-lote="${k}" ${n === 0 ? "disabled" : ""}>${ic ? ico(ic) : ""}${esc(nome)}</button>`).join("")}
           <span class="ls-esp"></span>
           <button type="button" class="ls-bt is-p is-lote is-ghost" data-ls-lote="limpar">Limpar seleção</button>

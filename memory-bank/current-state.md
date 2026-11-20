@@ -126,7 +126,12 @@ vez; a busca do catálogo entende bitola. Depende da 090/091 (nota fiscal).
 **Fase B (20/11):** a peça da O.S. é "usada" ou "a orçar" (094); as duas vão
 para o orçamento (bloco "Peças da O.S.", "Cobrar as peças usadas"), sem a
 mesma peça entrar duas vezes, e os PDFs separam as duas. **Fase C, começo
-(20/11):** o Hoje lista as O.S. com peça usada sem cobrança ("Cobrar"). As outras listas entram no mesmo molde.
+(20/11):** o Hoje lista as O.S. com peça usada sem cobrança ("Cobrar").
+**Etapa 8 (20/11):** **Condomínios** no molde de lista (com a coluna
+Preventiva) e a **página do prédio em três colunas** no lugar das 10 abas
+(cadastro/contrato/equipamentos · histórico com filtro · água/em aberto/acesso),
+com a nota livre, o aviso aos síndicos em lote e a tira dos 12 meses da
+preventiva (migration 095). As outras listas entram no mesmo molde.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma

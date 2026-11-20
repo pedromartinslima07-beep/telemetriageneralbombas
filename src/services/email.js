@@ -663,6 +663,45 @@ async function sendOrdemServicoCliente(dados) {
   }, "O.S. ao cliente");
 }
 
+// Aviso do escritório ao síndico (redesenho, etapa 8 — 20/11/2026): o lote
+// "Mandar aviso aos síndicos" da lista de Condomínios. Um e-mail por prédio,
+// para o e-mail do cadastro (o mesmo destino da O.S.). Sem anexo.
+// dados: { to, condominioNome, assunto, mensagem }
+async function sendAvisoCondominio(dados) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY não configurada — envio de email indisponível");
+  }
+  const to = Array.isArray(dados.to) ? dados.to : [dados.to];
+  if (!to.length) throw new Error("Nenhum destinatário informado");
+  const assunto = String(dados.assunto || "").trim();
+  const mensagem = String(dados.mensagem || "").trim();
+  if (!assunto || !mensagem) throw new Error("Assunto e mensagem são obrigatórios");
+  const E = _escaparHtml;
+  const condo = dados.condominioNome || "—";
+
+  const corpoHtml = mensagem
+    .split(/\n{2,}/)
+    .map(par => `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">${E(par).replace(/\n/g, "<br />")}</p>`)
+    .join("\n        ");
+
+  const html = _molduraEstruturada({
+    sobrancelha: "Aviso",
+    corpoHtml,
+    tituloInfos: "Para",
+    infos: [["Condomínio", condo]],
+  });
+
+  const textoPuro = [mensagem, ``, `Condomínio: ${condo}`, ``, ..._FECHO_TEXTO].join("\n");
+
+  await _enviar({
+    from: `General Bombas <${_emailFrom()}>`,
+    to,
+    subject: `${assunto} — General Bombas`,
+    text: textoPuro,
+    html,
+  }, "aviso ao síndico");
+}
+
 // Envia e-mail de solicitação de assinatura de contrato.
 // dados: { to, nomeDestinatario, papel, contratoNumero, condominioNome, linkAssinatura }
 async function sendContratoAssinatura(dados) {
@@ -844,4 +883,4 @@ function _escaparHtml(v) {
     .replace(/"/g, "&quot;");
 }
 
-module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrdemServicoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo };
+module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrdemServicoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo, sendAvisoCondominio };

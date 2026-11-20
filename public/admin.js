@@ -14490,6 +14490,10 @@ async function _avCarregarLinhas(orcId) {
   // concorrentemente (ex.: trocar o tipo rápido, antes do fetch inicial
   // terminar) esperar o estado real do servidor antes de checar duplicidade.
   const p = (async () => {
+    // Orçamento novo, ainda sem id: não há linha no servidor. Pedir
+    // ".../avulsos/null/linhas" só rendia um 400 no console a cada "Novo
+    // orçamento" (achado em 20/11/2026; o "novo" já zera _avLinhas antes).
+    if (orcId == null) return;
     try {
       const r = await fetch(`/admin/orcamentos/avulsos/${orcId}/linhas`, { headers: authHeaders() });
       if (!r.ok) return;

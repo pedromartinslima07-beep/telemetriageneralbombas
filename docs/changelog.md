@@ -18176,3 +18176,31 @@ na visita fora de orçamento não recusado. O Hoje mostra "OS-…: N peças usad
 sem cobrança" com a ação **Cobrar**, que abre a O.S. Nenhuma migration.
 `admin-carteira.js?v=9`. Teste novo: `pecas-sem-cobranca.test.js` (13/13). Ver
 [pecas-no-orcamento.md](modulos/pecas-no-orcamento.md).
+
+## Redesenho, etapa 8: Condomínios no molde e a página do prédio em três colunas (2026-11-20)
+
+A lista de Condomínios entra no molde (`admin-condo-lista.js`): chips Ativos,
+Água pede atenção, Com chamado aberto, Sem contrato, Inativos e Todos; coluna
+nova **Preventiva**; busca, Exportar e paginação. A linha abre a página do
+prédio, que troca as 10 abas por **três colunas**: cadastro, contrato e
+preventiva e equipamentos · histórico do prédio com filtro por tipo · água
+agora, em aberto e quem acessa o painel. Os endereços antigos
+(`#/condominios/12/orcamentos`) abrem no filtro correspondente. Nenhum
+endpoint novo. `admin.css?v=347`, `admin-condominio.js?v=12`,
+`admin-condo-lista.js?v=2`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Página do prédio: nota livre, aviso aos síndicos e a tira dos 12 meses (2026-11-20)
+
+Migration **095** (`condominio_notas`). O histórico do prédio ganha a **nota
+livre** do escritório e o filtro "Anotações e avisos"; a lista de
+Condomínios ganha o lote **"Mandar aviso aos síndicos"** (um e-mail por
+prédio para o e-mail do cadastro; prédio sem e-mail não trava; cada envio
+fica no histórico); cada plano de preventiva mostra a **tira dos 12 meses**
+(feita, em andamento, não realizada, sem visita, antes do plano). Rotas
+novas: `GET/POST /admin/condominios/:id/notas`, `DELETE
+/admin/condominios/notas/:id`, `POST /admin/condominios/aviso`, `GET
+/planos-manutencao/meses`. Corrigido de passagem: o "Novo orçamento" pedia
+as linhas do orçamento "null" (400 no console). Teste novo
+`condominio-notas-aviso.test.js` (33/33). Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).

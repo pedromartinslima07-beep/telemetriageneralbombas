@@ -2531,6 +2531,121 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, gestaoOnly, as
   }
 });
 
+// ════════════════════════════════════════════════════════════════════════
+// NOTAS E AVISOS DO PRÉDIO (redesenho, etapa 8 — 20/11/2026, migration 095)
+// ════════════════════════════════════════════════════════════════════════
+// A nota livre do histórico da página do prédio, e o aviso aos síndicos
+// mandado em lote pela lista de Condomínios. As duas moram em
+// condominio_notas (tipo 'nota' | 'aviso') e aparecem no histórico.
+// Nota: o escritório inteiro (admin, gerente, operador) lê e escreve; só o
+// autor ou a gestão apagam. Aviso: só a gestão manda, e não se apaga (é o
+// registro do que foi dito ao cliente).
+
+const _NOTA_SELECT = `SELECT n.id, n.condominio_id, n.tipo, n.texto, n.assunto, n.enviado_para,
+       n.autor_id, u.nome AS autor_nome, n.criado_em
+  FROM condominio_notas n LEFT JOIN usuarios u ON u.id = n.autor_id`;
+
+// GET /admin/condominios/:id/notas
+router.get("/condominios/:id/notas", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await pool.query(_NOTA_SELECT + " WHERE n.condominio_id = $1 ORDER BY n.criado_em DESC, n.id DESC", [id]);
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /condominios/:id/notas:", err);
+    return res.status(500).json({ error: "Erro ao buscar as notas do prédio" });
+  }
+});
+
+// POST /admin/condominios/:id/notas  { texto }
+router.post("/condominios/:id/notas", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  const texto = String((req.body || {}).texto || "").trim();
+  if (!texto) return res.status(400).json({ error: "Escreva a nota antes de salvar" });
+  if (texto.length > 4000) return res.status(400).json({ error: "A nota passou de 4.000 caracteres" });
+  try {
+    const c = await pool.query("SELECT 1 FROM condominios WHERE id = $1", [id]);
+    if (!c.rowCount) return res.status(404).json({ error: "Condomínio não encontrado" });
+    const ins = await pool.query(
+      "INSERT INTO condominio_notas (condominio_id, tipo, texto, autor_id) VALUES ($1, 'nota', $2, $3) RETURNING id",
+      [id, texto, req.user.id]
+    );
+    const r = await pool.query(_NOTA_SELECT + " WHERE n.id = $1", [ins.rows[0].id]);
+    return res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error("[admin] POST /condominios/:id/notas:", err);
+    return res.status(500).json({ error: "Erro ao salvar a nota" });
+  }
+});
+
+// DELETE /admin/condominios/notas/:nota_id — só nota (aviso fica), só autor ou gestão
+router.delete("/condominios/notas/:nota_id", authRequired, adminOnly, async (req, res) => {
+  const id = Number(req.params.nota_id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const n = (await pool.query("SELECT id, tipo, autor_id FROM condominio_notas WHERE id = $1", [id])).rows[0];
+    if (!n) return res.status(404).json({ error: "Nota não encontrada" });
+    if (n.tipo !== "nota") return res.status(409).json({ error: "Aviso mandado ao síndico não se apaga: é o registro do que foi dito." });
+    const gestao = ["admin", "gerente"].includes(req.user.role);
+    if (!gestao && Number(n.autor_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: "Só quem escreveu a nota (ou a gestão) pode apagá-la." });
+    }
+    await pool.query("DELETE FROM condominio_notas WHERE id = $1", [id]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /condominios/notas/:nota_id:", err);
+    return res.status(500).json({ error: "Erro ao apagar a nota" });
+  }
+});
+
+// POST /admin/condominios/aviso  { condominio_ids: [], assunto, mensagem }
+// Um e-mail por prédio, para o e-mail do cadastro (o mesmo destino da O.S.).
+// Prédio sem e-mail não trava o lote: volta em sem_email. Cada envio que deu
+// certo vira uma linha 'aviso' no histórico do prédio.
+const _RE_EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+router.post("/condominios/aviso", authRequired, gestaoOnly, async (req, res) => {
+  const b = req.body || {};
+  const ids = [...new Set((Array.isArray(b.condominio_ids) ? b.condominio_ids : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  const assunto = String(b.assunto || "").trim();
+  const mensagem = String(b.mensagem || "").trim();
+  if (!ids.length) return res.status(400).json({ error: "Escolha ao menos um condomínio" });
+  if (ids.length > 300) return res.status(400).json({ error: "No máximo 300 condomínios por aviso" });
+  if (!assunto) return res.status(400).json({ error: "Escreva o assunto" });
+  if (assunto.length > 200) return res.status(400).json({ error: "O assunto passou de 200 caracteres" });
+  if (!mensagem) return res.status(400).json({ error: "Escreva a mensagem" });
+  if (mensagem.length > 5000) return res.status(400).json({ error: "A mensagem passou de 5.000 caracteres" });
+  try {
+    const condos = (await pool.query(
+      "SELECT id, COALESCE(NULLIF(nome_fantasia, ''), nome) AS nome, email FROM condominios WHERE id = ANY($1::int[]) ORDER BY id",
+      [ids]
+    )).rows;
+    if (condos.length !== ids.length) return res.status(400).json({ error: "Algum condomínio escolhido não existe" });
+    const { sendAvisoCondominio } = require("../services/email");
+    const enviados = [], semEmail = [], falhas = [];
+    // Um de cada vez: lote de 300 e-mails de uma vez bate no limite do provedor.
+    for (const c of condos) {
+      const para = String(c.email || "").split(/[,;]/).map(s => s.trim().toLowerCase()).filter(s => _RE_EMAIL.test(s));
+      if (!para.length) { semEmail.push({ condominio_id: c.id, nome: c.nome }); continue; }
+      try {
+        await sendAvisoCondominio({ to: para, condominioNome: c.nome, assunto, mensagem });
+        await pool.query(
+          "INSERT INTO condominio_notas (condominio_id, tipo, texto, assunto, enviado_para, autor_id) VALUES ($1, 'aviso', $2, $3, $4, $5)",
+          [c.id, mensagem, assunto, para.join(", "), req.user.id]
+        );
+        enviados.push({ condominio_id: c.id, nome: c.nome, para: para.join(", ") });
+      } catch (e) {
+        falhas.push({ condominio_id: c.id, nome: c.nome, erro: e.message || "falha no envio" });
+      }
+    }
+    return res.json({ enviados, sem_email: semEmail, falhas });
+  } catch (err) {
+    console.error("[admin] POST /condominios/aviso:", err);
+    return res.status(500).json({ error: "Erro ao mandar o aviso" });
+  }
+});
+
 // GET /admin/condominios/:id/historico — OS + orçamentos do condomínio
 router.get("/condominios/:id/historico", authRequired, adminOnly, async (req, res) => {
   const id = Number(req.params.id);

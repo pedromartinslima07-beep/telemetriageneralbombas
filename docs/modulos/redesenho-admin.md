@@ -1811,6 +1811,142 @@ novo.
 
 ---
 
+## Etapa 8 no código: Condomínios no molde e a página do prédio em três colunas (20/11/2026)
+
+Pedido do Pedro: *"pode seguir pela ordem natural"*, e a próxima da lista
+era **Condomínios** (lista + página do prédio em 3 colunas no lugar das 10
+abas). A referência é a maquete (`_redesenho-preview-2.js`, "CONDOMÍNIOS" e
+"PÁGINA DO CONDOMÍNIO").
+
+### A lista (`public/admin-condo-lista.js`, novo)
+
+Terceira tela no molde (`GBLista.criar`), **sem painel ao lado**: a linha
+abre a página do prédio.
+
+| Antes (19/11) | Agora |
+|---|---|
+| Abas Todos · Ativos · Inativos | Chips **Ativos** (padrão) · **Água pede atenção** · **Com chamado aberto** · **Sem contrato** · Inativos (só se houver) · Todos |
+| Água, Chamados, Contrato | As três de antes e **Preventiva** (a do mês, na régua da tela Preventivas: atrasada, a fazer, em campo, feita, ou o mês da próxima) |
+| Ordem por coluna (`_ordenar`) | A do molde (as mesmas chaves, ciclo de três cliques), mais paginação |
+| — | Busca sem acento (nome, bairro, cidade, síndico, CNPJ) e **Exportar** CSV da visão |
+
+A frase e o "N contratos vencidos →" são os de antes. **Nenhuma regra
+nova:** `_cliAgua`, `_cliChamados`, `_contratosByCondoId`/`_ctrStatusVisual`,
+`_cliContratoPeso` e `_pmData`/`_pmBaldeDoMes`/`_pmAtrasada`. O `_pmData` só
+era buscado pela tela Preventivas: a lista pede `carregarPlanos()` uma vez ao
+entrar. A ordem de trabalho é por nome (como a antiga). O layout antigo fica
+no HTML **escondido** (`.cli-antigo[hidden]`): o boot e o
+`_carregarContratosMetricas` ainda desenham nele, e o embrulho de
+`renderCliTabela` redesenha a tela nova junto.
+
+**Lote "Mandar aviso aos síndicos"** (só a gestão): marca os prédios →
+modal que **mostra para onde vai cada e-mail** (o e-mail do cadastro, o mesmo
+destino da O.S.; prédio sem e-mail aparece "não recebe" e não trava o lote) →
+assunto e mensagem → `POST /admin/condominios/aviso`. Um e-mail por prédio,
+um de cada vez; o resultado **nomeia o que falhou** e por quê. Nada saiu → o
+botão vira "Tentar de novo"; saiu parte → o botão para (reenviar duplicaria).
+Cada envio vira um registro **"Aviso ao síndico"** no histórico do prédio
+(migration 095), que não se apaga. O molde ganhou `selecionados` (o rótulo da
+barra de lote: "3 selecionados", não "selecionadas").
+
+### A página do prédio (`public/admin-condominio.js`)
+
+As 10 abas viraram **três colunas** (HubSpot / ServiceTitan):
+
+- **Esquerda:** **Cadastro** (razão, fantasia, CNPJ, síndico, telefone,
+  e-mail — avisa "sem e-mail" porque O.S. e orçamento não saem —, endereço,
+  cliente desde; Editar), **Contrato e preventiva** (todos os contratos, o
+  vigente primeiro; os planos com a situação e a **tira dos 12 meses**;
+  "Novo contrato" e "Abrir em Preventivas") e **Equipamentos** (abrem a ficha
+  em outra aba).
+- **Meio:** **Histórico do prédio**, em ordem de data, com chips **Tudo ·
+  Chamados · O.S. · Orçamentos · Anotações e avisos · Notas fiscais ·
+  Contratos · WhatsApp · Água** (chip sem item não aparece). Em cima, a
+  **nota livre** ("Escrever uma nota sobre o prédio…", Ctrl+Enter salva; o
+  rascunho sobrevive ao redesenho do polling). A nota aparece inteira, com
+  autor e data; a lixeira só para o autor ou a gestão. **Sem corte:** 30 por vez e "Mostrar mais". "Água"
+  é o que está fora do normal agora (o admin só guarda alertas abertos) e
+  fica no topo.
+- **Direita:** **Água agora** (nível em barra, bomba, leitura; "Histórico de
+  nível"), **Em aberto** (água, chamados, resposta sem baixa, orçamento em
+  rascunho ou com o cliente, aprovado sem nota, O.S. em andamento ou sem
+  envio, contrato vencendo) e **Quem acessa o painel** (Adicionar).
+- **Cabeçalho:** migalha "Condomínios › prédio", sigla, nome, razão · local ·
+  CNPJ, **Editar cadastro**, **Inativar/Reativar**, **Novo ▾** (Chamado,
+  Orçamento, Contrato, já com o prédio). Os fatos (Água, Chamados, Contrato)
+  filtram o histórico; Preventiva é só leitura.
+- **Larguras:** três colunas acima de 1280 px; duas até 900 (a direita sobe
+  para cima da esquerda); uma no celular, na ordem *em aberto → histórico →
+  cadastro*.
+
+⚠️ **Nada das abas sumiu.** Cada lista de aba é um filtro do histórico, e
+o endereço antigo continua valendo: `#/condominios/12/orcamentos` abre com o
+filtro Orçamentos (o `_cfAba` guarda o filtro com os ids das abas);
+`/equipamentos` e `/contatos` rolam até o bloco. Trocar o filtro troca o
+endereço sem entrada nova no "voltar". O Hoje ("Ver água") cai no filtro
+Água. O operador continua sem os blocos e filtros de gestão.
+
+### Nota livre, aviso e a tira dos 12 meses (20/11/2026, migration 095)
+
+Os três itens da maquete que tinham ficado de fora entraram no mesmo dia, a
+pedido do Pedro (*"resolve isso"*):
+
+- **Nota livre e aviso:** tabela nova `condominio_notas` (tipo `nota` |
+  `aviso`). Rotas `GET/POST /admin/condominios/:id/notas` (o escritório
+  inteiro, operador inclusive), `DELETE /admin/condominios/notas/:id` (só
+  nota; autor ou gestão; aviso → 409) e `POST /admin/condominios/aviso`
+  (gestão). E-mail novo `sendAvisoCondominio` (moldura de sempre, sem anexo).
+- **Tira dos 12 meses:** `GET /planos-manutencao/meses?condominio_id=N`
+  (gestão), **sem tabela nova**: lê os chamados da preventiva pela
+  `competencia` (087), as baixas à mão (085) e o `ultima_em`. Um quadradinho
+  por mês, o corrente por último e contornado: verde **feita**, azul **em
+  andamento**, vermelho **não realizada** (chamado cancelado na virada do
+  mês), cinza **sem visita registrada**, vazado **antes do plano**, e "N/12".
+  ⚠️ **Cinza não é falta:** plano não mensal não tem visita todo mês; só o
+  cancelamento afirma que faltou.
+
+⚠️ **A 095 vai a produção antes do push**, junto com 090 a 094.
+
+### Testado (banco de teste, 20/11/2026)
+
+1900×1000 e 390×844, sem erro no console: lista com as visões, ordem por
+nome, linha → página; página do DEMO Residencial Aurora (água sem sinal,
+chamados, orçamentos) e do Ed. Aurora (O.S., orçamento, três planos,
+equipamento); `#/condominios/13/orcamentos` com F5 abrindo no filtro;
+filtros trocando o endereço; menu Novo (abre, Esc fecha); celular sem
+rolagem lateral.
+
+Na segunda rodada (nota, aviso, tira), com **dois contratos de teste**
+criados no Ed. Aurora e apagados no fim: a coluna Contrato ("R$ 1.450,00 por
+mês · Vence em 20d"), o "1 contrato vence em 30 dias →" levando a Contratos
+na aba Vencendo, o bloco com o vigente e o encerrado, o fato do cabeçalho, o
+filtro Contratos e o "Contrato vence em 20 dias" em Em aberto. **Clicados de
+verdade:** Inativar e Reativar (num prédio de teste sem reservatório),
+Editar cadastro e Adicionar (abrem com o prédio; fechados sem gravar), e os
+três itens do Novo (chamado com o prédio no campo, orçamento novo com o
+prédio, contrato novo com o prédio). Nota escrita com Ctrl+Enter e apagada
+pela lixeira; aviso pelo lote com três prédios (um sem e-mail) — o servidor
+local não tem chave do Resend, então o caminho de **falha** foi o visto (os
+dois nomeados com o motivo); o envio de verdade está no teste, com o
+provedor dublê. Tira conferida contra o histórico (setembro cancelado =
+vermelho). Celular sem rolagem lateral.
+
+Teste novo `condominio-notas-aviso.test.js` (**33/33**). Passaram também
+pecas-sem-cobranca 13/13, pecas-da-os 26/26, os-envio-email 38/38,
+orcamento-linha-produto 21/21, orc-aprovados-feitos 23/23,
+orcamento-vincula-os 22/22, planos-fluxo 32/32, planos-tela 24/24,
+preventivas-mes 66/66, preventiva-competencia 20/20, nome-fantasia 7/7.
+
+**Achado de passagem (antigo, de `69f1ff9`):** todo "Novo orçamento" pedia
+`/admin/orcamentos/avulsos/null/linhas` e levava 400 no console (sem efeito
+na tela: o "novo" já zera as linhas). `_avCarregarLinhas` não busca mais sem id.
+
+Versões: `admin.css?v=350`, `admin.js?v=410`, `admin-condominio.js?v=13`,
+`admin-lista.js?v=2`, `admin-condo-lista.js?v=4`. Rotas novas sob `/admin` e
+`/planos-manutencao`, os dois já network first no `sw.js`.
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -1829,6 +1965,7 @@ aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
 | 5 | **Financeiro** (Notas + Contratos + Omie) | `admin-financeiro.js` |
 | 6 | **Molde de lista** e **Ordens de serviço** nele (20/11) | `admin-lista.js`, `admin-os-lista.js` |
 | 7 | **Orçamentos** numa lista só, do pedido ao aprovado (20/11) | `admin-orc-lista.js` |
+| 8 | **Condomínios** no molde e a **página do prédio em 3 colunas** (20/11) | `admin-condo-lista.js`, `admin-condominio.js` |
 
 Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
 abrindo por endereço, e os blocos movidos voltam para elas.
@@ -1838,7 +1975,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 1. **As listas restantes no molde da maquete** (`_redesenho-preview-2.js` é a
    referência de cada uma), agora com `GBLista.criar` (ver etapa 6):
    ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11, rotas paginadas) (lista única, "solicitado" vira
-   estado, termina no aprovado) · **Condomínios** (lista + página do prédio
+   estado, termina no aprovado) · ~~Condomínios~~ (✅ 20/11, lista + página do prédio
    em 3 colunas no lugar das 10 abas) · Preventivas (tira dos 12 meses) ·
    Equipamentos · Colaboradores · Configurações (menu à esquerda). Molde:
    chips, busca, Exportar, seleção em lote, ordem pela coluna, paginação,
@@ -1852,7 +1989,8 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 ### Para subir para produção (o Pedro decide quando)
 
 1. Rodar em produção, **antes** do push, as migrations **090, 091, 092,
-   093 e 094** (094 = peças da O.S., fase B; conferir antes no `information_schema` o que já está lá; eu sou
+   093, 094 e 095** (094 = peças da O.S., fase B; 095 = notas e avisos do
+   prédio; conferir antes no `information_schema` o que já está lá; eu sou
    bloqueado de rodar com `--prod`, quem roda é ele).
 2. Merge da `feature/nota-fiscal-omie` na main → merge desta → push (= deploy).
 3. Passo a passo do Omie depois do deploy: [nota-fiscal.md](nota-fiscal.md).

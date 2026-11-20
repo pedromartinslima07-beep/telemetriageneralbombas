@@ -507,6 +507,63 @@ router.put("/zonas-responsaveis/:zona", authRequired, gestaoOnly, async (req, re
   }
 });
 
+// GET /planos-manutencao/meses?condominio_id=N — a TIRA DOS 12 MESES da página
+// do prédio (redesenho, etapa 8 — 20/11/2026). Para cada plano do prédio, o
+// que aconteceu em cada um dos últimos 12 meses (o corrente por último):
+//   feita    · chamado da preventiva fechado naquela competência (ou, nos
+//              chamados de antes da 087, fechado naquele mês), baixa à mão, ou
+//              ultima_em no mês (a mesma régua do feita_no_mes acima)
+//   andamento· chamado aberto daquela competência
+//   nao_feita· chamado daquela competência cancelado (a virada do mês cancela
+//              o que ninguém começou: "não realizada")
+//   antes    · mês anterior à criação do plano
+//   sem      · nada registrado (plano não mensal pode não ter visita no mês)
+// ⚠️ "sem" NÃO É "não feita": só o cancelamento afirma que faltou visita.
+// (Sem crase nos comentarios do SQL abaixo: template literal. Ver CLAUDE.md.)
+router.get("/meses", authRequired, gestaoOnly, async (req, res) => {
+  const condoId = Number(req.query.condominio_id);
+  if (!Number.isInteger(condoId) || condoId <= 0) return res.status(400).json({ error: "condominio_id inválido" });
+  try {
+    const r = await pool.query(
+      `WITH m AS (
+         SELECT gs::date AS comp
+           FROM generate_series(date_trunc('month', CURRENT_DATE) - INTERVAL '11 months',
+                                date_trunc('month', CURRENT_DATE), INTERVAL '1 month') gs
+       )
+       SELECT pm.id AS plano_id, to_char(m.comp, 'YYYY-MM') AS mes,
+              date_trunc('month', pm.criado_em)::date > m.comp AS antes,
+              (EXISTS (SELECT 1 FROM chamados ch
+                        WHERE ch.plano_manutencao_id = pm.id AND ch.status = 'fechado'
+                          AND (ch.competencia = m.comp
+                               OR (ch.competencia IS NULL AND date_trunc('month', ch.fechado_em)::date = m.comp)))
+               OR EXISTS (SELECT 1 FROM planos_baixas_manuais bm WHERE bm.plano_id = pm.id AND bm.competencia = m.comp)
+               OR (pm.ultima_em IS NOT NULL AND date_trunc('month', pm.ultima_em)::date = m.comp)) AS feita,
+              EXISTS (SELECT 1 FROM chamados ch
+                       WHERE ch.plano_manutencao_id = pm.id AND ch.status NOT IN ('fechado', 'cancelado')
+                         AND (ch.competencia = m.comp
+                              OR (ch.competencia IS NULL AND date_trunc('month', ch.criado_em)::date = m.comp))) AS andamento,
+              EXISTS (SELECT 1 FROM chamados ch
+                       WHERE ch.plano_manutencao_id = pm.id AND ch.status = 'cancelado'
+                         AND (ch.competencia = m.comp
+                              OR (ch.competencia IS NULL AND date_trunc('month', ch.criado_em)::date = m.comp))) AS cancelada
+         FROM planos_manutencao pm CROSS JOIN m
+        WHERE pm.condominio_id = $1
+        ORDER BY pm.id, m.comp`,
+      [condoId]
+    );
+    const meses = [], planos = {};
+    for (const x of r.rows) {
+      if (!meses.includes(x.mes)) meses.push(x.mes);
+      const estado = x.feita ? "feita" : x.andamento ? "andamento" : x.cancelada ? "nao_feita" : x.antes ? "antes" : "sem";
+      (planos[x.plano_id] = planos[x.plano_id] || []).push(estado);
+    }
+    return res.json({ meses, planos });
+  } catch (err) {
+    console.error("[planos-manutencao] GET /meses:", err);
+    return res.status(500).json({ error: "Erro ao montar os meses das preventivas" });
+  }
+});
+
 // GET /planos-manutencao/:id
 router.get("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
