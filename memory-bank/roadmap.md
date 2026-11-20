@@ -1008,6 +1008,10 @@ o "porquê" em [`decisions.md`](decisions.md).
 Itens levantados durante o desenvolvimento, conscientemente deixados para
 depois. Nenhum é bloqueante.
 
+- **Peças no orçamento ligadas ao catálogo do Omie** (📋 desenho de 20/11/2026,
+  depois da nota fiscal no ar): sugestão ao digitar a linha, preço da última
+  vez, trazer as peças da O.S., contar peça vendida. Ver
+  [pecas-no-orcamento.md](../docs/modulos/pecas-no-orcamento.md).
 - **Marca d'água / carimbo de "documento revisado" no PDF da O.S.** — hoje a
   edição pós-finalização regenera o PDF silenciosamente (18/09/2026), e quem
   recebeu a primeira versão não tem como saber que houve uma segunda.

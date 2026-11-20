@@ -25,6 +25,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Painel do cliente ("Meu prédio") | [`painel-cliente.md`](painel-cliente.md) |
 | Envio do orçamento por e-mail (duas opções) | [`orcamentos-envio.md`](orcamentos-envio.md) |
 | Nota fiscal do orçamento pelo Omie (NFS-e; DANFE a seguir) | [`nota-fiscal.md`](nota-fiscal.md) |
+| Peças no orçamento ligadas ao catálogo do Omie (📋 desenho) | [`pecas-no-orcamento.md`](pecas-no-orcamento.md) |
 | Painel admin (operação interna) — 15 telas, 3 moldes | [`painel-admin.md`](painel-admin.md) |
 | Painel do operador (a fila do turno) | [`painel-operador.md`](painel-operador.md) |
 | Redesenho do admin — o condomínio como eixo (📋 planejado) | [`redesenho-admin.md`](redesenho-admin.md) |

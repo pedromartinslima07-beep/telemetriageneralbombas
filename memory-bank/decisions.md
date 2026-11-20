@@ -1315,6 +1315,25 @@ item próprio no menu (o menu volta a crescer e a conversa fica longe do
 chamado que ela gerou). Ver
 [redesenho-admin.md](../docs/modulos/redesenho-admin.md).
 
+## Peças da O.S.: usadas e a orçar na mesma lista (20/11/2026)
+
+Pergunta feita ao desenhar as peças no orçamento ([pecas-no-orcamento.md](../docs/modulos/pecas-no-orcamento.md)):
+`os_pecas` é o que o técnico usou ou o que falta? Resposta do Pedro: **as duas
+coisas** — a mesma lista do app guarda peça usada na visita e peça a orçar.
+
+- **Por isso a peça ganha uma marca (`usada` | `a_orcar`) antes de qualquer
+  "trazer para o orçamento".** As duas são cobradas, mas o síndico aprova
+  coisas diferentes, e o PDF precisa dizer qual é qual.
+- **As antigas ficam sem marca (NULL), não adivinhadas pelo texto.** Quem
+  marca é uma pessoa, na hora de orçar.
+- **Peça usada também é cobrada por orçamento** (Pedro, 20/11/2026), depois
+  da visita. As duas vão para o orçamento; o que muda é o bloco no PDF
+  ("utilizadas na visita" × "a instalar"), porque o síndico aprova coisas
+  diferentes: uma cobrança do que já foi feito e um serviço a fazer.
+- **O risco que sobra é cobrar a mesma peça duas vezes**, e a trava é a
+  origem na linha (`os_peca_id`): peça já em orçamento não recusado não
+  entra de novo.
+
 ## Decisões descartadas (e por quê)
 
 Registradas para não serem "redescobertas" e refeitas. Se o escopo mudar, o
