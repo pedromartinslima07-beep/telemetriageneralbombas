@@ -13,8 +13,8 @@
 // _tecIniciais; Novo, Editar, Marcar disponível/ocupado e Excluir são os
 // data-action de sempre (novo-tecnico, editar-tecnico, toggle-tec-disp,
 // excluir-tecnico), tratados pela delegação do body no admin.js. O layout
-// antigo fica escondido (.tec-antigo[hidden]); o embrulho de renderTecnicos
-// redesenha esta tela junto.
+// antigo saiu do HTML em 20/11/2026: renderTecnicos no admin.js é vazio e o
+// embrulho dele é quem desenha esta tela.
 
 (function () {
   if (!window.GBLista) return;
@@ -186,7 +186,7 @@
   };
   // Quem grava (novo, editar, disponível, excluir) e o boot redesenham por
   // renderTecnicos; o GPS chega pelo polling do mapa.
-  for (const nomeFn of ["renderTecnicos", "renderTecTabela"]) {
+  for (const nomeFn of ["renderTecnicos"]) {
     const orig = window[nomeFn];
     if (typeof orig !== "function") continue;
     window[nomeFn] = function (...a) {

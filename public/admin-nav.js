@@ -99,12 +99,12 @@ function _navMontar() {
   sb.innerHTML = `
     <div class="gb-sb-topo">
       <a class="gb-sb-marca" href="#/inicio" aria-label="General · Hoje">
-        <img class="gb-sb-logo-full" src="/static/login-logo.png" alt="GENERAL">
+        <img class="gb-sb-logo-full" src="/static/logo-topo.png" alt="GENERAL">
         <img class="gb-sb-logo-mini" src="/static/logo-menu.png" alt="">
       </a>
-      <button class="gb-sb-recolher" type="button" data-sb-recolher aria-label="Recolher menu" title="Recolher menu">
-        ${_navIco("panel-left-close")}
-      </button>
+      <!-- ⚠️ O recolher saiu daqui (20/11/2026, pedido do Pedro): mora na
+           faixa de cima (#btnSidebarToggleIn), ao lado do título. A logo é a
+           da faixa de cima da landing (logo-topo.png). -->
       <button class="gb-sb-fechar" type="button" data-sb-fechar aria-label="Fechar menu">${_navIco("x")}</button>
     </div>
     <nav class="gb-sb-nav" aria-label="Telas">
@@ -188,10 +188,15 @@ function _navMontar() {
 
   // O botão de menu do topo (desktop) passa a recolher o menu novo. Ele
   // escutava o antigo pelo admin.js; o clique é interceptado na captura.
-  document.getElementById("btnSidebarToggleIn")?.addEventListener("click", (e) => {
+  // ⚠️ É O ÚNICO BOTÃO DE RECOLHER desde 20/11/2026: o que ficava dentro do
+  // menu saiu, a pedido do Pedro. Ícone de painel (não o hambúrguer antigo),
+  // trocado por _navRecolher conforme o estado.
+  const toggleTopo = document.getElementById("btnSidebarToggleIn");
+  toggleTopo?.addEventListener("click", (e) => {
     e.stopImmediatePropagation();
     _navRecolher(!sb.classList.contains("is-recolhido"));
   }, true);
+  _navToggleTopo(sb.classList.contains("is-recolhido"));
 
   new MutationObserver(() => _navSincronizar()).observe(antigo, {
     subtree: true, attributes: true, attributeFilter: ["style", "class"], characterData: true, childList: true,
@@ -216,18 +221,22 @@ function _navMontar() {
   if (topoMob) _navIcones(topoMob);
 }
 
+// O botão da faixa de cima diz o que vai acontecer: abrir ou recolher.
+function _navToggleTopo(recolhido) {
+  const b = document.getElementById("btnSidebarToggleIn");
+  if (!b) return;
+  b.setAttribute("aria-label", recolhido ? "Abrir menu" : "Recolher menu");
+  b.title = recolhido ? "Abrir menu" : "Recolher menu";
+  b.innerHTML = _navIco(recolhido ? "panel-left-open" : "panel-left-close");
+  _navIcones(b);
+}
+
 function _navRecolher(recolher, { salvar = true } = {}) {
   const sb = document.getElementById("gbSb");
   if (!sb) return;
   sb.classList.toggle("is-recolhido", recolher);
   document.body.classList.toggle("gb-sb-recolhido", recolher);
-  const b = sb.querySelector("[data-sb-recolher]");
-  if (b) {
-    b.setAttribute("aria-label", recolher ? "Abrir menu" : "Recolher menu");
-    b.title = recolher ? "Abrir menu" : "Recolher menu";
-    b.innerHTML = _navIco(recolher ? "panel-left-open" : "panel-left-close");
-    _navIcones(b);
-  }
+  _navToggleTopo(recolher);
   if (salvar) localStorage.setItem("sidebarCollapsed", String(recolher));
   // Mapas e gráficos medem o contêiner: avisa que a largura mudou.
   setTimeout(() => window.dispatchEvent(new Event("resize")), 220);

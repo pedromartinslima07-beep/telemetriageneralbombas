@@ -18,10 +18,10 @@
 // ⚠️ AS AÇÕES SÃO AS DE SEMPRE, do admin.js: _avAcao("novo"),
 // _orcMaterializarEAbrir (Fazer orçamento), _cfAbrirOrcamento (página),
 // _avAbrirEnvioEmail, _avAbrirNota, _avDarBaixa, _orcExcluirPedido,
-// _avMarcarRespostaVista. Os dois cartões antigos continuam no HTML,
-// escondidos (.orc-antigo): os ids deles são lidos por _avBindEventos e
-// _orcBindEventos. Quem grava chama _avRenderTudo ou _orcRenderTudo; os
-// embrulhos no fim redesenham esta tela junto.
+// _avMarcarRespostaVista. Os dois cartões antigos saíram do HTML em
+// 20/11/2026: _avRenderTudo e _orcRenderTudo no admin.js são vazios, e os
+// embrulhos no fim são quem desenha esta tela; quem grava continua chamando
+// eles.
 
 (function () {
   if (!window.GBLista) return;
@@ -474,7 +474,7 @@
       return r;
     };
   }
-  // Entrada na tela: o admin.js liga os eventos antigos e chama os dois
+  // Entrada na tela: o admin.js liga os eventos do documento e chama os dois
   // carregadores; aqui só se monta a casca com o esqueleto.
   const origShow = window.showSection;
   if (typeof origShow === "function") {

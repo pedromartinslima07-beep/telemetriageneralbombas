@@ -18248,3 +18248,40 @@ de cada seção, com os mesmos salvamentos. As mensagens de "salvo" e "erro"
 ficaram legíveis no fundo branco. `admin-config.js` (novo),
 `admin.css?v=357`. Com esta etapa, todas as telas do redesenho estão no
 código. Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Casca do admin: a faixa de cima azul, o recolher nela e a logo da landing (2026-11-20)
+
+Pedido do Pedro. O botão de abrir e fechar o menu saiu de dentro do menu e
+foi para a faixa de cima, à esquerda do título; a logo do menu aberto passou
+a ser a da faixa de cima da landing (`logo-topo.png`); e a faixa de cima
+ficou no mesmo azul do menu, com título, busca e botões claros. No celular
+nada muda (a faixa de lá já era azul e o menu é gaveta). `admin.css?v=358`,
+`admin-nav.js?v=15`. Ver [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Admin: saem os blocos antigos escondidos das seis telas do molde (2026-11-20)
+
+Pedido do Pedro. Condomínios, O.S., Orçamentos, Preventivas, Equipamentos e
+Colaboradores guardavam no HTML o layout de antes do molde, com `hidden`, e o
+`admin.js` seguia desenhando nele. Tela por tela: o que dependia do bloco
+passou para a tela nova (o Ctrl+K "Novo orçamento" e o "Novo" do Hoje
+clicavam o botão escondido; `_eqCarregar` não buscava nada sem a tabela
+antiga), o bloco e as funções que só desenhavam nele saíram, e o CSS sem dono
+saiu por varredura (540 KB → 508 KB, incluindo uma regra quebrada que engolia a
+seguinte). Saiu também o formulário oculto de cadastro de reservatório, que
+não tinha como ser clicado (o cadastro é o modal). Nada visível mudou; as
+funções de desenho ficaram como ganchos vazios que o molde embrulha.
+`admin.js?v=416`, `admin.css?v=365`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md#limpeza-dos-blocos-antigos-escondidos-20112026).
+
+## Omie, fase 1: os contratos do Omie ligados ao prédio (2026-11-20)
+
+Pedido do Pedro. A tela Contratos ganhou, no topo, **"Contratos no Omie"**: os
+151 contratos que a cópia já trazia (81 ativos), cada um ligado ao prédio pelo
+CNPJ do cliente do Omie (copiado agora junto com o faturamento, migration
+**096**) ou à mão, com a fila dos que não têm prédio e o motivo, e o aviso de
+vigência vencida. O contrato do Omie aparece também na lista de Condomínios e
+na página do prédio quando o prédio não tem contrato no sistema. Nada é
+gravado no Omie. Rotas `GET /contratos/omie`, `PUT`/`DELETE
+/contratos/omie/clientes/:codigo/condominio`. `admin-omie-contratos.js?v=2`,
+`admin-condo-lista.js?v=8`, `admin-condominio.js?v=14`, `admin.css?v=366`.
+Ver [omie-integracao.md](modulos/omie-integracao.md).

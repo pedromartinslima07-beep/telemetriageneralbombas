@@ -15,8 +15,8 @@
 // (escalar, gerar chamado, desativar), _pmBulkEscalar / _pmBulkChamado /
 // _pmAbrirModalBulk / _pmAcaoBulk (o lote, que lê _pmSelecionados: o molde
 // preenche antes de chamar), _pmSalvarZona (responsáveis da zona). O cartão
-// antigo continua no HTML, escondido (.pm-antigo[hidden]); o embrulho de
-// _pmRenderTudo redesenha esta tela junto.
+// antigo saiu do HTML em 20/11/2026: _pmRenderTudo no admin.js é vazio e o
+// embrulho dele é quem desenha esta tela.
 //
 // A tira dos 12 meses é a mesma da página do prédio (GET
 // /planos-manutencao/meses, sem condomínio = todos os planos).

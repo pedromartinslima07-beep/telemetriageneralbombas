@@ -108,6 +108,16 @@ Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 ícone do topo, gaveta no celular), a busca é o Ctrl+K (`admin-busca.js`) e o
 Início virou **Hoje** (fila única do que pede ação, em campo agora, agenda de
 hoje). O aside antigo continua escondido e é a fonte de perfil e badges.
+**Limpeza (20/11):** os layouts antigos que as seis telas do molde guardavam
+escondidos no HTML saíram (Condomínios, O.S., Orçamentos, Preventivas,
+Equipamentos, Colaboradores), com as funções e o CSS que só serviam a eles; as
+funções de desenho (`_osRenderTabela`, `_avRenderTudo`, `_pmRenderTudo`…)
+são ganchos vazios que o molde embrulha. Só a nav antiga continua escondida.
+**Omie, fase 1 (20/11):** a tela Contratos tem no topo os contratos do Omie
+(`admin-omie-contratos.js`), ligados ao prédio pelo CNPJ do cliente (copiado
+pelo job do faturamento, migration 096) ou à mão; aparecem também na lista de
+Condomínios e na página do prédio. Plano das outras fases em
+[`../docs/modulos/omie-integracao.md`](../docs/modulos/omie-integracao.md).
 **Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):
 Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
 lado; as telas antigas seguem alcançáveis por link.
@@ -118,8 +128,8 @@ movidos para a tela nova.
 (`admin-lista.js`, `GBLista.criar`) e a lista de **O.S.** já está nele
 (`admin-os-lista.js`): chips, busca, Exportar, lote, ordem, paginação e a O.S.
 no painel ao lado. **Etapa 7 (20/11):** **Orçamentos** é uma lista só
-(`admin-orc-lista.js`), do pedido do técnico ao aprovado; as duas abas antigas
-ficam escondidas, e as rotas de orçamento são paginadas (`X-Total-Count`).
+(`admin-orc-lista.js`), do pedido do técnico ao aprovado, e as rotas de
+orçamento são paginadas (`X-Total-Count`).
 **Peças no orçamento, fase A (20/11):** a linha de peça nasce ligada ao
 produto do Omie ao ser digitada (`admin-orc-pecas.js`), com o preço da última
 vez; a busca do catálogo entende bitola. Depende da 090/091 (nota fiscal).

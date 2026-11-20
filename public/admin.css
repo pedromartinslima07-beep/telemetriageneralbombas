@@ -300,11 +300,11 @@ body *:not(
   .topbar-user-avatar, .topbar-user-avatar img,
   .mc-conv-avatar, .wa-conv-avatar,
   .tec-avatar-circle, .tec-avatar-overlay,
-  .tec-det-avatar, .tec-row-avatar, .tel-cli-fallback-icon,
+  .tel-cli-fallback-icon,
   .app-loader-spinner, .mp-map-spinner,
   .al-status, .badge, .rc, .mc-leg, .al-acoes-list li,
   .mc-live-dot, .m-dot, .ch-hist-dot, .rel-vivo-dot,
-  .dl-dot, .mli-dot, .av-tipo-dot, .icon-btn-dot, .cfg-slider,
+  .dl-dot, .mli-dot, .icon-btn-dot, .cfg-slider,
   .tec-pin, .tg-pin,
   /* casca nova (19/11/2026): o menu, a busca e o Hoje têm raio próprio */
   .gb-sb, .gb-sb *, .gb-menu, .gb-menu *, .gb-cmdk-veu *, .gb-topo-busca, .gb-topo-busca *, .hj *, .mn *,
@@ -5007,45 +5007,6 @@ select option { background: #050f38; color: #f2f5ff; }
 .dp-chamado-orc {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 45%, transparent);
 }
-.orc-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px 2px;
-  --ch-p: 4px; clip-path: var(--corte-p);
-  font-size: 10.5px;
-  font-weight: 700;
-  background: var(--amarelo);
-  border: none;
-  color: var(--mar-900);
-}
-.orc-bloco {
-  background: rgba(240,176,20,.06);
-  border: 1px solid rgba(240,176,20,.25);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  margin-top: 4px;
-}
-.orc-bloco-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.orc-bloco-badge {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  color: var(--accent);
-  text-transform: uppercase;
-}
-.orc-bloco-texto {
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--text);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.orc-bloco-texto em { color: var(--muted); font-style: italic; }
 
 /* WhatsApp pane */
 .wz-list { display: flex; flex-direction: column; gap: 8px; }
@@ -6891,16 +6852,6 @@ body.mp-fs-active { overflow: hidden; }
   border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
-/* A célula do cliente — mesmo molde das outras tabelas. */
-.cli-nome { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cli-sub {
-  margin-top: 3px;
-  font-size: 11px; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.cli-sep  { margin: 0 6px; color: var(--muted2); }
-.cli-cnpj { font-family: var(--mono); font-size: 10px; }
-
 /* A célula do chamado em risco — mesmo molde de Chamados e Alertas: o que é
    em cima, onde e com quem embaixo. */
 .rel-risco-titulo {
@@ -7462,56 +7413,6 @@ body.role-viewer .viewer-only-hide-inline {
   display: none !important;
 }
 
-/* ============================================================
-   ORDENS DE SERVIÇO — seção admin
-   ============================================================ */
-
-.os-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px 0;
-}
-.os-toolbar .wa-tabs { flex: 0 1 auto; }
-.os-toolbar #osBusca {
-  flex: 1 1 240px;
-  min-width: 220px;
-  margin-left: auto;
-}
-
-.os-table-wrap {
-  padding: 12px 16px 16px;
-}
-.os-table-wrap table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.os-table-wrap thead th {
-  text-align: left;
-  font-size: 10.5px;
-  letter-spacing: .08em;
-  color: var(--muted);
-  text-transform: uppercase;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface2);
-}
-.os-table-wrap thead th.right { text-align: right; }
-.os-table-wrap tbody td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.os-table-wrap tbody td.right { text-align: right; }
-.os-row { cursor: pointer; transition: background .12s; }
-.os-row:hover td { background: rgba(255,255,255,.025); }
-
-.os-tipos-cell { display: flex; flex-wrap: wrap; gap: 4px; }
-.os-acoes-cell { white-space: nowrap; }
-.os-acoes-cell .btn { padding: 4px 8px; font-size: 13px; }
-
 /* Tipo de serviço é CATEGORIA, não estado — "Retirada de equipamento" e
    "Devolução" não pedem ação nenhuma de quem lê a lista. Estavam em âmbar,
    que neste sistema quer dizer atenção, e por isso disputavam a leitura com
@@ -7529,11 +7430,6 @@ body.role-viewer .viewer-only-hide-inline {
   color: var(--muted);
   border: none;
   white-space: nowrap;
-}
-.os-chip-more {
-  background: transparent;
-  color: var(--muted2);
-  box-shadow: inset 0 0 0 1px var(--fio-fraco);
 }
 .os-chip-lg {
   padding: 6px 12px;
@@ -7580,11 +7476,8 @@ body.role-viewer .viewer-only-hide-inline {
   white-space: nowrap;
 }
 .os-mail-ok   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
-.os-mail-pend { background: var(--amarelo); color: var(--mar-900); }
-.os-mail-sem  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio); color: var(--text-dim); }
 
 /* O checkbox do lote: alvo de clique confortável sem esticar a linha. */
-.os-chk { width: 15px; height: 15px; cursor: pointer; accent-color: var(--amarelo); }
 
 .os-muted { color: var(--muted); font-size: 12px; }
 
@@ -7595,36 +7488,11 @@ body.role-viewer .viewer-only-hide-inline {
 #osModalOverlay .modalHead > div:last-child { flex-shrink: 0; }
 
 /* OS view redesign */
-.os-view-hero {
-  padding: 16px 22px 15px;
-  border-bottom: 1px solid var(--border);
-}
-.os-view-hero-num {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.2;
-}
-.os-view-hero-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 7px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.os-view-dot { opacity: .4; }
 .os-view-body {
   padding: 20px 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-.os-view-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
 }
 .os-vsec-title {
   font-size: 10.5px;
@@ -7635,12 +7503,6 @@ body.role-viewer .viewer-only-hide-inline {
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
-}
-
-.os-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
 }
 .os-section {
   background: var(--surface2);
@@ -7827,10 +7689,8 @@ body.role-viewer .viewer-only-hide-inline {
 
 /* ---------- Responsivo ---------- */
 @media (max-width: 900px) {
-  .os-grid, .os-form { grid-template-columns: 1fr; }
-  .os-toolbar #osBusca { margin-left: 0; flex: 1 1 100%; }
+   .os-form { grid-template-columns: 1fr; }
   .os-row-info { grid-template-columns: 1fr; gap: 2px; }
-  .os-view-cols { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
@@ -8548,21 +8408,6 @@ body.role-viewer .viewer-only-hide-inline {
 .ctr-st { font-size: 10.5px; font-weight: 700; }
 .ctr-row-meta { font-size: 11px; color: var(--muted2); }
 
-/* Badge de origem (IA / OS) — sinaliza pedidos vindos do WhatsApp ou da OS */
-.orc-origem-pill {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .4px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-.orc-origem-ia { background: rgba(168,85,247,.14); color: #c4b5fd; border: 1px solid rgba(168,85,247,.32); }
-.orc-origem-os { background: rgba(56,189,248,.12); color: #7dd3fc; border: 1px solid rgba(56,189,248,.28); }
-
 /* Badge de tipo (Limpeza de Reservatório / Dedetização / combo) na lista de orçamentos */
 .orc-tipo-pill {
   display: inline-block;
@@ -8595,71 +8440,18 @@ body.role-viewer .viewer-only-hide-inline {
 
 /* Lista de condomínios (coluna esquerda) */
 .av-condo-list { display: flex; flex-direction: column; }
-.av-condo-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background .12s;
-}
-.av-condo-row:hover { background: rgba(255,255,255,.04); }
-.av-condo-row.is-selected { background: rgba(240,176,20,.08); }
-.av-condo-row.is-selected .av-condo-name { color: var(--accent); }
-.av-condo-main { flex: 1; min-width: 0; }
-.av-condo-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.av-condo-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.av-condo-dots { display: flex; gap: 4px; flex-shrink: 0; }
-.av-dot {
-  font-family: var(--mono);
-  font-size: 9px; font-weight: 500; min-width: 18px; text-align: center;
-  font-variant-numeric: tabular-nums;
-  padding: 2px 5px 1px;
-  --ch-p: 3px; clip-path: var(--corte-p);
-}
-.av-dot.off  { background: transparent; box-shadow: inset 0 0 0 1px var(--fio-fraco); color: var(--muted); }
-.av-dot.warn { background: var(--amarelo); color: var(--mar-900); }
-.av-dot.ok   { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); color: var(--ok); }
 /* Resposta de cliente sem baixa. Pulsa devagar porque e o unico ponto que
    significa trabalho parado — os outros tres so contam documentos. */
-.av-dot.pend {
-  background: var(--amarelo); color: var(--mar-900); font-weight: 700;
-  animation: avPendPulso 2.6s ease-in-out infinite;
-}
 @keyframes avPendPulso {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amarelo) 60%, transparent); }
   50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--amarelo) 0%, transparent); }
 }
-@media (prefers-reduced-motion: reduce) { .av-dot.pend { animation: none; } }
 
-/* Painel direito: orçamentos do condomínio */
-.av-orc-pane-head { padding: 14px 16px; border-bottom: 1px solid var(--border); }
-.av-orc-pane-title { font-size: 14px; font-weight: 700; color: var(--text); }
-/* Razão social sob o nome fantasia.
-   ⚠️ NADA DE `opacity` PARA APAGAR TEXTO. A primeira versão era
-   `--muted` a .8 e mediu 3,26:1 no DOM — a opacidade compõe contra a placa
-   (o painel é `rgba(255,255,255,.14)` sobre `--chapa`, fundo efetivo
-   rgb(40,49,84)) e come o contraste que o token tinha. `--text-dim` sem
-   opacidade dá 6,22:1. Quem separa esta linha do título é o TAMANHO (11px
-   contra 14px) e o rótulo "Razão social:", não a tinta: é o nome do CNPJ, e
-   ninguém precisa apertar os olhos para conferir com quem vai contratar. */
-.av-orc-pane-razao { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
-.av-orc-pane-sub   { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
-.av-orc-list { display: flex; flex-direction: column; }
-.av-orc-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background .12s;
-}
-.av-orc-item:hover { background: rgba(255,255,255,.04); }
-.av-orc-item.is-selected { background: rgba(240,176,20,.08); }
 /* ⚠️ A PENDENCIA PRECISA SOBREVIVER A FAIXA (26/08/2026). O aviso do topo
    pode ser fechado, a tela pode recarregar antes de alguem ler qual era o
    orcamento — e ate 26/08 nao restava nada. O fio amarelo na borda esquerda e
    o selo abaixo sao o mesmo aviso, mas grudados no documento certo; saem
    quando a baixa e dada, nao quando alguem passa o mouse. */
-.av-orc-item.is-pendente { box-shadow: inset 3px 0 0 var(--amarelo); }
 .av-selo-pend {
   font-family: var(--mono);
   font-size: 8.5px; letter-spacing: .05em; text-transform: uppercase;
@@ -8695,54 +8487,7 @@ body.role-viewer .viewer-only-hide-inline {
   background: transparent; color: var(--accent); font-weight: 600;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo) 55%, transparent);
 }
-.av-orc-item-main { flex: 1; min-width: 0; }
-.av-orc-item-top  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.av-orc-item-sub  { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
-/* A OBSERVAÇÃO DO TÉCNICO, na aba "Solicitados pelos técnicos" (02/09/2026).
-   ⚠️ Ela NÃO é metadado, e por isso não usa o cinza do `-sub` acima: é o
-   texto que a aba existe para entregar — quem lê esta lista está decidindo o
-   que orçar, e decide por ele. Sai em `--text-dim` (7,6:1 sobre o campo),
-   um degrau acima da linha de técnico e data.
-   Duas linhas de teto: a lista precisa continuar varrível com seis pedidos na
-   tela, e o texto inteiro está a um clique, no modal. O `title` do item não
-   substitui isso — tooltip não se lê de relance. */
-.av-orc-item-obs {
-  font-size: 11.5px; line-height: 1.45; color: var(--text-dim);
-  margin-top: 4px;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.av-orc-item-obs.is-vazia { color: var(--muted2); }
-/* O pedido ainda sem orçamento é o único que pede ação, e ele já carrega o
-   fio âmbar do `.is-pendente` herdado da aba irmã. Aqui a observação
-   acompanha em tinta cheia: é o item que se vai ler primeiro. */
-.av-orc-item.is-pendente .av-orc-item-obs { color: var(--text); }
-/* Quem respondeu pesa mais que uma data de criação: é a linha que separa o
-   "aprovado pelo síndico" do "aprovado no escritório" sem abrir a ficha. */
-.av-orc-item-sub.is-resposta { color: var(--text-dim); }
-.av-orc-item.is-pendente .av-orc-item-sub.is-resposta { color: var(--accent); }
-.av-orc-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.av-orc-item-val  { font-size: 12.5px; font-weight: 700; color: var(--text); }
-
-/* A lixeira do pedido. ⚠️ SEMPRE VISÍVEL, não só no hover: a saída daqui não
-   existia, e esconder o único caminho atrás do mouse é repetir o problema de
-   outro jeito. Fica cinza-fraco e só ganha tinta de perigo quando apontada —
-   presente sem competir com o selo de status, que é o que a linha comunica. */
-.av-orc-item-del {
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; padding: 0;
-  border: 0; background: none; cursor: pointer;
-  color: var(--muted2); opacity: .55;
-  border-radius: 4px;
-  transition: color .12s, opacity .12s, background .12s;
-}
-.av-orc-item-del svg { width: 14px; height: 14px; }
-.av-orc-item-del:hover { color: var(--danger); opacity: 1; background: rgba(255,255,255,.06); }
-.av-orc-item-del:focus-visible { outline: 2px solid var(--danger); outline-offset: 1px; opacity: 1; }
-
 /* Painel de detalhe — seção do form */
-.orc-form-section { border-top: 1px solid var(--border); padding-top: 12px; }
 .orc-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -8758,52 +8503,6 @@ body.role-viewer .viewer-only-hide-inline {
 }
 .orc-form-label .input { font-size: 12px; padding: 6px 10px; }
 .orc-form-msg { font-size: 11px; color: var(--ok); margin-left: 8px; }
-
-/* Botões de ação no painel */
-.orc-acoes {
-  display: flex;
-  gap: 8px;
-  padding: 14px 16px 16px;
-  border-top: 1px solid var(--border);
-  margin-top: auto;
-}
-.orc-btn-approve {
-  flex: 1;
-  background: rgba(34,197,94,.15);
-  color: #4ade80;
-  border-color: rgba(34,197,94,.3);
-}
-.orc-btn-approve:hover { background: rgba(34,197,94,.25); }
-.orc-btn-reject {
-  flex: 1;
-  background: rgba(239,68,68,.1);
-  color: #f87171;
-  border-color: rgba(239,68,68,.25);
-}
-.orc-btn-reject:hover { background: rgba(239,68,68,.2); }
-
-/* ⚠️ OS DOIS ACIMA SÃO DO CAMPO ESCURO — `#4ade80` e `#f87171` são cores
-   claras, feitas para o painel marinho. Quando os botões mudaram do rodapé
-   para o trilho (02/09/2026) eles passaram a viver na PLACA CLARA, onde
-   medem 1,9:1 e 2,6:1: some o rótulo. Dentro do diálogo eles usam a família
-   de tinta — `--ok` vira `--ok-t` e `--risco` vira `--risco-t`, os dois
-   calibrados contra `--chapa`. O preenchimento fica no cru (Regra do
-   Preenchimento Cru), só mais leve, porque aqui ele é fundo de botão e não
-   de selo. */
-.av-modal-dialog .orc-btn-approve {
-  background: rgba(16, 92, 49, .10); color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 42%, transparent);
-}
-.av-modal-dialog .orc-btn-approve:hover { background: rgba(16, 92, 49, .18); }
-.av-modal-dialog .orc-btn-reject {
-  background: rgba(121, 0, 0, .08); color: var(--risco);
-  border-color: color-mix(in srgb, var(--risco) 38%, transparent);
-}
-.av-modal-dialog .orc-btn-reject:hover { background: rgba(121, 0, 0, .15); }
-/* No trilho eles empilham em largura cheia, como os do avulso — o `flex: 1`
-   acima é do arranjo antigo, em linha no rodapé. */
-.av-rail-acts .orc-btn-approve,
-.av-rail-acts .orc-btn-reject { flex: none; width: 100%; justify-content: center; }
 
 /* ── Abas principais da seção de orçamentos ── */
 /* ⚠️ Terceiro vocabulário de aba do painel (depois de `.wa-tab` e
@@ -8869,14 +8568,6 @@ body.role-viewer .viewer-only-hide-inline {
    respiro nenhum, encostado no cabeçalho da tabela — lia como linha de dado
    faltando, não como "comece por aqui". Agora tem a altura de uma zona vazia
    e diz o próximo passo, que está logo abaixo. */
-/* ⚠️ `--text-dim`, não `--muted2`: dentro da placa clara o segundo é
-   #6b7a9e e dá 3,59:1 — reprova como texto, e isto é uma frase que se lê,
-   não um rótulo decorativo. Com `--tinta-2` são 6,78:1. */
-.orc-itens-vazio {
-  text-align: center; color: var(--text-dim);
-  font-size: 12.5px; padding: 26px 12px 28px;
-}
-
 /* ── O trilho do modal de orçamento de O.S. ─────────────────────────────
    O pedido do técnico, que é o documento de ORIGEM deste orçamento. Ele
    ficava numa faixa no topo do formulário e rolava para fora da vista bem na
@@ -9174,7 +8865,6 @@ body.role-viewer .viewer-only-hide-inline {
 .av-modal-date { color: var(--muted); }
 
 /* Seções do form em cards sutis */
-.av-modal-sections { display: flex; flex-direction: column; gap: 14px; }
 .av-modal-dialog .ap-section {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -9182,8 +8872,6 @@ body.role-viewer .viewer-only-hide-inline {
   background: rgba(255,255,255,.015);
   margin: 0;
 }
-.av-modal-sections .orc-form-row { margin-top: 0; }
-.av-modal-sections .orc-form-row + .orc-form-row { margin-top: 12px; }
 
 /* Form em 3 colunas onde cabia só 2 */
 .av-modal-dialog .orc-form-row {
@@ -9192,11 +8880,6 @@ body.role-viewer .viewer-only-hide-inline {
 /* Campos de texto mais confortáveis */
 .av-modal-dialog .input,
 .av-modal-dialog .select { font-size: 13px; padding: 7px 12px; }
-/* Seção de form sem borda de topo — usa separação visual própria */
-.av-modal-dialog .orc-form-section {
-  border-top: none;
-  padding-top: 0;
-}
 /* Itens: tabela mais legível */
 .av-modal-dialog .orc-itens-table th,
 .av-modal-dialog .orc-itens-table td { font-size: 13px; }
@@ -9231,22 +8914,6 @@ body.role-viewer .viewer-only-hide-inline {
 .av-modal-dialog .orc-add-item-form .input { font-size: 12px; }
 
 /* Footer de ações: barra separada, Excluir à esquerda / Salvar+PDF à direita */
-.av-modal-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.av-footer-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.av-modal-footer .btn { padding: 8px 18px; font-size: 13px; }
 .av-btn-pdf,
 .av-btn-email { display: inline-flex; align-items: center; gap: 6px; }
 .av-btn-pdf svg,
@@ -9319,7 +8986,6 @@ body.role-viewer .viewer-only-hide-inline {
   min-width: 0; min-height: 0; display: flex; flex-direction: column;
   padding: 14px 18px 14px 20px; gap: 14px;
 }
-.av-sec-hint { font-size: 11.5px; color: var(--muted2); margin: 2px 0 10px; line-height: 1.5; }
 
 /* Faixa de configuração: tipo à esquerda, cliente + constatação à direita.
    Duas colunas porque nenhuma delas precisa da largura inteira, e juntas
@@ -9435,31 +9101,6 @@ body.role-viewer .viewer-only-hide-inline {
 .av-cond-grid .input:disabled { opacity: .6; cursor: not-allowed; }
 
 /* ── Tipo: escolha de documento ── */
-/* Uma coluna, não 2×2. Em 2 colunas cada card ficava com 184px e os títulos
-   quebravam em duas linhas — cards de alturas diferentes, borda serrilhada. */
-.av-tipos { display: flex; flex-direction: column; gap: 5px; }
-.av-tipo {
-  display: flex; gap: 9px; align-items: center; text-align: left;
-  padding: 8px 11px; border-radius: 8px; cursor: pointer; min-width: 0;
-  border: 1px solid var(--border); background: rgba(130,170,255,.02);
-  color: var(--text-dim); font-family: inherit;
-  transition: border-color .14s, background .14s, color .14s;
-}
-.av-tipo:hover { border-color: var(--border-strong); background: rgba(130,170,255,.04); }
-.av-tipo.is-on { border-color: rgba(240,176,20,.45); background: rgba(240,176,20,.07); color: var(--text); }
-.av-tipo-dot {
-  width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
-  border: 1.5px solid var(--muted2); position: relative;
-}
-.av-tipo.is-on .av-tipo-dot { border-color: var(--accent); }
-.av-tipo.is-on .av-tipo-dot::after {
-  content: ''; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--amarelo);
-}
-.av-tipo b {
-  font-size: 12.5px; font-weight: 600; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
 /* ── Segmentado (cliente cadastrado × avulso) ── */
 /* ⚠️ TERCEIRA OCORRÊNCIA DO MESMO DEFEITO (02/09/2026): preto translúcido
    sobrando de quando este modal era marinho. Como no trilho, sobre a placa
@@ -9802,8 +9443,6 @@ body.role-viewer .viewer-only-hide-inline {
   .av-col-form { padding: 10px 18px 10px 20px; gap: 10px; }
   .av-setup { gap: 16px; }
   .av-setup-col { gap: 10px; }
-  .av-setup-col:first-child .av-tipo { max-height: 42px; }
-  .av-tipo { padding: 6px 11px; }
   .av-itens-zone { padding-top: 10px; }
   .av-cond { padding-top: 10px; }
   .av-rail { padding: 10px 20px; gap: 10px; }
@@ -9823,7 +9462,6 @@ body.role-viewer .viewer-only-hide-inline {
   .av-rail {
     border-left: 0; border-top: 1px solid var(--border); overflow: visible;
   }
-  .av-tipos { grid-template-columns: 1fr; }
 }
 
 /* ── Técnico: foto de perfil ── */
@@ -9853,30 +9491,6 @@ body.role-viewer .viewer-only-hide-inline {
 .tec-avatar-circle:hover .tec-avatar-overlay { opacity: 1; }
 .tec-avatar-hint { font-size: 10px; color: var(--muted); }
 
-/* Avatar pequeno na tabela */
-.tec-row-avatar {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--surface3, #2a2a3e);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: var(--muted);
-  overflow: hidden; vertical-align: middle; margin-right: 6px;
-  flex-shrink: 0; border: 1px solid var(--border);
-}
-.tec-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-/* Avatar no detalhe lateral */
-.tec-det-avatar {
-  width: 56px; height: 56px; border-radius: 50%;
-  background: var(--surface3, #2a2a3e);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; font-weight: 700; color: var(--muted);
-  overflow: hidden; flex-shrink: 0; border: 2px solid var(--border);
-}
-.tec-det-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.tec-det-head-row {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-}
-.tec-det-head-info { flex: 1; min-width: 0; }
 
 /* ============================================================
    APP LOADER — tela de carregamento inicial (igual ao splash do app)
@@ -9928,320 +9542,6 @@ body.role-viewer .viewer-only-hide-inline {
   position: absolute; width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-}
-
-/* ── Cabeçalho de grupo: zona + responsável ───────────────────────────────── */
-.pm-table tbody tr.pm-zona-row td {
-  padding: 18px 12px 6px;
-  border-top: 1px solid var(--border);
-}
-.pm-table tbody tr.pm-zona-row:first-child td { border-top: none; padding-top: 10px; }
-.pm-table tbody tr.pm-zona-row:hover { background: transparent; }
-
-.pm-zona-nome {
-  font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .7px;
-  color: var(--muted);
-}
-.pm-zona-resp {
-  font-size: 11px; color: var(--text);
-  margin-left: 9px; padding-left: 9px;
-  border-left: 1px solid var(--border);
-}
-.pm-zona-resp.is-vazio { color: var(--muted); font-style: italic; }
-
-.pm-zona-edit {
-  background: transparent; border: none; cursor: pointer;
-  color: var(--muted); font-size: 11px;
-  padding: 0 4px; margin-left: 2px;
-  opacity: 0; transition: opacity .15s, color .15s;
-}
-.pm-table tbody tr.pm-zona-row:hover .pm-zona-edit,
-.pm-zona-edit:focus-visible { opacity: 1; }
-.pm-zona-edit:hover { color: var(--accent); }
-
-.pm-zona-row.is-editando td { padding-bottom: 10px; }
-.pm-zona-select {
-  width: auto; min-width: 180px;
-  display: inline-block;
-  font-size: 11.5px; padding: 4px 8px;
-  margin: 0 6px 0 10px;
-  vertical-align: middle;
-}
-
-/* ── Navegacao de mes ────────────────────────────────────────────────────
-   ⚠️ A tela mostra UM mês por vez, e ele é escolhido — não é o relógio do
-   servidor. Sem isto, escalar uma preventiva para outubro gravava certo e a
-   tela seguia dizendo "Sem dono": a pessoa faz a ação, ela funciona, e a tela
-   diz que não aconteceu nada.
-   Mesma peça do `.pv-mes` da tela de Preventivas do operador, no registro do
-   admin (menor, sem chanfro — esta folha usa raio). */
-.pm-mesnav {
-  display: flex; align-items: center; gap: 8px;
-  margin-right: 14px; flex-shrink: 0;
-}
-.pm-mes-nav {
-  width: 30px; height: 30px; flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  font: inherit; font-size: 14px; line-height: 1;
-  background: transparent; color: var(--muted);
-  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
-  transition: color .15s, border-color .15s;
-}
-.pm-mes-nav:hover { color: var(--text); border-color: var(--border-strong); }
-/* O nome do mês é a leitura da peça — largura mínima para as setas não
-   dançarem entre "maio de 2026" e "setembro de 2026". */
-.pm-mes-rot {
-  font-size: 13px; font-weight: 700; color: var(--text);
-  min-width: 13ch; text-align: center;
-}
-.pm-mes-rot::first-letter { text-transform: uppercase; }
-.pm-mes-hoje {
-  font: inherit; font-size: 11.5px; font-weight: 600;
-  background: transparent; border: 0; cursor: pointer; padding: 4px 2px;
-  color: var(--accent);
-  text-decoration: underline; text-underline-offset: 3px;
-}
-@media (max-width: 900px) {
-  .pm-mesnav { margin-right: 0; margin-bottom: 8px; }
-}
-
-/* ── Linha do plano ───────────────────────────────────────────────────────── */
-/* ⚠️ O SUJEITO DA LINHA É O PRÉDIO (04/09/2026). Medido antes deste passe, numa
-   linha qualquer da produção: a palavra "Preventiva" saía a **12px/600 em
-   branco** e o nome do prédio a **10,5px/400 em cinza** (`--muted`) — ou seja,
-   o destaque estava no dado que é IGUAL em 75 dos 76 planos, e o que identifica
-   a linha era o texto mais apagado da célula. O Pedro: "está difícil de
-   entender".
-   O `.pm-plano-title` continua existindo para não quebrar quem ainda o usa; o
-   que a linha usa hoje é o `.pm-predio`. */
-.pm-predio {
-  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-  font-size: 14px; font-weight: 700; color: var(--text);
-  letter-spacing: -.01em;
-}
-.pm-plano-title {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 12px; font-weight: 600; color: var(--text);
-}
-.pm-plano-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
-.pm-period    { font-size: 11.5px; color: var(--muted); }
-
-/* Etiqueta que só existe quando há exceção: periodicidade diferente de mensal,
-   ou título que não é "Preventiva". A coluna "Periodicidade" saiu — ela dizia
-   "Mensal" 76 vezes em 76. */
-.pm-pill-perio {
-  font-size: 9.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
-}
-.pm-pill-atraso {
-  font-size: 9.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
-  color: var(--danger);
-  border: 1px solid rgba(255,90,77,.4); border-radius: 999px; padding: 1px 7px;
-}
-
-/* ── A coluna "Este mês": o acompanhamento ────────────────────────────────────
-   ⚠️ A GRAMÁTICA É A DO `.pv-selo` DA TELA DE PREVENTIVAS do operador, de
-   propósito: as duas telas falam do mesmo mês, e um selo diferente em cada uma
-   faria parecer dois produtos. Aqui o campo é escuro (registro do admin), então
-   o preenchimento e a tinta trocam de papel em relação à placa clara de lá. */
-.pm-selo {
-  display: inline-block;
-  font-family: var(--mono); font-size: 10px; font-weight: 700;
-  letter-spacing: .08em; text-transform: uppercase;
-  padding: 3px 7px; border-radius: 4px;
-}
-.pm-selo[data-e="sem"]   { color: var(--accent); border: 1px solid rgba(251,179,41,.42); }
-.pm-selo[data-e="dono"]  { color: var(--text);   border: 1px solid var(--border); }
-.pm-selo[data-e="campo"] { color: var(--crista);      border: 1px solid rgba(127,178,255,.38); }
-.pm-selo[data-e="feita"] { color: var(--ok);     border: 1px solid rgba(99,216,160,.38); }
-.pm-selo[data-e="off"]   { color: var(--muted);  border: 1px solid var(--border); }
-
-.pm-quem-linha { margin-top: 4px; font-size: 11.5px; color: var(--muted); }
-.pm-quem { color: var(--text); font-weight: 600; }
-/* "Escalado" é decisão de alguém neste mês; "pela zona" é o padrão da região.
-   Sem a distinção o admin não sabe o que já foi despachado à mão. */
-.pm-origem {
-  font-family: var(--mono); font-size: 9px; font-weight: 700;
-  letter-spacing: .06em; text-transform: uppercase;
-  margin-left: 6px; padding: 1px 5px; border-radius: 3px;
-  color: var(--muted); border: 1px solid var(--border);
-}
-.pm-origem.is-escala { color: var(--mar-900, #030a26); background: var(--amarelo); border-color: var(--accent); }
-
-/* Convite a despachar: aparece só onde não há ninguém, que é onde a ação cabe. */
-.pm-despachar {
-  font: inherit; font-size: 11.5px; font-weight: 600;
-  background: transparent; border: 0; padding: 2px 0; cursor: pointer;
-  color: var(--accent);
-  text-decoration: underline; text-underline-offset: 3px;
-  text-decoration-color: rgba(251,179,41,.4);
-}
-.pm-despachar:hover { text-decoration-color: currentColor; }
-
-/* A linha do prédio sem plano: mesma tabela, outro assunto. O fio à esquerda
-   marca que ela não é um plano — é uma ausência. */
-.pm-row.is-sem-plano .pm-predio { color: var(--text); }
-.pm-row.is-sem-plano td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
-
-/* A célula do mês encosta no topo: o selo alinha com o nome do prédio, e a
-   linha de "quem" desce a partir dele. Centrada, ela flutuava contra um nome
-   que pode quebrar em duas linhas. */
-.pm-mes { vertical-align: top; }
-
-/* ── O menu "⋯" ───────────────────────────────────────────────────────────── */
-/* Alvo do menu: quadrado, do tamanho do botão de fio ao lado, para o par não
-   ler como duas peças de alturas diferentes. */
-.pm-menu-btn {
-  min-width: 28px; padding: 3px 6px;
-  font-size: 13px; line-height: 1;
-}
-
-.pm-menu-wrap { position: relative; display: inline-flex; }
-.pm-menu {
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: 40;
-  min-width: 200px; padding: 4px;
-  background: var(--surface2); border: 1px solid var(--border-strong, var(--border));
-  border-radius: 8px; box-shadow: 0 10px 28px rgba(2,6,22,.55);
-  display: flex; flex-direction: column;
-}
-.pm-menu button {
-  font: inherit; font-size: 12px; text-align: left;
-  background: transparent; border: 0; cursor: pointer;
-  color: var(--text); padding: 8px 10px; border-radius: 6px;
-  min-height: 34px;
-}
-.pm-menu button:hover { background: rgba(255,255,255,.07); }
-.pm-menu button.is-danger { color: var(--danger); }
-
-.pm-prox-data {
-  font-size: 12px; font-weight: 600;
-  font-family: var(--mono);
-}
-.pm-prox-delta { font-size: 10.5px; margin-top: 3px; }
-.pm-prox-delta.is-bad  { color: #f87171; font-weight: 600; }
-.pm-prox-delta.is-warn { color: #fbbf24; font-weight: 600; }
-.pm-prox-delta.is-ok   { color: var(--muted); }
-.pm-prox-delta.is-off  { color: var(--muted); opacity: .7; }
-
-.pm-pill-off {
-  font-size: 9px; font-weight: 700;
-  letter-spacing: .5px; text-transform: uppercase;
-  color: #9ca3af;
-  background: rgba(122,126,156,.12);
-  border: 1px solid rgba(122,126,156,.22);
-  border-radius: 999px; padding: 1px 6px;
-}
-.pm-row.is-inativo .pm-plano-title,
-.pm-row.is-inativo .pm-predio { color: var(--muted); }
-/* Atrasada marca a linha por FIO, não por fundo: fundo vermelho em 60 linhas
-   vira parede e para de apontar. */
-.pm-row.is-atrasada td:first-child { box-shadow: inset 2px 0 0 var(--danger); }
-
-/* ── Ações: aparecem no hover/foco; sempre visíveis em telas de toque ─────── */
-/* ⚠️ AS AÇÕES SÃO SEMPRE VISÍVEIS (04/09/2026), não mais só no hover. Era
-   `opacity: 0` até o mouse chegar — e a regra que a tela de Aprovados já tinha
-   registrado vale igual aqui: "quem não sabe que devia passar o mouse não
-   descobre um alvo que só aparece quando ele chega". Numa tela que o Pedro
-   descreveu como difícil de entender, esconder a ação era metade do problema.
-   O repouso é discreto (o botão de fio já é quieto); o hover realça a LINHA. */
-.pm-acoes {
-  display: flex; gap: 4px; justify-content: flex-end; align-items: center;
-}
-.pm-acoes .btn { font-size: 10.5px; padding: 3px 8px; }
-.pm-btn-danger { color: var(--danger); }
-
-@media (prefers-reduced-motion: reduce) {
-  .pm-acoes, .pm-zona-edit { transition: none; }
-}
-
-/* ── Checkbox de seleção (linhas + "todos" no cabeçalho) ──────────────────────
-   Substitui o checkbox nativo (azul do SO) por um quadrado amber alinhado à
-   marca. Estados: vazio · hover · marcado (✓) · indeterminado (–, quando só
-   parte da lista visível está selecionada). */
-.pm-table input[type="checkbox"] {
-  appearance: none; -webkit-appearance: none;
-  width: 15px; height: 15px;
-  margin: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  background: rgba(255,255,255,.04);
-  display: inline-grid; place-content: center;
-  vertical-align: middle;
-  cursor: pointer;
-  transition: background .15s, border-color .15s, box-shadow .15s;
-}
-.pm-table input[type="checkbox"]:hover {
-  border-color: rgba(240,176,20,.55);
-  background: rgba(240,176,20,.08);
-}
-.pm-table input[type="checkbox"]:focus-visible {
-  outline: none;
-  border-color: rgba(240,176,20,.6);
-  box-shadow: 0 0 0 3px rgba(240,176,20,.16);
-}
-
-.pm-table input[type="checkbox"]:checked,
-
-  background: var(--amarelo);
-  border-color: var(--accent);
-}
-.pm-table input[type="checkbox"]:checked:hover,
-.pm-table input[type="checkbox"]:indeterminate:hover {
-  background: var(--accent-2);
-  border-color: var(--accent-2);
-}
-
-/* ✓ desenhado com borda (sem SVG externo) — tinta escura sobre o amber */
-.pm-table input[type="checkbox"]:checked::after {
-  content: "";
-  width: 4px; height: 8px;
-  margin-top: -2px;
-  border: solid var(--bg);
-  border-width: 0 2px 2px 0;
-  transform: rotate(43deg);
-}
-/* – do estado indeterminado */
-.pm-table input[type="checkbox"]:indeterminate::after {
-  content: "";
-  width: 8px; height: 2px;
-  border-radius: 1px;
-  background: var(--bg);
-}
-
-/* Linha selecionada ganha o mesmo wash amber já usado em .orc-table .is-selected */
-.pm-table tbody tr.pm-row:has(.pm-chk:checked) { background: rgba(240,176,20,.06); }
-@media (prefers-reduced-motion: reduce) {
-  .pm-table input[type="checkbox"] { transition: none; }
-}
-
-/* Preventiva com chamado ainda aberto — estado próprio, fora de "vencido".
-   É botão (navega pra aba Chamados), mas visualmente é só o texto do delta. */
-.pm-prox-delta.is-andamento { color: var(--blue); font-weight: 600; }
-.pm-link-chamado {
-  display: block;
-  background: none; border: none; padding: 0;
-  font: inherit; text-align: left; cursor: pointer;
-  text-decoration: underline; text-decoration-style: dotted;
-  text-underline-offset: 2px;
-}
-.pm-link-chamado:hover { color: var(--cyan); }
-.pm-link-chamado:focus-visible {
-  outline: 2px solid rgba(74,120,247,.5);
-  outline-offset: 2px; border-radius: 3px;
-}
-
-/* Editor inline de responsáveis da zona — vários técnicos por zona (migr. 066) */
-.pm-zona-chks {
-  display: inline-flex; flex-wrap: wrap; gap: 10px;
-  margin: 0 10px;
-  vertical-align: middle;
-}
-.pm-zona-chk {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11.5px; color: var(--text);
-  cursor: pointer; white-space: nowrap;
 }
 
 /* ─── Lista de destinatários do modal de envio de orçamento ────────────────
@@ -10335,32 +9635,6 @@ body.role-viewer .viewer-only-hide-inline {
   font-size: .86em;
   color: var(--muted);
 }
-
-/* ─── Aviso: respostas de cliente sem baixa ────────────────────────────────
-   Fica acima dos KPIs da aba de orçamentos avulsos. Não é métrica — é
-   trabalho parado esperando alguém —, então tem ação ("Ver") e só some quando
-   a última baixa é dada. ⚠️ Antes sumia ao abrir a ficha, e era o único lugar
-   onde a pendência existia: um clique de passagem apagava tudo. Hoje ela
-   divide o papel com `.av-selo-pend` (linha) e `.av-dot.pend` (condomínio).
-
-   ⚠️ O campo aqui é ESCURO (superfície de trabalho do admin, não placa
-   clara), então usa a família de cor do painel. E o realce é o âmbar de
-   ATENÇÃO, não `--risco`: uma resposta esperando não é uma falha. */
-.av-aviso {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 12px 16px;
-  background: color-mix(in srgb, var(--amarelo, #f0b014) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amarelo, #f0b014) 38%, transparent);
-  border-radius: 8px;
-  font-size: .95rem;
-  color: var(--text);
-}
-.av-aviso[hidden] { display: none; }
-.av-aviso svg { width: 20px; height: 20px; flex: none; color: var(--amarelo, #f0b014); }
-.av-aviso span { flex: 1; min-width: 0; }
 
 /* ─── Campo de escolher prédio, com busca (`condo-picker.js`) ───────────
    ⚠️ SUBSTITUI UM `<select>` NATIVO com 86 prédios dentro. O select não tem
@@ -11060,7 +10334,7 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .drawer-panel table th { background: var(--chapa-es); color: var(--tinta-2); }
 .main .rc-label, .main .mc-fin-label, .main .al-medida-lbl, .main .mp-barras-total,
 .main .lbl, .modalBox .lbl, .drawer-panel .lbl,
-.main .al-origem, .main .pm-selo, .main .pm-origem, .main .ch-cat-badge, .main .os-chip {
+.main .al-origem, .main .ch-cat-badge, .main .os-chip {
   font-family: var(--fonte);
   text-transform: none;
   letter-spacing: 0;
@@ -11133,13 +10407,6 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 .main :is(.orc-main-tab, .rel-seg-btn, .tel-range-btn) { border-radius: var(--r-ctrl); }
 
 /* ── Selos: pílula ── */
-.main :is(.badge, .ch-cat-badge, .ch-prio, .ch-st, .ch-sla-badge, .ch-sla-ttr-badge,
-  .os-status-pill, .os-chip, .os-result-pill, .os-mail-pill, .orc-status-pill,
-  .rel-prazo, .rel-chip, .al-origem, .al-sev, .al-tel-tag, .pm-selo, .pm-origem) {
-  border-radius: 999px;
-  letter-spacing: 0;
-  text-transform: none;
-}
 .main .badge { font-size: 11.5px; font-weight: 600; }
 .main :is(.al-act-btn, .mp-kpis, .mp-barra-trilho, .mp-barra-fill) { border-radius: var(--r-ctrl); }
 
@@ -11277,13 +10544,7 @@ td.cf-num { font-variant-numeric: tabular-nums; }
 }
 .os-link:hover { text-decoration-color: currentColor; }
 a.os-link { color: var(--text); }
-
-.os-td-chk { width: 36px; }
-.os-td-num strong { white-space: nowrap; }
-.os-td-condo { font-weight: 600; }
 .os-sit-linha { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.main .os-row:hover td { background: rgba(6,16,51,.035); }
-.os-acoes-cell .btn { padding: 5px 12px; font-size: 12.5px; }
 
 /* ── a ficha ── */
 .os-modal-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -11334,29 +10595,6 @@ a.os-link { color: var(--text); }
   color: var(--tinta);
 }
 .os-veredito .os-obs { box-shadow: none; background: none; }
-/* No celular a linha da O.S. vira cartão: rolar a tabela de lado escondia
-   justamente a Situação, que é a coluna que responde à pergunta. */
-@media (max-width: 640px) {
-  .os-table-wrap table, .os-table-wrap tbody { display: block; min-width: 0; width: 100%; }
-  .os-table-wrap thead { display: none; }
-  .os-table-wrap tr.os-row {
-    display: grid;
-    grid-template-columns: 28px 1fr auto;
-    grid-template-areas: "chk num acao" "chk condo acao" "chk sit sit" "chk tipos tipos";
-    gap: 6px 10px;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  .os-table-wrap tr.os-row td { display: block; padding: 0; border: 0; background: none !important; }
-  .os-table-wrap .os-td-chk { grid-area: chk; }
-  .os-table-wrap .os-td-num { grid-area: num; }
-  .os-table-wrap .os-td-condo { grid-area: condo; }
-  .os-table-wrap .os-td-sit { grid-area: sit; }
-  .os-table-wrap tr.os-row td:nth-child(4) { grid-area: tipos; }
-  .os-table-wrap .os-acoes-cell { grid-area: acao; align-self: start; }
-  .os-table-wrap .os-sub { white-space: normal; }
-}
-
 /* ── A O.S. como PÁGINA (#/os/<id>), não modal ──────────────────────────────
    A caixa #osFicha é a mesma do antigo modal (mesmos ids, ver
    _osMontarPagina). Aqui ela deixa de flutuar: ocupa a área de trabalho,
@@ -11671,7 +10909,7 @@ a.os-link { color: var(--text); }
    alinhado à direita, uma ação com nome. Orçamentos deixou de ser lista de
    prédios com painel ao lado; a visão por prédio é a ficha do condomínio.
    ════════════════════════════════════════════════════════════════════════ */
-.orc-resumo, .ctrs-resumo { padding: 12px 16px 0; }
+ .ctrs-resumo { padding: 12px 16px 0; }
 [data-section="contratos"] .ctrs-resumo { padding: 0 18px 12px; }
 #avCondoList, #orcCondoList { display: block; }
 
@@ -11704,31 +10942,13 @@ a.os-link { color: var(--text); }
 .pro-id .mono { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
 .pro-cli-nome { font-weight: 600; color: var(--text); }
 .pro-cli .os-link { font-weight: 600; color: var(--text); }
-.pro-cli .orc-origem-pill { margin-left: 6px; vertical-align: 1px; }
 .pro-sit .os-sub { white-space: normal; }
 .pro-sit .os-sub.is-resposta { color: var(--text-dim, var(--text)); }
 .pro-row.is-pendente .pro-sit .os-sub.is-resposta { color: var(--accent); font-weight: 600; }
 .main .pro-table .pro-val { text-align: right; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pro-vig { white-space: nowrap; }
-.pro-obs {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  color: var(--text);
-  line-height: 1.45;
-}
-.pro-obs.is-vazia { color: var(--muted2, var(--muted)); font-style: italic; }
 .main .pro-table td.pro-acao { text-align: right; white-space: nowrap; vertical-align: middle; }
 .pro-acao .btn { padding: 5px 12px; font-size: 12.5px; }
-.pro-del {
-  appearance: none; border: 0; background: none; cursor: pointer;
-  width: 30px; height: 30px; margin-left: 4px;
-  display: inline-grid; place-items: center; vertical-align: middle;
-  color: var(--muted); border-radius: 6px;
-}
-.pro-del:hover { color: var(--danger); background: rgba(220,38,38,.08); }
-.pro-del svg { width: 15px; height: 15px; }
 
 /* Barra igual à de Chamados: busca e botão em cima, abas inteiras embaixo. */
 [data-section="orcamentos"] .ch-toolbar { padding: 10px 16px 12px; gap: 10px; row-gap: 10px; }
@@ -11852,9 +11072,6 @@ a.os-link { color: var(--text); }
    coluna (dentro de cada zona) e, no celular, abas numa linha e o plano como
    cartão. Tudo escopado em [data-section="planos"].
    ════════════════════════════════════════════════════════════════════════ */
-[data-section="planos"] .pm-resumo { padding: 0 18px 12px; }
-.pm-resumo-atraso { color: var(--danger-t, var(--danger)); font-weight: 700; }
-[data-section="planos"] .pm-predio .os-link { font-weight: 700; color: var(--text); }
 
 @media (max-width: 640px) {
   [data-section="planos"] .al-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
@@ -11867,593 +11084,10 @@ a.os-link { color: var(--text); }
 
   [data-section="planos"] table, [data-section="planos"] tbody { display: block; width: 100%; min-width: 0; }
   [data-section="planos"] thead { display: none; }
-  [data-section="planos"] tr.pm-zona-row { display: block; }
-  [data-section="planos"] tr.pm-zona-row td { display: block; }
-  [data-section="planos"] tr.pm-row {
-    display: grid;
-    grid-template-columns: 28px 1fr auto;
-    grid-template-areas: "chk predio acoes" "chk mes mes" "chk prox prox";
-    gap: 8px 10px;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  [data-section="planos"] tr.pm-row td { display: block; padding: 0 !important; border: 0 !important; }
-  [data-section="planos"] tr.pm-row td:nth-child(1) { grid-area: chk; }
-  [data-section="planos"] tr.pm-row td:nth-child(2) { grid-area: predio; min-width: 0; }
-  [data-section="planos"] tr.pm-row td:nth-child(3) { grid-area: mes; }
-  [data-section="planos"] tr.pm-row td:nth-child(4) { grid-area: prox; display: flex !important; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-  [data-section="planos"] tr.pm-row td:nth-child(5) { grid-area: acoes; align-self: start; }
-  [data-section="planos"] tr.pm-row.is-atrasada { box-shadow: inset 3px 0 0 var(--danger); }
 }
-/* A linha abre a preventiva (ver o handler de #pmTableBody). Só onde há o
-   Editar: operador e visualizador não têm cursor de clique. */
-[data-section="planos"] tr.pm-row:not(.is-sem-plano) { cursor: pointer; }
-[data-section="planos"] tr.pm-row:not(.is-sem-plano):hover td { background: rgba(6,16,51,.035); }
-body.role-operador [data-section="planos"] tr.pm-row,
-body.role-admin_viewer [data-section="planos"] tr.pm-row { cursor: default; }
-
-/* ── EQUIPAMENTOS NO MOLDE DA O.S. (18/11/2026) ─────────────────────────── */
-[data-section="equipamentos"] .eq-resumo { padding: 0 18px 12px; }
-.eq-toolbar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  padding: 0 16px 12px;
-}
-.eq-toolbar .wa-tabs { flex: 1 1 auto; min-width: 0; margin-top: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-.eq-toolbar .wa-tabs .wa-tab { flex: 0 0 auto; white-space: nowrap; }
-.eq-toolbar #eqBusca { width: 240px; }
-[data-section="equipamentos"] .pro-cli .mono { font-size: 11.5px; color: var(--text); }
-[data-section="equipamentos"] tr.is-livre .pro-cli-nome { font-weight: 500; }
-[data-section="equipamentos"] td .os-link { font-weight: 600; color: var(--text); }
-[data-section="equipamentos"] .os-sub { white-space: normal; }
+/* Equipamentos: os cartões de imprimir e desfazer, abaixo da lista. */
 @media (max-width: 640px) {
-  .eq-toolbar #eqBusca { width: 100%; }
   [data-section="equipamentos"] .cardHead { flex-wrap: wrap; gap: 8px; }
-}
-
-/* ── NOTAS FISCAIS NO MOLDE DA O.S. (18/11/2026) ────────────────────────── */
-.nf-card { padding: 0; }
-.nf-card .nf-resumo { padding: 0 18px 12px; }
-.nf-card .nf-barra { padding: 0 16px 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
-.nf-card .nf-barra .wa-tabs { margin-top: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
-.nf-card .nf-barra .wa-tab { flex: 0 0 auto; white-space: nowrap; }
-.nf-card .nf-busca { width: 280px; }
-.nf-card .cf-vazio { padding: 24px 18px; }
-.nf-card .nf-rodape { padding: 10px 18px 14px; margin: 0; }
-@media (max-width: 640px) { .nf-card .nf-busca { width: 100%; } }
-
-/* ── O CONTRATO COMO PÁGINA (#/contratos/<id>, 19/11/2026) ───────────────────
-   As duas caixas do antigo modal (#ctrBox editar, #ctrViewerBox assinado) são
-   movidas para cá por _ctrMontarPagina, com os mesmos ids. Aqui elas deixam
-   de flutuar: sem altura fixa, cabeçalho com "← Voltar" grudando ao rolar, a
-   linha do tempo embaixo dele e o rodapé de ações grudando embaixo. */
-.ctr-pagina { max-width: 1100px; width: 100%; margin: 0 auto; }
-.ctr-box:not(.is-pagina) .ctr-tempo-wrap { display: none; }
-.ctr-box.is-pagina {
-  width: 100%; max-width: none; max-height: none;
-  overflow: visible; clip-path: none;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-.ctr-box.is-pagina .modalHead {
-  position: sticky; top: -22px; z-index: 5;
-  background: #fff;
-  box-shadow: none;
-  border-radius: 10px 10px 0 0;
-  padding: 14px 22px;
-  justify-content: flex-start;
-}
-.ctr-box.is-pagina .modalHead > div:not(:last-child) { flex: 1 1 auto; min-width: 0; }
-.ctr-box.is-pagina .modalTitle { font-size: 19px; }
-.ctr-box.is-pagina .modalSub .os-link { font-weight: 600; color: var(--tinta); }
-.ctr-box.is-pagina .ctr-voltar { flex-shrink: 0; }
-.ctr-box.is-pagina .ctr-tempo-wrap { padding: 6px 22px 18px; border-bottom: 1px solid var(--border); }
-.ctr-box.is-pagina .modalBody { overflow: visible; max-height: none; padding: 20px 22px 24px; }
-.ctr-box.is-pagina .modalFoot {
-  position: sticky; bottom: -22px; z-index: 4;
-  background: #fff;
-  border-radius: 0 0 10px 10px;
-  padding: 12px 22px;
-}
-.ctr-box.is-pagina #ctrViewerGrid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important; }
-.ctr-box.is-pagina #ctrAssinaturaPainel { background: #f4f6fa !important; }
-/* Na página o "← Voltar" do cabeçalho já faz o papel do "Fechar" do rodapé. */
-.ctr-box.is-pagina #ctrViewerBtnFechar2 { display: none; }
-
-/* Etapa que pede atenção (venceu, vence em 30 dias, recusado). */
-.os-tempo li.is-alerta .os-tempo-em { color: var(--danger-t, #b42318); font-weight: 600; }
-.os-tempo li.is-alerta.is-atual::after { box-shadow: inset 0 0 0 2px var(--danger-t, #b42318); background: #fff; }
-
-@media (max-width: 640px) {
-  .ctr-box.is-pagina .modalHead { position: static; flex-wrap: wrap; padding: 12px 14px; }
-  .ctr-box.is-pagina .ctr-tempo-wrap { padding: 4px 14px 16px; }
-  .ctr-box.is-pagina .modalBody { padding: 16px 14px 20px; }
-  .ctr-box.is-pagina .modalFoot { position: static; padding: 12px 14px; }
-  .ctr-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
-}
-
-/* ── O CHAMADO COMO PÁGINA (#/chamados/<id>, 19/11/2026) ─────────────────────
-   O mesmo desenho do painel de Chamados (renderChDetalhe), em duas colunas:
-   o atendimento à esquerda (descrição, o que está ligado, histórico), quem
-   está com ele e a telemetria à direita. A lista continua com o painel. */
-.ch-pagina { max-width: 1180px; width: 100%; margin: 0 auto; }
-.ch-pag {
-  padding: 0;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-.ch-pag-head {
-  position: sticky; top: -22px; z-index: 5;
-  display: flex; align-items: flex-start; gap: 16px;
-  padding: 14px 22px;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  border-radius: 10px 10px 0 0;
-}
-.ch-pag-head .ch-voltar { flex-shrink: 0; margin-top: 2px; }
-.ch-pag-tit { flex: 1 1 auto; min-width: 0; }
-.ch-pag .ch-det-head { display: flex; justify-content: flex-start; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.ch-pag .ch-det-id { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); }
-.ch-pag .ch-det-title { font-size: 19px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 2px; color: var(--tinta); }
-.ch-pag .ch-det-sub { margin-bottom: 0; }
-.ch-pag-head .ch-det-acoes-topo { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; border: 0; padding: 0; margin: 2px 0 0; }
-.ch-pag-tempo { padding: 6px 22px 18px; border-bottom: 1px solid var(--border); }
-.ch-pag .ch-tempo { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
-.ch-pag .ch-tempo li:nth-child(2)::before { right: 0; width: auto; }
-.ch-pag-corpo { padding: 20px 22px 26px; }
-.ch-pag .os-col-lado { background: #f4f6fa; }
-.ch-pag .ch-det-section { margin: 0; padding: 0; border: 0; }
-.ch-pag .os-col-lado .ch-det-section + .ch-det-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-.ch-pag .ch-det-sec-title { font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 8px; font-family: var(--fonte); }
-.ch-pag .ch-met-lbl { color: var(--muted); }
-.ch-pag .ch-tel-btn { margin-top: 10px; }
-.ch-pag-vazio { padding: 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; color: var(--muted); }
-
-/* o que está ligado ao chamado */
-.ch-lig-lista { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.ch-lig {
-  display: grid; grid-template-columns: 92px auto 1fr; align-items: baseline; gap: 12px;
-  padding: 10px 14px; text-align: left;
-  background: #fff; border: 0; border-bottom: 1px solid var(--border);
-  font: inherit; color: var(--text); cursor: pointer;
-}
-.ch-lig:last-child { border-bottom: 0; }
-.ch-lig:hover { background: #f7f8fb; }
-.ch-lig:focus-visible { outline: 2px solid var(--atencao-t); outline-offset: -2px; }
-.ch-lig-tipo { font-size: 12px; color: var(--muted); }
-.ch-lig b { font-family: var(--mono); font-size: 12.5px; }
-.ch-lig-sit { font-size: 12.5px; color: var(--muted); text-align: right; }
-.ch-lig-vazio { font-size: 13px; color: var(--muted); }
-
-/* o atalho do painel para a página */
-.ch-abrir-pag { margin-left: auto; font-size: 12px; font-weight: 600; }
-
-@media (max-width: 900px) {
-  .ch-pag-head { flex-wrap: wrap; }
-  .ch-pag-head .ch-det-acoes-topo { width: 100%; justify-content: flex-start; }
-}
-@media (max-width: 640px) {
-  .ch-pag-head { position: static; padding: 12px 14px; gap: 10px; }
-  .ch-pag-tempo { padding: 4px 14px 16px; }
-  .ch-pag .ch-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ch-pag .ch-tempo li:nth-child(2)::before { right: auto; width: 12px; }
-  .ch-pag-corpo { padding: 16px 14px 20px; }
-  .ch-lig { grid-template-columns: 1fr auto; }
-  .ch-lig-sit { grid-column: 1 / -1; text-align: left; }
-}
-
-/* ── FAIXA DE NÚMEROS SEM CORTE (19/11/2026) ─────────────────────────────────
-   Painel, Telemetria, Mapa e a lista de Condomínios. A célula era UMA linha de
-   60px com ícone, rótulo, dica e número disputando a largura, e o rótulo
-   cortava com reticências a 1440px ("Off…", "4 res…", "B… sem dados de
-   bomba"). Agora cada célula empilha: rótulo inteiro → número com unidade →
-   dica, que quebra linha se precisar. As células são uma peça só, com fio
-   entre elas (a faixa de estatística dos sistemas de referência), sem a
-   caixinha de ícone: o estado vai na cor do número, e só quando pede atenção.
-   Os ids e o markup (kpiCard, renderTelKpis, o HTML do Mapa) não mudaram. */
-.main :is(.resumo-grid, .mp-kpis) {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0;
-  padding: 0;
-  background: var(--placa);
-  border: 1px solid var(--border);
-  border-radius: var(--r-cartao);
-  clip-path: none;
-  overflow: hidden;
-}
-.main .mp-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.main .tel-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.main :is(.resumo-grid, .mp-kpis) > .rc {
-  height: auto;
-  min-height: 0;
-  padding: 12px 16px 13px;
-  border: 0;
-  border-radius: 0;
-  /* fio à esquerda e em cima de cada célula; o overflow do pai corta o da
-     borda externa, então o fio só aparece ENTRE células, em qualquer quebra */
-  box-shadow: -1px 0 0 var(--border), 0 -1px 0 var(--border);
-  background: transparent;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 2px;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-}
-.main :is(.resumo-grid, .mp-kpis) > button.rc { cursor: pointer; }
-.main :is(.resumo-grid, .mp-kpis) > button.rc:hover { background: #f7f8fb; }
-.main :is(.resumo-grid, .mp-kpis) > .rc-static:hover { background: transparent; }
-.main :is(.resumo-grid, .mp-kpis) > button.rc:focus-visible { outline: 2px solid var(--atencao-t); outline-offset: -2px; }
-.main :is(.resumo-grid, .mp-kpis) .rc-head { order: 1; flex: 0 0 auto; width: 100%; }
-.main :is(.resumo-grid, .mp-kpis) .rc-icon { display: none; }
-.main :is(.resumo-grid, .mp-kpis) .rc-label {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--muted);
-}
-.main :is(.resumo-grid, .mp-kpis) .rc-value {
-  order: 2;
-  margin: 2px 0 0;
-  font-family: var(--fonte);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -.02em;
-  line-height: 1.15;
-  color: var(--tinta);
-}
-.main :is(.resumo-grid, .mp-kpis) .rc-unid {
-  font-family: var(--fonte);
-  font-size: 12.5px;
-  font-weight: 500;
-  letter-spacing: 0;
-  color: var(--muted);
-}
-.main :is(.resumo-grid, .mp-kpis) :is(.rc-hint, .rc-sub) {
-  order: 3;
-  font-size: 12px;
-  line-height: 1.35;
-  white-space: normal;
-  overflow: visible;
-  color: var(--muted);
-}
-.main :is(.resumo-grid, .mp-kpis) .rc-trend { order: 4; }
-.main :is(.resumo-grid, .mp-kpis) .rc-bad  .rc-value { color: var(--risco-t); }
-.main :is(.resumo-grid, .mp-kpis) .rc-warn .rc-value { color: var(--atencao-t); }
-
-@media (max-width: 1100px) {
-  .main .tel-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 920px) {
-  .main .mp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 640px) {
-  .main :is(.resumo-grid, .mp-kpis, .tel-kpi-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  .main :is(.resumo-grid, .mp-kpis) > .rc { padding: 10px 12px 11px; }
-  .main :is(.resumo-grid, .mp-kpis) .rc-value { font-size: 19px; }
-}
-
-/* ── A LINHA DE CONTRATOS DO PAINEL NO PADRÃO DA FAIXA (19/11/2026) ──────────
-   Era a faixa antiga de uma linha (rótulo mono à esquerda, número mono à
-   direita, valor em âmbar). Agora é a mesma peça da faixa de números acima:
-   rótulo em cima, número embaixo na fonte do texto, fio entre as células. */
-.main .mc-fin-row {
-  gap: 0;
-  margin: 4px 18px 18px;
-  background: var(--placa);
-  border: 1px solid var(--border);
-  border-radius: var(--r-cartao);
-  overflow: hidden;
-}
-.main .mc-fin-item {
-  height: auto;
-  padding: 12px 16px 13px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  background: transparent;
-  box-shadow: -1px 0 0 var(--border), 0 -1px 0 var(--border);
-}
-.main .mc-fin-label { white-space: normal; overflow: visible; line-height: 1.3; }
-.main .mc-fin-value {
-  margin: 2px 0 0;
-  font-family: var(--fonte);
-  font-size: 22px;
-  letter-spacing: -.02em;
-  line-height: 1.15;
-  color: var(--tinta);
-}
-@media (max-width: 640px) {
-  .main .mc-fin-row { margin: 4px 14px 14px; }
-  .main .mc-fin-item { padding: 10px 12px 11px; }
-  .main .mc-fin-value { font-size: 19px; }
-}
-
-/* ── "ALERTAS CRÍTICOS" DO PAINEL: TÍTULO INTEIRO NA COLUNA ESTREITA (19/11/2026)
-   Sem a caixinha de ícone e sem o tempo à direita, o texto ganha a largura
-   toda. Ponto de cor no lugar do ícone; título em até duas linhas; prédio,
-   prioridade e prazo embaixo; o tempo por último. Lista com fio entre as
-   linhas, não uma caixa por linha. */
-.main .mc-alerts-list { gap: 0; }
-.main .mc-alert-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 4px 10px 2px;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  transform: none;
-}
-.main .mc-alert-row:last-child { border-bottom: 0; }
-.main .mc-alert-row:hover { background: #f7f8fb; transform: none; border-color: var(--border); }
-.main .mc-alert-row:focus-visible { outline: 2px solid var(--atencao-t); outline-offset: -2px; }
-.mc-alert-dot {
-  flex: 0 0 auto;
-  width: 8px; height: 8px;
-  margin-top: 5px;
-  border-radius: 50%;
-  background: var(--atencao-t);
-}
-.mc-alert-dot.bad { background: var(--risco-t); }
-.main .mc-alert-title {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
-  color: var(--tinta);
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.main .mc-alert-sub {
-  font-size: 12px;
-  line-height: 1.35;
-  color: var(--muted);
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.main .mc-alert-time {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--muted);
-  align-self: flex-start;
-}
-
-/* ── LISTA DE CONDOMÍNIOS NO MOLDE DA O.S. (19/11/2026) ───────────────────────
-   Frase no lugar da faixa de 5 cartões; a tabela diz como o prédio está
-   (Água, Chamados, Contrato); a linha abre a ficha, então o painel ao lado
-   sai de cena (o markup fica, oculto: renderCliDetalhe ainda é chamado). */
-[data-section="cadastros"] #cliDetailCol { display: none; }
-[data-section="cadastros"] .ch-list-col { flex: 1 1 auto; max-width: none; }
-[data-section="cadastros"] .cli-resumo { padding: 14px 18px 4px; margin: 0; }
-[data-section="cadastros"] .ch-row:focus-visible { outline: 2px solid var(--atencao-t); outline-offset: -2px; }
-[data-section="cadastros"] td { vertical-align: top; }
-[data-section="cadastros"] .os-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.cli-nada { font-size: 12.5px; color: var(--muted); }
-.cli-agua, .cli-ch { font-size: 13px; font-weight: 600; color: var(--tinta); }
-.cli-agua-bad  { color: var(--risco-t); }
-.cli-agua-warn { color: var(--atencao-t); }
-.cli-agua-nada { font-weight: 400; color: var(--muted); }
-.cli-urgente { color: var(--risco-t) !important; font-weight: 600; }
-.cli-inativo { font-size: 11.5px; font-weight: 500; color: var(--muted); margin-left: 6px; }
-[data-section="cadastros"] tr.is-inativo .cli-nome { color: var(--muted); }
-
-@media (max-width: 640px) {
-  [data-section="cadastros"] .ch-table-wrap table,
-  [data-section="cadastros"] .ch-table-wrap tbody { display: block; min-width: 0; width: 100%; }
-  [data-section="cadastros"] .ch-table-wrap thead { display: none; }
-  [data-section="cadastros"] .ch-table-wrap tr.ch-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px;
-    padding: 12px 14px; border-bottom: 1px solid var(--border);
-  }
-  [data-section="cadastros"] .ch-table-wrap tr.ch-row td { display: block; padding: 0; border: 0; }
-  [data-section="cadastros"] .cli-nome-cell { grid-column: 1 / -1; }
-  [data-section="cadastros"] .cli-td-ctr { grid-column: 1 / -1; }
-  [data-section="cadastros"] .ch-toolbar { flex-wrap: wrap; }
-  [data-section="cadastros"] .ch-toolbar > div:last-child { width: 100%; min-width: 0; }
-  [data-section="cadastros"] #cliBusca { flex: 1 1 auto; width: auto !important; min-width: 0; }
-  [data-section="cadastros"] .ch-toolbar [data-action="novo-cliente"] { flex: 0 0 auto; white-space: nowrap; }
-}
-
-/* "Atividade em Tempo Real", a coluna ao lado: o mesmo corte de título com
-   reticências. Mesma solução: até duas linhas, fio entre os itens. */
-.main .mc-act-row { padding: 9px 4px 9px 2px; border-radius: 0; border-bottom: 1px solid var(--border); }
-.main .mc-act-row:last-child { border-bottom: 0; }
-.main .mc-act-row:hover { background: #f7f8fb; }
-.main .mc-act-stripe { border-radius: 50%; clip-path: none; }
-.main .mc-act-stripe.bad  { background: var(--risco-t); }
-.main .mc-act-stripe.warn { background: var(--atencao-t); }
-.main .mc-act-title {
-  font-size: 13px;
-  color: var(--tinta);
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.main .mc-act-sub { font-size: 12px; }
-
-/* ── SELOS EM FRASE EM ORÇAMENTOS E PREVENTIVAS (19/11/2026) ─────────────────
-   Item 4 da ronda de UX. O.S., Chamados e Contratos já usavam selo em frase
-   ("Finalizada 27/07", "Resolvido"); Orçamentos e Preventivas ainda tinham
-   caixa alta mono ("RASCUNHO", "SEM BAIXA", "SEMESTRAL", "ATRASADA", "VIA
-   OS"). Mesma pílula, mesma fonte do texto, mesmo corpo em todo o admin.
-   Os rótulos do orçamento também deixaram de vir em maiúsculas do JS
-   (_avStatusLabel, _orcStatusLabel). As cores de estado não mudaram: cheio
-   continua sendo o que pede alguém, de fio o que não pede. */
-.main :is(.orc-status-pill, .av-selo-pend, .av-selo-exec, .orc-origem-pill,
-  .pm-pill-perio, .pm-pill-atraso, .pm-pill-off) {
-  font-family: var(--fonte);
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  line-height: 1.35;
-  padding: 1px 8px;
-  border-radius: 999px;
-  clip-path: none;
-  vertical-align: 1px;
-}
-.main .av-selo-pend.is-vista { color: var(--atencao-t); }
-/* A origem do orçamento ("via IA", "via OS") tinha as tintas do tema escuro
-   (#c4b5fd, #7dd3fc): sobre o fundo claro mal se liam. */
-.main .orc-origem-ia { background: #f3eefe; color: #6b3fb8; border: 1px solid #ddd0f7; }
-.main .orc-origem-os { background: #eaf4fb; color: #1d5f8a; border: 1px solid #cfe3f1; }
-.main .pm-pill-perio  { color: var(--tinta-2); border-color: var(--border); }
-.main .pm-pill-atraso { color: var(--risco-t); border-color: color-mix(in srgb, var(--risco-t) 35%, #fff); }
-.main .pm-pill-off    { color: var(--tinta-2); background: #f1f3f7; border-color: var(--border); }
-/* Cabeçalho de grupo da Preventivas ("ZONA OESTE"): texto, não etiqueta. */
-.main .pm-zona-nome { font-size: 12.5px; letter-spacing: 0; text-transform: none; color: var(--tinta); }
-
-/* ── SEM FAIXA DE COR NA BORDA (19/11/2026) ──────────────────────────────────
-   Item 5 da ronda de UX. O DESIGN.md proíbe a faixa colorida na borda
-   esquerda indicando estado, e ela sobrava em três lugares: a linha de
-   Orçamentos/Solicitados que espera alguém (3px âmbar), a preventiva atrasada
-   e a linha "sem preventiva" (2px), e todo compromisso da Agenda (3px na cor
-   do tipo). Toda linha marcada já diz o estado por escrito ("Sem baixa",
-   "Solicitado", "atrasada", "Sem preventiva"), então a faixa só repetia. No
-   lugar dela, a linha que pede alguém ganha um fundo levíssimo, para continuar
-   achável ao correr o olho; a "sem preventiva" não pede nada de urgente e fica
-   sem fundo. */
-.main .pro-row.is-pendente td:first-child { box-shadow: none; }
-.main .pro-row.is-pendente td { background: color-mix(in srgb, var(--amarelo) 7%, #fff); }
-.main .pro-row.is-pendente:hover td { background: color-mix(in srgb, var(--amarelo) 12%, #fff); }
-.pm-row.is-sem-plano td:first-child,
-.pm-row.is-atrasada td:first-child { box-shadow: none; }
-.main .pm-row.is-atrasada td { background: color-mix(in srgb, var(--risco-t) 4%, #fff); }
-@media (max-width: 640px) {
-  .main tr.pro-row.is-pendente { box-shadow: none; background: color-mix(in srgb, var(--amarelo) 7%, #fff); }
-  [data-section="planos"] tr.pm-row.is-atrasada { box-shadow: none; background: color-mix(in srgb, var(--risco-t) 4%, #fff); }
-}
-
-/* Agenda: o tipo vira um quadradinho da cor dele, o mesmo da legenda. */
-.ag-item {
-  position: relative;
-  border-left: 1px solid var(--border);
-  padding-left: 24px;
-}
-.ag-item:hover { border-left-color: var(--border-strong); }
-.ag-item::before {
-  content: "";
-  position: absolute;
-  left: 9px; top: 10px;
-  width: 9px; height: 9px;
-  border-radius: 3px;
-  background: var(--ag-cor, var(--ag-outro));
-}
-.ag-mes-dia .ag-item { padding-left: 18px; }
-.ag-mes-dia .ag-item::before { left: 6px; top: 7px; width: 7px; height: 7px; border-radius: 2px; }
-.ag-item.is-concluido::before { opacity: .45; }
-
-/* Agenda, vista Lista: ocupava ~60% da largura (max-width 760px) com cada
-   compromisso empilhado em três linhas. Agora usa a largura e cada
-   compromisso é uma linha: hora · título · onde · quem. */
-.ag-lista { max-width: none; }
-.ag-lista .ag-item {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 14px;
-  row-gap: 2px;
-  padding-top: 9px;
-  padding-bottom: 9px;
-}
-.ag-lista .ag-item::before { top: 14px; }
-.ag-lista .ag-hora { min-width: 40px; font-size: 12.5px; }
-.ag-lista .ag-tit { font-size: 13.5px; flex: 1 1 260px; min-width: 0; }
-.ag-lista .ag-onde { font-size: 12.5px; }
-.ag-lista .ag-onde + .ag-onde::before { content: "· "; }
-@media (max-width: 640px) {
-  .ag-lista .ag-tit { flex-basis: 100%; order: 2; }
-  .ag-lista .ag-hora { order: 1; }
-  .ag-lista .ag-onde { order: 3; }
-}
-
-/* ── ABAS DE ORÇAMENTOS COM CARA DE ABA (19/11/2026) ─────────────────────────
-   Item 6 da ronda de UX. "Orçamentos | Solicitados pelos técnicos" trocam a
-   lista: são navegação, como a subaba do admin (.nav-sub). Eram placas com a
-   ativa em âmbar e a primeira chamada "+ Criar orçamento", e liam como dois
-   botões de criar. Agora: texto, fio embaixo, ativa com o traço escuro. */
-.main .orc-main-tabs {
-  gap: 22px;
-  margin-bottom: 14px;
-  padding-bottom: 0;
-  border-bottom: 0;
-  box-shadow: inset 0 -1px 0 var(--border);
-}
-.main .orc-main-tab {
-  padding: 8px 0 10px;
-  background: none;
-  box-shadow: none;
-  clip-path: none;
-  border-radius: 0;
-  color: var(--muted);
-  font-size: 13.5px;
-  font-weight: 600;
-}
-.main .orc-main-tab:hover { background: none; box-shadow: none; color: var(--tinta); }
-.main .orc-main-tab.is-active {
-  background: none;
-  color: var(--tinta);
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--mar-700);
-}
-.main .orc-main-tab:focus-visible { outline: 2px solid var(--atencao-t); outline-offset: 2px; }
-.main .orc-main-tab .wa-count { background: #eef1f6; color: var(--tinta-2); }
-
-/* ── DATA DA PRÓXIMA PREVENTIVA NA FONTE DO TEXTO (19/11/2026) ──────────────
-   Item 7 da ronda de UX. "23/01/2027" em mono negrito pesava mais que o nome
-   do prédio, que é o que a linha é. Agora é a fonte do texto, peso médio,
-   algarismos tabulares (as datas continuam alinhadas na coluna). A linha de
-   baixo tinha as tintas do tema escuro (#f87171, #fbbf24): o âmbar claro
-   quase não se lia no fundo branco. */
-.main .pm-prox-data {
-  font-family: var(--fonte);
-  font-size: 13px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--tinta-2);
-}
-.main .pm-prox-delta { font-size: 12px; }
-.main .pm-prox-delta.is-bad  { color: var(--risco-t); }
-.main .pm-prox-delta.is-warn { color: var(--atencao-t); }
-
-/* ── EQUIPAMENTOS: A LINHA ABRE, SEM BOTÃO REPETIDO (19/11/2026) ─────────────
-   Item 8 da ronda de UX. "Abrir ficha ↗" em todas as linhas repetia o que a
-   linha inteira já faz. Fica a seta de "abre em outra aba", discreta, que
-   acende quando a linha está sob o mouse ou com foco. O link continua (dá para
-   clicar com o botão do meio ou copiar o endereço); tabindex -1 porque o foco
-   de teclado é a linha, que abre com Enter. */
-[data-section="equipamentos"] .eq-abre-cel { text-align: right; padding-right: 16px; }
-.eq-abre {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 6px;
-  color: var(--muted2, #8a94ad); text-decoration: none; font-size: 14px;
-  opacity: .55;
-  transition: opacity .12s, background .12s, color .12s;
-}
-[data-section="equipamentos"] tr.pro-row:is(:hover, :focus-visible) .eq-abre { opacity: 1; color: var(--tinta); background: #eef1f6; }
-@media (max-width: 640px) {
-  [data-section="equipamentos"] .eq-abre-cel { display: none !important; }
 }
 
 /* ── AGENDA: A GRADE APARECE ANTES DOS DADOS (19/11/2026) ────────────────────
@@ -13334,7 +11968,6 @@ body.gb-cmdk-aberta { overflow: hidden; }
   display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 1640px; margin: 0 auto;
   flex: 1 1 auto; min-width: 0; color: var(--ls-tinta); font-size: 13.5px; font-variant-numeric: tabular-nums;
 }
-.os-cartao-antigo[hidden] { display: none !important; }
 .ls svg.lucide { width: 16px; height: 16px; stroke-width: 1.9; flex: none; }
 .ls-esp { flex: 1; }
 .ls-mono { font-family: var(--ls-mono); font-size: 12.5px; letter-spacing: -.01em; }
@@ -13576,7 +12209,6 @@ body.gb-cmdk-aberta { overflow: hidden; }
 }
 
 /* Peças do molde que entraram com Orçamentos (20/11/2026). */
-.orc-antigo[hidden] { display: none !important; }
 .ls-txt-ri { color: var(--ls-ri-t); font-weight: 600; }
 .ls-corta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
 .ls-valor { font-size: 14px; font-weight: 700; color: var(--ls-tinta); }
@@ -13694,7 +12326,6 @@ body.gb-cmdk-aberta { overflow: hidden; }
    admin-condo-lista.js · admin-condominio.js. Os tokens são os do .ls (a
    página é um .ls também): nenhuma cor nova, só a gramática do molde.
    ════════════════════════════════════════════════════════════════════════ */
-.cli-antigo[hidden] { display: none !important; }
 #cliLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }
 @media (max-width: 768px) { #cliLsRoot .ls-tab td:first-child { grid-column: 1; } }
 
@@ -13854,7 +12485,6 @@ button.cp-fato:hover { border-color: var(--ls-fio-forte); background: var(--ls-h
 /* ════════════════════════════════════════════════════════════════════════
    PREVENTIVAS NO MOLDE (20/11/2026) — admin-prev-lista.js
    ════════════════════════════════════════════════════════════════════════ */
-.pm-antigo[hidden] { display: none !important; }
 #pvLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }
 .pv-mes { display: inline-flex; align-items: center; gap: 4px; height: 34px; padding: 0 4px; border: 1px solid var(--ls-fio); border-radius: 8px; background: var(--ls-placa); }
 .pv-mes b { min-width: 150px; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--ls-tinta); }
@@ -13884,20 +12514,18 @@ button.cp-fato:hover { border-color: var(--ls-fio-forte); background: var(--ls-h
 /* ════════════════════════════════════════════════════════════════════════
    EQUIPAMENTOS NO MOLDE (20/11/2026) — admin-eq-lista.js
    ════════════════════════════════════════════════════════════════════════ */
-.eq-antigo[hidden] { display: none !important; }
 #eqLsRoot .ls-tab tbody tr.is-livre td b { font-weight: 500; }
 .eq-tl li.is-marco > i { background: var(--ls-mar); border-color: var(--ls-mar); }
 .eq-tl small { display: block; color: var(--ls-muted); font-size: 12px; margin-top: 1px; }
 .eq-obs { display: block; margin-top: 4px; padding: 6px 9px; border-radius: 7px; background: var(--ls-placa-2); color: var(--ls-tinta-2); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 a.ls-bt { text-decoration: none; }
 /* Os cartões de imprimir e desfazer seguem abaixo da lista. */
-.section[data-section="equipamentos"] > #eqLsRoot + .eq-antigo + .card { margin-top: 18px !important; }
+.section[data-section="equipamentos"] > #eqLsRoot + .card { margin-top: 18px !important; }
 @media (max-width: 768px) { #eqLsRoot .ls-tab td:first-child { grid-column: 1; } }
 
 /* ════════════════════════════════════════════════════════════════════════
    COLABORADORES NO MOLDE (20/11/2026) — admin-colab-lista.js
    ════════════════════════════════════════════════════════════════════════ */
-.tec-antigo[hidden] { display: none !important; }
 .cb-pessoa { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .cb-pessoa > span:last-child { min-width: 0; }
 .cb-av {
@@ -13958,3 +12586,49 @@ a.ls-bt { text-decoration: none; }
   .cfx-nav::-webkit-scrollbar { display: none; }
   .cfx-nav .wa-tab.cfx-item { width: auto; flex: none; white-space: nowrap; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   A FAIXA DE CIMA NO AZUL DO MENU (20/11/2026, pedido do Pedro)
+   - O recolher do menu mora aqui (#btnSidebarToggleIn), não mais dentro do
+     menu. Vale só no computador: no celular a faixa é outra (.mob-topbar) e o
+     menu é gaveta.
+   - Mesmo azul do menu (--mar-800): menu e faixa formam uma moldura só.
+   - A logo do menu aberto é a da faixa de cima da landing (logo-topo.png).
+   ════════════════════════════════════════════════════════════════════════ */
+.gb-sb-logo-full { height: auto; width: 176px; max-width: 100%; }
+.gb-sb-topo { justify-content: center; }
+
+.main .content-header {
+  background: var(--mar-800);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  color: #fff;
+}
+.content-header .topbar-toggle {
+  display: flex; margin-left: -6px;
+  border-color: transparent; background: transparent; color: #c4cee9;
+}
+.content-header .topbar-toggle:hover { background: rgba(255,255,255,.08); border-color: transparent; color: #fff; }
+.content-header .topbar-toggle:focus-visible { outline: 2px solid #fbb329; outline-offset: 2px; }
+.content-header .topbar-title { color: #fff; }
+.content-header .gb-topo-busca {
+  background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.14); color: #aab4d4;
+}
+.content-header .gb-topo-busca:hover { background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.28); box-shadow: none; }
+.content-header .gb-topo-busca kbd { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); color: #c4cee9; }
+.content-header .icon-btn { border-color: rgba(255,255,255,.14); background: transparent; color: #c4cee9; }
+.content-header .icon-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.28); color: #fff; }
+.content-header .statusMsg { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); color: #aab4d4; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   CONTRATOS NO OMIE (20/11/2026) — admin-omie-contratos.js
+   Integração com o Omie, fase 1. A lista fica no topo da tela Contratos; o
+   cartão dos contratos assinados no sistema segue abaixo.
+   ════════════════════════════════════════════════════════════════════════ */
+.section[data-section="contratos"] > #ocLsRoot + .card { margin-top: 18px !important; }
+.oc-motivo { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--ls-at-f); color: var(--ls-at-t); font-size: 13px; line-height: 1.4; }
+.oc-motivo svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 1px; }
+.oc-ligar { display: grid; gap: 8px; margin-top: 4px; }
+.oc-sug, .oc-bts { display: flex; flex-wrap: wrap; gap: 6px; }
+.oc-bts { margin-top: 8px; }
+.oc-campo { display: grid; gap: 4px; font-size: 12px; color: var(--ls-muted); }
+.oc-campo .cbx-campo { width: 100%; }

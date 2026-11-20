@@ -127,8 +127,8 @@
     }
     if (vis("chamados") && document.getElementById("btnNovoChamado"))
       out.push({ g: "Ações", ic: "plus", t: "Novo chamado", s: "", abrir: () => document.getElementById("btnNovoChamado").click(), acao: true });
-    if (vis("orcamentos") && document.getElementById("avBtnNovo"))
-      out.push({ g: "Ações", ic: "plus", t: "Novo orçamento", s: "", abrir: () => { showSection("orcamentos"); setTimeout(() => document.getElementById("avBtnNovo")?.click(), 60); }, acao: true });
+    if (vis("orcamentos") && typeof _avAcao === "function")
+      out.push({ g: "Ações", ic: "plus", t: "Novo orçamento", s: "", abrir: () => { showSection("orcamentos"); setTimeout(() => _avAcao("novo"), 60); }, acao: true });
     if (vis("cadastros"))
       out.push({ g: "Ações", ic: "plus", t: "Novo condomínio", s: "", abrir: () => { showSection("cadastros"); setTimeout(() => document.querySelector('[data-action="novo-cliente"]')?.click(), 60); }, acao: true });
     return out;

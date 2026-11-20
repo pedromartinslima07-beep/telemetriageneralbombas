@@ -216,6 +216,51 @@ router.get("/metricas", authRequired, gestaoOnly, async (req, res) => {
   }
 });
 
+// ─── Contratos do Omie (integração, fase 1 — docs/modulos/omie-integracao.md)
+// Só a cópia do banco; nada daqui chama nem grava no Omie. Antes de "/:id".
+const omieContratos = require("../services/omie-contratos.service");
+
+// GET /contratos/omie — todos os contratos do Omie, cada um com o prédio
+// (à mão, pelo CNPJ, ou nenhum e o motivo) e a última nota.
+router.get("/omie", authRequired, gestaoOnly, async (req, res) => {
+  try {
+    return res.json(await omieContratos.listar());
+  } catch (err) {
+    console.error("[contratos] GET /omie:", err);
+    return res.status(500).json({ error: "Erro ao listar os contratos do Omie" });
+  }
+});
+
+// PUT /contratos/omie/clientes/:codigo/condominio  { condominio_id }
+// Liga À MÃO o cliente do Omie a um prédio (vale para todos os contratos dele).
+router.put("/omie/clientes/:codigo/condominio", authRequired, gestaoOnly, async (req, res) => {
+  const codigo = Number(req.params.codigo);
+  const condominioId = Number(req.body?.condominio_id);
+  if (!Number.isSafeInteger(codigo) || codigo <= 0) return res.status(400).json({ error: "código do cliente inválido" });
+  if (!Number.isInteger(condominioId) || condominioId <= 0) return res.status(400).json({ error: "condominio_id inválido" });
+  try {
+    const r = await omieContratos.ligar(codigo, condominioId, req.user?.id);
+    if (r.erro) return res.status(r.status).json({ error: r.erro });
+    return res.json(r);
+  } catch (err) {
+    console.error("[contratos] PUT /omie/clientes/:codigo/condominio:", err);
+    return res.status(500).json({ error: "Erro ao ligar o contrato ao prédio" });
+  }
+});
+
+// DELETE /contratos/omie/clientes/:codigo/condominio — desfaz o elo à mão
+// (volta a valer o CNPJ).
+router.delete("/omie/clientes/:codigo/condominio", authRequired, gestaoOnly, async (req, res) => {
+  const codigo = Number(req.params.codigo);
+  if (!Number.isSafeInteger(codigo) || codigo <= 0) return res.status(400).json({ error: "código do cliente inválido" });
+  try {
+    return res.json(await omieContratos.desligar(codigo));
+  } catch (err) {
+    console.error("[contratos] DELETE /omie/clientes/:codigo/condominio:", err);
+    return res.status(500).json({ error: "Erro ao desfazer o elo" });
+  }
+});
+
 // GET /contratos/:id — detalhe
 router.get("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);

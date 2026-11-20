@@ -12,10 +12,9 @@
 // ⚠️ OS DADOS E AS AÇÕES SÃO OS DE SEMPRE, do admin.js: _osData e
 // carregarOrdensServico (lista), baixarOSPdf, _osEnviarUmaPelaLista (envio de
 // uma, com o modal de sempre), _osAbrirEnvioLote (lote, que lê
-// _osSelecionadas), abrirOSDetalhe (página). O cartão antigo continua no
-// HTML, escondido: _osBindEventos liga nele os botões da página da O.S., e
-// _osRenderTabela segue desenhando nele. Quem grava chama _osRenderTabela;
-// o embrulho lá embaixo redesenha esta tela junto.
+// _osSelecionadas), abrirOSDetalhe (página). O cartão antigo saiu do HTML
+// em 20/11/2026: _osRenderTabela no admin.js é vazio, e o embrulho lá
+// embaixo é quem desenha esta tela; quem grava continua chamando ele.
 
 (function () {
   if (!window.GBLista) return;
@@ -313,8 +312,8 @@
   }
 
   // ===== ganchos =====
-  // A entrada na tela: o admin.js chama renderSecaoOS (carrega e desenha o
-  // cartão antigo, escondido). O molde monta antes, com o esqueleto.
+  // A entrada na tela: o admin.js chama renderSecaoOS (carrega e liga os
+  // eventos da página da O.S.). O molde monta antes, com o esqueleto.
   const origRender = window.renderSecaoOS;
   if (typeof origRender === "function") {
     window.renderSecaoOS = async function (...a) {

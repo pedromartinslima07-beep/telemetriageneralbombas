@@ -1296,6 +1296,15 @@ Versões: `admin.css?v=331`, `admin.js?v=401`, `admin-nav.js?v=11`,
 
 ### O menu
 
+> **Atualizado em 20/11/2026 (pedido do Pedro):** o botão de recolher **saiu
+> de dentro do menu** e mora na **faixa de cima**, à esquerda do título
+> (`#btnSidebarToggleIn`, ícone de painel que diz "Recolher menu" / "Abrir
+> menu"); a logo do menu aberto é a da **faixa de cima da landing**
+> (`logo-topo.png`, o lockup branco e amarelo); e a **faixa de cima é azul**,
+> no mesmo `--mar-800` do menu, com título, busca e botões em tons claros —
+> menu e faixa formam uma moldura só. O que está escrito abaixo sobre o
+> botão "no canto do topo" do menu vale para antes dessa data.
+
 - É um `<aside class="gb-sb">` **novo**. O `<aside class="sidebar">` antigo
   fica no HTML, escondido, e **continua mandando**: o admin.js esconde item
   dele para o operador, escreve os badges e o nome do usuário nele. Um
@@ -1699,9 +1708,8 @@ ligado (chamado de origem, ficha do prédio).
 ⚠️ **Nenhuma regra nova, nenhuma rota nova.** Dados e ações são os do admin.js:
 `_osData`/`carregarOrdensServico`, `baixarOSPdf`, `_osEnviarUmaPelaLista`,
 `_osAbrirEnvioLote` (que lê `_osSelecionadas`; o molde preenche antes de
-chamar), `abrirOSDetalhe`. O **cartão antigo continua no HTML, escondido**
-(`.os-cartao-antigo[hidden]`): a página da O.S. liga os botões dela nos ids
-dele (`_osBindEventos`). Quem grava chama `_osRenderTabela`, e o embrulho no
+chamar), `abrirOSDetalhe`. O cartão antigo ficou no HTML, escondido,
+até a [limpeza de 20/11/2026](#limpeza-dos-blocos-antigos-escondidos-20112026). Quem grava chama `_osRenderTabela`, e o embrulho no
 fim do `admin-os-lista.js` redesenha a tela nova junto.
 
 ### ⚠️ Armadilhas achadas
@@ -1772,7 +1780,7 @@ escolher; total digitado aparece como tal, com a soma dos itens embaixo) e o
 que está ligado (O.S., chamado, prédio). Escolher um orçamento respondido no
 painel **marca a resposta como vista** (é ver); a baixa continua à parte.
 
-⚠️ **As duas telas antigas continuam no HTML, escondidas** (`.orc-antigo`):
+⚠️ **As duas telas antigas ficaram no HTML, escondidas** (`.orc-antigo`), até a [limpeza de 20/11/2026](#limpeza-dos-blocos-antigos-escondidos-20112026):
 `_avBindEventos` e `_orcBindEventos` ligam nos ids delas. Quem grava chama
 `_avRenderTudo`/`_orcRenderTudo`, e os embrulhos redesenham a lista nova.
 Os carregadores (`carregarAvulsos`, `carregarOrcamentos`) engolem a falha
@@ -1834,10 +1842,10 @@ A frase e o "N contratos vencidos →" são os de antes. **Nenhuma regra
 nova:** `_cliAgua`, `_cliChamados`, `_contratosByCondoId`/`_ctrStatusVisual`,
 `_cliContratoPeso` e `_pmData`/`_pmBaldeDoMes`/`_pmAtrasada`. O `_pmData` só
 era buscado pela tela Preventivas: a lista pede `carregarPlanos()` uma vez ao
-entrar. A ordem de trabalho é por nome (como a antiga). O layout antigo fica
+entrar. A ordem de trabalho é por nome (como a antiga). O layout antigo ficou
 no HTML **escondido** (`.cli-antigo[hidden]`): o boot e o
 `_carregarContratosMetricas` ainda desenham nele, e o embrulho de
-`renderCliTabela` redesenha a tela nova junto.
+`renderCliTabela` redesenha a tela nova junto. (Até a [limpeza de 20/11/2026](#limpeza-dos-blocos-antigos-escondidos-20112026).)
 
 **Lote "Mandar aviso aos síndicos"** (só a gestão): marca os prédios →
 modal que **mostra para onde vai cada e-mail** (o e-mail do cadastro, o mesmo
@@ -1976,9 +1984,9 @@ todos os planos). Leituras e ações são as do admin.js: `_pmData`,
 `_pmAtrasada`, `_pmStatus`, `_pmAbrirModal`, `_pmAcao`, `_pmSalvarZona` e o
 lote (`_pmBulkEscalar`, `_pmBulkChamado`, `_pmAbrirModalBulk`, `_pmAcaoBulk`,
 que leem `_pmSelecionados`: o molde preenche antes e limpa quando o admin.js
-limpa — cancelar o prompt deixa marcado). O cartão antigo fica escondido
+limpa — cancelar o prompt deixa marcado). O cartão antigo ficou escondido
 (`.pm-antigo[hidden]`); o embrulho de `_pmRenderTudo` redesenha a tela nova, e
-o de `carregarPlanos` rebusca a tira. ⚠️ Trocar o mês limpa a seleção (a
+o de `carregarPlanos` rebusca a tira. (Até a [limpeza de 20/11/2026](#limpeza-dos-blocos-antigos-escondidos-20112026).) ⚠️ Trocar o mês limpa a seleção (a
 mesma regra de antes: escala é por competência).
 
 **Reativar** usa o `PATCH /planos-manutencao/bulk` com um id: o menu antigo
@@ -2040,10 +2048,10 @@ desde o começo. O painel leva para lá.
 ⚠️ **Nenhuma regra nova, nenhuma rota nova.** `_eqDados`/`_eqCarregar`,
 `_EQ_STATUS_LABEL`/`_EQ_ABAS`/`_EQ_RANK` (estados, agrupamento e a ordem de
 trabalho: pronto, bancada, instalado, devolvido, etiqueta, baixado),
-`_eqNovoLote`. O cartão antigo da lista fica escondido (`.eq-antigo[hidden]`):
+`_eqNovoLote`. O cartão antigo da lista ficou escondido (`.eq-antigo[hidden]`):
 `_eqCarregar` e `_eqRender` ainda desenham nele e o "Gerar etiquetas" usa o
 botão dele; o embrulho de `_eqRender` redesenha a tela nova e esquece as
-fichas lidas (podem ter mudado). Os cartões **Imprimir folha de etiquetas** e
+fichas lidas (podem ter mudado); isso valeu até a [limpeza de 20/11/2026](#limpeza-dos-blocos-antigos-escondidos-20112026). Os cartões **Imprimir folha de etiquetas** e
 **Reaproveitar etiqueta** (admin master) continuam como eram, abaixo da
 lista.
 
@@ -2085,8 +2093,8 @@ já no painel (`window.GBColab.abrir`); antes só abria a tela.
 
 ⚠️ **Nenhuma regra nova, nenhuma rota nova.** `_tecnicosData`,
 `_tecLocs`/`_tecStale`, `_tecCargoLabel`, `_tecIniciais`. O layout antigo
-fica escondido (`.tec-antigo[hidden]`); o embrulho de `renderTecnicos`
-redesenha a tela nova.
+ficou escondido (`.tec-antigo[hidden]`); o embrulho de `renderTecnicos`
+redesenha a tela nova. (Até a [limpeza de 20/11/2026](#limpeza-dos-blocos-antigos-escondidos-20112026).)
 
 ### Testado (banco de teste, 20/11/2026)
 
@@ -2138,6 +2146,63 @@ Versões: `admin.css?v=357`, `admin-config.js?v=1`. Nenhum endpoint novo.
 
 ---
 
+## Limpeza dos blocos antigos escondidos (20/11/2026)
+
+Pedido do Pedro. Cada tela que entrou no molde (etapas 6 a 11) deixou o
+layout antigo **no HTML, com `hidden`**, porque o `admin.js` ainda desenhava
+nele. Saíram os seis, uma tela por vez, sempre na mesma ordem: (1) passar para
+a tela nova o que ainda dependia do bloco; (2) apagar o bloco, as funções que
+só desenhavam nele e o CSS que ficou sem dono; (3) conferir na tela.
+
+| Tela | Bloco que saiu | O que precisou mudar antes |
+|---|---|---|
+| Colaboradores | `.tec-antigo` (abas, busca, tabela, painel) | `renderTecTabela`, `renderTecDetalhe`, `_tecFiltros`, `_tecSelecionadoId` saíram; a busca antiga (`_gsNavegar`) passou a usar `GBColab.abrir` |
+| Equipamentos | `.eq-antigo` (frase, abas, busca, tabela) | `_eqCarregar` não depende mais do `#eqTableBody` (antes voltava sem buscar nada se ele faltasse) e diz a falha em `_eqErroCarga`, que a tela nova lê; "Gerar etiquetas" desabilita o botão do molde (`[data-eq-gerar]`) |
+| Preventivas | `.pm-antigo` (mês, abas, busca, barra de lote, tabela por zona, menu "⋯") | `_pmTabAtiva`, `_pmMenuAberto`, `_pmZonaEditando`, `_pmFiltrados`, `_pmAtualizarBulkBar` saíram; o lote, o modal e a zona são os de sempre, chamados pelo molde |
+| Condomínios | `.cli-antigo` (frase, abas, tabela, painel lateral) **e** o formulário oculto de cadastro de reservatório | `renderCliKpis`, `renderCliDetalhe` (o painel estava desligado desde 19/11) e o cache de contrato dele saíram; a busca antiga abre a página do prédio. O formulário oculto (`criarReservatorio`) não tinha como ser clicado: o cadastro é o modal `abrirModalNovoReservatorio` |
+| O.S. | `.os-cartao-antigo` (frase, abas, busca, barra de lote, tabela, paginação) | Nada: o aviso "não pode sair" estava errado. `_osBindEventos` liga a página da O.S. pelos ids do `#osFicha` e do modal, que ficaram; a parte da lista saiu |
+| Orçamentos | `.orc-antigo` (as duas abas antigas, o aviso de respostas, as duas tabelas) | O **Ctrl+K "Novo orçamento"** e o **"Novo" do Hoje** clicavam o `#avBtnNovo` escondido: agora chamam `_avAcao("novo")` direto. O badge `#navBadgeOrcamentosOS` (da aba antiga) saiu do `_orcAtualizarBadge`; o do menu continua |
+
+⚠️ **As funções de desenho viraram ganchos vazios, não sumiram.**
+`renderTecnicos`, `_eqRender`, `_pmRenderTudo`, `renderCliTabela` /
+`renderClientes`, `_osRenderTabela`, `_avRenderTudo` e `_orcRenderTudo` são
+hoje `function x() {}`: quem grava continua chamando por elas, e os módulos do
+molde (e a página do prédio) as **embrulham** para redesenhar. Apagar uma delas
+desliga o redesenho depois de gravar, em silêncio.
+
+**O CSS sem dono saiu por varredura**, não a olho: cada classe dos prefixos
+`tec-`, `eq-`, `pm-`, `cli-`, `os-`, `av-`, `orc-` e `pro-` do `admin.css` foi
+procurada em todo `.js`/`.html` de `public/`, `app/public/` e `src/`; só a
+regra cujos seletores **todos** ficaram sem uso saiu (seletor agrupado perde só
+a parte morta). O arquivo caiu de 540 KB para 508 KB. ⚠️ No caminho apareceu
+uma regra **quebrada desde antes** (o seletor de checkbox `.pm-table … :checked,`
+sem `{`), que engolia a regra seguinte; saiu junto.
+
+**Continua de propósito:** a **nav antiga** escondida (`nav-antiga`), que é a
+fonte de perfil, badges e item ativo do menu novo (ver fase 3), e os cartões
+de imprimir e desfazer etiquetas, que são visíveis.
+
+### Testado (banco de teste, 20/11/2026)
+
+Na tela aberta, sem erro de JS e rede toda 200: Colaboradores (painel, Marcar
+ocupado e de volta disponível de verdade), Equipamentos (painel, lotes no
+seletor de impressão, Gerar etiquetas até a pergunta, cancelada),
+Preventivas (troca de mês para frente e Hoje, painel, editar responsáveis da
+zona e cancelar, modal Editar abrindo e fechando, lote Escalar até a pergunta,
+cancelada), Condomínios (frase, colunas, a linha abrindo `#/condominios/5`),
+O.S. (painel, Abrir página, Editar e Cancelar, o modal de envio abrindo, sem
+enviar), Orçamentos (chips, painel, Abrir página `#/orcamentos/214` e voltar,
+Novo orçamento pela lista e pelo Hoje, sem criar); as seis a 375px sem rolagem
+lateral; Início, Atendimento, Monitoramento, Contratos, Notas, Agenda,
+Relatórios, Alertas, Mapa e a página do prédio abrindo sem erro.
+
+Versões: `admin.js?v=416`, `admin.css?v=365`, `admin-colab-lista.js?v=2`,
+`admin-eq-lista.js?v=2`, `admin-prev-lista.js?v=3`, `admin-condo-lista.js?v=6`,
+`admin-os-lista.js?v=3`, `admin-orc-lista.js?v=3`, `admin-busca.js?v=5`,
+`admin-carteira.js?v=10`. Nenhum endpoint novo, nenhuma migration.
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -2184,7 +2249,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 ### Para subir para produção (o Pedro decide quando)
 
 1. Rodar em produção, **antes** do push, as migrations **090, 091, 092,
-   093, 094 e 095** (094 = peças da O.S., fase B; 095 = notas e avisos do
+   093, 094, 095 e 096** (094 = peças da O.S., fase B; 095 = notas e avisos do
    prédio; conferir antes no `information_schema` o que já está lá; eu sou
    bloqueado de rodar com `--prod`, quem roda é ele).
 2. Merge da `feature/nota-fiscal-omie` na main → merge desta → push (= deploy).

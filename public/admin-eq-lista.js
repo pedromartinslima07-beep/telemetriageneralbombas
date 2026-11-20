@@ -19,8 +19,9 @@
 // _eqCarregar (a lista, 500 de uma vez), _EQ_STATUS_LABEL / _EQ_ABAS /
 // _EQ_RANK (estados e ordem de trabalho), _eqNovoLote (Gerar etiquetas). A
 // impressão da folha e o "Desfazer cadastro" (admin master) continuam nos
-// cartões de sempre, abaixo da lista. O cartão antigo da lista fica escondido
-// (.eq-antigo[hidden]); o embrulho de _eqRender redesenha esta tela junto.
+// cartões de sempre, abaixo da lista. O cartão antigo da lista saiu do HTML
+// em 20/11/2026: _eqRender no admin.js é vazio e o embrulho dele é quem
+// desenha esta tela; falha de carga chega em _eqErroCarga.
 
 (function () {
   if (!window.GBLista) return;
@@ -165,7 +166,7 @@
     dados: ordenados,
     chave: e => e.id,
     texto: e => `${e.codigo} ${cod(e.codigo)} ${nome(e)} ${e.tipo || ""} ${e.marca || ""} ${e.modelo || ""} ${e.numero_serie || ""} ${e.lote || ""} ${e.condominio_nome || ""} ${LABEL(e.status)[0]}`,
-    estado: () => (st.carregando && !dados().length ? "carregando" : st.erro && !dados().length ? "erro" : "pronto"),
+    estado: () => (st.carregando && !dados().length ? "carregando" : (st.erro || (typeof _eqErroCarga !== "undefined" && _eqErroCarga)) && !dados().length ? "erro" : "pronto"),
     recarregar: () => entrar(true),
     visoes: [
       ["uso", "Em uso", e => !livre(e) && e.status !== "baixado"],

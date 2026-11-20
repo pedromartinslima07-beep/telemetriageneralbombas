@@ -201,7 +201,6 @@ function showSection(name) {
     _pmCarregarZonas();
   }
   if (name === "orcamentos") {
-    _orcModoBindEventos();
     _avBindEventos();
     _orcBindEventos();
     carregarAvulsos();
@@ -2945,22 +2944,8 @@ async function carregarConversas() {
   _conversasData = await r.json();
 }
 
-function renderSelectCondominiosReservatorio() {
-  const sel = document.getElementById("resCondominio");
-  if (!sel) return;
-
-  const list = Array.isArray(_condominios) ? _condominios : [];
-  const prev = sel.value;
-
-  sel.innerHTML = `<option value="">Selecione...</option>` +
-    list.map(c => `<option value="${c.id}">${c.nome} (ID ${c.id})</option>`).join("");
-
-  if (prev) sel.value = prev;
-}
-
 function renderTelemetriaVisuais() {
   renderSelectCondominiosCliente();
-  renderSelectCondominiosReservatorio();
   renderResumo();
   bindResumoInteracoes();
   renderAlertas();
@@ -3092,61 +3077,9 @@ async function _carregarContratosMetricas() {
       const lista = await rLista.json();
       _contratosByCondoId = new Map(lista.map(c => [Number(c.condominio_id), c]));
     }
-    renderCliKpis?.();
-    renderCliTabela?.();
+    renderCliTabela?.(); // a lista de Condomínios (frase e coluna Contrato)
     renderMcContratos?.(); // Mission Control widget (criado adiante)
   } catch (_) { /* silencioso */ }
-}
-
-function renderCliKpis() {
-  const el = document.getElementById("cliKpiGrid");
-  if (!el) return;
-  const condos   = Array.isArray(_condominios)  ? _condominios  : [];
-  const chamados = Array.isArray(_chamadosData) ? _chamadosData : [];
-
-  const ativos    = condos.filter(c => c.ativo).length;
-  const chAbertos = chamados.filter(ch => _chEmAberto(ch.status)).length;
-
-  const m = _contratosMetricas?.total || { mrr: 0, ativos: 0, vencendo_30d: 0, vencidos: 0 };
-  const fmtMoeda = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  // ⚠️ A FAIXA DE 5 CARTÕES VIROU UMA FRASE (molde da O.S., 19/11/2026). Os
-  // cinco números continuam: ativos (e inativos), chamados em aberto, a
-  // receita mensal dos contratos, vencendo em 30 dias e vencidos. O que pede
-  // ação (renovar) vira botão que leva à aba de Contratos; vencido ganha de
-  // vencendo porque já passou.
-  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-  const inativos = condos.length - ativos;
-  const partes = [
-    pl(ativos, "condomínio ativo", "condomínios ativos") + (inativos ? ` (${pl(inativos, "inativo", "inativos")})` : ""),
-    pl(chAbertos, "chamado em aberto", "chamados em aberto"),
-    `${fmtMoeda(m.mrr)} por mês em contratos`,
-  ];
-  let acao = "";
-  if (m.vencidos > 0) acao = ` <button type="button" class="os-resumo-acao" data-cli-ir-contratos="vencido">${pl(m.vencidos, "contrato vencido", "contratos vencidos")} →</button>`;
-  else if (m.vencendo_30d > 0) acao = ` <button type="button" class="os-resumo-acao" data-cli-ir-contratos="vencendo">${pl(m.vencendo_30d, "contrato vence", "contratos vencem")} em 30 dias →</button>`;
-  el.innerHTML = `<span>${partes.join(" · ")}.</span>${acao}`;
-}
-
-let _cliFiltros = { tab: "todos", busca: "" };
-let _cliSelecionadoId = null;
-
-function _cliFiltrados() {
-  const condos = Array.isArray(_condominios) ? _condominios : [];
-  const busca = (_cliFiltros.busca || "").toLowerCase().trim();
-  return condos.filter(c => {
-    if (_cliFiltros.tab === "ativo"   && !c.ativo) return false;
-    if (_cliFiltros.tab === "inativo" &&  c.ativo) return false;
-    if (busca && !c.nome?.toLowerCase().includes(busca) &&
-                 !c.nome_fantasia?.toLowerCase().includes(busca) &&
-                 !c.cidade?.toLowerCase().includes(busca) &&
-                 !c.responsavel?.toLowerCase().includes(busca)) return false;
-    return true;
-  }).sort((a, b) => {
-    const nA = (a.nome_fantasia || a.nome || "").toLowerCase();
-    const nB = (b.nome_fantasia || b.nome || "").toLowerCase();
-    return nA.localeCompare(nB, "pt-BR");
-  });
 }
 
 // ── As três colunas da lista de Condomínios (19/11/2026) ──
@@ -3187,68 +3120,13 @@ function _cliContratoPeso(ct) {
   return Number.isFinite(d) ? d : 99999;
 }
 
-function renderCliTabela() {
-  const tbody = document.getElementById("cliTableBody");
-  if (!tbody) return;
-  const condos = Array.isArray(_condominios) ? _condominios : [];
+// A tela é a lista no molde (admin-condo-lista.js): ela embrulha esta função e
+// redesenha a lista. O boot, o _carregarContratosMetricas e quem grava
+// continuam chamando renderCliTabela / renderClientes.
+function renderCliTabela() {}
 
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  set("cliCtTodos",    condos.length);
-  set("cliCtAtivos",   condos.filter(c => c.ativo).length);
-  set("cliCtInativos", condos.filter(c => !c.ativo).length);
-
-  const lista = _ordenar("condominios", _cliFiltrados(), {
-    nome:     c => (c.nome_fantasia || c.nome || "").toLowerCase(),
-    agua:     c => _cliAgua(c.id).peso,
-    chamados: c => _cliChamados(c.id).abertos,
-    contrato: c => _cliContratoPeso(_contratosByCondoId.get(Number(c.id))),
-  });
-  _ordemMarcar("condominios");
-  if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px;">Nenhum condomínio encontrado.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = lista.map(c => {
-    const sel = _cliSelecionadoId === c.id ? " is-selected" : "";
-    const cidade = c.cidade ? _waEscaparHtml(c.cidade + (c.uf ? "/" + c.uf : "")) : "—";
-    const contrato = _contratosByCondoId.get(Number(c.id));
-    const st = _ctrStatusVisual(contrato);
-    const ctrBadge = contrato
-      ? `<span class="ch-st ch-st-${st.cls === "ok" ? "aberto" : st.cls === "warn" ? "em_atendimento" : "fechado"}" title="${st.texto}">${st.texto}</span>
-         <div class="os-sub">${_ctrFmtMoeda(contrato.valor_mensal)} por mês</div>`
-      : `<span class="cli-nada">sem contrato</span>`;
-    const agua = _cliAgua(c.id);
-    const chs = _cliChamados(c.id);
-    const aguaHtml = `<span class="cli-agua cli-agua-${agua.cls}">${agua.txt}</span>${agua.sub ? `<div class="os-sub">${agua.sub}</div>` : ""}`;
-    const chHtml = chs.abertos
-      ? `<span class="cli-ch">${chs.abertos} em aberto</span>${chs.urgentes ? `<div class="os-sub cli-urgente">${chs.urgentes === 1 ? "1 urgente" : chs.urgentes + " urgentes"}</div>` : ""}`
-      : `<span class="cli-nada">nenhum em aberto</span>`;
-    // Molde do `planos`: cidade e responsável descem para a linha de apoio.
-    // O CNPJ vai junto — ele estava numa coluna própria que ficava inteira em
-    // "—" sempre que a carteira não tem o dado, e coluna morta é pior que
-    // dado ausente numa linha de apoio, onde ele simplesmente não aparece.
-    const cnpjFmt = c.cnpj
-      ? String(c.cnpj).replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
-      : "";
-    const apoio = [cidade, _waEscaparHtml(c.responsavel || "")].filter(v => v && v !== "—");
-    return `<tr class="ch-row${sel}${c.ativo === false ? " is-inativo" : ""}" data-cli-id="${c.id}" tabindex="0" style="cursor:pointer;">
-      <td class="cli-nome-cell">
-        <div class="cli-nome">${_waEscaparHtml(c.nome_fantasia || c.nome || "—")}${c.ativo === false ? ` <span class="cli-inativo">inativo</span>` : ""}</div>
-        <div class="cli-sub">
-          ${apoio.join('<span class="cli-sep">·</span>')}
-          ${cnpjFmt ? `<span class="cli-sep">·</span><span class="cli-cnpj">${cnpjFmt}</span>` : ""}
-        </div>
-      </td>
-      <td class="cli-td-agua">${aguaHtml}</td>
-      <td class="cli-td-ch">${chHtml}</td>
-      <td class="cli-td-ctr">${ctrBadge}</td>
-    </tr>`;
-  }).join("");
-}
-
-// ─── Contratos: cache + render do card no detalhe do cliente ────────────────
-const _cliContratoCache = new Map(); // condoId → { contrato, loaded, loading, error }
+// ─── Contratos: rótulos e leituras usados pela lista, pela página do prédio e
+// pela tela Contratos ─────────────────────────────────────────────────────────
 const _ctrTipoLabel = { mensal: "Mensal", semestral: "Semestral", anual: "Anual" };
 const _ctrFormaLabel = { pix: "PIX", boleto: "Boleto", transferencia: "Transferência", cartao: "Cartão", outro: "Outro" };
 
@@ -3282,180 +3160,9 @@ function _ctrFmtData(s) {
   return d.toLocaleDateString("pt-BR");
 }
 
-function _cliRenderContratoCard(condoId) {
-  const cache = _cliContratoCache.get(condoId);
-  const lista = cache?.contratos || [];
-  let inner;
-  if (!cache || cache.loading) {
-    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0;">Carregando contratos…</div>`;
-  } else if (cache.error) {
-    inner = `<div style="font-size:11px;color:var(--danger);padding:6px 0;">Erro ao carregar contratos</div>`;
-  } else if (!lista.length) {
-    inner = `<div style="font-size:11px;color:var(--muted);padding:6px 0 10px;">Sem contrato cadastrado. Use o botão Editar (aba Contrato) para cadastrar.</div>`;
-  } else {
-    inner = lista.map(c => {
-      const st = _ctrStatusVisual(c);
-      return `<div style="padding:6px 0;border-bottom:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
-          <span style="font-size:11.5px;font-weight:700;">${_ctrTipoLabel[c.tipo] || c.tipo}</span>
-          ${c.numero ? `<span style="font-size:10.5px;font-family:monospace;color:var(--muted);">${_waEscaparHtml(c.numero)}</span>` : ""}
-          <span style="font-size:10.5px;font-weight:700;color:${st.cor};">${st.texto}</span>
-          <span style="font-size:11.5px;font-weight:600;color:var(--accent);margin-left:auto;">${_ctrFmtMoeda(c.valor_mensal)}</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted2);">${_ctrFmtData(c.inicio_em)} → ${c.fim_em ? _ctrFmtData(c.fim_em) : "sem fim"}</div>
-      </div>`;
-    }).join("");
-  }
-  const titulo = lista.length > 1 ? `Contratos (${lista.length})` : "Contrato";
-  return `<div class="ch-det-section" id="cliContratoSec-${condoId}">
-    <div class="ch-det-sec-title">${titulo}</div>
-    ${inner}
-  </div>`;
-}
-
-async function _cliCarregarContrato(condoId) {
-  const cache = _cliContratoCache.get(condoId);
-  if (cache && (cache.loaded || cache.loading)) return;
-  _cliContratoCache.set(condoId, { contratos: [], loaded: false, loading: true });
-  try {
-    const r = await fetch(`/contratos?condominio_id=${condoId}&ativo=true`, { headers: authHeaders() });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const lista = await r.json();
-    _cliContratoCache.set(condoId, { contratos: lista, loaded: true, loading: false });
-  } catch (e) {
-    _cliContratoCache.set(condoId, { contratos: [], loaded: true, loading: false, error: e.message });
-  }
-  if (_cliSelecionadoId === condoId) {
-    const sec = document.getElementById(`cliContratoSec-${condoId}`);
-    if (sec) sec.outerHTML = _cliRenderContratoCard(condoId);
-  }
-}
-
-function _cliInvalidarContrato(condoId) {
-  _cliContratoCache.delete(condoId);
-}
-
-
-function renderCliDetalhe(c) {
-  const col = document.getElementById("cliDetailCol");
-  if (!col) return;
-
-  if (!c) {
-    col.innerHTML = `<div class="ch-detail-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <p>Selecione um cliente para ver os detalhes</p>
-    </div>`;
-    return;
-  }
-
-  const statusBadge = c.ativo
-    ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--ok);">Ativo</span>`
-    : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(150,150,150,.15);color:var(--muted);">Inativo</span>`;
-
-  const chamadosCondo = (Array.isArray(_chamadosData) ? _chamadosData : [])
-    .filter(ch => Number(ch.condominio_id) === Number(c.id));
-  const chAbertos  = chamadosCondo.filter(ch => _chEmAberto(ch.status)).length;
-  const chFechados = chamadosCondo.filter(ch => ch.status === "fechado").length;
-
-  // Telemetria
-  const item = (_statusData || []).find(g => Number(g.condominio?.id) === Number(c.id));
-  const reservs = item?.reservatorios?.slice(0, 6) || [];
-  let telHtml = "";
-  if (reservs.length) {
-    const resHtml = reservs.map(r => {
-      const uu = r.ultima_leitura;
-      const pct = uu?.nivel_pct ?? null;
-      const n = String(uu?.nivel || "").toLowerCase();
-      const lvClass = n === "alto" ? "lv-alto" : n === "medio" ? "lv-medio" : n === "baixo" ? "lv-baixo" : n === "muito_baixo" ? "lv-muito-baixo" : "lv-unknown";
-      const bombaClass = uu?.bomba_ligada === true ? "on" : uu?.bomba_ligada === false ? "off" : "uk";
-      const bombaLabel = uu?.bomba_ligada === true ? "LIGADA" : uu?.bomba_ligada === false ? "DESLIG." : "—";
-      return `<div class="cc-res">
-        <div class="cc-res-header"><span class="cc-res-name">${_waEscaparHtml(r.nome || "Reservatório")}</span><span class="cc-res-bomba ${bombaClass}">${bombaLabel}</span></div>
-        <div class="cc-level-row">
-          <div class="cc-level-bar"><div class="cc-level-fill ${lvClass}" style="width:${pct ?? 0}%"></div></div>
-          <span class="cc-level-pct">${pct != null ? pct + "%" : "-"}</span>
-        </div>
-      </div>`;
-    }).join("");
-    telHtml = `<div class="ch-det-section">
-      <div class="ch-det-sec-title">Telemetria</div>
-      <div class="cc-res-list">${resHtml}</div>
-    </div>`;
-  }
-
-  // Representantes (usuários vinculados a este condomínio)
-  const reps = (Array.isArray(_usuariosData) ? _usuariosData : [])
-    .filter(u => Number(u.condominio_id) === Number(c.id));
-  const repsHtml = reps.length
-    ? reps.map(u => `<div class="ch-met-row">
-        <span class="ch-met-lbl">${_waEscaparHtml(u.nome || "—")}</span>
-        <span style="font-size:11px;color:var(--muted);">${_waEscaparHtml(u.email || "—")}</span>
-      </div>`).join("")
-    : `<div style="font-size:11px;color:var(--muted);padding:4px 0;">Nenhum representante cadastrado.</div>`;
-
-  col.innerHTML = `<div class="ch-detail">
-    <div class="ch-det-head">
-      <span class="ch-det-id" style="font-size:10px;">${c.cidade ? _waEscaparHtml(c.cidade + (c.uf ? "/" + c.uf : "")) : "Condomínio"}</span>
-      ${statusBadge}
-    </div>
-    <div class="ch-det-title">${_waEscaparHtml(c.nome_fantasia || c.nome || "Sem nome")}</div>
-    ${c.nome_fantasia ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:8px;">Razão social: ${_waEscaparHtml(c.nome)}</div>` : ""}
-
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title">Informações</div>
-      <div class="ch-det-meta">
-        ${c.cnpj        ? `<div class="ch-met-row"><span class="ch-met-lbl">CNPJ</span><span style="font-size:12px;font-family:monospace;">${_waEscaparHtml(c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5"))}</span></div>` : ""}
-        ${c.responsavel ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span style="font-size:12px;">${_waEscaparHtml(c.responsavel)}</span></div>` : ""}
-        ${c.telefone    ? `<div class="ch-met-row"><span class="ch-met-lbl">Telefone</span><span style="font-size:12px;">${_waEscaparHtml(c.telefone)}</span></div>` : ""}
-        ${c.endereco    ? `<div class="ch-met-row"><span class="ch-met-lbl">Endereço</span><span style="font-size:12px;">${_waEscaparHtml(c.endereco + (c.bairro ? ", " + c.bairro : ""))}</span></div>` : ""}
-        <div class="ch-met-row"><span class="ch-met-lbl">Cliente desde</span><span style="font-size:12px;">${fmtData(c.criado_em)}</span></div>
-        <div class="ch-met-row"><span class="ch-met-lbl">Reservatórios</span><span style="font-size:12px;">${c.total_reservatorios ?? 0}</span></div>
-      </div>
-    </div>
-
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title">Chamados</div>
-      <div class="ch-det-meta">
-        <div class="ch-met-row"><span class="ch-met-lbl">Em aberto</span><span style="font-size:13px;font-weight:600;color:${chAbertos > 0 ? "var(--warn)" : "var(--text)"};">${chAbertos}</span></div>
-        <div class="ch-met-row"><span class="ch-met-lbl">Resolvidos</span><span style="font-size:13px;font-weight:600;color:var(--ok);">${chFechados}</span></div>
-      </div>
-    </div>
-
-    ${_cliRenderContratoCard(c.id)}
-
-    ${telHtml}
-
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title" style="display:flex;align-items:center;justify-content:space-between;">
-        Representantes
-        <button class="btn btn-sm viewer-only-hide" data-action="novo-representante" data-condo-id="${c.id}">+ Adicionar</button>
-      </div>
-      <div class="ch-det-meta">${repsHtml}</div>
-    </div>
-
-    <div class="ch-det-acoes">
-      <button class="btn btn-sm btnAccent" data-action="ver-condo" data-id="${c.id}" style="width:100%;justify-content:center;">
-        Abrir ficha do condomínio
-      </button>
-      <button class="btn btn-sm viewer-only-hide" data-action="editar-condominio" data-id="${c.id}">Editar</button>
-      ${c.ativo
-        ? `<button class="btn btn-sm btnDanger viewer-only-hide" data-action="inativar-condominio" data-id="${c.id}" data-nome="${_waEscaparHtml(c.nome_fantasia || c.nome).replaceAll('"', '&quot;')}">Inativar</button>`
-        : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="reativar-condominio" data-id="${c.id}">Reativar</button>`}
-    </div>
-  </div>`;
-
-  _cliCarregarContrato(c.id);
-}
-
-
+// A página do prédio (admin-condominio.js) também embrulha esta.
 function renderClientes() {
-  renderCliKpis();
   renderCliTabela();
-  if (_cliSelecionadoId) {
-    const c = (Array.isArray(_condominios) ? _condominios : []).find(c => c.id === _cliSelecionadoId);
-    renderCliDetalhe(c || null);
-    if (!c) _cliSelecionadoId = null;
-  }
 }
 
 // ============================================================
@@ -3468,195 +3175,10 @@ async function carregarTecnicos() {
   _tecnicosData = await r.json();
 }
 
-let _tecFiltros = { tab: "todos", busca: "" };
-let _tecSelecionadoId = null;
-
-function _tecFiltrados() {
-  const lista = Array.isArray(_tecnicosData) ? _tecnicosData : [];
-  const busca = (_tecFiltros.busca || "").toLowerCase().trim();
-  return lista.filter(t => {
-    if (!t.ativo) return false;
-    const tab = _tecFiltros.tab;
-    if (tab && tab !== "todos" && (t.cargo || "tecnico") !== tab) return false;
-    if (busca && !t.nome?.toLowerCase().includes(busca) &&
-                 !t.especialidade?.toLowerCase().includes(busca) &&
-                 !t.telefone?.includes(busca) &&
-                 !(_tecCargoLabel[t.cargo || "tecnico"] || "").toLowerCase().includes(busca)) return false;
-    return true;
-  });
-}
-
-
-function renderTecTabela() {
-  const tbody = document.getElementById("tecTableBody");
-  if (!tbody) return;
-  const lista = (Array.isArray(_tecnicosData) ? _tecnicosData : []).filter(t => t.ativo);
-  const _ct = cargo => lista.filter(t => (t.cargo || "tecnico") === cargo).length;
-
-  document.getElementById("tecCtTodos").textContent    = lista.length;
-  document.getElementById("tecCtTecnico").textContent  = _ct("tecnico");
-  document.getElementById("tecCtAdm").textContent      = _ct("adm");
-  document.getElementById("tecCtGestor").textContent   = _ct("gestor");
-  document.getElementById("tecCtTi").textContent       = _ct("ti");
-
-  const filtrados = _tecFiltrados();
-  if (!filtrados.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px;">Nenhum colaborador encontrado.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtrados.map(t => {
-    const sel = _tecSelecionadoId === t.id ? " is-selected" : "";
-    const cargo = t.cargo || "tecnico";
-    const cargoBadge = `<span class="ch-cat-badge">${_tecCargoLabel[cargo] || cargo}</span>`;
-    const dispBadge = cargo === "tecnico"
-      ? (t.disponivel
-          ? `<span class="ch-st ch-st-fechado">Disponível</span>`
-          : `<span class="ch-st ch-st-em_atendimento">Ocupado</span>`)
-      : `<span class="ch-st" style="opacity:.5;">—</span>`;
-    const avatarHtml = t.foto_url
-      ? `<span class="tec-row-avatar"><img src="${t.foto_url}" alt=""></span>`
-      : `<span class="tec-row-avatar">${_tecIniciais(t.nome)}</span>`;
-    const locEntry = (Array.isArray(_tecLocs) ? _tecLocs : []).find(l => l.tecnico_id === t.id);
-    const _locStale = locEntry ? _tecStale(locEntry.capturada_em) : false;
-    const _dotColor = !locEntry ? "var(--muted)" : _locStale ? "#f59e0b" : "#22c55e";
-    const _dotTitle = !locEntry ? "Offline" : _locStale ? "Sem sinal" : "Online agora";
-    const onlineDot = `<span title="${_dotTitle}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${_dotColor};margin-right:6px;flex-shrink:0;"></span>`;
-    return `<tr class="ch-row${sel}" data-tec-id="${t.id}" style="cursor:pointer;">
-      <td style="font-weight:500;font-size:12px;display:flex;align-items:center;">${avatarHtml}${onlineDot}${_waEscaparHtml(t.nome)}</td>
-      <td>${cargoBadge}</td>
-      <td style="font-size:11px;color:var(--muted);">${_waEscaparHtml(t.especialidade || "—")}</td>
-      <td>${dispBadge}</td>
-    </tr>`;
-  }).join("");
-}
-
-function renderTecDetalhe(t) {
-  const col = document.getElementById("tecDetailCol");
-  if (!col) return;
-
-  if (!t) {
-    col.innerHTML = `<div class="ch-detail-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <p>Selecione um colaborador para ver os detalhes</p>
-    </div>`;
-    return;
-  }
-
-  const cargo = t.cargo || "tecnico";
-  const cargoBadgedet = `<span class="ch-cat-badge">${_tecCargoLabel[cargo] || cargo}</span>`;
-  const dispBadge = cargo === "tecnico"
-    ? (t.disponivel
-        ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--ok);">Disponível</span>`
-        : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(251,146,60,.15);color:#fb923c;">Ocupado</span>`)
-    : "";
-
-  const avatarDet = t.foto_url
-    ? `<div class="tec-det-avatar"><img src="${t.foto_url}" alt="foto"></div>`
-    : `<div class="tec-det-avatar">${_tecIniciais(t.nome)}</div>`;
-
-  const locEntry = (Array.isArray(_tecLocs) ? _tecLocs : []).find(l => l.tecnico_id === t.id);
-  const locStale = locEntry ? _tecStale(locEntry.capturada_em) : false;
-  const onlineStatusHtml = !locEntry
-    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(100,116,139,.12);color:var(--muted);">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;"></span>Offline
-       </span>`
-    : locStale
-    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(245,158,11,.12);color:#f59e0b;">
-        <span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Sem sinal · ${_tempoRelativo(locEntry.capturada_em)}
-       </span>`
-    : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#22c55e;">
-        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span>Online agora
-       </span>`;
-
-  // Chamados atribuídos a este técnico
-  const chamadosTec = (Array.isArray(_chamadosData) ? _chamadosData : [])
-    .filter(ch => Number(ch.tecnico_id) === Number(t.id));
-  const chAbertos  = chamadosTec.filter(ch => _chEmAberto(ch.status));
-  const chFechados = chamadosTec.filter(ch => ch.status === "fechado").length;
-
-  const chRecentesHtml = chAbertos.slice(0, 4).map(ch => `
-    <div class="ch-met-row">
-      <span class="ch-met-lbl">CH-${String(ch.id).padStart(4,"0")}</span>
-      <span style="font-size:11px;">${_waEscaparHtml(ch.titulo || "Sem título")}</span>
-    </div>`).join("") || `<div style="font-size:11px;color:var(--muted);">Nenhum chamado em aberto.</div>`;
-
-  const fmtNasc = n => {
-    if (!n) return null;
-    const d = new Date(n);
-    if (isNaN(d)) return null;
-    return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
-  };
-
-  const row = (lbl, val) => val ? `<div class="ch-met-row"><span class="ch-met-lbl">${lbl}</span><span style="font-size:12px;">${_waEscaparHtml(val)}</span></div>` : "";
-
-  col.innerHTML = `<div class="ch-detail">
-    <div class="tec-det-head-row">
-      ${avatarDet}
-      <div class="tec-det-head-info">
-        <div class="ch-det-title" style="margin-bottom:4px;">${_waEscaparHtml(t.nome)}</div>
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          ${cargoBadgedet}
-          ${t.especialidade ? `<span class="ch-cat-badge" style="opacity:.7;">${_waEscaparHtml(t.especialidade)}</span>` : ""}
-          ${dispBadge}
-          ${onlineStatusHtml}
-        </div>
-      </div>
-    </div>
-
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title">Contato</div>
-      <div class="ch-det-meta">
-        ${row("Telefone", t.telefone)}
-        ${row("Email", t.email)}
-        ${row("Endereço", t.endereco)}
-      </div>
-    </div>
-
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title">Documentos</div>
-      <div class="ch-det-meta">
-        ${row("CPF", t.cpf)}
-        ${row("RG", t.rg)}
-        ${row("Nascimento", fmtNasc(t.data_nascimento))}
-        ${row("Cadastrado em", fmtData(t.criado_em))}
-      </div>
-    </div>
-
-    ${t.observacoes ? `<div class="ch-det-section">
-      <div class="ch-det-sec-title">Observações</div>
-      <div style="font-size:12px;color:var(--text);padding:8px;background:var(--surface3);border-radius:6px;">${_waEscaparHtml(t.observacoes)}</div>
-    </div>` : ""}
-
-    ${cargo === "tecnico" ? `
-    <div class="ch-det-section">
-      <div class="ch-det-sec-title">Chamados</div>
-      <div class="ch-det-meta" style="margin-bottom:8px;">
-        <div class="ch-met-row"><span class="ch-met-lbl">Em aberto</span><span style="font-size:13px;font-weight:600;color:${chAbertos.length > 0 ? "var(--warn)" : "var(--text)"};">${chAbertos.length}</span></div>
-        <div class="ch-met-row"><span class="ch-met-lbl">Resolvidos</span><span style="font-size:13px;font-weight:600;color:var(--ok);">${chFechados}</span></div>
-      </div>
-      ${chRecentesHtml}
-    </div>` : ""}
-
-    <div class="ch-det-acoes">
-      ${cargo === "tecnico" ? `
-      <button class="btn btn-sm viewer-only-hide ${t.disponivel ? "" : "btnAccent"}" data-action="toggle-tec-disp" data-id="${t.id}" data-disp="${t.disponivel ? "1" : "0"}">
-        ${t.disponivel ? "Marcar ocupado" : "Marcar disponível"}
-      </button>` : ""}
-      <button class="btn btn-sm viewer-only-hide" data-action="editar-tecnico" data-id="${t.id}">Editar</button>
-      <button class="btn btn-sm btnDanger viewer-only-hide" data-action="excluir-tecnico" data-id="${t.id}" data-nome="${_waEscaparHtml(t.nome)}">Excluir</button>
-    </div>
-  </div>`;
-}
-
-function renderTecnicos() {
-  renderTecTabela();
-  if (_tecSelecionadoId) {
-    const t = (_tecnicosData || []).find(t => t.id === _tecSelecionadoId);
-    renderTecDetalhe(t || null);
-    if (!t) _tecSelecionadoId = null;
-  }
-}
+// A tela é a lista no molde (admin-colab-lista.js): ela embrulha esta função
+// e redesenha a lista e o painel. Quem grava (novo, editar, disponível,
+// excluir) e o boot continuam chamando renderTecnicos.
+function renderTecnicos() {}
 
 function _tecFotoBase64(file) {
   return new Promise((resolve, reject) => {
@@ -3869,10 +3391,6 @@ function abrirModalTecnico(tec = null) {
       overlay.remove();
       await carregarTecnicos();
       renderTecnicos();
-      if (_tecSelecionadoId === (tec?.id || data.id)) {
-        const updated = (_tecnicosData || []).find(t => t.id === _tecSelecionadoId);
-        renderTecDetalhe(updated || null);
-      }
     } catch { if (msg) msg.textContent = "Erro de rede."; }
     finally { if (btn) btn.disabled = false; }
   });
@@ -4182,7 +3700,7 @@ function abrirModalNovoRepresentante(condoId) {
       if (!r.ok) { if (msg) msg.textContent = data.error || "Erro ao criar."; return; }
       overlay.remove();
       await carregarUsuarios();
-      renderCliDetalhe((Array.isArray(_condominios) ? _condominios : []).find(c => c.id === condoId) || null);
+      renderClientes();
     } catch (e) {
       if (msg) msg.textContent = "Erro de rede.";
     }
@@ -4449,59 +3967,6 @@ function atualizarBadgesWhatsapp() {
   const n = _conversasData.filter(cv => cv.unread_count > 0).length;
   const badge = document.getElementById("navBadgeWhatsapp");
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? "inline-flex" : "none"; }
-}
-
-async function criarReservatorio() {
-  const msg = document.getElementById("msgReservatorio");
-  if (msg) msg.textContent = "";
-
-  const condominio_id = Number(document.getElementById("resCondominio").value);
-  const tipo = (document.getElementById("resTipo").value || "").trim();
-  const nome = (document.getElementById("resNome").value || "").trim();
-  const device_id = (document.getElementById("resDeviceId").value || "").trim();
-
-  if (!condominio_id || !nome || !tipo || !device_id) {
-    if (msg) msg.textContent = "Preencha condomínio, tipo, nome e device id.";
-    return;
-  }
-
-  const _numOrNull = (id) => { const v = document.getElementById(id)?.value; return v ? Number(v) : null; };
-
-  const payload = {
-    condominio_id, nome, tipo, device_id,
-    altura_total_m: _numOrNull("resAlturaTotalM"),
-    adc_zero: _numOrNull("resAdcZero"),
-    adc_por_metro: _numOrNull("resAdcPorMetro"),
-    faixa_sonda_m: _numOrNull("resFaixaSondaM"),
-    limiar_bomba: _numOrNull("resLimiarBomba"),
-  };
-
-  const r = await fetch("/reservatorios", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await r.json().catch(() => ({}));
-
-  if (!r.ok) {
-    if (msg) msg.textContent = data.error || ("Erro (" + r.status + ")");
-    return;
-  }
-
-  if (msg) msg.textContent = `✅ Reservatório cadastrado • KEY: ${data.device_key}`;
-
-  // limpa campos
-  document.getElementById("resNome").value = "";
-  document.getElementById("resDeviceId").value = "";
-  document.getElementById("resAlturaTotalM").value = "";
-  document.getElementById("resAdcZero").value = "";
-  document.getElementById("resAdcPorMetro").value = "";
-  document.getElementById("resFaixaSondaM").value = "";
-  document.getElementById("resLimiarBomba").value = "";
-
-  // opcional: atualizar tudo
-  carregarTudo();
 }
 
 // ===== SECTION: CHAMADOS =====
@@ -5957,14 +5422,9 @@ function _ctrRenderTempo(c, alvoId) {
 // inativar refrescavam os três. Enviar para assinatura e consultar o status
 // mudam o selo da assinatura; excluir tira a linha. Os três deixavam a lista
 // mentindo até um F5.
+// (A página do prédio embrulha esta função e se redesenha; condoId fica na
+// assinatura para ela.)
 function _ctrRefrescarListas(condoId) {
-  if (condoId) {
-    _cliInvalidarContrato(condoId);
-    if (_cliSelecionadoId === condoId) {
-      const c = (_condominios || []).find(x => Number(x.id) === Number(condoId));
-      if (c) renderCliDetalhe(c);
-    }
-  }
   _carregarContratosMetricas?.();
   renderCliTabela?.();
   if (document.querySelector(".section[data-section='contratos'].is-active")) _ctrsCarregar();
@@ -11061,75 +10521,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("pageSize")?.addEventListener("change", mudarPageSize);
 
-  // ===== Página Clientes =====
-  document.querySelectorAll("[data-cli-tab]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll("[data-cli-tab]").forEach(b => b.classList.remove("is-active"));
-      btn.classList.add("is-active");
-      _cliFiltros.tab = btn.dataset.cliTab;
-      renderCliTabela();
-    });
-  });
-
-  let _cliBuscaTimer = null;
-  document.getElementById("cliBusca")?.addEventListener("input", e => {
-    clearTimeout(_cliBuscaTimer);
-    _cliBuscaTimer = setTimeout(() => { _cliFiltros.busca = e.target.value; renderCliTabela(); }, 200);
-  });
-
-  // ⚠️ A LINHA ABRE A FICHA (19/11/2026), como a da O.S. abre a página dela.
-  // Antes abria um painel ao lado com cadastro, chamados, contrato e
-  // responsáveis — tudo que a ficha já mostra, inteiro. O que só o painel
-  // tinha (Inativar/Reativar) foi para o cabeçalho da ficha. renderCliDetalhe
-  // continua no código (outras rotinas ainda o chamam); a coluna fica oculta.
-  const _cliAbrir = (row) => {
-    const id = Number(row.dataset.cliId);
-    if (!id) return;
-    _cliSelecionadoId = id;
-    abrirFichaCondominio(id);
-  };
-  document.getElementById("cliTableBody")?.addEventListener("click", e => {
-    const row = e.target.closest("tr[data-cli-id]");
-    if (row) _cliAbrir(row);
-  });
-  document.getElementById("cliTableBody")?.addEventListener("keydown", e => {
-    if (e.key !== "Enter") return;
-    const row = e.target.closest("tr[data-cli-id]");
-    if (row) _cliAbrir(row);
-  });
-  document.getElementById("cliKpiGrid")?.addEventListener("click", e => {
-    const b = e.target.closest("[data-cli-ir-contratos]");
-    if (!b) return;
-    showSection("contratos");
-    setTimeout(() => document.querySelector(`[data-ctrs-tab="${b.dataset.cliIrContratos}"]`)?.click(), 60);
-  });
-
-  // ===== Página Técnicos =====
-  document.querySelectorAll("[data-tec-tab]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll("[data-tec-tab]").forEach(b => b.classList.remove("is-active"));
-      btn.classList.add("is-active");
-      _tecFiltros.tab = btn.dataset.tecTab;
-      renderTecTabela();
-    });
-  });
-
-  let _tecBuscaTimer = null;
-  document.getElementById("tecBusca")?.addEventListener("input", e => {
-    clearTimeout(_tecBuscaTimer);
-    _tecBuscaTimer = setTimeout(() => { _tecFiltros.busca = e.target.value; renderTecTabela(); }, 200);
-  });
-
-  document.getElementById("tecTableBody")?.addEventListener("click", e => {
-    const row = e.target.closest("tr[data-tec-id]");
-    if (!row) return;
-    const id = Number(row.dataset.tecId);
-    _tecSelecionadoId = id;
-    renderTecTabela();
-    const t = (_tecnicosData || []).find(t => t.id === id);
-    renderTecDetalhe(t || null);
-  });
-
   // ===== Página Alertas =====
   // Tabs de severidade
   document.querySelectorAll(".al-tab").forEach(tab => {
@@ -11390,9 +10781,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const id = Number(document.getElementById("editResId").value);
     if (id) regenerarDeviceKeyReservatorio(id);
   });
-
-  document.getElementById("btnCadastrarReservatorio")
-    ?.addEventListener("click", criarReservatorio);
 
   // salvar edição via submit (sem inline)
   document.getElementById("editForm")?.addEventListener("submit", salvarEdicao);
@@ -11704,10 +11092,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }).then(async r => {
         if (!r.ok) { const e = await r.json(); alert(e.error); return; }
         await carregarTecnicos();
-        _tecSelecionadoId = id;
         renderTecnicos();
-        const t = (_tecnicosData || []).find(t => t.id === id);
-        renderTecDetalhe(t || null);
       });
       return;
     }
@@ -11719,10 +11104,8 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch(`/tecnicos/${id}`, { method: "DELETE", headers: authHeaders() })
         .then(async r => {
           if (!r.ok) { const e = await r.json(); alert(e.error); return; }
-          _tecSelecionadoId = null;
           await carregarTecnicos();
           renderTecnicos();
-          renderTecDetalhe(null);
         });
       return;
     }
@@ -11802,13 +11185,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let _osData = [];
 let _osLoaded = false;
-let _osPagina = 1;      // paginação da TABELA (KPIs, abas e busca usam tudo)
-let _osPageSize = 50;
 let _osSelecionadaId = null;
 let _osSelecionada = null;
 let _osModoEdicao = false;
 let _osEdits = null;        // rascunho de edição (objeto solto)
-let _osTabAtiva = "todas";  // "todas" | "finalizadas" | "rascunho"
 
 const _OS_TIPOS_SERVICO = {
   retirada_equipamento: "Retirada de equipamento",
@@ -11899,67 +11279,8 @@ async function renderSecaoOS() {
   // Carrega dados se ainda não tiver
   if (!_osLoaded) await carregarOrdensServico();
 
-  _osRenderKpis();
   _osRenderTabela();
   _osBindEventos();
-}
-
-// ⚠️ A FAIXA DE 5 NÚMEROS VIROU UMA FRASE (piloto do redesenho, 18/11/2026).
-// Total, Finalizadas, Em rascunho e A enviar repetiam as contagens das abas
-// logo abaixo. O que não se repetia ("este mês") está na frase, e o que pede
-// ação (O.S. esperando envio) virou botão que leva à aba. Nenhum número saiu.
-function _osRenderKpis() {
-  const el = document.getElementById("osResumo");
-  if (!el) return;
-  const data = Array.isArray(_osData) ? _osData : [];
-
-  const total    = data.length;
-  const rascunho = data.filter(o => !o.finalizada_em).length;
-  const inicioMes = new Date();
-  inicioMes.setDate(1);
-  inicioMes.setHours(0, 0, 0, 0);
-  const esteMes = data.filter(o => o.criado_em && new Date(o.criado_em) >= inicioMes).length;
-  const aEnviar = data.filter(_osFaltaEnviar).length;
-  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-
-  const partes = [
-    `${pl(total, "O.S.", "O.S.")} no total, ${esteMes ? `${esteMes} ${esteMes === 1 ? "aberta" : "abertas"} este mês` : "nenhuma aberta este mês"}`,
-    rascunho ? `${pl(rascunho, "em andamento", "em andamento")} com os técnicos` : "",
-  ].filter(Boolean).join(" · ");
-
-  el.innerHTML = `<span>${partes}.</span>${aEnviar
-    ? ` <button type="button" class="os-resumo-acao" data-os-ir-aba="a-enviar">${pl(aEnviar, "finalizada esperando", "finalizadas esperando")} envio ao cliente →</button>`
-    : ""}`;
-}
-
-// A situação da O.S. numa célula só. Antes eram três colunas (Resultado,
-// Status, E-mail) respondendo à mesma pergunta: em que ponto ela está.
-function _osSituacao(o) {
-  if (!o.finalizada_em) {
-    return `<span class="os-sit-linha"><span class="os-status-pill os-status-rascunho">Em andamento</span></span>
-      <span class="os-sub">${o.chegada_em ? `técnico chegou ${_osFmtDataCurta(o.chegada_em)}` : "técnico ainda não chegou"}</span>`;
-  }
-  const res = _OS_RESULTADOS[o.servico_realizado];
-  const resHtml = res ? ` <span class="os-result-pill ${res.cls}">${res.label}</span>` : "";
-  let envio;
-  if (o.enviado_em) {
-    envio = `<span class="os-sub os-sub-ok" title="Enviada para ${_waEscaparHtml(o.enviado_para || "")}">Enviada ao cliente em ${_osFmtDataCurta(o.enviado_em)}</span>`;
-  } else if (_osDestinoDoCadastro(o).length) {
-    envio = `<span class="os-sub os-sub-atencao">Falta enviar ao cliente</span>`;
-  } else {
-    envio = `<span class="os-sub" title="Cadastre o e-mail do condomínio na ficha dele">Prédio sem e-mail cadastrado</span>`;
-  }
-  return `<span class="os-sit-linha"><span class="os-status-pill os-status-final">Finalizada ${_osFmtDataCurta(o.finalizada_em)}</span>${resHtml}</span>${envio}`;
-}
-
-// Uma ação por linha, com nome, e só quando há o que fazer. A linha inteira
-// continua abrindo a ficha (que tem todas as ações).
-function _osAcaoLinha(o) {
-  if (!o.finalizada_em) return "";
-  if (_osFaltaEnviar(o)) {
-    return `<button class="btn btn-sm btnAccent os-btn-email viewer-only-hide" data-os-id="${o.id}" type="button">Enviar</button>`;
-  }
-  return `<button class="btn btn-sm os-btn-pdf" data-os-id="${o.id}" type="button">PDF</button>`;
 }
 
 // ⚠️ O QUE "PODE IR EM LOTE" É REGRA, E ELA MORA AQUI (10/09/2026).
@@ -11982,216 +11303,20 @@ function _osFaltaEnviar(o) {
   return _osPodeEnviarLote(o) && !o.enviado_em;
 }
 
-function _osFiltrados() {
-  const q = (document.getElementById("osBusca")?.value || "").trim().toLowerCase();
-
-  let lista = Array.isArray(_osData) ? [..._osData] : [];
-
-  if (_osTabAtiva === "finalizadas") lista = lista.filter(o => o.finalizada_em);
-  if (_osTabAtiva === "rascunho")    lista = lista.filter(o => !o.finalizada_em);
-  if (_osTabAtiva === "a-enviar")    lista = lista.filter(_osFaltaEnviar);
-
-  if (q) {
-    lista = lista.filter(o => {
-      const blob = `${o.numero || ""} ${o.condominio_nome || ""} ${o.tecnico_nome || ""}`.toLowerCase();
-      return blob.includes(q);
-    });
-  }
-  return lista;
-}
-
-function _osRenderTabela() {
-  const tbody = document.getElementById("osTableBody");
-  const empty = document.getElementById("osEmpty");
-  if (!tbody) return;
-
-  // Contadores das tabs (sempre baseados no dataset completo, ignoram a busca textual)
-  const data = Array.isArray(_osData) ? _osData : [];
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  set("osCtTodas",    data.length);
-  set("osCtFinal",    data.filter(o => o.finalizada_em).length);
-  set("osCtRascunho", data.filter(o => !o.finalizada_em).length);
-  set("osCtAEnviar",  data.filter(_osFaltaEnviar).length);
-
-  // Ordena ANTES de paginar: ordenar só a página da vista seria mentir.
-  const lista = _ordenar("os", _osFiltrados(), {
-    numero:   o => _ordemData(o.criado_em),
-    condo:    o => o.condominio_nome || null,
-    situacao: o => !o.finalizada_em ? 0 : _osFaltaEnviar(o) ? 1 : 2,
-  });
-  _ordemMarcar("os");
-
-  // Paginação da tabela: corta só o que se desenha. A seleção do lote continua
-  // valendo entre páginas (é podada pela lista filtrada, lá embaixo).
-  const totalFiltrado = lista.length;
-  const maxPagina = Math.max(1, Math.ceil(totalFiltrado / _osPageSize));
-  if (_osPagina > maxPagina) _osPagina = maxPagina;
-  if (_osPagina < 1) _osPagina = 1;
-  const ini = (_osPagina - 1) * _osPageSize;
-  const pagina = lista.slice(ini, ini + _osPageSize);
-  const info = document.getElementById("osPageInfo");
-  if (info) {
-    info.textContent = totalFiltrado
-      ? `Mostrando ${ini + 1}–${ini + pagina.length} de ${totalFiltrado}`
-      : "Nenhuma O.S.";
-  }
-  const bAnt = document.getElementById("osBtnPagAnt");
-  const bProx = document.getElementById("osBtnPagProx");
-  if (bAnt) bAnt.disabled = _osPagina <= 1;
-  if (bProx) bProx.disabled = _osPagina >= maxPagina;
-
-  if (!lista.length) {
-    tbody.innerHTML = "";
-    if (empty) empty.style.display = "block";
-    _osAtualizarBulkBar();
-    return;
-  }
-  if (empty) empty.style.display = "none";
-
-  tbody.innerHTML = pagina.map(o => {
-    const tipos = Array.isArray(o.tipos_servico) ? o.tipos_servico : [];
-    const tiposHtml = tipos.length
-      ? tipos.slice(0, 2).map(t => `<span class="os-chip">${_waEscaparHtml(_OS_TIPOS_SERVICO[t] || t)}</span>`).join("") +
-        (tipos.length > 2 ? `<span class="os-chip os-chip-more">+${tipos.length - 2}</span>` : "")
-      : `<span class="os-muted">—</span>`;
-
-    // Só entra na seleção o que pode de fato ser enviado — marcar o que vai
-    // falhar é convite para um relatório cheio de erro previsível.
-    const podeLote = _osPodeEnviarLote(o);
-    const nomeCondo = _waEscaparHtml(o.condominio_nome || "—");
-
-    return `<tr class="os-row" data-os-id="${o.id}">
-      <td class="os-td-chk">${podeLote
-        ? `<input type="checkbox" class="os-chk viewer-only-hide" data-os-chk="${o.id}" aria-label="Selecionar ${_waEscaparHtml(o.numero || "")}" ${_osSelecionadas.has(o.id) ? "checked" : ""}>`
-        : ""}</td>
-      <td class="os-td-num"><strong>${_waEscaparHtml(o.numero || "—")}</strong>
-        <span class="os-sub">aberta ${_osFmtDataCurta(o.criado_em)}</span></td>
-      <td class="os-td-condo">${o.condominio_id
-          ? `<button type="button" class="os-link" data-os-condo="${o.condominio_id}" title="Abrir a ficha do condomínio">${nomeCondo}</button>`
-          : nomeCondo}
-        <span class="os-sub">${_waEscaparHtml(o.tecnico_nome || "Sem técnico")}</span></td>
-      <td><div class="os-tipos-cell">${tiposHtml}</div></td>
-      <td class="os-td-sit">${_osSituacao(o)}</td>
-      <td class="right os-acoes-cell">${_osAcaoLinha(o)}</td>
-    </tr>`;
-  }).join("");
-
-  // Tira da seleção o que saiu da lista (filtro, aba, busca): manter marcado o
-  // que não está na tela faria o contador falar de O.S. que ninguém vê.
-  const visiveis = new Set(lista.map(o => o.id));
-  for (const id of _osSelecionadas) if (!visiveis.has(id)) _osSelecionadas.delete(id);
-  _osAtualizarBulkBar();
-}
-
-function _osAtualizarBulkBar() {
-  const bar = document.getElementById("osBulkBar");
-  if (!bar) return;
-  const n = _osSelecionadas.size;
-  bar.style.display = n > 0 ? "flex" : "none";
-  const count = document.getElementById("osBulkCount");
-  if (count) count.textContent = `${n} O.S. selecionada${n === 1 ? "" : "s"}`;
-  const btn = document.getElementById("osBulkEmail");
-  if (btn) btn.textContent = `Enviar ${n} por e-mail`;
-
-  const chkAll = document.getElementById("osChkAll");
-  if (chkAll) {
-    // ⚠️ "Todas" quer dizer todas as ENVIÁVEIS da tela, não todas as linhas.
-    // Rascunho e prédio sem e-mail não entram, então marcá-los deixaria o
-    // cabeçalho eternamente em estado intermediário. "Da tela" = da página
-    // que está aberta: marcar O.S. que a pessoa não está vendo seria mandar
-    // e-mail às cegas.
-    const alvos = _osPaginaAtual().filter(_osPodeEnviarLote);
-    const todas = alvos.length > 0 && alvos.every(o => _osSelecionadas.has(o.id));
-    chkAll.checked = todas;
-    chkAll.indeterminate = !todas && alvos.some(o => _osSelecionadas.has(o.id));
-  }
-}
+// A tela é a lista no molde (admin-os-lista.js): ela embrulha esta função e
+// redesenha a lista e o painel. Quem grava (envio, edição, lote) continua
+// chamando _osRenderTabela.
+function _osRenderTabela() {}
 
 let _osSelecionadas = new Set(); // ids marcados para o envio em lote
-
-// A fatia da lista filtrada que a tabela está mostrando agora.
-function _osPaginaAtual() {
-  const ini = (_osPagina - 1) * _osPageSize;
-  return _osFiltrados().slice(ini, ini + _osPageSize);
-}
 
 let _osEventosBound = false;
 function _osBindEventos() {
   if (_osEventosBound) return;
   _osEventosBound = true;
 
-  document.getElementById("osBusca")?.addEventListener("input", () => {
-    _osPagina = 1;
-    _osRenderTabela();
-  });
-
-  document.getElementById("osBtnPagAnt")?.addEventListener("click", () => {
-    if (_osPagina > 1) { _osPagina--; _osRenderTabela(); }
-  });
-  document.getElementById("osBtnPagProx")?.addEventListener("click", () => {
-    _osPagina++; // _osRenderTabela segura no teto
-    _osRenderTabela();
-  });
-  document.getElementById("osPageSize")?.addEventListener("change", (e) => {
-    const v = Number(e.target.value);
-    _osPageSize = Number.isFinite(v) && v > 0 ? v : 50;
-    _osPagina = 1;
-    _osRenderTabela();
-  });
-
-  document.querySelectorAll(".wa-tab[data-os-tab]").forEach(tab => {
-    tab.addEventListener("click", () => {
-      _osTabAtiva = tab.dataset.osTab;
-      _osPagina = 1;
-      document.querySelectorAll(".wa-tab[data-os-tab]").forEach(t => t.classList.toggle("is-active", t === tab));
-      _osRenderTabela();
-    });
-  });
-
-  // Delegação no tbody (botões dinâmicos)
-  // A frase-resumo leva à aba do que pede ação.
-  document.getElementById("osResumo")?.addEventListener("click", (e) => {
-    const ir = e.target.closest("[data-os-ir-aba]");
-    if (ir) document.querySelector(`.wa-tab[data-os-tab="${ir.dataset.osIrAba}"]`)?.click();
-  });
-
-  document.getElementById("osTableBody")?.addEventListener("click", (e) => {
-    // O nome do prédio abre a ficha dele, não a O.S.
-    const condo = e.target.closest("[data-os-condo]");
-    if (condo) { abrirFichaCondominio(Number(condo.dataset.osCondo)); return; }
-    const ver = e.target.closest(".os-btn-ver");
-    const pdf = e.target.closest(".os-btn-pdf");
-    const mail = e.target.closest(".os-btn-email");
-    const chk = e.target.closest(".os-chk");
-    // ⚠️ O CHECKBOX NÃO ABRE A FICHA. Ele vive dentro da linha, e a linha
-    // inteira é clicável — sem este retorno, marcar uma O.S. abriria o modal
-    // por cima da seleção que a pessoa está fazendo.
-    if (chk) {
-      const id = Number(chk.dataset.osChk);
-      if (chk.checked) _osSelecionadas.add(id); else _osSelecionadas.delete(id);
-      _osAtualizarBulkBar();
-      return;
-    }
-    if (ver) { abrirOSDetalhe(Number(ver.dataset.osId)); return; }
-    if (pdf) { baixarOSPdf(Number(pdf.dataset.osId)); return; }
-    if (mail) { _osEnviarUmaPelaLista(Number(mail.dataset.osId)); return; }
-    const row = e.target.closest(".os-row");
-    if (row) abrirOSDetalhe(Number(row.dataset.osId));
-  });
-
-  document.getElementById("osChkAll")?.addEventListener("change", (e) => {
-    const alvos = _osPaginaAtual().filter(_osPodeEnviarLote);
-    if (e.target.checked) alvos.forEach(o => _osSelecionadas.add(o.id));
-    else alvos.forEach(o => _osSelecionadas.delete(o.id));
-    _osRenderTabela();
-  });
-  document.getElementById("osBulkLimpar")?.addEventListener("click", () => {
-    _osSelecionadas.clear();
-    _osRenderTabela();
-  });
-  document.getElementById("osBulkEmail")?.addEventListener("click", _osAbrirEnvioLote);
-
-  // Modal
+  // A página da O.S. (#osFicha) e o modal de edição.
+  document.getElementById("osBtnFechar")  // Modal
   document.getElementById("osBtnFechar")?.addEventListener("click", fecharOSModal);
   document.getElementById("osBtnPdf")?.addEventListener("click", () => {
     if (_osSelecionadaId) baixarOSPdf(_osSelecionadaId);
@@ -12858,7 +11983,6 @@ async function _osAbrirEnvioLote() {
       }
       _osSelecionadas.clear();
       fechar();
-      _osRenderKpis();
       _osRenderTabela();
 
       // ⚠️ O QUE FALHOU É NOMEADO. "18 de 20" sem dizer quais obriga a
@@ -13003,7 +12127,6 @@ async function _osAbrirEnvioEmail() {
       // redesenhada: o dado em memória já dizia "enviada", mas o selo da linha,
       // o contador da aba "A enviar" e o KPI continuavam em "Não enviada" até
       // um F5 — e quem vê "Não enviada" depois de enviar manda de novo.
-      _osRenderKpis();
       _osRenderTabela();
       const quantos = String(j.enviado_para || "").split(",").filter(s => s.trim()).length;
       alert(`✓ O.S. enviada com o PDF em anexo para ${quantos} endereço(s).`);
@@ -13073,7 +12196,6 @@ async function _osSalvarEdicao() {
     _osModoEdicao = false;
     _osEdits = null;
     await abrirOSDetalhe(_osSelecionadaId); // refetch detalhe
-    _osRenderKpis();
     _osRenderTabela();
   } catch (err) {
     alert("Erro ao salvar: " + err.message);
@@ -13210,30 +12332,8 @@ function _osBindFormEventos() {
 // ORÇAMENTOS — seção admin
 // ============================================================
 
-// ─── Orçamentos modo: troca de aba principal ────────────────────────────────
-let _orcModoAtivo      = "avulso"; // "avulso" | "os"
-let _orcModoBindFeito  = false;
-
-function _orcModoBindEventos() {
-  if (_orcModoBindFeito) return;
-  _orcModoBindFeito = true;
-  document.getElementById("orcMainTabs")?.addEventListener("click", e => {
-    const btn = e.target.closest("[data-orc-modo]");
-    if (!btn) return;
-    const modo = btn.dataset.orcModo;
-    if (modo === _orcModoAtivo) return;
-    _orcModoAtivo = modo;
-    document.querySelectorAll("[data-orc-modo]").forEach(b => b.classList.toggle("is-active", b === btn));
-    document.getElementById("orcModoAvulso").style.display = modo === "avulso" ? "" : "none";
-    document.getElementById("orcModoOS").style.display     = modo === "os"     ? "" : "none";
-    if (modo === "os") { carregarOrcamentos(); }
-    else               { carregarAvulsos(); }
-  });
-}
-
 // ─── Orçamentos avulsos ──────────────────────────────────────────────────────
 let _avData        = [];
-let _avTabAtiva    = "todos";
 let _avSelecionado = null;
 // Alteração digitada e ainda não salva. Substitui o antigo `_avNovoPendente`,
 // que marcava "rascunho descartável" — conceito que deixou de existir quando o
@@ -13337,11 +12437,6 @@ function _avExecBadge(o) {
     aberto ? "Tem chamado aberto na fila do turno" : "O chamado deste orçamento já foi fechado"
   }">Chamado #${o.chamado_id}</span>`;
 }
-function _avOrigemBadge(origem) {
-  if (origem === "ia") return ` <span class="orc-origem-pill orc-origem-ia" title="Pedido recebido pelo WhatsApp">via IA</span>`;
-  if (origem === "os") return ` <span class="orc-origem-pill orc-origem-os" title="Originado de uma ordem de serviço">via OS</span>`;
-  return "";
-}
 const _avTipoLabels = {
   limpeza_reservatorio: "Limpeza de Reservatório",
   dedetizacao: "Dedetização",
@@ -13356,234 +12451,10 @@ function _avTipoBadge(tipo) {
 // Uma resposta do cliente é pendência enquanto ninguém der baixa (078).
 function _avPendente(o) { return Boolean(o?.respondido_em && !o?.resposta_tratada_em); }
 
-// Linha "Razão social: …" do cabeçalho do painel direito — usada pelas duas
-// abas de orçamento, que mostram o mesmo condomínio.
-//
-// ⚠️ O NOME GRANDE É O FANTASIA (`condominios.nome_fantasia`), igual ao PDF.
-// A razão social (`condominios.nome`) só aparece aqui, e SÓ quando difere:
-// para o condomínio que não tem fantasia cadastrado os dois valores são o
-// mesmo texto, e repetir a linha seria ruído. Não é decoração — é o nome que
-// consta no CNPJ, no contrato e na nota, e o orçamento é a peça que vira os
-// três. Ver `orcamento-pdf.service.js`, que imprime exatamente este par.
-function _avLinhaRazao(g) {
-  if (!g?.razao || g.razao === g.nome) return "";
-  return `<div class="av-orc-pane-razao">Razão social: ${_waEscaparHtml(g.razao)}</div>`;
-}
-
-function _avFiltrados() {
-  const q = (document.getElementById("avBusca")?.value || "").trim().toLowerCase();
-  return _avData.filter(o => {
-    // ⚠️ "respondidos" não é valor de `status` — ver o comentário da aba no
-    // admin.html. Comparar com `o.status` aqui devolveria lista vazia.
-    if (_avTabAtiva === "respondidos") {
-      if (!o.respondido_em) return false;
-    } else if (_avTabAtiva !== "todos" && o.status !== _avTabAtiva) return false;
-    if (q) {
-      // A razão social entra no blob porque o nome de tela virou o fantasia:
-      // sem ela, procurar "Elvira" não acha o condomínio que o painel chama de
-      // "Auri Faria Lima" — e é pela razão social que o cadastro, o CNPJ e a
-      // nota fiscal chamam o mesmo cliente.
-      const blob = `${o.condominio_nome || ""} ${o.condominio_razao_social || ""} ${o.numero || ""}`.toLowerCase();
-      if (!blob.includes(q)) return false;
-    }
-    return true;
-  });
-}
-
-function _avRenderTudo() {
-  const total   = _avData.length;
-  const rascunho= _avData.filter(o => o.status === "rascunho").length;
-  const enviado = _avData.filter(o => o.status === "enviado").length;
-  const aprov   = _avData.filter(o => o.status === "aprovado").length;
-  // ⚠️ SÓ OS APROVADOS — o KPI se chama "Total aprovado" (26/08/2026).
-  // Este `reduce` somava _avData INTEIRO: rascunho, enviado e rejeitado
-  // entravam na conta do que foi aprovado. Não era arredondamento, era outra
-  // pergunta: em produção o cartão mostrava R$ 113.393,54 quando o aprovado de
-  // verdade era R$ 5.139,00 — 34 orçamentos enviados (R$ 76 mil) e 12
-  // rascunhos (R$ 32 mil) inflando o número. A aba "Solicitados pelos
-  // técnicos" já filtrava certo desde sempre; esta ficou para trás.
-  const totalVal= _avData
-    .filter(o => o.status === "aprovado")
-    .reduce((s, o) => s + Number(o.valor_total || 0), 0);
-
-  // ⚠️ A FAIXA DE 4 CARTÕES VIROU UMA FRASE (molde da O.S., 18/11/2026).
-  // Os quatro números continuam aqui (total, rascunho, enviado, aprovado em
-  // R$). O que pede ação do escritório, o rascunho por enviar, vira botão que
-  // leva à aba. "Total aprovado" continua só dos aprovados (ver acima).
-  const plAv = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-  const grid = document.getElementById("avKpiGrid");
-  if (grid) {
-    const partes = [
-      plAv(total, "orçamento", "orçamentos"),
-      enviado ? `${plAv(enviado, "enviado esperando", "enviados esperando")} o cliente` : "",
-      aprov ? `${_orcFmtValor(totalVal)} ${aprov === 1 ? "aprovado" : "aprovados"}` : "nenhum aprovado",
-    ].filter(Boolean).join(" · ");
-    grid.innerHTML = `<span>${partes}.</span>${rascunho
-      ? ` <button type="button" class="os-resumo-acao" data-av-ir-aba="rascunho">${plAv(rascunho, "rascunho", "rascunhos")} por enviar →</button>`
-      : ""}`;
-  }
-
-  // ⚠️ AS RESPOSTAS SEM BAIXA (25/08/2026 · reescrito em 26/08/2026).
-  // Quando o orçamento passou a ser respondido no painel do cliente, a decisão
-  // virou uma linha no banco e mais nada — e a tela do cliente PROMETE, depois
-  // que ele aprova, que "entramos em contato para agendar o serviço". A
-  // promessa dependia de alguém reparar sozinho que um status tinha mudado.
-  //
-  // Não virou linha em `alertas` de propósito: aquela tabela é amarrada a
-  // `device_id`, existe para telemetria, e um orçamento não tem sensor. O
-  // aviso mora no próprio orçamento (migrations 076 e 078).
-  //
-  // ⚠️ O QUE APAGA O AVISO É A BAIXA, NÃO O CLIQUE (078). Na v1 quem abrisse a
-  // ficha marcava `resposta_vista_em` e a faixa sumia para sempre — um clique
-  // de passagem, ou uma tela que recarregasse antes de a pessoa ler QUAL era o
-  // orçamento, matava o único sinal que existia. Hoje "abrir" e "resolver" são
-  // dois estados: a faixa conta o que não tem baixa e ainda diz se alguém já
-  // abriu. E ela deixou de ser o único lugar — a linha do orçamento e o card
-  // do condomínio carregam o mesmo selo, então a pendência sobrevive a fechar
-  // a faixa, recarregar a tela e trocar de aba.
-  const pendentes = _avData.filter(o => o.respondido_em && !o.resposta_tratada_em);
-  const aviso = document.getElementById("avAvisoRespostas");
-  if (aviso) {
-    aviso.hidden = pendentes.length === 0;
-    if (pendentes.length) {
-      const q = pendentes.length;
-      const naoAbertas = pendentes.filter(o => !o.resposta_vista_em).length;
-      let txt;
-      if (q === 1) {
-        // Uma só: o aviso NOMEIA o documento. Era isto que faltava — quem
-        // fechava a faixa antes de ler ficava sem saber onde procurar.
-        const o = pendentes[0];
-        const verbo = o.status === "rejeitado" ? "recusou" : "aprovou";
-        txt = `${o.condominio_nome || "Cliente"} ${verbo} o ${o.numero || "orçamento"}` +
-              (o.respondido_nome ? ` — ${o.respondido_nome}` : "") +
-              `, ${_tempoRelativo(o.respondido_em)}` +
-              (o.resposta_vista_em ? " · aberto, sem baixa" : " · ninguém abriu ainda");
-      } else {
-        const quem = pendentes
-          .map(o => o.condominio_nome)
-          .filter((v, i, a) => v && a.indexOf(v) === i);
-        txt = `${q} respostas de clientes sem baixa` +
-              (quem.length ? ` — ${quem.slice(0, 3).join(", ")}${quem.length > 3 ? " e outros" : ""}` : "") +
-              (naoAbertas ? ` · ${naoAbertas} que ninguém abriu ainda` : "");
-      }
-      aviso.querySelector("[data-aviso-txt]").textContent = txt;
-    }
-  }
-
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set("avCtTodos",    total);
-  set("avCtRascunho", rascunho);
-  set("avCtEnviado",  enviado);
-  set("avCtAprovado", aprov);
-  set("avCtRespondidos", _avData.filter(o => o.respondido_em).length);
-
-  // ── A lista: uma tabela da carteira inteira (molde da O.S., 18/11/2026) ──
-  // ⚠️ DEIXOU DE SER AGRUPADA POR CONDOMÍNIO. Era lista de prédios à esquerda
-  // e orçamentos do prédio à direita: para achar um orçamento era preciso
-  // saber o prédio antes, e a carteira nunca era vista de uma vez. Os
-  // sistemas de referência (Jobber, ServiceTitan, Field Control) têm uma
-  // lista por documento, com o cliente numa coluna, e a visão por prédio na
-  // ficha dele, que aqui já tem a aba Orçamentos. Nada saiu da linha: número,
-  // data, origem, tipo, selo da resposta, quem respondeu, o "feito" e o valor.
-  const lista = _avFiltrados();
-  const listEl = document.getElementById("avCondoList");
-  const empty  = document.getElementById("avEmpty");
-  if (!listEl) return;
-
-  // Mais novo primeiro. Na aba de respondidos a lista vira fila de trabalho:
-  // quem ainda espera baixa sobe.
-  const filaPend = _avTabAtiva === "respondidos";
-  lista.sort((a, b) => {
-    if (filaPend) {
-      const pa = _avPendente(a) ? 0 : 1;
-      const pb = _avPendente(b) ? 0 : 1;
-      if (pa !== pb) return pa - pb;
-    }
-    return new Date(b.criado_em) - new Date(a.criado_em);
-  });
-  // A coluna escolhida ganha da fila; o terceiro clique devolve a fila.
-  const _avRank = { rascunho: 1, enviado: 2, aprovado: 3, rejeitado: 4 };
-  const listaOrd = _ordenar("orc-av", lista, {
-    numero:   o => _ordemData(o.criado_em),
-    condo:    o => o.condominio_nome || null,
-    situacao: o => _avPendente(o) ? 0 : (_avRank[o.status] ?? 5),
-    valor:    o => Number(o.valor_total) || 0,
-  });
-
-  if (!lista.length) {
-    listEl.innerHTML = "";
-    if (empty) empty.style.display = "flex";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-
-  const linhas = listaOrd.map(o => {
-    const selc = _avSelecionado?.id === o.id ? " is-selected" : "";
-    const pend = _avPendente(o);
-    const tipoLbl = _avTipoLabels[o.tipo];
-    const nome = _waEscaparHtml(o.condominio_nome || "Sem condomínio");
-    const predio = o.condominio_id
-      ? `<button type="button" class="os-link" data-av-condo-link="${o.condominio_id}" title="Abrir a ficha do condomínio">${nome}</button>`
-      : nome;
-    const apoio = [
-      tipoLbl ? _waEscaparHtml(tipoLbl) : "",
-      o.os_numero ? `da O.S. ${_waEscaparHtml(o.os_numero)}` : "",
-    ].filter(Boolean).join(" · ");
-    return `
-      <tr class="pro-row${selc}${pend ? " is-pendente" : ""}" data-av-id="${o.id}" tabindex="0">
-        <td class="pro-id">
-          <span class="mono">${_waEscaparHtml(o.numero || "—")}</span>
-          <span class="os-sub">${_orcFmtData(o.criado_em)}</span>
-        </td>
-        <td class="pro-cli">
-          <span class="pro-cli-nome">${predio}</span>${_avOrigemBadge(o.origem)}
-          ${apoio ? `<span class="os-sub">${apoio}</span>` : ""}
-        </td>
-        <td class="pro-sit">
-          <span class="os-sit-linha">
-            <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
-            ${pend ? `<span class="av-selo-pend${o.resposta_vista_em ? " is-vista" : ""}">${o.resposta_vista_em ? "Sem baixa" : "Resposta nova"}</span>` : ""}${_avExecBadge(o)}
-          </span>
-          <span class="os-sub${o.respondido_em ? " is-resposta" : ""}">${_avSituacaoTexto(o)}</span>
-        </td>
-        <td class="pro-val">${_orcFmtValor(o.valor_total)}</td>
-      </tr>`;
-  }).join("");
-
-  listEl.innerHTML = `
-    <table class="orc-table pro-table">
-      <thead><tr>
-        ${_ordemTh("orc-av", "numero", "Nº", { padrao: "desc", style: "width:130px" })}
-        ${_ordemTh("orc-av", "condo", "Condomínio")}
-        ${_ordemTh("orc-av", "situacao", "Situação", { style: "width:340px" })}
-        ${_ordemTh("orc-av", "valor", "Valor", { padrao: "desc", cls: "pro-val", style: "width:130px" })}
-      </tr></thead>
-      <tbody>${linhas}</tbody>
-    </table>`;
-}
-
-// A linha de apoio da situação: o que acontece a seguir, ou quem decidiu.
-// ⚠️ QUEM APROVOU CONTINUA NA LISTA (26/08/2026): o selo diz "Aprovado" igual
-// para o síndico respondendo no painel dele e para o escritório mudando a
-// Situação à mão. A linha de baixo é o que separa os dois. Pendência se lê em
-// "há quanto tempo"; resposta já tratada é histórico, e histórico é data.
-function _avSituacaoTexto(o) {
-  if (o.respondido_em) {
-    return `${o.status === "rejeitado" ? "Recusado" : "Aprovado"} por ` +
-      `${_waEscaparHtml(o.respondido_nome || "cliente")} · ` +
-      `${_avPendente(o) ? _tempoRelativo(o.respondido_em) : _orcFmtData(o.respondido_em)}`;
-  }
-  if (o.status === "rascunho") return "falta enviar ao cliente";
-  if (o.status === "enviado") {
-    // `valido_ate` é DATE: compara a string, sem passar por fuso.
-    const hoje = new Date().toISOString().slice(0, 10);
-    const val = o.valido_ate ? String(o.valido_ate).slice(0, 10) : null;
-    if (val && val < hoje) return `<span class="os-sub-atencao">validade venceu em ${_orcFmtDataSemFuso(val)}</span>`;
-    return `esperando o cliente${val ? ` · válido até ${_orcFmtDataSemFuso(val)}` : ""}`;
-  }
-  if (o.status === "aprovado" || o.status === "rejeitado") return "registrado pelo escritório";
-  return "";
-}
+// A tela é a lista no molde (admin-orc-lista.js): ela embrulha esta função e
+// redesenha a lista. Quem grava (baixa, envio, salvar na página) continua
+// chamando _avRenderTudo.
+function _avRenderTudo() {}
 
 // ============================================================
 // PÁGINA DO ORÇAMENTO (era modal de tela cheia até 18/11/2026)
@@ -13727,8 +12598,6 @@ function _avFecharModal() {
     if (_avEmpurrouHistorico) { _avEmpurrouHistorico = false; history.back(); }
     else showSection("orcamentos");
   }
-  // Atualiza seleção visual na lista de orçamentos do painel
-  document.querySelectorAll("#avCondoList .pro-row.is-selected").forEach(r => r.classList.remove("is-selected"));
   // ⚠️ A LISTA SE REDESENHA AO FECHAR (09/10/2026). Item adicionado ou
   // removido grava na hora e acerta o `valor_total` em `_avData`, e o
   // orçamento nasce no servidor na primeira ação (`_avGarantirRegistro`) —
@@ -15854,76 +14723,7 @@ function _avBindEventos() {
   if (_avBindFeito) return;
   _avBindFeito = true;
 
-  document.getElementById("avBtnNovo")?.addEventListener("click", () => _avAcao("novo"));
-
-  document.querySelectorAll("[data-av-tab]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      _avTabAtiva = btn.dataset.avTab;
-      document.querySelectorAll("[data-av-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
-      _avRenderTudo();
-    });
-  });
-
-  document.getElementById("avBusca")?.addEventListener("input", _avRenderTudo);
-
-  // A frase-resumo leva à aba do que pede ação.
-  document.getElementById("avKpiGrid")?.addEventListener("click", e => {
-    const ir = e.target.closest("[data-av-ir-aba]");
-    if (ir) document.querySelector(`[data-av-tab="${ir.dataset.avIrAba}"]`)?.click();
-  });
-
-  // Clique numa linha → abre o orçamento. O nome do prédio abre a ficha dele.
-  const abrirLinha = (item) => {
-    const id = Number(item.dataset.avId);
-    _avSelecionado = _avData.find(o => o.id === id) || null;
-    _avRenderPainel();
-    document.querySelectorAll("#avCondoList .pro-row").forEach(r => r.classList.toggle("is-selected", r === item));
-    _avMarcarRespostaVista(_avSelecionado);
-  };
-  document.getElementById("avCondoList")?.addEventListener("click", e => {
-    const condo = e.target.closest("[data-av-condo-link]");
-    if (condo) { abrirFichaCondominio(Number(condo.dataset.avCondoLink), "orcamentos"); return; }
-    const item = e.target.closest("[data-av-id]");
-    if (item) abrirLinha(item);
-  });
-  document.getElementById("avCondoList")?.addEventListener("keydown", e => {
-    if (e.key !== "Enter" || e.target.closest("button")) return;
-    const item = e.target.closest("[data-av-id]");
-    if (item) abrirLinha(item);
-  });
-
-  // O "Ver" do aviso leva ao primeiro sem baixa. Sem isto o aviso diria que há
-  // trabalho parado e deixaria a pessoa procurar na lista.
-  document.getElementById("avAvisoVer")?.addEventListener("click", () => {
-    const alvo = _avData.find(o => o.respondido_em && !o.resposta_tratada_em);
-    if (!alvo) return;
-    // ⚠️ Seleciona o condomínio do alvo ANTES de procurar a linha: com outro
-    // condomínio aberto no painel direito, a linha nem existe no DOM — o "Ver"
-    // caía no fallback e abria a ficha sem nunca mostrar onde ela mora.
-    // ⚠️ A AÇÃO SEGUE O FORMATO DO TRABALHO (26/08/2026). Com UMA pendência,
-    // levar direto à ficha é o certo — é um documento, e a faixa já disse qual.
-    // Com VÁRIAS, empurrar a pessoa para a primeira é decidir a ordem por ela;
-    // fila de um em um serve para duas ou três, não para dez. Aí o "Ver" abre a
-    // aba Respondidos, que já sobe quem espera baixa, e a escolha volta a ser
-    // de quem trabalha.
-    const pendentesAgora = _avData.filter(_avPendente);
-    if (pendentesAgora.length > 1) {
-      _avTabAtiva = "respondidos";
-      document.querySelectorAll("[data-av-tab]").forEach(b =>
-        b.classList.toggle("is-active", b.dataset.avTab === "respondidos"));
-      _avRenderTudo();
-      document.getElementById("avCondoList")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      return;
-    }
-    const linha = document.querySelector(`[data-av-id="${alvo.id}"]`);
-    if (linha) { linha.scrollIntoView({ behavior: "smooth", block: "center" }); linha.click(); return; }
-    // Filtrado para fora da lista visível: seleciona mesmo assim, para a ficha
-    // abrir e a resposta contar como vista.
-    _avSelecionado = alvo;
-    _avRenderPainel();
-    _avMarcarRespostaVista(alvo);
-  });
-
+  // O documento (modal e página do orçamento). A lista é a do molde.
   document.getElementById("avModalBackdrop")?.addEventListener("click", () => _avTentarFechar());
 
   document.addEventListener("keydown", e => {
@@ -15972,7 +14772,6 @@ function _avBindEventos() {
 
 // ─── Orçamentos por OS ───────────────────────────────────────────────────────
 let _orcData        = [];
-let _orcTabAtiva    = "todos";
 let _orcSelecionado = null;
 
 /* ⚠️ O PEDIDO SEM ORÇAMENTO É UM ESTADO, e ele não tinha nome (02/09/2026).
@@ -15988,7 +14787,6 @@ let _orcSelecionado = null;
    exatamente quando havia trabalho novo esperando. */
 function _orcSolicitado(o) { return !o.orcamento_status; }
 let _orcBindFeito   = false;
-let _orcCondosCarregados = false;
 // (Os itens do orçamento vivem em `_avLinhas` — o modal é o do avulso.)
 
 async function carregarOrcamentos() {
@@ -15998,7 +14796,6 @@ async function carregarOrcamentos() {
     _orcData = todos;
     _orcRenderTudo();
     _orcAtualizarBadge();
-    if (!_orcCondosCarregados) _orcPopularFiltroCondos();
   } catch (e) {
     console.error("carregarOrcamentos:", e);
   }
@@ -16035,27 +14832,6 @@ function _orcFmtDataSemFuso(iso) {
   return `${d}/${m}/${y}`;
 }
 
-// ⚠️ AMARELO É SÓ O PEDIDO QUE NINGUÉM COMEÇOU (05/10/2026). Relato do Pedro:
-// "usa a cor amarela para coisas diferentes, tem solicitado e pendente que
-// meio que parece a mesma coisa". Eram quatro amarelos na tela: SOLICITADO em
-// âmbar translúcido, o rascunho ("PENDENTE") em amarelo CHEIO, o ponto de
-// "enviado" no condomínio e os KPIs "Solicitados" e "Em orçamento". O rascunho
-// gritava mais alto que o pedido novo, que é o que esta aba existe para achar.
-//
-// Agora segue a Regra do Selo do DESIGN.md — preenchido quando pede ação, de
-// fio em repouso, e só um preenche:
-//   sem orçamento → SOLICITADO, amarelo cheio: o escritório tem de começar.
-//   rascunho      → EM ORÇAMENTO, de fio: já começou. Mesmo nome da aba, e
-//                   mesmo fio que a aba irmã já usava para rascunho.
-//   enviado       → ENVIADO, de fio: quem deve agora é o cliente.
-// "PENDENTE" saiu: não nomeava nada que a tela chamasse assim em outro lugar.
-function _orcStatusCls(s) {
-  if (!s)                return "orc-status-pend"; // técnico pediu, orçamento ainda não existe
-  if (s === "aprovado")  return "orc-status-ok";
-  if (s === "rejeitado") return "orc-status-bad";
-  return "orc-status-off"; // rascunho, enviado, expirado
-}
-
 function _orcStatusLabel(s) {
   // Sem status = não há linha em `orcamentos`: a O.S. foi marcada como
   // "precisa de orçamento" e ninguém começou. É o estado que mais precisa
@@ -16069,151 +14845,11 @@ function _orcStatusLabel(s) {
   return "Em orçamento"; // rascunho — o nome da aba que o lista
 }
 
-function _orcFiltrados() {
-  const q = (document.getElementById("orcBusca")?.value || "").trim().toLowerCase();
-  const condo = document.getElementById("orcFiltroCondo")?.value || "";
-  // Tab "pendente" mapeia para o novo valor "rascunho" no banco
-  const tabBanco = _orcTabAtiva === "pendente" ? "rascunho" : _orcTabAtiva;
-  return _orcData.filter(o => {
-    // "solicitado" não é valor de coluna: é a AUSÊNCIA de orçamento (ver
-    // `_orcSolicitado`), então não dá para comparar com `orcamento_status`.
-    if (_orcTabAtiva === "solicitado") { if (!_orcSolicitado(o)) return false; }
-    else if (_orcTabAtiva !== "todos" && o.orcamento_status !== tabBanco) return false;
-    if (condo && String(o.condominio_id) !== condo) return false;
-    if (q) {
-      // Razão social no blob pelo mesmo motivo da aba irmã (ver `_avFiltrados`):
-      // o nome de tela é o fantasia, e quem procura pelo nome do CNPJ tem de
-      // achar o mesmo condomínio.
-      const blob = `${o.condominio_nome || ""} ${o.condominio_razao_social || ""} ${o.tecnico_nome || ""} ${o.numero || ""}`.toLowerCase();
-      if (!blob.includes(q)) return false;
-    }
-    return true;
-  });
-}
 
-function _orcRenderTudo() {
-  // KPIs. Quatro, como os da aba irmã — e o primeiro é o que faltava.
-  // ("Pendente" no banco é `rascunho`: orçamento começado e ainda não enviado.)
-  const total    = _orcData.length;
-  const solicit  = _orcData.filter(_orcSolicitado).length;
-  const pend     = _orcData.filter(o => o.orcamento_status === "rascunho").length;
-  const aprov    = _orcData.filter(o => o.orcamento_status === "aprovado").length;
-  const rejeit   = _orcData.filter(o => o.orcamento_status === "rejeitado").length;
-  const totalVal = _orcData.filter(o => o.orcamento_status === "aprovado" && o.orcamento_valor)
-                           .reduce((s, o) => s + Number(o.orcamento_valor), 0);
-
-  // ⚠️ A FAIXA DE 4 CARTÕES VIROU UMA FRASE (molde da O.S., 18/11/2026).
-  // O pedido sem orçamento é o que pede ação, e é o botão que leva à aba.
-  const plO = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-  const grid = document.getElementById("orcKpiGrid");
-  if (grid) {
-    const partes = [
-      plO(total, "pedido dos técnicos", "pedidos dos técnicos"),
-      pend ? `${pend} em orçamento` : "",
-      aprov ? `${_orcFmtValor(totalVal)} ${aprov === 1 ? "aprovado" : "aprovados"}` : "nenhum aprovado",
-    ].filter(Boolean).join(" · ");
-    grid.innerHTML = `<span>${partes}.</span>${solicit
-      ? ` <button type="button" class="os-resumo-acao" data-orc-ir-aba="solicitado">${plO(solicit, "pedido", "pedidos")} sem orçamento →</button>`
-      : ""}`;
-  }
-
-  // Contadores das tabs
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set("orcCtTodos",      total);
-  set("orcCtSolicitado", solicit);
-  set("orcCtPendente",   pend);
-  set("orcCtAprovado",   aprov);
-  set("orcCtRejeitado",  rejeit);
-
-  // ── A lista: uma tabela da carteira inteira (molde da O.S., 18/11/2026) ──
-  // Deixou de ser agrupada por condomínio pelo mesmo motivo da aba irmã (ver
-  // _avRenderTudo). A observação do técnico ganhou coluna própria: é o texto
-  // que esta aba existe para entregar, e quem abre a tela está decidindo o
-  // que orçar lendo o que o técnico escreveu.
-  const lista  = _orcFiltrados();
-  const listEl = document.getElementById("orcCondoList");
-  const empty  = document.getElementById("orcEmpty");
-  if (!listEl) return;
-
-  // ⚠️ QUEM TEM PEDIDO NÃO ATENDIDO SOBE: aqui a lista é fila de trabalho, e
-  // o que a tela responde é "por onde começo". Depois, o mais novo.
-  lista.sort((a, b) => {
-    const pa = _orcSolicitado(a) ? 0 : 1;
-    const pb = _orcSolicitado(b) ? 0 : 1;
-    if (pa !== pb) return pa - pb;
-    return new Date(b.finalizada_em || b.criado_em) - new Date(a.finalizada_em || a.criado_em);
-  });
-  const _orcRank = { rascunho: 1, enviado: 2, aprovado: 3, rejeitado: 4, expirado: 5 };
-  const listaOrd = _ordenar("orc-os", lista, {
-    os:       o => _ordemData(o.finalizada_em || o.criado_em),
-    condo:    o => o.condominio_nome || null,
-    situacao: o => _orcSolicitado(o) ? 0 : (_orcRank[o.orcamento_status] ?? 6),
-  });
-
-  if (!lista.length) {
-    listEl.innerHTML = "";
-    if (empty) empty.style.display = "flex";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-
-  const linhas = listaOrd.map(o => {
-    const aberto = _orcSolicitado(o);
-    const daBancada = o.fonte === "bancada";
-    const nome = _waEscaparHtml(o.condominio_nome || "Sem condomínio");
-    const predio = o.condominio_id
-      ? `<button type="button" class="os-link" data-orc-condo-link="${o.condominio_id}" title="Abrir a ficha do condomínio">${nome}</button>`
-      : nome;
-    const apoio = [
-      _waEscaparHtml(o.tecnico_nome || "sem técnico"),
-      o.chamado_id ? `chamado #${o.chamado_id}` : "",
-    ].filter(Boolean).join(" · ");
-    const obs = o.orcamento_observacoes
-      ? `<span class="pro-obs">${_waEscaparHtml(o.orcamento_observacoes)}</span>`
-      : `<span class="pro-obs is-vazia">Sem observação — contate o técnico.</span>`;
-    // Uma ação com nome: começar o orçamento quando ainda não existe; senão a
-    // linha abre o documento. A lixeira tira o PEDIDO da fila (ver abaixo).
-    const acao = aberto
-      ? `<button type="button" class="btn btn-sm btnAccent viewer-only-hide" data-orc-abrir>Fazer orçamento</button>`
-      : "";
-    const del = daBancada ? "" : `
-          <button type="button" class="pro-del viewer-only-hide" data-orc-del="${o.id}"
-            title="Excluir este pedido de orçamento" aria-label="Excluir este pedido de orçamento">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          </button>`;
-    return `
-      <tr class="pro-row${aberto ? " is-pendente" : ""}" tabindex="0"
-          data-orc-id="${o.id ?? ""}" data-orc-fonte="${o.fonte || "os"}"
-          data-orc-orcid="${o.orcamento_id ?? ""}">
-        <td class="pro-id">
-          <span class="mono">${_waEscaparHtml(o.numero || ("OS " + o.id))}</span>
-          <span class="os-sub">${_orcFmtData(o.finalizada_em || o.criado_em)}${daBancada ? " · oficina" : ""}</span>
-        </td>
-        <td class="pro-cli">
-          <span class="pro-cli-nome">${predio}</span>
-          <span class="os-sub">${apoio}</span>
-        </td>
-        <td class="pro-obs-cell">${obs}</td>
-        <td class="pro-sit">
-          <span class="os-sit-linha"><span class="orc-status-pill ${_orcStatusCls(o.orcamento_status)}">${_orcStatusLabel(o.orcamento_status)}</span></span>
-          <span class="os-sub">${aberto ? "ninguém começou o orçamento" : _orcFmtValor(o.orcamento_valor)}</span>
-        </td>
-        <td class="pro-acao">${acao}${del}</td>
-      </tr>`;
-  }).join("");
-
-  listEl.innerHTML = `
-    <table class="orc-table pro-table">
-      <thead><tr>
-        ${_ordemTh("orc-os", "os", "O.S.", { padrao: "desc", style: "width:130px" })}
-        ${_ordemTh("orc-os", "condo", "Condomínio", { style: "width:26%" })}
-        <th>Pedido do técnico</th>
-        ${_ordemTh("orc-os", "situacao", "Situação", { style: "width:190px" })}
-        <th style="width:170px"></th>
-      </tr></thead>
-      <tbody>${linhas}</tbody>
-    </table>`;
-}
+// A tela é a lista no molde (admin-orc-lista.js): ela embrulha esta função e
+// redesenha a lista (os pedidos dos técnicos entram nela). Quem grava continua
+// chamando _orcRenderTudo.
+function _orcRenderTudo() {}
 
 /* ── Excluir o PEDIDO do técnico (03/09/2026) ────────────────────────
    ⚠️ O "Excluir orçamento" DO MODAL NÃO TIRAVA A LINHA DAQUI, e não havia outro
@@ -16378,88 +15014,15 @@ function _orcAtualizarBadge() {
     badge.textContent = pend;
     badge.style.display = pend > 0 ? "inline-flex" : "none";
   }
-  const tabBadge = document.getElementById("navBadgeOrcamentosOS");
-  if (tabBadge) {
-    tabBadge.textContent = pend;
-    tabBadge.style.display = pend > 0 ? "inline-flex" : "none";
-  }
 }
 
-function _orcPopularFiltroCondos() {
-  const sel = document.getElementById("orcFiltroCondo");
-  if (!sel) return;
-  const condos = [...new Map(_orcData.map(o => [o.condominio_id, o.condominio_nome])).entries()]
-    .sort((a, b) => (a[1] || "").localeCompare(b[1] || ""));
-  condos.forEach(([id, nome]) => {
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = nome || id;
-    sel.appendChild(opt);
-  });
-  _orcCondosCarregados = true;
-}
 
 function _orcBindEventos() {
   if (_orcBindFeito) return;
   _orcBindFeito = true;
-
-  // Tabs
-  document.querySelectorAll("[data-orc-tab]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      _orcTabAtiva = btn.dataset.orcTab;
-      document.querySelectorAll("[data-orc-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
-      _orcRenderTudo();
-    });
-  });
-
-  // Busca + filtro condo
-  document.getElementById("orcBusca")?.addEventListener("input", _orcRenderTudo);
-  document.getElementById("orcFiltroCondo")?.addEventListener("change", _orcRenderTudo);
-
-  // A frase-resumo leva à aba do que pede ação.
-  document.getElementById("orcKpiGrid")?.addEventListener("click", e => {
-    const ir = e.target.closest("[data-orc-ir-aba]");
-    if (ir) document.querySelector(`[data-orc-tab="${ir.dataset.orcIrAba}"]`)?.click();
-  });
-
-  // Painel: escolhe o PEDIDO e abre o documento.
+  // A lista (pedidos e documentos) é a do molde, em admin-orc-lista.js; o
+  // pedido abre o documento pelo _orcMaterializarEAbrir de sempre.
   //
-  // ⚠️ ABRE O MODAL DO AVULSO — NÃO EXISTE MAIS UM MODAL DESTA ABA
-  // (02/09/2026). Havia dois modais de orçamento, e o segundo refazia o que o
-  // primeiro já fazia: 13 funções paralelas para montar o mesmo documento. Só
-  // que a cópia tinha MENOS — sem envio por e-mail (o passo que leva o
-  // orçamento ao síndico) e sem o tipo de documento, então um orçamento de
-  // limpeza de reservatório nascido de O.S. saía com o layout de peças no PDF.
-  //
-  // O caminho já existia para o pedido da bancada (`_orcAbrirDaBancada`): a
-  // lista de avulsos NÃO tem WHERE, então ela já contém os orçamentos nascidos
-  // de O.S. Agora todo pedido segue por ele.
-  const abrirPedido = (item) => {
-    const orcId = Number(item.dataset.orcOrcid) || null;
-    const osId  = Number(item.dataset.orcId) || null;
-    // Já existe documento? Abre direto. É o caso de tudo que não é SOLICITADO,
-    // e o único caso possível para o pedido da bancada (que não tem O.S.).
-    if (orcId) { _orcAbrirDaBancada(orcId); return; }
-    if (osId)  { _orcMaterializarEAbrir(osId); }
-  };
-  document.getElementById("orcCondoList")?.addEventListener("click", e => {
-    // A lixeira vem ANTES: ela mora dentro da linha, e a linha inteira abre o
-    // documento. Sem este desvio, clicar em excluir também materializaria um
-    // orçamento antes de perguntar qualquer coisa.
-    const del = e.target.closest("[data-orc-del]");
-    if (del) { _orcExcluirPedido(Number(del.dataset.orcDel)); return; }
-    // O nome do prédio abre a ficha dele, não o pedido.
-    const condo = e.target.closest("[data-orc-condo-link]");
-    if (condo) { abrirFichaCondominio(Number(condo.dataset.orcCondoLink), "orcamentos"); return; }
-    const item = e.target.closest("tr[data-orc-fonte]");
-    if (item) abrirPedido(item);
-  });
-  document.getElementById("orcCondoList")?.addEventListener("keydown", e => {
-    if (e.key !== "Enter" || e.target.closest("button")) return;
-    const item = e.target.closest("tr[data-orc-fonte]");
-    if (item) abrirPedido(item);
-  });
-
   // ⚠️ NÃO HÁ MAIS DELEGAÇÃO DE MODAL AQUI (02/09/2026). Esta aba tinha uma
   // cópia inteira do tratamento de cliques, edição inline de item, fechar no
   // backdrop e no Esc — tudo para um modal que já existia em `_avBindEventos`.
@@ -16470,13 +15033,9 @@ function _orcBindEventos() {
 // ─── Planos de manutenção preventiva ─────────────────────────────────────────
 
 let _pmData         = [];
-let _pmTabAtiva     = "todos";
 // Condomínios ativos SEM plano — chegam junto da lista e alimentam a aba
 // "Sem plano". Não são planos: a linha deles oferece criar um.
 let _pmSemPlano     = [];
-// Qual linha tem o menu "⋯" aberto. Um por vez: dois menus abertos numa
-// tabela de 80 linhas é só ruído.
-let _pmMenuAberto   = null;
 // A competência que a tela está mostrando ("YYYY-MM"). Nula = o mês corrente,
 // e é o servidor quem resolve — a tela não adivinha o mês dele.
 let _pmMes          = null;
@@ -16679,327 +15238,11 @@ function _pmMesCorrente() {
   return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function _pmBusca() {
-  return (document.getElementById("pmBusca")?.value || "").trim().toLowerCase();
-}
-
-function _pmFiltrados() {
-  const q = _pmBusca();
-  return _pmData.filter(p => {
-    const balde = _pmBaldeDoMes(p);
-    if (_pmTabAtiva === "inativos") { if (p.ativo) return false; }
-    else if (_pmTabAtiva === "sem-plano") return false;   // essa aba não lista planos
-    else if (_pmTabAtiva === "todos")  { if (!p.ativo) return false; }
-    else if (balde !== _pmTabAtiva) return false;
-    if (q) {
-      const blob = `${p.condominio_nome || ""} ${p.titulo || ""} ${p.condominio_bairro || ""} ${p.tecnico_nome || ""}`.toLowerCase();
-      if (!blob.includes(q)) return false;
-    }
-    return true;
-  });
-}
-
-// A aba "Sem plano" lista CONDOMÍNIOS, não planos — mesma busca, outra fonte.
-function _pmSemPlanoFiltrados() {
-  const q = _pmBusca();
-  if (!q) return _pmSemPlano;
-  return _pmSemPlano.filter(c =>
-    `${c.nome || ""} ${c.bairro || ""} ${c.zona || ""}`.toLowerCase().includes(q));
-}
-
-function _pmRenderTudo() {
-  const ativos    = _pmData.filter(p => p.ativo);
-  const conta     = (b) => ativos.filter(p => _pmBaldeDoMes(p) === b).length;
-  const semDono   = conta("sem-dono");
-  const comDono   = conta("com-dono");
-  const emCampo   = conta("em-campo");
-  const feitas    = conta("feitas");
-  const atrasadas = ativos.filter(_pmAtrasada).length;
-  const inativos  = _pmData.filter(p => !p.ativo).length;
-  const semPlano  = _pmSemPlano.length;
-
-  // ⚠️ OS QUATRO CARTÕES VIRARAM UMA FRASE (molde da O.S., 18/11/2026). Os
-  // números são os mesmos de 04/09 (planos ativos, falta fazer, atrasadas,
-  // prédios sem plano), mais o andamento do mês que só as abas contavam. O
-  // que pede ação vira atalho para a aba: escalar quem está sem responsável,
-  // e criar plano para quem está de fora.
-  const faltaFazer = semDono + comDono;
-  const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-  const grid = document.getElementById("pmKpiGrid");
-  if (grid) {
-    const mesTxt = _pmMesPorExtenso(_pmMes || _pmMesCorrente());
-    const partes = [
-      pl(ativos.length, "prédio com preventiva", "prédios com preventiva"),
-      `em ${mesTxt}: ${faltaFazer ? `${faltaFazer} por fazer` : "nada por fazer"}${
-        emCampo ? `, ${emCampo} em campo` : ""}${feitas ? `, ${pl(feitas, "feita", "feitas")}` : ""}`,
-      atrasadas ? `<span class="pm-resumo-atraso">${pl(atrasadas, "atrasada", "atrasadas")}</span>` : "",
-    ].filter(Boolean).join(" · ");
-    const acoes = [
-      semDono ? `<button type="button" class="os-resumo-acao" data-pm-ir-aba="sem-dono">${pl(semDono, "sem responsável", "sem responsável")} →</button>` : "",
-      semPlano ? `<button type="button" class="os-resumo-acao" data-pm-ir-aba="sem-plano">${pl(semPlano, "prédio sem preventiva", "prédios sem preventiva")} →</button>` : "",
-    ].filter(Boolean).join(" ");
-    grid.innerHTML = `<span>${partes}.</span>${acoes ? " " + acoes : ""}`;
-  }
-
-  // O mês que a tela está mostrando, e o atalho de volta.
-  const rot = document.getElementById("pmMesRot");
-  if (rot) rot.textContent = _pmMesPorExtenso(_pmMes || _pmMesCorrente());
-  // ⚠️ O "hoje" só existe quando há para onde voltar — botão que não faz nada é
-  // pior que nenhum botão, a regra que Aprovados registrou em 31/08.
-  const btnHoje = document.getElementById("pmMesHoje");
-  if (btnHoje) btnHoje.hidden = !_pmMes || _pmMes === _pmMesCorrente();
-
-  // Contadores das tabs
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set("pmCtTodos",    ativos.length);
-  set("pmCtSemDono",  semDono);
-  set("pmCtComDono",  comDono);
-  set("pmCtEmCampo",  emCampo);
-  set("pmCtFeitas",   feitas);
-  set("pmCtSemPlano", semPlano);
-  set("pmCtInativos", inativos);
-
-  // Tabela. A ordem pela coluna (ver _ordenar) vale DENTRO de cada zona: a
-  // zona é o roteiro do técnico e continua agrupando; o Map do agrupamento
-  // guarda a ordem de inserção, então ordenar antes basta.
-  const _pmRank = { "sem-dono": 0, "com-dono": 1, "em-campo": 2, "feitas": 3 };
-  const lista = _ordenar("planos", _pmFiltrados(), {
-    predio:  p => p.condominio_nome || null,
-    mes:     p => p.ativo ? (_pmRank[_pmBaldeDoMes(p)] ?? 4) : 5,
-    proxima: p => _ordemData(p.proxima_em),
-  });
-  _ordemMarcar("planos");
-  const tbody = document.getElementById("pmTableBody");
-  const empty = document.getElementById("pmEmpty");
-  if (!tbody) return;
-
-  // ⚠️ O VAZIO NÃO VALE PARA A ABA "SEM PLANO": ela não lista planos, então
-  // `lista` está sempre vazia aqui e a tela cairia no estado vazio antes de
-  // desenhar os condomínios. O desenho dela mora lá embaixo, junto das outras
-  // linhas — ver o bloco antes do `tbody.innerHTML`.
-  if (!lista.length && _pmTabAtiva !== "sem-plano") {
-    tbody.innerHTML = "";
-    if (empty) {
-      // O vazio precisa dizer QUAL vazio é: "nenhum plano" numa aba filtrada
-      // manda criar plano quando o que falta é limpar o filtro.
-      empty.querySelector("p").textContent = _pmTabAtiva === "todos"
-        ? 'Nenhuma preventiva cadastrada. Clique em "+ Nova preventiva".'
-        : "Nenhuma preventiva nesta situação agora.";
-      empty.style.display = "flex";
-    }
-    return;
-  }
-  if (empty) empty.style.display = "none";
-
-  // Agrupa por zona mantendo a ordem de inserção (zonas sem nome ficam no final)
-  const grupos = new Map();
-  for (const p of lista) {
-    const z = p.condominio_zona || "Sem zona";
-    if (!grupos.has(z)) grupos.set(z, []);
-    grupos.get(z).push(p);
-  }
-  // Zona "Sem zona" sempre por último
-  const zonasOrdenadas = [...grupos.keys()].sort((a, b) => {
-    if (a === "Sem zona") return 1;
-    if (b === "Sem zona") return -1;
-    return a.localeCompare(b, "pt");
-  });
-
-  // Cabeçalho de grupo: nome da zona + técnico responsável, editável inline.
-  // (Era um card separado no topo da aba; aqui fica junto dos planos que a
-  // pessoa de fato atende.)
-  const linhaZona = zona => {
-    const temZona = zona !== "Sem zona";
-    const info    = (_pmZonasCache || []).find(z => z.zona === zona);
-    const zonaAttr = _waEscaparHtml(zona);
-
-    // A zona aceita vários técnicos (migration 066) — dois saem juntos pra
-    // rodar as preventivas da região e ambos precisam ver o roteiro.
-    const responsaveis = info?.tecnicos || [];
-
-    if (temZona && _pmZonaEditando === zona) {
-      const marcados = new Set(responsaveis.map(t => t.id));
-      const checks = (_pmTecnicosCache || []).map(t => `
-        <label class="pm-zona-chk">
-          <input type="checkbox" class="pm-chk" data-pm-zona-tec="${t.id}" ${marcados.has(t.id) ? "checked" : ""}>
-          ${_waEscaparHtml(t.nome)}
-        </label>`).join("");
-      return `
-        <tr class="pm-zona-row is-editando">
-          <td colspan="5">
-            <span class="pm-zona-nome">${zonaAttr}</span>
-            <span class="pm-zona-chks">${checks || `<span class="pm-zona-resp is-vazio">nenhum técnico cadastrado</span>`}</span>
-            <button class="btn btnAccent btn-sm" data-pm-zona-acao="salvar" data-pm-zona="${zonaAttr}">Salvar</button>
-            <button class="btn btn-sm" data-pm-zona-acao="cancelar">Cancelar</button>
-          </td>
-        </tr>`;
-    }
-
-    const nomes = responsaveis.map(t => _waEscaparHtml(t.nome)).join(" · ");
-    return `
-      <tr class="pm-zona-row">
-        <td colspan="5">
-          <span class="pm-zona-nome">${zonaAttr}</span>
-          ${temZona ? `
-            <span class="pm-zona-resp ${nomes ? "" : "is-vazio"}">${nomes || "sem responsável"}</span>
-            <button class="pm-zona-edit viewer-only-hide" data-pm-zona-edit="${zonaAttr}"
-                    title="Definir técnicos responsáveis pela zona" aria-label="Definir responsáveis de ${zonaAttr}">✎</button>
-          ` : ""}
-        </td>
-      </tr>`;
-  };
-
-  // ⚠️ A COLUNA "ESTE MÊS" É O ACOMPANHAMENTO (04/09/2026), e ela é a metade
-  // da tela que não existia. O selo diz o ESTADO e a linha de baixo diz QUEM —
-  // é a gramática do `.pv-selo` da tela de Preventivas do operador, de
-  // propósito: as duas telas falam do mesmo mês e não podem parecer produtos
-  // diferentes.
-  const celulaMes = p => {
-    if (!p.ativo) return `<span class="pm-selo" data-e="off">Pausado</span>`;
-    const balde = _pmBaldeDoMes(p);
-    const selo = p.estado === "feita"
-      ? `<span class="pm-selo" data-e="feita">Feita${p.fechado_em ? " · " + _pmFmtData(p.fechado_em) : ""}</span>`
-      : p.estado === "em_campo"
-        ? `<span class="pm-selo" data-e="campo">Em campo · #${p.chamado_aberto_id}</span>`
-        : balde === "com-dono"
-          ? `<span class="pm-selo" data-e="dono">Com responsável</span>`
-          : `<span class="pm-selo" data-e="sem">Sem responsável</span>`;
-    // ⚠️ A ORIGEM É ETIQUETA DENTRO DA FRASE, não outra linha — a regra que a
-    // tela de Preventivas aprendeu: "escalado" é decisão de alguém neste mês,
-    // "pela zona" é o padrão da região, e sem a distinção o admin não sabe o
-    // que já foi despachado à mão.
-    const quem = p.tecnico_nome
-      ? `<span class="pm-quem">${_waEscaparHtml(p.tecnico_nome)}<span class="pm-origem${
-           p.tecnico_origem === "escala" ? " is-escala" : ""}">${
-           p.tecnico_origem === "escala" ? "escalado" : "pela zona"}</span></span>`
-      : `<button type="button" class="pm-despachar viewer-only-hide" data-pm-action="despachar"
-                 data-pm-id="${p.id}">Escalar técnico</button>`;
-    return `${selo}<div class="pm-quem-linha">${quem}</div>`;
-  };
-
-  const linhaPlano = p => {
-    const st = _pmStatus(p);
-    // ⚠️ A PERIODICIDADE SÓ APARECE QUANDO NÃO É MENSAL. Ela tinha coluna
-    // própria e escrevia "Mensal" 76 vezes em 76 — uma coluna inteira sem
-    // informação. Como etiqueta, ela só fala quando tem o que dizer.
-    const perio = p.periodicidade_dias === 30 ? ""
-      : `<span class="pm-pill-perio">${_waEscaparHtml(_pmPeriodLabel(p.periodicidade_dias))}</span>`;
-    // O título só aparece quando NÃO é a preventiva padrão — 75 dos 76 se
-    // chamam "Preventiva", e repetir isso em toda linha era o defeito antigo.
-    const titulo = (p.titulo && p.titulo.trim().toLowerCase() !== "preventiva")
-      ? `<span class="pm-pill-perio">${_waEscaparHtml(p.titulo)}</span>` : "";
-    const onde = [p.condominio_bairro, p.ultima_em ? `última ${_pmFmtData(p.ultima_em)}` : "nunca executado"]
-      .filter(Boolean).map(_waEscaparHtml).join(" · ");
-    return `<tr data-pm-id="${p.id}" class="pm-row${p.ativo ? "" : " is-inativo"}${_pmAtrasada(p) ? " is-atrasada" : ""}">
-      <td><input type="checkbox" class="pm-chk viewer-only-hide" data-pm-chk="${p.id}" ${_pmSelecionados.has(p.id) ? "checked" : ""}></td>
-      <td>
-        <div class="pm-predio">
-          ${p.condominio_id
-            ? `<button type="button" class="os-link" data-pm-condo-link="${p.condominio_id}" title="Abrir a ficha do condomínio">${_waEscaparHtml(p.condominio_nome || "—")}</button>`
-            : _waEscaparHtml(p.condominio_nome || "—")}
-          ${perio}${titulo}
-          ${p.ativo ? "" : `<span class="pm-pill-off">inativo</span>`}
-          ${_pmAtrasada(p) ? `<span class="pm-pill-atraso">atrasada</span>` : ""}
-        </div>
-        <div class="pm-plano-sub">${onde}</div>
-      </td>
-      <td class="pm-mes">${celulaMes(p)}</td>
-      <td>
-        <div class="pm-prox-data">${_pmFmtData(p.proxima_em)}</div>
-        ${st.chamadoId
-          ? `<button type="button" class="pm-prox-delta ${st.deltaCls} pm-link-chamado"
-                     data-pm-chamado="${st.chamadoId}" title="Abrir chamado #${st.chamadoId}">${st.delta}</button>`
-          : `<div class="pm-prox-delta ${st.deltaCls}">${st.delta}</div>`}
-      </td>
-      <td>
-        <div class="pm-acoes viewer-only-hide">
-          <button class="btn btn-sm" data-pm-action="editar" data-pm-id="${p.id}">Editar</button>
-          <div class="pm-menu-wrap">
-            <button class="btn btn-sm pm-menu-btn" data-pm-action="menu" data-pm-id="${p.id}"
-                    aria-haspopup="true" aria-expanded="${_pmMenuAberto === p.id ? "true" : "false"}"
-                    aria-label="Mais ações">⋯</button>
-            ${_pmMenuAberto === p.id ? `
-            <div class="pm-menu" role="menu">
-              <button type="button" role="menuitem" data-pm-action="executar" data-pm-id="${p.id}">Gerar chamado agora</button>
-              <button type="button" role="menuitem" data-pm-action="despachar" data-pm-id="${p.id}">Escalar técnico do mês</button>
-              <button type="button" role="menuitem" class="is-danger" data-pm-action="excluir" data-pm-id="${p.id}">${
-                p.ativo ? "Desativar preventiva" : "Reativar preventiva"}</button>
-            </div>` : ""}
-          </div>
-        </div>
-      </td>
-    </tr>`;
-  };
-
-  // ⚠️ A LINHA DO PRÉDIO SEM PLANO NÃO É UM PLANO, e por isso não tem caixa de
-  // seleção, estado nem data: ela tem uma pergunta e uma ação. É a única linha
-  // da tabela que CRIA em vez de editar.
-  const linhaSemPlano = c => `
-    <tr class="pm-row is-sem-plano">
-      <td></td>
-      <td>
-        <div class="pm-predio"><button type="button" class="os-link" data-pm-condo-link="${c.id}" title="Abrir a ficha do condomínio">${_waEscaparHtml(c.nome || "—")}</button></div>
-        <div class="pm-plano-sub">${_waEscaparHtml([c.bairro, c.zona].filter(Boolean).join(" · ") || "sem zona")}</div>
-      </td>
-      <td class="pm-mes"><span class="pm-selo" data-e="sem">Sem preventiva</span></td>
-      <td><div class="pm-prox-delta is-off">—</div></td>
-      <td>
-        <div class="pm-acoes viewer-only-hide">
-          <button class="btn btn-sm btnAccent" data-pm-action="criar-para" data-pm-condo="${c.id}">Criar preventiva</button>
-        </div>
-      </td>
-    </tr>`;
-
-  // ⚠️ ESTE BLOCO PRECISA VIR DEPOIS DE `linhaSemPlano`, e o motivo custou um
-  // clique morto em produção (04/09/2026): ele estava lá em cima, ANTES da
-  // definição, e `const` num bloco vive em temporal dead zone até a linha em
-  // que é declarado. O clique na aba lançava
-  // "ReferenceError: Cannot access 'linhaSemPlano' before initialization",
-  // o `_pmRenderTudo` morria no meio e a tabela ficava como estava — o Pedro:
-  // "eu clico e nada acontece".
-  //
-  // ⚠️ Erro silencioso: o handler da aba não tem try/catch, então nada aparece
-  // na tela; só no console. Ao mover código para dentro do `_pmRenderTudo`,
-  // confira se ele está DEPOIS do que usa.
-  if (_pmTabAtiva === "sem-plano") {
-    const fora = _pmSemPlanoFiltrados();
-    if (empty) {
-      empty.querySelector("p").textContent = "Todos os prédios ativos têm manutenção preventiva.";
-      empty.style.display = fora.length ? "none" : "flex";
-    }
-    tbody.innerHTML = fora.map(linhaSemPlano).join("");
-    _pmAtualizarBulkBar();
-    return;
-  }
-
-  tbody.innerHTML = zonasOrdenadas
-    .flatMap(z => [linhaZona(z), ...grupos.get(z).map(linhaPlano)])
-    .join("");
-
-  // remove da seleção ids que sumiram da lista carregada (ex: filtro/exclusão)
-  const idsAtuais = new Set(_pmData.map(p => p.id));
-  for (const id of _pmSelecionados) if (!idsAtuais.has(id)) _pmSelecionados.delete(id);
-
-  _pmAtualizarBulkBar();
-}
-
-function _pmAtualizarBulkBar() {
-  const bar = document.getElementById("pmBulkBar");
-  const chkAll = document.getElementById("pmChkAll");
-  if (!bar) return;
-
-  const n = _pmSelecionados.size;
-  bar.style.display = n > 0 ? "flex" : "none";
-  const count = document.getElementById("pmBulkCount");
-  if (count) count.textContent = `${n} selecionado${n === 1 ? "" : "s"}`;
-
-  if (chkAll) {
-    const visiveis = _pmFiltrados();
-    const todosMarcados = visiveis.length > 0 && visiveis.every(p => _pmSelecionados.has(p.id));
-    chkAll.checked = todosMarcados;
-    chkAll.indeterminate = !todosMarcados && visiveis.some(p => _pmSelecionados.has(p.id));
-  }
-}
+// A tela é a lista no molde (admin-prev-lista.js): ela embrulha esta função e
+// redesenha a lista e o painel (e admin-condo-lista.js, a coluna de
+// preventiva dos condomínios). Quem grava continua passando por carregarPlanos,
+// que chama esta.
+function _pmRenderTudo() {}
 
 /* ══════════════════════════════════════════════════════════════════════════
    AS AÇÕES EM LOTE DA PREVENTIVA (04/09/2026)
@@ -17476,19 +15719,11 @@ async function _pmDespachar(plano) {
 
 async function _pmAcao(acao, id) {
   const plano = _pmData.find(p => p.id === id);
-  // O menu "⋯" é estado de tela, não ação: alterna e redesenha.
-  if (acao === "menu") {
-    _pmMenuAberto = _pmMenuAberto === id ? null : id;
-    _pmRenderTudo();
-    return;
-  }
   if (acao === "despachar") {
-    _pmMenuAberto = null;
     await _pmDespachar(plano);
     return;
   }
   if (acao === "editar") {
-    _pmMenuAberto = null;
     _pmAbrirModal(plano);
     return;
   }
@@ -17537,12 +15772,11 @@ Gerar mesmo assim?`
 
 // ─── Responsáveis por zona ───────────────────────────────────────────────────
 //
-// Não existe painel próprio: o responsável é mostrado e editado no cabeçalho
-// de cada grupo de zona da tabela (ver `linhaZona` em _pmRenderTudo).
+// Mostrado e editado no painel da preventiva (admin-prev-lista.js), que lê
+// _pmZonasCache e _pmTecnicosCache.
 
 let _pmZonasCache = null;    // { zona, tecnico_id, tecnico_nome }[]
 let _pmTecnicosCache = null;
-let _pmZonaEditando = null;  // zona com o editor inline aberto (só uma por vez)
 
 async function _pmCarregarTecnicos() {
   if (_pmTecnicosCache) return _pmTecnicosCache;
@@ -17561,7 +15795,7 @@ async function _pmCarregarZonas() {
       _pmCarregarTecnicos(),
     ]);
     _pmZonasCache = rz.ok ? await rz.json() : [];
-    _pmRenderTudo(); // os responsáveis moram nos cabeçalhos de zona da tabela
+    _pmRenderTudo(); // a coluna Zona e o painel mostram os responsáveis
   } catch (e) {
     console.error("_pmCarregarZonas:", e);
   }
@@ -17576,7 +15810,6 @@ async function _pmSalvarZona(zona, tecnicoIds, btn) {
         body: JSON.stringify({ tecnico_ids: tecnicoIds }) }
     );
     if (!r.ok) throw new Error("Erro ao salvar responsável da zona");
-    _pmZonaEditando = null;
     _pmZonasCache = null;
     await _pmCarregarZonas();
   } catch (e) {
@@ -17588,142 +15821,6 @@ async function _pmSalvarZona(zona, tecnicoIds, btn) {
 function _pmBindEventos() {
   if (_pmBindFeito) return;
   _pmBindFeito = true;
-
-  document.querySelectorAll("[data-pm-tab]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      _pmTabAtiva = btn.dataset.pmTab;
-      document.querySelectorAll("[data-pm-tab]").forEach(b => b.classList.toggle("is-active", b === btn));
-      _pmSelecionados.clear();
-      _pmRenderTudo();
-    });
-  });
-
-  // ⚠️ O MENU "⋯" FECHA AO CLICAR FORA. Sem isto ele fica aberto por cima da
-  // linha seguinte enquanto a pessoa vai clicar em outra coisa — e o clique
-  // seguinte cai no item errado do menu, não no que ela mirou.
-  document.addEventListener("click", (e) => {
-    if (_pmMenuAberto === null) return;
-    if (e.target.closest(".pm-menu-wrap")) return;
-    _pmMenuAberto = null;
-    _pmRenderTudo();
-  });
-  // Esc fecha também: é o par obrigatório de qualquer coisa que abre por cima.
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && _pmMenuAberto !== null) { _pmMenuAberto = null; _pmRenderTudo(); }
-  });
-
-  // ⚠️ TROCAR O MÊS RECARREGA DO SERVIDOR, não redesenha. O estado do mês
-  // (escala, chamado, feita) é calculado LÁ, contra a competência — refazer
-  // isso no front seria a segunda leitura do mesmo mês que o
-  // `preventivas.service` existe para impedir.
-  document.querySelectorAll("[data-pm-mes]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const passo = Number(btn.dataset.pmMes);
-      _pmMes = passo === 0 ? _pmMesCorrente()
-                           : _pmMesVizinho(_pmMes || _pmMesCorrente(), passo);
-      // A seleção não sobrevive à troca: ids marcados em setembro despachados
-      // como se fossem de outubro é o erro que a competência existe para
-      // impedir. Mesma regra da tela de Preventivas.
-      _pmSelecionados.clear();
-      _pmMenuAberto = null;
-      await carregarPlanos();
-    });
-  });
-
-  document.getElementById("pmBusca")?.addEventListener("input", _pmRenderTudo);
-  document.getElementById("pmBtnNovo")?.addEventListener("click", () => _pmAbrirModal(null));
-
-  // A frase-resumo leva à aba do que pede ação.
-  document.getElementById("pmKpiGrid")?.addEventListener("click", (e) => {
-    const ir = e.target.closest("[data-pm-ir-aba]");
-    if (ir) document.querySelector(`[data-pm-tab="${ir.dataset.pmIrAba}"]`)?.click();
-  });
-  document.getElementById("pmTableBody")?.addEventListener("click", (e) => {
-    // O nome do prédio abre a ficha dele, na aba do contrato e do plano.
-    const condoLink = e.target.closest("[data-pm-condo-link]");
-    if (condoLink) { abrirFichaCondominio(Number(condoLink.dataset.pmCondoLink), "contrato"); return; }
-    // "Criar plano" na linha do prédio SEM plano — abre o modal já com o
-    // condomínio escolhido. É a única ação da tabela que cria em vez de editar.
-    const criar = e.target.closest("[data-pm-action='criar-para']");
-    if (criar) {
-      _pmAbrirModal(null, Number(criar.dataset.pmCondo));
-      return;
-    }
-
-    const btn = e.target.closest("[data-pm-action]");
-    if (btn) {
-      _pmAcao(btn.dataset.pmAction, Number(btn.dataset.pmId));
-      return;
-    }
-
-    // "chamado #N em andamento" → abre o chamado na aba Chamados
-    const link = e.target.closest("[data-pm-chamado]");
-    if (link) {
-      _chAbrirPagina(Number(link.dataset.pmChamado));
-      return;
-    }
-
-    // Responsável da zona — editor inline no cabeçalho do grupo
-    const editar = e.target.closest("[data-pm-zona-edit]");
-    if (editar) {
-      _pmZonaEditando = editar.dataset.pmZonaEdit;
-      _pmRenderTudo();
-      document.getElementById("pmZonaSelTec")?.focus();
-      return;
-    }
-
-    const acaoZona = e.target.closest("[data-pm-zona-acao]");
-    if (acaoZona) {
-      if (acaoZona.dataset.pmZonaAcao === "cancelar") {
-        _pmZonaEditando = null;
-        _pmRenderTudo();
-        return;
-      }
-      const ids = [...document.querySelectorAll("[data-pm-zona-tec]:checked")]
-        .map(el => Number(el.dataset.pmZonaTec));
-      _pmSalvarZona(acaoZona.dataset.pmZona, ids, acaoZona);
-      return;
-    }
-
-    // ⚠️ A LINHA ABRE A PREVENTIVA (18/11/2026), como a linha da O.S., do
-    // chamado e do orçamento. Antes só o botão Editar abria. Caixa de
-    // seleção, link, botão e menu ficaram com o deles (todos saem acima ou
-    // são ignorados aqui). Abre só quando o Editar da linha está à vista:
-    // a mesma permissão de antes, sem regra nova (operador e visualizador
-    // não veem o botão, então a linha não abre para eles).
-    if (e.target.closest("input, button, a, .pm-menu-wrap")) return;
-    const linha = e.target.closest("tr.pm-row[data-pm-id]");
-    const editarVisivel = linha?.querySelector('[data-pm-action="editar"]')?.offsetParent;
-    if (linha && editarVisivel) _pmAcao("editar", Number(linha.dataset.pmId));
-  });
-
-  document.getElementById("pmTableBody")?.addEventListener("change", (e) => {
-    const chk = e.target.closest("[data-pm-chk]");
-    if (!chk) return;
-    const id = Number(chk.dataset.pmChk);
-    if (chk.checked) _pmSelecionados.add(id);
-    else _pmSelecionados.delete(id);
-    _pmAtualizarBulkBar();
-  });
-
-  document.getElementById("pmChkAll")?.addEventListener("change", (e) => {
-    const marcar = e.target.checked;
-    for (const p of _pmFiltrados()) {
-      if (marcar) _pmSelecionados.add(p.id);
-      else _pmSelecionados.delete(p.id);
-    }
-    _pmRenderTudo();
-  });
-
-  document.getElementById("pmBulkEscalar")?.addEventListener("click", _pmBulkEscalar);
-  document.getElementById("pmBulkChamado")?.addEventListener("click", _pmBulkChamado);
-  document.getElementById("pmBulkEditar")?.addEventListener("click", _pmAbrirModalBulk);
-  document.getElementById("pmBulkAtivar")?.addEventListener("click", () => _pmAcaoBulk(true));
-  document.getElementById("pmBulkDesativar")?.addEventListener("click", () => _pmAcaoBulk(false));
-  document.getElementById("pmBulkLimpar")?.addEventListener("click", () => {
-    _pmSelecionados.clear();
-    _pmRenderTudo();
-  });
 
   document.getElementById("pmModalBackdrop")?.addEventListener("click", _pmFecharModal);
   document.getElementById("pmModalClose")?.addEventListener("click", _pmFecharModal);
@@ -17857,17 +15954,11 @@ function _pmBindEventos() {
 
   function _gsNavegar(item) {
     if (item.type === "condo") {
-      showSection("cadastros");
-      _cliFiltros.busca = item.title;
-      _cliSelecionadoId = item.id;
-      renderClientes();
+      abrirFichaCondominio(item.id);
     } else if (item.type === "chamado") {
       _chAbrirPagina(item.id);
     } else if (item.type === "tecnico") {
-      showSection("tecnicos");
-      _tecSelecionadoId = item.id;
-      renderTecnicos();
-      setTimeout(() => document.querySelector(`[data-tec-id="${item.id}"]`)?.scrollIntoView({ block: "nearest" }), 80);
+      if (window.GBColab) window.GBColab.abrir(item.id); else showSection("tecnicos");
     } else if (item.type === "alerta") {
       showSection("alertas");
       _alSelecionadoKey = item.key;
@@ -17948,6 +16039,7 @@ const _EQ_STATUS_LABEL = {
 };
 
 let _eqDados = [];
+let _eqErroCarga = null; // a tela (admin-eq-lista.js) diz "não consegui carregar"
 let _eqEventosLigados = false;
 
 function _eqEsc(s) {
@@ -17978,8 +16070,6 @@ const _EQ_ABAS = {
 // não equipamento) e baixado no fim.
 const _EQ_RANK = { pronto: 0, oficina: 1, aguardando_orcamento: 1, aguardando_peca: 1, em_conserto: 1,
                    instalado: 2, devolvido: 3, etiqueta_livre: 4, baixado: 5 };
-let _eqAba = "todos";
-
 function _eqNome(eq) {
   return eq.apelido || [eq.marca, eq.modelo].filter(Boolean).join(" ")
       || (eq.tipo ? eq.tipo[0].toUpperCase() + eq.tipo.slice(1) : "");
@@ -17992,107 +16082,27 @@ function _eqDataCurta(iso) {
 }
 
 async function _eqCarregar() {
-  const busca  = document.getElementById("eqBusca")?.value.trim();
-  const qs = new URLSearchParams();
-  if (busca) qs.set("q", busca);
-  qs.set("limit", "500");
-
-  const tbody = document.getElementById("eqTableBody");
-  if (!tbody) return;
-
+  // A lista vem inteira (500 de uma vez): a busca, as visões e a ordem são da
+  // tela, em admin-eq-lista.js.
   try {
-    const r = await fetch(`/equipamentos?${qs}`, { headers: authHeaders() });
+    const r = await fetch("/equipamentos?limit=500", { headers: authHeaders() });
     const dados = await lerRespostaJson(r, "Equipamentos");
     if (!r.ok) throw new Error(dados.error || "Erro ao listar equipamentos");
     _eqDados = dados;
+    _eqErroCarga = null;
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="4" class="muted">${_eqEsc(e.message)}</td></tr>`;
+    _eqErroCarga = e.message;
+    _eqRender();
     return;
   }
   _eqRender();
   _eqPreencherLotes();
 }
 
-function _eqRender() {
-  const tbody = document.getElementById("eqTableBody");
-  if (!tbody) return;
-  const naAba = (aba) => (eq) => !_EQ_ABAS[aba] || _EQ_ABAS[aba].includes(eq.status);
-  const conta = (aba) => _eqDados.filter(naAba(aba)).length;
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  set("eqCtTodos", _eqDados.length);
-  set("eqCtInstalado", conta("instalado"));
-  set("eqCtBancada", conta("bancada"));
-  set("eqCtPronto", conta("pronto"));
-  set("eqCtLivre", conta("livre"));
-  set("eqCtBaixado", conta("baixado"));
-
-  // A frase: o parque e o que pede ação (devolver o que está pronto; depois,
-  // o que está parado na bancada).
-  const res = document.getElementById("eqResumo");
-  if (res) {
-    const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-    const equip = _eqDados.length - conta("livre");
-    const partes = [
-      pl(equip, "equipamento", "equipamentos"),
-      conta("instalado") ? `${conta("instalado")} no condomínio` : "",
-      conta("bancada") ? `${conta("bancada")} na oficina` : "",
-      conta("livre") ? pl(conta("livre"), "etiqueta em branco", "etiquetas em branco") : "",
-    ].filter(Boolean).join(" · ");
-    const acao = conta("pronto")
-      ? ` <button type="button" class="os-resumo-acao" data-eq-ir-aba="pronto">${pl(conta("pronto"), "pronto", "prontos")} para devolver →</button>`
-      : "";
-    res.innerHTML = `<span>${partes}.</span>${acao}`;
-  }
-
-  const filtrados = _eqDados.filter(naAba(_eqAba))
-    .map((eq, i) => [eq, i])
-    .sort((a, b) => (_EQ_RANK[a[0].status] ?? 9) - (_EQ_RANK[b[0].status] ?? 9) || a[1] - b[1])
-    .map(p => p[0]);
-  const lista = _ordenar("equipamentos", filtrados, {
-    equip:    eq => _eqNome(eq) || null,
-    condo:    eq => eq.condominio_nome || null,
-    situacao: eq => _EQ_RANK[eq.status] ?? 9,
-  });
-  _ordemMarcar("equipamentos");
-
-  if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="muted">${_eqDados.length
-      ? "Nenhum equipamento nesta situação."
-      : "Nenhum equipamento etiquetado ainda. Comece gerando um lote de etiquetas."}</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = lista.map(eq => {
-    const [label, cls] = _EQ_STATUS_LABEL[eq.status] || [eq.status, ""];
-    const nome = _eqNome(eq);
-    const livre = eq.status === "etiqueta_livre";
-    const apoio = [
-      `<span class="mono">${_eqFormatarCodigo(eq.codigo)}</span>`,
-      // o tipo só quando o nome NÃO veio dele (sem apelido, marca e modelo,
-      // o nome já é o tipo, e repetir seria ruído)
-      eq.tipo && (eq.apelido || eq.marca || eq.modelo) ? _eqEsc(eq.tipo) : "",
-      eq.numero_serie ? `série ${_eqEsc(eq.numero_serie)}` : "",
-      eq.lote ? `lote ${_eqEsc(eq.lote)}` : "",
-    ].filter(Boolean).join(" · ");
-    const condo = eq.condominio_id
-      ? `<button type="button" class="os-link" data-eq-condo="${eq.condominio_id}" title="Abrir a ficha do condomínio">${_eqEsc(eq.condominio_nome || "—")}</button>`
-      : `<span class="muted">${livre ? "ainda sem vínculo" : "—"}</span>`;
-    const desde = eq.condominio_id && eq.vinculado_em ? `<span class="os-sub">desde ${_eqDataCurta(eq.vinculado_em)}</span>` : "";
-    const naBancada = _EQ_ABAS.bancada.includes(eq.status) || eq.status === "pronto";
-    const subSit = naBancada && eq.defeito_relatado
-      ? `<span class="os-sub">${_eqEsc(eq.defeito_relatado)}</span>`
-      : (eq.ultima_movimentacao_em ? `<span class="os-sub">mudou em ${_eqDataCurta(eq.ultima_movimentacao_em)}</span>` : "");
-    return `<tr class="pro-row${livre ? " is-livre" : ""}" data-eq-codigo="${_eqEsc(eq.codigo)}" tabindex="0" title="Abrir a ficha do equipamento (outra aba)">
-      <td class="pro-cli">
-        <span class="pro-cli-nome">${nome ? _eqEsc(nome) : `<span class="muted">Etiqueta em branco</span>`}</span>
-        <span class="os-sub">${apoio}</span>
-      </td>
-      <td>${condo}${desde}</td>
-      <td class="pro-sit"><span class="os-sit-linha"><span class="badge ${cls}">${_eqEsc(label)}</span></span>${subSit}</td>
-      <td class="pro-acao eq-abre-cel"><a class="eq-abre" href="/e/${_eqEsc(eq.codigo)}" target="_blank" rel="noopener" tabindex="-1" aria-label="Abrir a ficha de ${_eqEsc(nome || "etiqueta em branco")} em outra aba">↗</a></td>
-    </tr>`;
-  }).join("");
-}
+// A tela é a lista no molde (admin-eq-lista.js): ela embrulha esta função e
+// redesenha a lista e o painel. Quem recarrega (gerar lote, apagar lote,
+// desfazer cadastro) continua passando por aqui.
+function _eqRender() {}
 
 /** Lotes existentes, dos mais novos pros mais antigos. */
 function _eqPreencherLotes() {
@@ -18115,8 +16125,8 @@ async function _eqNovoLote() {
     return;
   }
 
-  const btn = document.getElementById("btnEqNovoLote");
-  btn.disabled = true;
+  const btn = document.querySelector("[data-eq-gerar]");
+  if (btn) btn.disabled = true;
   try {
     const r = await fetch("/equipamentos/lote", {
       method: "POST",
@@ -18135,7 +16145,7 @@ async function _eqNovoLote() {
   } catch (e) {
     alert(e.message);
   } finally {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -18342,7 +16352,6 @@ function _eqBindEventos() {
   if (_eqEventosLigados) return;
   _eqEventosLigados = true;
 
-  document.getElementById("btnEqNovoLote")?.addEventListener("click", _eqNovoLote);
   document.getElementById("btnEqImprimir")?.addEventListener("click", _eqImprimir);
 
   // Apagar lote é irreversível e some pra quem não é admin master. Esconder é
@@ -18360,39 +16369,6 @@ function _eqBindEventos() {
     cardDesfazer.style.display = "";
     document.getElementById("btnEqDesfazer")?.addEventListener("click", _eqDesfazerCadastro);
   }
-
-  // Abas (client-side) e o atalho da frase.
-  document.querySelector('.section[data-section="equipamentos"]')?.addEventListener("click", (e) => {
-    const tab = e.target.closest("[data-eq-tab]") ||
-      (e.target.closest("[data-eq-ir-aba]") &&
-        document.querySelector(`[data-eq-tab="${e.target.closest("[data-eq-ir-aba]").dataset.eqIrAba}"]`));
-    if (!tab) return;
-    _eqAba = tab.dataset.eqTab;
-    document.querySelectorAll("[data-eq-tab]").forEach(b => b.classList.toggle("is-active", b === tab));
-    _eqRender();
-  });
-
-  let _debounce;
-  document.getElementById("eqBusca")?.addEventListener("input", () => {
-    clearTimeout(_debounce);
-    _debounce = setTimeout(_eqCarregar, 300);
-  });
-
-  // Clicar na linha abre a mesma ficha que o QR abre — uma tela só pros dois
-  // caminhos, sem versão "de escritório" que diverge da versão da bancada.
-  document.getElementById("eqTableBody")?.addEventListener("click", (ev) => {
-    // O nome do prédio abre a ficha dele, na aba Equipamentos.
-    const condo = ev.target.closest("[data-eq-condo]");
-    if (condo) { abrirFichaCondominio(Number(condo.dataset.eqCondo), "equipamentos"); return; }
-    if (ev.target.closest("a")) return; // "Abrir ficha" já é link
-    const tr = ev.target.closest("tr[data-eq-codigo]");
-    if (tr) window.open(`/e/${tr.dataset.eqCodigo}`, "_blank");
-  });
-  document.getElementById("eqTableBody")?.addEventListener("keydown", (ev) => {
-    if (ev.key !== "Enter" || ev.target.closest("a, button")) return;
-    const tr = ev.target.closest("tr[data-eq-codigo]");
-    if (tr) window.open(`/e/${tr.dataset.eqCodigo}`, "_blank");
-  });
 }
 
 
@@ -18493,11 +16469,5 @@ async function _orcAbrirDaBancada(orcamentoId) {
 // A O.S. volta à página 1: ordenar e continuar na página 4 mostraria outra
 // fatia sem aviso.
 _ordemRender.chamados   = () => renderChTabela();
-_ordemRender.os         = () => { _osPagina = 1; _osRenderTabela(); };
-_ordemRender["orc-av"]  = () => _avRenderTudo();
-_ordemRender["orc-os"]  = () => _orcRenderTudo();
 _ordemRender.contratos  = () => _ctrsRender();
-_ordemRender.condominios = () => renderCliTabela();
-_ordemRender.planos     = () => _pmRenderTudo();
-_ordemRender.equipamentos = () => _eqRender();
 _ordemRender.notas      = () => typeof renderNotas === "function" && renderNotas();

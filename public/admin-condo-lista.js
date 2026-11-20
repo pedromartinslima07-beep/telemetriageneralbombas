@@ -12,16 +12,16 @@
 // _condominios (cadastro), _cliAgua (água, do _statusData do mapa),
 // _cliChamados (abertos e urgentes), _contratosByCondoId e _ctrStatusVisual
 // (contrato vigente), _pmData e _pmBaldeDoMes (preventiva do mês, a mesma
-// leitura da tela Preventivas). A lista antiga continua no HTML, escondida
-// (.cli-antigo[hidden]), porque o boot e o _carregarContratosMetricas ainda
-// desenham nela; os ganchos no fim redesenham esta junto.
+// leitura da tela Preventivas). A lista antiga saiu do HTML em 20/11/2026:
+// renderCliTabela no admin.js é vazio, e os ganchos no fim (dele e do
+// _pmRenderTudo) são quem desenha esta tela.
 
 (function () {
   if (!window.GBLista) return;
   const { esc, ico } = window.GBLista;
 
   const st = { planosPedidos: false };
-  // A ordem de trabalho é por nome, como a lista antiga (_cliFiltrados): o
+  // A ordem de trabalho é por nome, como a lista antiga: o
   // servidor devolve na ordem do cadastro.
   let _ordemCache = { fonte: null, lista: [] };
   const dados = () => {
@@ -42,7 +42,27 @@
   const agua = c => (typeof _cliAgua === "function" ? _cliAgua(c.id) : { txt: "—", sub: "", cls: "nada", peso: 4 });
   const AGUA_SELO = { bad: "ri", warn: "at", ok: "ok", nada: "cz" };
   const chamados = c => (typeof _cliChamados === "function" ? _cliChamados(c.id) : { abertos: 0, urgentes: 0 });
-  const contrato = c => (typeof _contratosByCondoId !== "undefined" ? _contratosByCondoId.get(Number(c.id)) : null) || null;
+  // O contrato do sistema e, sem ele, o ATIVO do Omie (admin-omie-contratos.js,
+  // 20/11/2026), no mesmo formato: assim a coluna, "Sem contrato", a ordem e o
+  // Exportar leem os dois sem regra nova. `_omie` marca a origem na célula.
+  // A soma dos contratos ATIVOS do Omie (null enquanto não carregou).
+  const omieMes = () => {
+    if (!window.GBOmie?.carregado()) return null;
+    const ids = new Set(dados().map(c => Number(c.id)));
+    let s = 0, n = 0;
+    for (const id of ids) for (const k of window.GBOmie.doPredio(id)) if (k.ativo) { s += Number(k.valor_mensal || 0); n++; }
+    return n ? s : null;
+  };
+  const contratoOmie = c => {
+    const k = window.GBOmie?.doPredio(c.id).find(x => x.ativo);
+    if (!k) return null;
+    // ⚠️ DATA PURA AO MEIO-DIA LOCAL: "2030-12-31" lido por `new Date` é
+    // meia-noite UTC, 21h do dia 30 aqui — a célula dizia "até 30/12".
+    const fim = k.vigencia_fim ? String(k.vigencia_fim).slice(0, 10) + "T12:00:00" : null;
+    const dias = fim ? Math.round((new Date(fim) - new Date(new Date().toDateString() + " 12:00")) / 864e5) : null;
+    return { valor_mensal: k.valor_mensal, fim_em: fim, dias_para_vencer: dias, ativo: true, numero: k.numero, _omie: true };
+  };
+  const contrato = c => (typeof _contratosByCondoId !== "undefined" ? _contratosByCondoId.get(Number(c.id)) : null) || contratoOmie(c) || null;
   const planos = () => (typeof _pmData !== "undefined" && Array.isArray(_pmData) ? _pmData : []);
   const planoDe = c => planos().filter(p => Number(p.condominio_id) === Number(c.id) && p.ativo)
     .sort((a, b) => new Date(a.proxima_em || 0) - new Date(b.proxima_em || 0))[0] || null;
@@ -69,7 +89,7 @@
     if (!k) return `<span class="ls-mudo">sem contrato</span>`;
     const s = typeof _ctrStatusVisual === "function" ? _ctrStatusVisual(k) : { texto: "Ativo", cls: "ok" };
     const sel = s.cls === "bad" ? "ri" : s.cls === "warn" ? "at" : "ok";
-    return `<span class="ls-mono">${moeda(k.valor_mensal)}</span> por mês<span class="ls-sub">${s.cls === "ok" ? (k.fim_em ? "até " + new Date(k.fim_em).toLocaleDateString("pt-BR") : "sem fim") : `<span class="ls-selo is-${sel}">${esc(s.texto)}</span>`}</span>`;
+    return `<span class="ls-mono">${moeda(k.valor_mensal)}</span> por mês<span class="ls-sub">${k._omie ? "no Omie · " : ""}${s.cls === "ok" ? (k.fim_em ? "até " + new Date(k.fim_em).toLocaleDateString("pt-BR") : "sem fim") : `<span class="ls-selo is-${sel}">${esc(s.texto)}</span>`}</span>`;
   }
 
   const lista = window.GBLista.criar({
@@ -108,7 +128,9 @@
       const partes = [
         `<b>${pl(ativos, "condomínio ativo", "condomínios ativos")}</b>${inativos ? ` (${pl(inativos, "inativo", "inativos")})` : ""}`,
         `<b>${ch}</b> ${ch === 1 ? "chamado em aberto" : "chamados em aberto"}`,
-        gestao() && m ? `<b>${moeda(m.mrr)}</b> por mês em contratos` : "",
+        gestao() && m && Number(m.mrr) > 0 ? `<b>${moeda(m.mrr)}</b> por mês em contratos` : "",
+        gestao() && omieMes() != null ? `<b>${moeda(omieMes())}</b> por mês em contratos no Omie` : "",
+        gestao() && !(m && Number(m.mrr) > 0) && omieMes() == null && m ? `<b>${moeda(m.mrr)}</b> por mês em contratos` : "",
       ].filter(Boolean);
       let acao = "";
       if (gestao() && m?.vencidos > 0) acao = ` <button type="button" class="ls-lk is-forte" data-cli-ir-contratos="vencido">${pl(m.vencidos, "contrato vencido", "contratos vencidos")} →</button>`;

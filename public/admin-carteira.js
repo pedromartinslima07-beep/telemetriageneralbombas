@@ -525,7 +525,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ds.icNovoTipo) {
       alvo.closest(".hj-novo-menu").hidden = true;
       if (ds.icNovoTipo === "chamado") document.getElementById("btnNovoChamado")?.click();
-      if (ds.icNovoTipo === "orcamento") { showSection("orcamentos"); setTimeout(() => document.getElementById("avBtnNovo")?.click(), 60); }
+      if (ds.icNovoTipo === "orcamento") { showSection("orcamentos"); setTimeout(() => { if (typeof _avAcao === "function") _avAcao("novo"); }, 60); }
       if (ds.icNovoTipo === "condominio") { showSection("cadastros"); setTimeout(() => document.querySelector('[data-action="novo-cliente"]')?.click(), 60); }
       return;
     }

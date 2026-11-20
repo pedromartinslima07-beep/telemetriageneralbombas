@@ -999,7 +999,7 @@ o "porquê" em [`decisions.md`](decisions.md).
 | 6 | Molde da O.S. nas listas: O.S. (página própria), Chamados (painel ao lado), Orçamentos (uma tabela da carteira, sem agrupar por prédio) e Contratos | ✅ 18/11 (mesma branch), incluindo o orçamento como página própria (`#/orcamentos/<id>`) com linha do tempo; depois Preventivas ("Planos" saiu da tela), Equipamentos e Notas fiscais |
 | 7 | Contrato e chamado como páginas próprias (`#/contratos/<id>`, `#/chamados/<id>`); a lista de Chamados mantém o painel | ✅ 19/11 (mesma branch) |
 | 8 | Ronda de UX (19/11): cartões cortados em Painel/Telemetria/Mapa, Condomínios e Relatórios fora do molde, selos em caixa alta, faixa na borda, botão duplicado em Orçamentos, data da Preventivas, botão repetido em Equipamentos, espera da Agenda | ✅ 19/11 — itens 1, 2 e 4 a 9 feitos; o 3 (Relatórios) adiado: vai virar um dashboard, a planejar. Ver a seção "Ronda de UX" em [`redesenho-admin.md`](../docs/modulos/redesenho-admin.md) |
-| 9 | Redesenho estrutural (19/11): maquete de todas as telas aprovada; **etapa 1 no código: casca nova + Hoje + Ctrl+K** | 🟡 etapa 1 (casca + Hoje) ✅ etapa 2 (Monitoramento) ✅, etapa 3 (Atendimento) ✅ e etapa 4 (Agenda, quadro de despacho com arrastar e soltar) ✅ e etapa 5 (Financeiro) ✅ 19/11 — migration 093 no teste, falta em produção; etapa 6 (molde de lista + O.S.) ✅ 20/11; etapa 7 (Orçamentos numa lista só, rotas paginadas) ✅ 20/11; etapa 8 (Condomínios no molde + página do prédio em 3 colunas, com nota livre, aviso aos síndicos e tira dos 12 meses — migration 095) ✅ 20/11; etapa 9 (Preventivas no molde) ✅ 20/11; etapa 10 (Equipamentos no molde) ✅ 20/11; etapa 11 (Colaboradores no molde) ✅ 20/11; etapa 12 (Configurações com o menu à esquerda) ✅ 20/11 — todas as telas no código; falta Relatórios (dashboard, a definir) e o teste com o operador. Ver [`redesenho-admin.md`](../docs/modulos/redesenho-admin.md) |
+| 9 | Redesenho estrutural (19/11): maquete de todas as telas aprovada; **etapa 1 no código: casca nova + Hoje + Ctrl+K** | 🟡 etapa 1 (casca + Hoje) ✅ etapa 2 (Monitoramento) ✅, etapa 3 (Atendimento) ✅ e etapa 4 (Agenda, quadro de despacho com arrastar e soltar) ✅ e etapa 5 (Financeiro) ✅ 19/11 — migration 093 no teste, falta em produção; etapa 6 (molde de lista + O.S.) ✅ 20/11; etapa 7 (Orçamentos numa lista só, rotas paginadas) ✅ 20/11; etapa 8 (Condomínios no molde + página do prédio em 3 colunas, com nota livre, aviso aos síndicos e tira dos 12 meses — migration 095) ✅ 20/11; etapa 9 (Preventivas no molde) ✅ 20/11; etapa 10 (Equipamentos no molde) ✅ 20/11; etapa 11 (Colaboradores no molde) ✅ 20/11; etapa 12 (Configurações com o menu à esquerda) ✅ 20/11 — todas as telas no código; limpeza dos blocos antigos escondidos das seis telas do molde ✅ 20/11; falta Relatórios (dashboard, a definir) e o teste com o operador. Ver [`redesenho-admin.md`](../docs/modulos/redesenho-admin.md) |
 
 ---
 
@@ -1037,6 +1037,20 @@ depois. Nenhum é bloqueante.
 - App nas lojas com push nativo.
 - Possível: multi-empresa white-label, health do device (qualidade de sinal),
   múltiplas sondas por reservatório (itens do roadmap original do README).
+
+## Integração com o Omie 📋
+
+Pedido do Pedro em 20/11/2026 (a partir de janeiro ele cuida do escritório
+sozinho). Estoque fora. Ver [omie-integracao.md](../docs/modulos/omie-integracao.md).
+
+| Fase | O quê | Status |
+|---|---|---|
+| 1 | Contratos do Omie ligados ao prédio pelo CNPJ, fila dos sem prédio, aviso de vigência vencida | ✅ 20/11 no código (migration 096: rodar em produção antes do push) |
+| 2 | Faturamento do dia 1: quem foi faturado, quem não e por quê; notas por prédio | 📋 (o Omie emite; não emitir em dobro) |
+| 3 | Contas a receber: atrasados no Hoje e no prédio, marcar pago à mão, conferir pelo arquivo do banco, segunda via | 📋 baixa só no sistema (decidido 20/11); bancos Sicredi e Bradesco; falta um arquivo de exemplo |
+| 4 | Contas a pagar na Agenda | 📋 |
+| 5 | Cadastro conferido com o Omie | 📋 |
+| 6 | Caixa e extrato (para o dashboard de Relatórios) | 📋 |
 
 ## Agenda da empresa 🟡
 

@@ -1,90 +1,50 @@
-// Teste do desenho da linha da aba de orçamentos: a lixeira do "excluir
-// pedido". Roda com `node scripts/testes/orc-linha-excluir.test.js` — sem
-// navegador e sem banco.
+// Teste do "excluir pedido" da lista de orçamentos. Roda com
+// `node scripts/testes/orc-linha-excluir.test.js` — sem navegador e sem banco.
 //
-// ⚠️ O QUE ELE PROVA: que a lixeira sai no HTML de um pedido de O.S., que ela
-// NÃO sai no pedido da bancada (que não tem O.S. por trás, e cuja exclusão é a
-// do próprio orçamento, no modal), e que o clique nela não cai no handler que
-// abre/materializa o documento.
+// ⚠️ O QUE ELE PROVA: que o "Excluir pedido" só existe para o PEDIDO de O.S.
+// sem documento (o da oficina sempre tem documento por trás, e a exclusão dele
+// é a do próprio orçamento, na página), e que o clique nele não cai no handler
+// que seleciona/abre a linha.
+//
+// ⚠️ A LISTA MUDOU DE LUGAR (20/11/2026). Era a lixeira na linha da tabela
+// antiga de Solicitados, desenhada por _orcRenderTudo; a tabela saiu do HTML e
+// a lista é o molde (admin-orc-lista.js + admin-lista.js). O botão mora no
+// painel do pedido. As garantias são as mesmas.
 //
 // ⚠️ ELE NÃO PROVA O CSS nem o confirm — para isso é preciso navegador.
 const fs = require("fs");
-const vm = require("vm");
 
-const arquivo = fs.readFileSync("public/admin.js", "utf8");
-// ⚠️ A LINHA MUDOU DE LUGAR (18/11/2026). Era um item do painel do condomínio
-// (_orcRenderPainel); agora é uma linha da tabela única de Solicitados, que
-// _orcRenderTudo desenha. As garantias são as mesmas.
-const ini = arquivo.indexOf("function _orcRenderTudo() {");
-if (ini < 0) throw new Error("_orcRenderTudo não encontrada");
-const fim = arquivo.indexOf("\n}", arquivo.indexOf("<tbody>${linhas}</tbody>", ini)) + 2;
-const trecho = arquivo.slice(ini, fim);
-
-const els = {};
-const el = (id) => (els[id] = els[id] || { id, innerHTML: "", textContent: "", value: "", style: {} });
-const ctx = {
-  console, Number, String, Date, Math, JSON, Map, Set,
-  document: { getElementById: el },
-  _waEscaparHtml: (s) => String(s ?? ""),
-  _orcSolicitado: (o) => !o.orcamento_status,
-  _orcFmtValor: (v) => (v == null ? "—" : "R$ " + v),
-  _orcFmtData: () => "01/01/2026",
-  _orcStatusCls: () => "orc-status-req",
-  _orcStatusLabel: (s) => (s ? String(s).toUpperCase() : "SOLICITADO"),
-  _ordenar: (_l, itens) => itens,
-  _ordemData: () => null,
-  _ordemTh: (_l, _c, rot) => `<th>${rot}</th>`,
-  _orcData: [
-    { id: 7, numero: "OS-2026-1", fonte: "os", orcamento_status: null, orcamento_observacoes: "trocar selo", condominio_id: 1, condominio_nome: "Ed. Teste" },
-    { id: 8, numero: "OS-2026-2", fonte: "os", orcamento_status: "enviado", orcamento_valor: 500, orcamento_id: 3, condominio_id: 1, condominio_nome: "Ed. Teste" },
-    { id: null, numero: "ORC-9", fonte: "bancada", orcamento_status: "rascunho", orcamento_id: 9, condominio_id: 1, condominio_nome: "Ed. Teste" },
-  ],
-};
-ctx._orcFiltrados = () => ctx._orcData.slice();
-ctx.window = ctx; ctx.globalThis = ctx;
-vm.createContext(ctx);
-vm.runInContext(trecho, ctx, { filename: "_orcRenderTudo" });
+const orc = fs.readFileSync("public/admin-orc-lista.js", "utf8");
+const molde = fs.readFileSync("public/admin-lista.js", "utf8");
 
 const r = [];
 const ok = (n, c) => r.push([n, c]);
 
-ctx._orcRenderTudo();
-const html = els.orcCondoList.innerHTML;
+// ── Onde o botão aparece ────────────────────────────────────────────────────
+const det = orc.slice(orc.indexOf("function detalhe(x)"));
+const ramoPedido = det.slice(det.indexOf("const acoes = x.pedido"), det.indexOf("      : [", det.indexOf("const acoes = x.pedido")));
+ok("o painel tem o ramo do pedido", ramoPedido.length > 0);
+ok("o Excluir pedido mora só no ramo do pedido", ramoPedido.includes("data-orc-excluir") &&
+   (det.match(/data-orc-excluir=/g) || []).length === 1);
+ok("o Fazer orçamento também está nele", ramoPedido.includes("data-orc-fazer"));
+ok("tem rótulo visível", ramoPedido.includes("Excluir pedido"));
+// Pedido = linha de _orcData SEM documento. O da oficina sempre tem
+// orcamento_id, então nunca vira "pedido" e nunca ganha o botão.
+ok("pedido só nasce de _orcData sem orcamento_id", /pedidosOs\(\)[\s\S]{0,200}orcamento_id/.test(orc));
 
-ok("a lixeira aparece no pedido SOLICITADO", html.includes('data-orc-del="7"'));
-ok("a lixeira aparece no pedido já orçado", html.includes('data-orc-del="8"'));
-ok("a lixeira NÃO aparece no pedido da bancada", !html.includes('data-orc-del=""'));
-ok("são exatamente duas lixeiras", (html.match(/data-orc-del=/g) || []).length === 2);
-ok("tem rótulo para leitor de tela", html.includes('aria-label="Excluir este pedido de orçamento"'));
-ok("o pedido sem orçamento tem a ação Fazer orçamento", /data-orc-id="7"[\s\S]*?Fazer orçamento/.test(html));
+// ── O clique ────────────────────────────────────────────────────────────────
+const aoClicar = orc.slice(orc.indexOf("aoClicar: e =>"));
+const linhaExcluir = aoClicar.split("\n").find(l => l.includes("[data-orc-excluir]")) || "";
+ok("o clique no Excluir chama _orcExcluirPedido e para ali",
+   linhaExcluir.includes("_orcExcluirPedido(") && linhaExcluir.includes("return true"));
 
-// ── O clique: a lixeira mora DENTRO da linha que abre o documento ──────────
-// Réplica mínima do delegador de `#orcCondoList` (o real depende de fetch e
-// do orçamento inteiro). O que se prova aqui é a ORDEM dos dois `closest`.
-{
-  const chamadas = [];
-  const alvo = {
-    closest: (sel) => (sel === "[data-orc-del]"
-      ? { dataset: { orcDel: "7" } }
-      : { dataset: { orcId: "7", orcFonte: "os", orcOrcid: "" } }),
-  };
-  const handler = (e) => {
-    const del = e.target.closest("[data-orc-del]");
-    if (del) { chamadas.push(["excluir", Number(del.dataset.orcDel)]); return; }
-    const item = e.target.closest("tr[data-orc-fonte]");
-    if (!item) return;
-    chamadas.push(["abrir", Number(item.dataset.orcId)]);
-  };
-  handler({ target: alvo });
-  ok("clicar na lixeira exclui e não abre o documento",
-     chamadas.length === 1 && chamadas[0][0] === "excluir" && chamadas[0][1] === 7);
-}
-
-// A ordem real do arquivo tem de ser a mesma testada acima.
-const bind = arquivo.slice(arquivo.indexOf('getElementById("orcCondoList")?.addEventListener("click"'));
-ok("no arquivo, o closest da lixeira vem antes do da linha",
-   bind.indexOf("[data-orc-del]") > -1 &&
-   bind.indexOf("[data-orc-del]") < bind.indexOf("tr[data-orc-fonte]"));
+// No molde, aoClicar roda ANTES da seleção da linha, e a linha ignora clique
+// em botão — é a mesma ordem dos dois `closest` que a tabela antiga tinha.
+const deleg = molde.slice(molde.indexOf("if (cfg.aoClicar && cfg.aoClicar(e)) return;"));
+ok("no molde, aoClicar vem antes da seleção da linha",
+   deleg.length > 0 && deleg.indexOf("[data-ls-linha]") > 0);
+ok("e a linha não abre por clique em botão",
+   /closest\("\[data-ls-linha\]"\)\) && !e\.target\.closest\("a, button/.test(deleg));
 
 const falhas = r.filter(([, c]) => !c);
 for (const [n, c] of r) console.log(`${c ? "✓" : "✗"} ${n}`);

@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=357">
+  <link rel="stylesheet" href="/static/admin.css?v=366">
 </head>
 <body>
   <div id="appLoader">
@@ -541,93 +541,8 @@
       <div class="section" data-section="cadastros">
 
         <!-- A lista no molde (admin-condo-lista.js, 20/11/2026). A linha abre a
-             página do prédio. O layout antigo fica escondido abaixo: o boot e o
-             _carregarContratosMetricas ainda desenham nele. -->
+             página do prédio. -->
         <div id="cliLsRoot" class="ls"></div>
-
-        <!-- Layout split lista + detalhe (antigo, escondido) -->
-        <div class="ch-layout cli-antigo" hidden>
-          <!-- Lista -->
-          <div class="ch-list-col">
-            <!-- A faixa de 5 cartões virou esta frase (molde da O.S.,
-                 19/11/2026). Ver renderCliKpis. -->
-            <p class="os-resumo cli-resumo" id="cliKpiGrid"></p>
-            <div class="ch-toolbar" style="justify-content:space-between;">
-              <div class="wa-tabs" role="tablist">
-                <button class="wa-tab is-active" data-cli-tab="todos">Todos <span class="wa-count" id="cliCtTodos">0</span></button>
-                <button class="wa-tab" data-cli-tab="ativo">Ativos <span class="wa-count" id="cliCtAtivos">0</span></button>
-                <button class="wa-tab" data-cli-tab="inativo">Inativos <span class="wa-count" id="cliCtInativos">0</span></button>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input id="cliBusca" class="input" style="width:200px;" placeholder="Buscar condomínio…">
-                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-cliente">+ Novo condomínio</button>
-              </div>
-            </div>
-            <div class="tableWrap ch-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <!-- Molde do `planos`: cidade, responsável e CNPJ descem
-                         para a linha de apoio do nome. As colunas CNPJ e
-                         CONTRATO ficavam inteiras em "—" quando a carteira não
-                         tem o dado — e coluna morta ocupa largura sem informar.
-                         Na linha de apoio, dado ausente simplesmente não
-                         aparece. -->
-                    <!-- 19/11/2026: Água, Chamados e Contrato dizem como o
-                         prédio está sem abrir a ficha. A linha abre a ficha. -->
-                    <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="nome" data-ord-padrao="asc" title="Ordenar por condomínio">Condomínio<span class="ord-seta" aria-hidden="true"></span></button></th>
-                    <th aria-sort="none" style="width:24%"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="agua" data-ord-padrao="asc" title="Ordenar por água">Água<span class="ord-seta" aria-hidden="true"></span></button></th>
-                    <th aria-sort="none" style="width:18%"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="chamados" data-ord-padrao="desc" title="Ordenar por chamados">Chamados<span class="ord-seta" aria-hidden="true"></span></button></th>
-                    <th aria-sort="none" style="width:20%"><button type="button" class="ord-btn" data-ord-lista="condominios" data-ord-chave="contrato" data-ord-padrao="asc" title="Ordenar por contrato">Contrato<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  </tr>
-                </thead>
-                <tbody id="cliTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Detalhe -->
-          <aside class="ch-detail-col" id="cliDetailCol">
-            <div class="ch-detail-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <p>Selecione um cliente para ver os detalhes</p>
-            </div>
-          </aside>
-        </div>
-
-        <!-- Formulários de infraestrutura (ocultos, mantidos para compatibilidade) -->
-        <div style="display:none;">
-          <!-- Cadastro de reservatório (inputs mantidos para criarReservatorio()) -->
-          <section class="card">
-            <div class="section-body">
-              <div class="grid-2">
-                <div class="field">
-                  <select id="resCondominio" class="select"><option value="">Selecione…</option></select>
-                </div>
-                <div class="field">
-                  <select id="resTipo" class="select">
-                    <option value="superior">Superior</option>
-                    <option value="inferior">Inferior</option>
-                    <option value="outro">Outro</option>
-                  </select>
-                </div>
-                <div class="field col-2"><input id="resNome" class="input" placeholder="Ex: Reservatório Superior Bloco A" /></div>
-                <div class="field col-2"><input id="resDeviceId" class="input" placeholder="Ex: RES_COND10_SUP" /></div>
-                <div class="field"><input id="resAlturaTotalM" class="input" type="number" step="0.01" min="0" /></div>
-                <div class="field"><input id="resAdcZero" class="input" type="number" step="1" min="0" /></div>
-                <div class="field"><input id="resAdcPorMetro" class="input" type="number" step="1" min="1" /></div>
-                <div class="field"><input id="resFaixaSondaM" class="input" type="number" step="0.01" min="0" /></div>
-                <div class="field col-2"><input id="resLimiarBomba" class="input" type="number" step="1" min="0" /></div>
-              </div>
-              <div class="form-footer" style="margin-top:16px;">
-                <button id="btnCadastrarReservatorio" class="btn btnAccent">Cadastrar reservatório</button>
-                <span id="msgReservatorio" class="hint"></span>
-              </div>
-            </div>
-          </section>
-
-        </div>
-
       </div><!-- /section cadastros -->
 
       <!-- ===== SECTION: CHAMADOS ===== -->
@@ -703,80 +618,8 @@
       <div class="section" data-section="ordens-servico">
 
         <!-- Lista no molde da maquete (20/11/2026): admin-lista.js +
-             admin-os-lista.js. O cartão de baixo fica escondido e NÃO pode
-             sair: a página da O.S. liga os botões dela pelos ids dele
-             (_osBindEventos), e o envio em lote lê _osSelecionadas. -->
+             admin-os-lista.js. O envio em lote lê _osSelecionadas. -->
         <div id="osLsRoot" class="ls"></div>
-
-        <section class="card os-cartao-antigo" hidden style="min-height:calc(100vh - 220px);">
-          <div class="cardHead">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <path d="M9 14l2 2 4-4"/>
-              </svg>
-              Ordens de Serviço
-            </h2>
-            <span class="hint">O técnico preenche no app; o escritório confere e envia ao cliente</span>
-          </div>
-          <!-- A faixa de cinco números virou esta frase (piloto do redesenho,
-               18/11/2026): ela diz o total e o mês, e o que pede ação vira
-               botão para a aba. Ver _osRenderKpis. -->
-          <p class="os-resumo" id="osResumo"></p>
-
-          <div class="os-toolbar">
-            <div class="wa-tabs" role="tablist">
-              <button class="wa-tab is-active" data-os-tab="todas" type="button">Todas <span class="wa-count" id="osCtTodas">0</span></button>
-              <button class="wa-tab" data-os-tab="finalizadas" type="button">Finalizadas <span class="wa-count" id="osCtFinal">0</span></button>
-              <button class="wa-tab" data-os-tab="rascunho" type="button">Em andamento <span class="wa-count" id="osCtRascunho">0</span></button>
-              <!-- ⚠️ "A enviar" é a pergunta que o escritório faz de verdade
-                   no fim da semana: finalizada, com e-mail no cadastro, e que
-                   ainda não foi para o cliente. Sem esta aba isso só se
-                   responde abrindo uma O.S. por vez. -->
-              <button class="wa-tab" data-os-tab="a-enviar" type="button">A enviar ao cliente <span class="wa-count" id="osCtAEnviar">0</span></button>
-            </div>
-            <input id="osBusca" class="input" placeholder="Buscar por número, condomínio, técnico…" />
-          </div>
-
-          <!-- Barra de seleção em massa — some quando não há nada selecionado -->
-          <div id="osBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
-            <span id="osBulkCount" style="color:var(--text);font-weight:600;"></span>
-            <button class="btn btn-sm btnAccent" id="osBulkEmail" type="button">Enviar por e-mail</button>
-            <button class="btn btn-sm" id="osBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
-          </div>
-
-          <div class="tableWrap os-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:36px"><input type="checkbox" id="osChkAll" class="viewer-only-hide" aria-label="Selecionar as que podem ser enviadas"></th>
-                  <th style="width:150px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="os" data-ord-chave="numero" data-ord-padrao="desc" title="Ordenar por o.s.">O.S.<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="os" data-ord-chave="condo" data-ord-padrao="asc" title="Ordenar por condomínio e técnico">Condomínio e técnico<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  <th>Serviço</th>
-                  <th style="width:260px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="os" data-ord-chave="situacao" data-ord-padrao="asc" title="Ordenar por situação">Situação<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  <th style="width:90px" class="right"><span class="sr-only">Ação</span></th>
-                </tr>
-              </thead>
-              <tbody id="osTableBody"></tbody>
-            </table>
-          </div>
-          <div id="osEmpty" class="mc-empty" style="display:none;padding:24px;text-align:center;">
-            Nenhuma O.S. encontrada com esses filtros.
-          </div>
-          <div class="al-pagination" id="osPaginacao">
-            <span class="hint" id="osPageInfo">—</span>
-            <div class="al-pag-btns">
-              <button class="btn btn-sm" id="osBtnPagAnt" type="button" title="Página anterior">◀</button>
-              <button class="btn btn-sm" id="osBtnPagProx" type="button" title="Próxima página">▶</button>
-            </div>
-            <select id="osPageSize" class="select" style="width:auto;">
-              <option value="25">25 por página</option>
-              <option value="50" selected>50 por página</option>
-              <option value="100">100 por página</option>
-            </select>
-          </div>
-        </section>
       </div><!-- /section ordens-servico -->
 
       <!-- Página da O.S. (piloto do redesenho, 18/11/2026). A caixa #osFicha
@@ -811,130 +654,19 @@
       <div class="section" data-section="orcamentos">
 
         <!-- Lista no molde da maquete (20/11/2026): admin-lista.js +
-             admin-orc-lista.js. Uma lista do pedido do técnico até o aprovado.
-             O conteúdo de baixo (as duas abas antigas) fica escondido e NÃO
-             pode sair: _avBindEventos e _orcBindEventos ligam nos ids dele. -->
+             admin-orc-lista.js. Uma lista do pedido do técnico até o aprovado. -->
         <div id="orcLsRoot" class="ls"></div>
-
-        <div class="orc-antigo" hidden>
-
-        <!-- Abas principais da seção. ⚠️ São NAVEGAÇÃO (trocam a lista), não
-             ação: até 19/11/2026 a primeira se chamava "+ Criar orçamento",
-             com ícone de mais e fundo âmbar, e lia como um segundo botão de
-             criar ao lado do "+ Novo orçamento" (o único que cria). Agora têm a
-             cara da subaba do admin: texto com fio embaixo. -->
-        <div class="orc-main-tabs" id="orcMainTabs" role="tablist">
-          <button class="orc-main-tab is-active" data-orc-modo="avulso" type="button" role="tab">
-            Orçamentos
-          </button>
-          <button class="orc-main-tab" data-orc-modo="os" type="button" role="tab">
-            Solicitados pelos técnicos <span class="wa-count" id="navBadgeOrcamentosOS" style="display:none;">0</span>
-          </button>
-        </div>
-
-        <!-- ===== MODO AVULSO ===== -->
-        <div id="orcModoAvulso">
-          <!-- KPIs -->
-          <!-- O aviso das respostas que ninguem abriu. Fica ACIMA dos KPIs
-               porque nao e metrica: e trabalho parado esperando alguem. Some
-               sozinho quando a ultima ficha e aberta. Ver migration 076. -->
-          <div class="av-aviso" id="avAvisoRespostas" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>
-            <span data-aviso-txt></span>
-            <button type="button" class="btn btn-sm" id="avAvisoVer">Ver</button>
-          </div>
-
-          <!-- Uma tabela da carteira inteira, com o condomínio numa coluna
-               (molde da O.S., 18/11/2026). Era lista de prédios à esquerda e
-               orçamentos do prédio à direita. A visão por prédio mora na
-               ficha do condomínio, aba Orçamentos. Ver _avRenderTudo. -->
-          <div class="ch-layout">
-            <div class="ch-list-col">
-              <!-- A faixa de 4 números virou esta frase (molde da O.S.,
-                   18/11/2026). Ver _avRenderTudo. -->
-              <p class="os-resumo orc-resumo" id="avKpiGrid"></p>
-              <div class="ch-toolbar">
-                <div class="wa-tabs" role="tablist">
-                  <button class="wa-tab is-active" data-av-tab="todos" type="button">Todos <span class="wa-count" id="avCtTodos">0</span></button>
-                  <button class="wa-tab" data-av-tab="rascunho" type="button">Rascunhos <span class="wa-count" id="avCtRascunho">0</span></button>
-                  <button class="wa-tab" data-av-tab="enviado" type="button">Enviados <span class="wa-count" id="avCtEnviado">0</span></button>
-                  <button class="wa-tab" data-av-tab="aprovado" type="button">Aprovados <span class="wa-count" id="avCtAprovado">0</span></button>
-                  <!-- ⚠️ ESTA ABA NÃO É UM STATUS, e é a única assim. As outras
-                       filtram `status`; esta filtra "o cliente respondeu"
-                       (`respondido_em`), que atravessa aprovado E recusado. É a
-                       pergunta que o escritório faz de verdade — "o que voltou
-                       do síndico?" —, e que antes só se respondia abrindo ficha
-                       por ficha, porque na lista um aprovado pelo cliente e um
-                       aprovado no escritório eram idênticos. -->
-                  <button class="wa-tab" data-av-tab="respondidos" type="button">Respondidos <span class="wa-count" id="avCtRespondidos">0</span></button>
-                </div>
-                <input id="avBusca" class="input" placeholder="Buscar condomínio ou Nº…">
-                <button class="btn btnAccent btn-sm viewer-only-hide" id="avBtnNovo" type="button">+ Novo orçamento</button>
-              </div>
-              <div class="tableWrap ch-table-wrap">
-                <div id="avCondoList" class="av-condo-list"></div>
-                <div id="avEmpty" class="al-empty" style="display:none;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                  </svg>
-                  <p>Nenhum orçamento. Clique em "+ Novo orçamento".</p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div><!-- /avulso -->
-
-        <!-- ===== MODO OS ===== -->
-        <!-- ⚠️ MESMO ESQUELETO DA ABA "Criar orçamento". De 02/09 a 18/11/2026
-             as duas eram listas de prédios com painel; agora são as duas uma
-             tabela da carteira (molde da O.S.). O que justificava agrupar,
-             "o que este prédio está esperando?", se responde no filtro de
-             condomínio daqui e na ficha do condomínio, aba Orçamentos. -->
-        <div id="orcModoOS" style="display:none;">
-          <div class="ch-layout">
-            <div class="ch-list-col">
-              <!-- A faixa de 4 números virou esta frase (molde da O.S.,
-                   18/11/2026). Ver _orcRenderTudo. -->
-              <p class="os-resumo orc-resumo" id="orcKpiGrid"></p>
-              <div class="ch-toolbar">
-                <div class="wa-tabs" role="tablist">
-                  <button class="wa-tab is-active" data-orc-tab="todos" type="button">Todos <span class="wa-count" id="orcCtTodos">0</span></button>
-                  <!-- ⚠️ ESTA ABA FALTAVA, e a falta era o defeito: o pedido do
-                       técnico ainda sem orçamento criado tem `orcamento_status`
-                       NULO, então não caía em nenhuma das quatro abas antigas —
-                       só em "Todos". É o estado que mais precisa aparecer aqui. -->
-                  <button class="wa-tab" data-orc-tab="solicitado" type="button">Solicitados <span class="wa-count" id="orcCtSolicitado">0</span></button>
-                  <button class="wa-tab" data-orc-tab="pendente" type="button">Em orçamento <span class="wa-count" id="orcCtPendente">0</span></button>
-                  <button class="wa-tab" data-orc-tab="aprovado" type="button">Aprovados <span class="wa-count" id="orcCtAprovado">0</span></button>
-                  <button class="wa-tab" data-orc-tab="rejeitado" type="button">Rejeitados <span class="wa-count" id="orcCtRejeitado">0</span></button>
-                </div>
-                <input id="orcBusca" class="input" placeholder="Buscar condomínio ou técnico…">
-                <select id="orcFiltroCondo" class="select">
-                  <option value="">Todos os condomínios</option>
-                </select>
-              </div>
-              <div class="tableWrap ch-table-wrap">
-                <div id="orcCondoList" class="av-condo-list"></div>
-                <div id="orcEmpty" class="al-empty" style="display:none;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                  </svg>
-                  <p>Nenhum pedido de orçamento.</p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div><!-- /os -->
-        </div><!-- /orc-antigo -->
 
       </div><!-- /section orcamentos -->
 
       <!-- ===== SECTION: CONTRATOS ===== -->
       <div class="section" data-section="contratos">
+        <!-- Os contratos do Omie, ligados ao prédio (admin-omie-contratos.js,
+             integração com o Omie, fase 1, 20/11/2026). O cartão de baixo são
+             os contratos assinados pelo sistema, como sempre. -->
+        <div id="ocLsRoot" class="ls"></div>
 
-        <section class="card al-card">
+        <section class="card al-card ctrs-sistema">
           <div class="cardHead al-head">
             <h2>
               <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -944,7 +676,7 @@
                 <line x1="16" y1="17" x2="8" y2="17"/>
                 <polyline points="10 9 9 9 8 9"/>
               </svg>
-              Contratos
+              Contratos assinados no sistema
             </h2>
             <button class="btn btnAccent btn-sm viewer-only-hide" id="ctrsBtnNovo" type="button">
               + Novo contrato
@@ -1340,46 +1072,9 @@
 
       <div class="section" data-section="tecnicos">
         <!-- A lista no molde (admin-colab-lista.js, 20/11/2026), com a pessoa
-             no painel ao lado. O layout antigo fica escondido: renderTecnicos
-             ainda desenha nele. -->
+             no painel ao lado. -->
         <div id="cbLsRoot" class="ls"></div>
 
-        <div class="ch-layout tec-antigo" hidden>
-          <div class="ch-list-col">
-            <div class="ch-toolbar" style="justify-content:space-between;">
-              <div class="wa-tabs" role="tablist">
-                <button class="wa-tab is-active" data-tec-tab="todos">Todos <span class="wa-count" id="tecCtTodos">0</span></button>
-                <button class="wa-tab" data-tec-tab="tecnico">Técnico <span class="wa-count" id="tecCtTecnico">0</span></button>
-                <button class="wa-tab" data-tec-tab="adm">Adm <span class="wa-count" id="tecCtAdm">0</span></button>
-                <button class="wa-tab" data-tec-tab="gestor">Gestor <span class="wa-count" id="tecCtGestor">0</span></button>
-                <button class="wa-tab" data-tec-tab="ti">TI <span class="wa-count" id="tecCtTi">0</span></button>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input id="tecBusca" class="input" style="width:200px;" placeholder="Buscar colaborador…">
-                <button class="btn btnAccent btn-sm viewer-only-hide" data-action="novo-tecnico">+ Novo colaborador</button>
-              </div>
-            </div>
-            <div class="tableWrap ch-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th style="width:100px;">Cargo</th>
-                    <th>Especialidade</th>
-                    <th style="width:84px;">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="tecTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-          <aside class="ch-detail-col" id="tecDetailCol">
-            <div class="ch-detail-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-              <p>Selecione um colaborador para ver os detalhes</p>
-            </div>
-          </aside>
-        </div>
       </div>
 
       <!-- ===== SECTION: EQUIPAMENTOS ===== -->
@@ -1387,49 +1082,9 @@
            dias parado, peças, orçamento) é Fase B. Ver docs/modulos/equipamentos.md -->
       <div class="section" data-section="equipamentos">
         <!-- A lista no molde (admin-eq-lista.js, 20/11/2026), com o
-             equipamento no painel ao lado. O cartão antigo da lista fica
-             escondido logo abaixo: _eqCarregar e _eqRender ainda desenham nele,
-             e o "Gerar etiquetas" usa o botão dele. Os cartões de imprimir a
-             folha e de desfazer cadastro continuam como eram. -->
+             equipamento no painel ao lado. Os cartões de imprimir a folha e
+             de desfazer cadastro continuam como eram. -->
         <div id="eqLsRoot" class="ls"></div>
-
-        <div class="card eq-antigo" hidden>
-          <div class="cardHead">
-            <h3>Equipamentos</h3>
-            <button class="btn btnAccent btn-sm" id="btnEqNovoLote" style="margin-left:auto;">+ Gerar etiquetas</button>
-          </div>
-          <!-- Molde da O.S. (18/11/2026): frase no lugar de nada, abas no lugar
-               do seletor de estado (que só filtrava UM estado e deixava a
-               bancada pela metade), 5 colunas viraram 4. Ver _eqRender. -->
-          <p class="os-resumo eq-resumo" id="eqResumo"></p>
-          <div class="eq-toolbar">
-            <div class="wa-tabs" role="tablist">
-              <button class="wa-tab is-active" data-eq-tab="todos" type="button">Todos <span class="wa-count" id="eqCtTodos">0</span></button>
-              <button class="wa-tab" data-eq-tab="instalado" type="button">No condomínio <span class="wa-count" id="eqCtInstalado">0</span></button>
-              <button class="wa-tab" data-eq-tab="bancada" type="button">Na oficina <span class="wa-count" id="eqCtBancada">0</span></button>
-              <button class="wa-tab" data-eq-tab="pronto" type="button">Prontos para devolver <span class="wa-count" id="eqCtPronto">0</span></button>
-              <button class="wa-tab" data-eq-tab="livre" type="button">Etiquetas em branco <span class="wa-count" id="eqCtLivre">0</span></button>
-              <button class="wa-tab" data-eq-tab="baixado" type="button">Baixados <span class="wa-count" id="eqCtBaixado">0</span></button>
-            </div>
-            <input id="eqBusca" class="input" placeholder="Código, apelido, série…">
-          </div>
-          <div class="tableWrap">
-            <table class="orc-table pro-table">
-              <thead>
-                <tr>
-                  <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="equipamentos" data-ord-chave="equip" data-ord-padrao="asc" title="Ordenar por equipamento">Equipamento<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  <th style="width:28%" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="equipamentos" data-ord-chave="condo" data-ord-padrao="asc" title="Ordenar por condomínio">Condomínio<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  <th style="width:240px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="equipamentos" data-ord-chave="situacao" data-ord-padrao="asc" title="Ordenar por situação">Situação<span class="ord-seta" aria-hidden="true"></span></button></th>
-                  <!-- 19/11/2026: era "Abrir ficha ↗" em toda linha. A linha
-                       inteira já abre (clique e Enter); fica só a seta de
-                       "outra aba", discreta, que acende no hover. -->
-                  <th style="width:44px"><span class="sr-only">Abrir</span></th>
-                </tr>
-              </thead>
-              <tbody id="eqTableBody"></tbody>
-            </table>
-          </div>
-        </div>
 
         <div class="card" id="eqCardImprimir" style="margin-top:16px;">
           <div class="cardHead"><h3>Imprimir folha de etiquetas</h3></div>
@@ -1515,124 +1170,9 @@
       <div class="section" data-section="planos">
 
         <!-- A lista no molde (admin-prev-lista.js, 20/11/2026): o mês no
-             cabeçalho, visões em chip, a preventiva no painel ao lado. O cartão
-             antigo fica escondido abaixo: carregarPlanos e _pmRenderTudo ainda
-             desenham nele, e o lote do admin.js lê os ids dele. -->
+             cabeçalho, visões em chip, a preventiva no painel ao lado, com os
+             responsáveis da zona. -->
         <div id="pvLsRoot" class="ls"></div>
-
-        <!-- Responsáveis por zona não têm card próprio: aparecem (e são editados)
-             no cabeçalho de cada grupo de zona da tabela abaixo. -->
-
-        <section class="card al-card pm-antigo" hidden>
-          <div class="cardHead al-head">
-            <h2>
-              <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-                <path d="M9 16l2 2 4-4"/>
-              </svg>
-              Manutenção preventiva
-            </h2>
-            <button class="btn btnAccent btn-sm viewer-only-hide" id="pmBtnNovo" type="button" style="margin-left:auto;">
-              + Nova preventiva
-            </button>
-          </div>
-          <!-- A faixa de 4 números virou esta frase (molde da O.S.,
-               18/11/2026). Ver _pmRenderTudo. -->
-          <p class="os-resumo pm-resumo" id="pmKpiGrid"></p>
-
-          <div class="al-toolbar">
-            <!-- ⚠️ O MÊS É UM SELETOR, NÃO O RELÓGIO DO SERVIDOR (04/09/2026).
-                 A tela só sabia olhar o mês corrente: escalar uma preventiva
-                 para outubro gravava certo no banco e a tela seguia dizendo
-                 "Sem responsável" — a pessoa faz a ação, ela funciona, e a tela diz
-                 que não aconteceu nada. Mesma peça da tela de Preventivas do
-                 operador, no registro do admin. -->
-            <div class="pm-mesnav">
-              <button class="pm-mes-nav" type="button" data-pm-mes="-1" aria-label="Mês anterior">←</button>
-              <span class="pm-mes-rot" id="pmMesRot">—</span>
-              <button class="pm-mes-nav" type="button" data-pm-mes="1" aria-label="Mês seguinte">→</button>
-              <button class="pm-mes-hoje" type="button" data-pm-mes="0" id="pmMesHoje" hidden>hoje</button>
-            </div>
-            <div class="wa-tabs" role="tablist">
-              <!-- ⚠️ AS ABAS FALAM DO MÊS, NÃO DA DATA DO PLANO (04/09/2026).
-                   Antes eram Vencidos · Em andamento · Este mês · Em dia, e elas
-                   misturavam duas perguntas: a data da PRÓXIMA visita e o
-                   andamento da ATUAL. Visto na tela: "Este mês 0" ao lado de
-                   "Em andamento 69" — as duas verdadeiras, e contraditórias na
-                   leitura, porque falavam de coisas diferentes.
-                   Hoje elas seguem o ciclo do serviço: sem responsável → com
-                   responsável → em campo → feita. Mais duas do CADASTRO, que é a
-                   outra pergunta legítima da tela: quem está de fora (sem plano) e
-                   o que está pausado. -->
-              <button class="wa-tab is-active" data-pm-tab="todos" type="button">Todos <span class="wa-count" id="pmCtTodos">0</span></button>
-              <button class="wa-tab" data-pm-tab="sem-dono" type="button">Sem responsável <span class="wa-count" id="pmCtSemDono">0</span></button>
-              <button class="wa-tab" data-pm-tab="com-dono" type="button">Com responsável <span class="wa-count" id="pmCtComDono">0</span></button>
-              <button class="wa-tab" data-pm-tab="em-campo" type="button">Em campo <span class="wa-count" id="pmCtEmCampo">0</span></button>
-              <button class="wa-tab" data-pm-tab="feitas" type="button">Feitas <span class="wa-count" id="pmCtFeitas">0</span></button>
-              <!-- ⚠️ ESTA ABA NÃO LISTA PLANOS, e é a única assim: são os
-                   prédios ATIVOS que não têm plano nenhum. A tela lista planos,
-                   então quem está fora era invisível — 16 de 88 em 04/09. -->
-              <button class="wa-tab" data-pm-tab="sem-plano" type="button">Sem preventiva <span class="wa-count" id="pmCtSemPlano">0</span></button>
-              <button class="wa-tab" data-pm-tab="inativos" type="button">Inativos <span class="wa-count" id="pmCtInativos">0</span></button>
-            </div>
-            <div class="al-filters">
-              <input id="pmBusca" class="input" placeholder="Buscar condomínio ou título…">
-            </div>
-          </div>
-
-          <!-- Barra de seleção em massa — some quando não há nada selecionado -->
-          <div id="pmBulkBar" class="viewer-only-hide" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">
-            <span id="pmBulkCount" style="color:var(--text);font-weight:600;"></span>
-            <!-- ⚠️ ESCALAR E GERAR CHAMADO EM LOTE (04/09/2026). A simulação do
-                 fluxo mostrou que o backend de escalar JÁ ACEITAVA lote (o
-                 `POST /operador/preventivas/atribuir` recebe `plano_ids`), e a
-                 tela oferecia uma linha por vez: 5 prédios eram 5 diálogos.
-                 O de gerar chamado não tem lote no backend — a tela faz o laço,
-                 e é por isso que ele mostra progresso e conta os que falharam. -->
-            <button class="btn btn-sm btnAccent" id="pmBulkEscalar" type="button">Escalar técnico</button>
-            <button class="btn btn-sm" id="pmBulkChamado" type="button">Gerar chamados</button>
-            <button class="btn btn-sm" id="pmBulkEditar" type="button">Editar selecionados</button>
-            <button class="btn btn-sm" id="pmBulkAtivar" type="button">Ativar selecionados</button>
-            <button class="btn btn-sm" id="pmBulkDesativar" type="button">Desativar selecionados</button>
-            <button class="btn btn-sm" id="pmBulkLimpar" type="button" style="margin-left:auto;">Limpar seleção</button>
-          </div>
-
-          <div class="al-grid" style="grid-template-columns: 1fr;">
-            <div class="al-tableWrap">
-              <table class="orc-table pm-table">
-                <thead>
-                  <tr>
-                    <th style="width:32px"><input type="checkbox" id="pmChkAll" class="viewer-only-hide"></th>
-                    <!-- ⚠️ O SUJEITO DA LINHA É O PRÉDIO, não "o plano"
-                         (04/09/2026). Medido antes: a palavra "Preventiva"
-                         saía a 12px/600 em branco e o nome do prédio a
-                         10,5px/400 em cinza — o destaque estava no que era
-                         igual em 75 dos 76 planos, e o dado que identifica a
-                         linha era o texto mais apagado da célula.
-                         ⚠️ "Periodicidade" SAIU: dizia "Mensal" 76 vezes em 76.
-                         Vira etiqueta na linha, e só quando NÃO for mensal. -->
-                    <!-- Ordenam dentro de cada zona (ver _pmRenderTudo). -->
-                    <th aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="planos" data-ord-chave="predio" data-ord-padrao="asc" title="Ordenar por prédio">Prédio<span class="ord-seta" aria-hidden="true"></span></button></th>
-                    <th style="width:210px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="planos" data-ord-chave="mes" data-ord-padrao="asc" title="Ordenar por este mês">Este mês<span class="ord-seta" aria-hidden="true"></span></button></th>
-                    <th style="width:150px" aria-sort="none"><button type="button" class="ord-btn" data-ord-lista="planos" data-ord-chave="proxima" data-ord-padrao="asc" title="Ordenar por próxima">Próxima<span class="ord-seta" aria-hidden="true"></span></button></th>
-                    <th style="width:132px"><span class="sr-only">Ações</span></th>
-                  </tr>
-                </thead>
-                <tbody id="pmTableBody"></tbody>
-              </table>
-              <div id="pmEmpty" class="al-empty" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                <p>Nenhuma preventiva cadastrada. Clique em "+ Nova preventiva".</p>
-              </div>
-            </div>
-          </div>
-        </section>
       </div><!-- /section planos -->
 
       <!-- Modal de plano (criar/editar) — usa pmModal próprio pra não conflitar com overlay global -->
@@ -2968,25 +2508,26 @@
 </div>
 
 
-<script src="/static/admin.js?v=410" defer></script>
-<script src="/static/admin-condominio.js?v=13" defer></script>
+<script src="/static/admin.js?v=416" defer></script>
+<script src="/static/admin-condominio.js?v=14" defer></script>
 <script src="/static/lucide.min.js" defer></script>
-<script src="/static/admin-nav.js?v=14" defer></script>
-<script src="/static/admin-busca.js?v=4" defer></script>
+<script src="/static/admin-nav.js?v=15" defer></script>
+<script src="/static/admin-busca.js?v=5" defer></script>
 <script src="/static/admin-monitoramento.js?v=3" defer></script>
 <script src="/static/admin-atendimento.js?v=5" defer></script>
-<script src="/static/admin-carteira.js?v=9" defer></script>
+<script src="/static/admin-carteira.js?v=10" defer></script>
 <script src="/static/admin-agenda.js?v=6" defer></script>
 <script src="/static/admin-despacho.js?v=2" defer></script>
 <script src="/static/admin-financeiro.js?v=1" defer></script>
 <script src="/static/admin-lista.js?v=2" defer></script>
-<script src="/static/admin-os-lista.js?v=2" defer></script>
-<script src="/static/admin-orc-lista.js?v=2" defer></script>
+<script src="/static/admin-os-lista.js?v=3" defer></script>
+<script src="/static/admin-orc-lista.js?v=3" defer></script>
 <script src="/static/admin-orc-pecas.js?v=4" defer></script>
-<script src="/static/admin-condo-lista.js?v=5" defer></script>
-<script src="/static/admin-prev-lista.js?v=2" defer></script>
-<script src="/static/admin-eq-lista.js?v=1" defer></script>
-<script src="/static/admin-colab-lista.js?v=1" defer></script>
+<script src="/static/admin-condo-lista.js?v=8" defer></script>
+<script src="/static/admin-prev-lista.js?v=3" defer></script>
+<script src="/static/admin-eq-lista.js?v=2" defer></script>
+<script src="/static/admin-colab-lista.js?v=2" defer></script>
+<script src="/static/admin-omie-contratos.js?v=2" defer></script>
 <script src="/static/admin-config.js?v=1" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>

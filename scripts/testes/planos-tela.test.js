@@ -1,4 +1,4 @@
-// A tela de Planos do admin renderiza — todas as abas, com dados de verdade.
+// A tela de Planos do admin: a rota e as leituras do mês que a lista lê.
 //
 //   node scripts/testes/planos-tela.test.js
 //
@@ -16,9 +16,11 @@
 // aparece na tela — só no console, que ninguém abre. Uma aba que não faz nada
 // parece uma aba vazia.
 //
-// Ele monta um DOM de mentira (o mínimo que o render toca), recorta as funções
-// REAIS do `public/admin.js` e chama `_pmRenderTudo()` uma vez por aba. Não
-// substitui olhar a tela — substitui o "achei que estava bom".
+// Ele recorta as funções REAIS do `public/admin.js` e passa cada plano do
+// banco de teste pelas leituras do mês que a lista nova (admin-prev-lista.js)
+// usa. Até 20/11/2026 chamava o `_pmRenderTudo()` antigo aba por aba; a
+// tabela dele saiu do HTML e a função virou gancho. Não substitui olhar a
+// tela — substitui o "achei que estava bom".
 //
 // ⚠️ NÃO ESCREVE NADA. Lê o banco de TESTE pelo mesmo endpoint que o front usa.
 require("dotenv").config();
@@ -37,27 +39,6 @@ if (alvo !== "TESTE") {
 
 const r = [];
 const ok = (nome, cond) => { r.push({ nome, cond: !!cond }); console.log((cond ? "✓ " : "✗ ") + nome); };
-
-// ── O DOM de mentira ────────────────────────────────────────────────────────
-// Só o que o `_pmRenderTudo` toca. Um elemento que ele peça e não exista tem de
-// devolver algo com as mesmas formas, senão o teste falha por causa do dublê e
-// não do código.
-function montarDom() {
-  const feitos = {};
-  const el = (id) => (feitos[id] ||= {
-    id, innerHTML: "", textContent: "", style: {}, value: "",
-    querySelector: () => ({ textContent: "" }),
-    querySelectorAll: () => [],
-    addEventListener() {},
-  });
-  global.document = {
-    getElementById: el,
-    querySelectorAll: () => [],
-    querySelector: () => null,
-    addEventListener() {},
-  };
-  return { el, feitos };
-}
 
 async function main() {
   const app = express();
@@ -100,28 +81,21 @@ async function main() {
     if (orfaos.length) console.log("    → `-->` sem abertura nas linhas:", orfaos.join(", "));
     if (prof > 0) console.log("    →", prof, "comentário(s) sem fechar");
 
-    // ── O render, aba por aba ────────────────────────────────────────────────
+    // ── As leituras do mês, plano por plano ─────────────────────────────────
+    // ⚠️ DESDE 20/11/2026 A TELA É O MOLDE (admin-prev-lista.js). O cartão
+    // antigo com as abas e a tabela por zona saiu do HTML, e `_pmRenderTudo`
+    // virou um gancho vazio que o molde embrulha. O que a tela nova lê do
+    // admin.js são estas funções — se uma delas estourar num plano real, a
+    // lista morre no meio, do mesmo jeito silencioso de 04/09.
     const js = fs.readFileSync(path.join(__dirname, "../../public/admin.js"), "utf8");
     const ini = js.indexOf("function _pmFmtData");
-    const fim = js.indexOf("function _pmAtualizarBulkBar");
+    const fim = js.indexOf("function _pmSelecionadosDespachaveis");
     ok("achei o bloco _pm* no admin.js", ini >= 0 && fim > ini);
 
-    const { el } = montarDom();
-    // ⚠️ GUARDA A REDE ANTES DE DUBLAR. O render não pode fazer request (se
-    // fizer, é bug), mas o TESTE precisa continuar falando com o endpoint —
-    // sem esta linha o próprio teste estoura no primeiro fetch depois daqui.
     const rede = global.fetch.bind(global);
-    global.fetch = async () => { throw new Error("o render não deve fazer request"); };
+    global.fetch = async () => { throw new Error("as leituras não devem fazer request"); };
     global.authHeaders = () => ({});
-    global.alert = () => {}; global.confirm = () => false; global.prompt = () => null;
-    global._waEscaparHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-    global.kpiCard = (ico, val, label) => `[${label}=${val}]`;
-    // O ordenador pela coluna (18/11/2026) mora fora do bloco _pm*. Aqui ele
-    // é identidade: o que este teste prova é que cada aba DESENHA, não a ordem.
-    global._ordenar = (_lista, itens) => itens;
-    global._ordemMarcar = () => {};
-    global._ordemData = (iso) => (iso ? new Date(iso).getTime() : null);
+    global.document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] };
     global.PM_PERIOD_PRESETS = [
       { dias: 30, label: "Mensal" }, { dias: 90, label: "Trimestral" },
       { dias: 180, label: "Semestral" }, { dias: 365, label: "Anual" },
@@ -132,42 +106,30 @@ async function main() {
     // Estado que o bloco recortado não declara (vive acima dele no arquivo).
     _pmData = dados.planos;
     _pmSemPlano = dados.sem_plano;
-    _pmSelecionados = new Set();
-    _pmZonasCache = [];
-    _pmTecnicosCache = [];
-    _pmZonaEditando = null;
-    _pmMenuAberto = null;
     _pmMes = null;
-    _pmAtualizarBulkBar = () => {};
 
-    const ABAS = ["todos", "sem-dono", "com-dono", "em-campo", "feitas", "sem-plano", "inativos"];
-    for (const aba of ABAS) {
-      _pmTabAtiva = aba;
-      let erro = null;
-      try { _pmRenderTudo(); } catch (e) { erro = e; }
-      ok(`aba "${aba}" renderiza sem estourar`, !erro);
-      if (erro) console.log("    " + erro.constructor.name + ": " + erro.message);
-    }
+    const BALDES = ["sem-dono", "com-dono", "em-campo", "feitas", "fora-do-mes"];
+    let erro = null;
+    try {
+      for (const p of dados.planos) {
+        if (p.ativo && !BALDES.includes(_pmBaldeDoMes(p))) throw new Error(`plano ${p.id}: balde "${_pmBaldeDoMes(p)}"`);
+        if (typeof _pmAtrasada(p) !== "boolean") throw new Error(`plano ${p.id}: _pmAtrasada não é booleano`);
+        const s = _pmStatus(p);
+        if (!s || typeof s !== "object") throw new Error(`plano ${p.id}: _pmStatus vazio`);
+        _pmPeriodLabel(p.periodicidade_dias);
+        _pmFmtData(p.proxima_em);
+      }
+    } catch (e) { erro = e; }
+    ok(`as leituras do mês funcionam em todos os ${dados.planos.length} planos`, !erro);
+    if (erro) console.log("    " + erro.constructor.name + ": " + erro.message);
+    ok("o mês por extenso e os vizinhos", _pmMesPorExtenso("2026-10") === "outubro de 2026"
+       && _pmMesVizinho("2026-12", 1) === "2027-01" && _pmMesVizinho("2026-01", -1) === "2025-12");
 
-    // ⚠️ A ABA "SEM PLANO" TEM DE DESENHAR LINHA — foi ela que quebrou. Contar
-    // "renderizou sem estourar" não bastaria: com o `return` cedo demais ela
-    // desenharia zero linha e passaria verde.
-    _pmTabAtiva = "sem-plano";
-    _pmRenderTudo();
-    const htmlSemPlano = el("pmTableBody").innerHTML;
-    ok("a aba \"Sem plano\" desenha uma linha por prédio",
-       (htmlSemPlano.match(/<tr/g) || []).length === dados.sem_plano.length);
-    ok("e a linha dela oferece criar o plano", htmlSemPlano.includes("criar-para"));
-
-    // O menu "⋯" é outro caminho de render, e só existe com um id aberto.
-    const ativo = dados.planos.find((p) => p.ativo);
-    if (ativo) {
-      _pmTabAtiva = "todos"; _pmMenuAberto = ativo.id;
-      _pmRenderTudo();
-      ok("o menu de ações desenha quando aberto",
-         el("pmTableBody").innerHTML.includes('class="pm-menu"'));
-      _pmMenuAberto = null;
-    }
+    // O gancho: quem grava chama `_pmRenderTudo`, e a lista nova (e a coluna
+    // de preventiva dos Condomínios) redesenha porque embrulha esta função.
+    ok("_pmRenderTudo existe e não estoura", (() => { try { _pmRenderTudo(); return true; } catch { return false; } })());
+    const molde = fs.readFileSync(path.join(__dirname, "../../public/admin-prev-lista.js"), "utf8");
+    ok("a tela nova embrulha _pmRenderTudo", molde.includes("window._pmRenderTudo = function"));
 
     // ── O seletor de mês ─────────────────────────────────────────────────────
     // ⚠️ Sem ele, escalar para outubro gravava certo e a tela dizia "Sem dono".
@@ -178,34 +140,18 @@ async function main() {
     ok("cada plano diz se é trabalho DAQUELA competência",
        outubro.planos.every((p) => typeof p.do_mes === "boolean"));
 
-    // ⚠️ O plano fora da competência sai dos baldes do mês, mas FICA em "Todos"
-    // — a aba de cadastro. Antes ele aparecia em "Sem dono" ao lado do trabalho
-    // de agora, e só a coluna "Próxima" distinguia numa lista de 80 linhas.
+    // ⚠️ O plano fora da competência sai dos baldes do mês (as visões Sem
+    // responsável, Com responsável, Em campo e Feitas da tela nova), mas fica
+    // em "Todas" — a visão de cadastro.
     _pmData = outubro.planos; _pmMes = "2026-10";
     const fora = outubro.planos.filter((p) => p.ativo && p.do_mes === false);
     if (fora.length) {
       ok("plano fora da competência não entra nos baldes do mês",
          fora.every((p) => _pmBaldeDoMes(p) === "fora-do-mes"));
-      _pmTabAtiva = "sem-dono"; _pmRenderTudo();
-      const semDono = el("pmTableBody").innerHTML;
-      ok("e não aparece na aba \"Sem dono\"",
-         !fora.some((p) => semDono.includes(`data-pm-id="${p.id}"`)));
-      _pmTabAtiva = "todos"; _pmRenderTudo();
-      ok("mas continua em \"Todos\"",
-         fora.some((p) => el("pmTableBody").innerHTML.includes(`data-pm-id="${p.id}"`)));
     } else {
-      ok("(sem plano fora da competência no banco de teste — pulei 3)", true);
+      ok("(sem plano fora da competência no banco de teste — pulei 1)", true);
     }
     _pmData = dados.planos; _pmMes = null;
-
-    // O prédio é o sujeito da linha — se `.pm-predio` sumir, a hierarquia que
-    // custou este passe voltou ao que era.
-    _pmTabAtiva = "todos";
-    _pmRenderTudo();
-    ok("a linha do plano tem o prédio como sujeito",
-       el("pmTableBody").innerHTML.includes('class="pm-predio"'));
-    ok("e a coluna do mês desenha o selo de estado",
-       el("pmTableBody").innerHTML.includes('class="pm-selo"'));
   } finally {
     // ⚠️ FECHA DE VERDADE ANTES DE SAIR. Com `srv.close()` solto seguido de
     // `process.exit()`, o Node saía com **127** e a assertion do libuv

@@ -267,6 +267,20 @@ GET `/`, `/metricas`, `/:id`, `/:id/pdf` (adminOnly); POST/PATCH/DELETE
 manda e-mail); `GET /:id/status-assinatura` (adminOnly, lê status sem API
 externa — ver seção "Assinatura de contratos" abaixo).
 
+**Contratos do Omie** (`/contratos/omie`, **gestao**, migration 096 — só a
+cópia do banco, nada chama nem grava no Omie;
+[omie-integracao.md](modulos/omie-integracao.md)):
+- `GET /contratos/omie` → `{ contratos, sincronizacao }`. Cada contrato traz
+  `situacao`/`situacao_rotulo`/`ativo`, `valor_mensal`, `dia_faturamento`,
+  vigência e `vigencia_vencida`, `cliente` (documento, razão social, e-mail),
+  `condominio_id`/`condominio_nome`, `ligacao` (`manual`, `cnpj`,
+  `cnpj-repetido`, `sem-cnpj`, `cnpj-sem-predio`, `sem-cliente`) e a
+  `ultima_nota`.
+- `PUT /contratos/omie/clientes/:codigo/condominio` `{ condominio_id }` → liga
+  à mão (vale para todos os contratos do cliente; 404 se o prédio ou o cliente
+  não existir).
+- `DELETE /contratos/omie/clientes/:codigo/condominio` → desfaz o elo à mão.
+
 ---
 
 ## Agenda (`/agenda`) — gestão

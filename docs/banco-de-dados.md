@@ -612,8 +612,10 @@ Ver [agenda.md](modulos/agenda.md).
 **`omie_sincronizacoes`** — `nome` (PK, `faturamento_contratos`), `ultima_em`,
 `ultimo_erro`, `detalhe` (JSONB com as contagens).
 
-⚠️ As três tabelas `omie_*` são **cópia**: quem manda é o Omie. Nada daqui
-volta para lá.
+⚠️ As tabelas `omie_*` são **cópia**: quem manda é o Omie. Nada daqui
+volta para lá. Desde a 096 a mesma sincronização copia também os clientes
+(`omie_clientes`), e o `detalhe` traz `clientes` e `erro_clientes` (a falha dos
+clientes não trava contratos e notas).
 
 ## Remoção de usuário — regra das FKs de autoria
 
@@ -746,6 +748,36 @@ estado exato porque estas três colunas lembram qual era ele.
 chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que já
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
+
+## 096 — clientes do Omie e o elo do contrato com o prédio (20/11/2026)
+
+Integração com o Omie, fase 1 ([omie-integracao.md](modulos/omie-integracao.md)).
+
+**`omie_clientes`** — cópia de `geral/clientes` `ListarClientes`, refeita pelo
+mesmo job do faturamento:
+
+| Coluna | Tipo | O quê |
+|---|---|---|
+| `omie_codigo` | BIGINT PK | `codigo_cliente_omie` (= `omie_contratos.omie_cliente`) |
+| `documento` | VARCHAR(14) | CNPJ/CPF **só dígitos**, indexado: é por ele que o contrato acha o prédio |
+| `razao_social` / `nome_fantasia` / `email` / `cidade` | TEXT | |
+| `inativo` | BOOLEAN | `inativo = 'S'` no Omie |
+| `atualizado_em` | TIMESTAMPTZ | |
+
+**`omie_cliente_vinculos`** — o elo feito **à mão** (cliente cujo CNPJ não bate
+com nenhum prédio, ou bate com mais de um):
+
+| Coluna | Tipo | O quê |
+|---|---|---|
+| `omie_cliente` | BIGINT PK | sem FK (a cópia dos clientes é refeita) |
+| `condominio_id` | FK condominios, CASCADE | |
+| `ligado_por` | FK usuarios, SET NULL | |
+| `ligado_em` | TIMESTAMPTZ | |
+
+⚠️ **De qual prédio é o contrato**, nesta ordem: o elo à mão; o CNPJ do cliente
+igual ao `condominios.cnpj` (os dois só em dígitos) quando bate com **um**
+prédio; senão nenhum, com o motivo. A sincronização nunca mexe nos vínculos;
+apagar a linha volta ao automático. Nada é gravado no Omie.
 
 ## 095 — `condominio_notas`: notas e avisos do prédio (20/11/2026)
 

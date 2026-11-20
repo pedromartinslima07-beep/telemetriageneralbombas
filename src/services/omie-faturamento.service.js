@@ -44,6 +44,20 @@ async function _listarContratos() {
   return todos;
 }
 
+// Os clientes do Omie (migration 096): é pelo CNPJ deles que o contrato acha
+// o prédio. A lista inteira, de 50 em 50 (o Omie não filtra "só quem tem
+// contrato").
+async function _listarClientes() {
+  const todos = [];
+  for (let p = 1; p <= 80; p++) {
+    const j = await omie.chamar("geral/clientes/", "ListarClientes",
+      { pagina: p, registros_por_pagina: 50, apenas_importado_api: "N" });
+    todos.push(...(j.clientes_cadastro || []));
+    if (p >= (j.total_de_paginas || 1)) break;
+  }
+  return todos;
+}
+
 async function _listarNotas(de, ate) {
   const todas = [];
   for (let p = 1; p <= 40; p++) {
@@ -80,6 +94,12 @@ async function sincronizar({ forcar = false } = {}) {
     const hoje = new Date();
     const inicioAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
     const notas = await _listarNotas(inicioAnterior, hoje);
+    // ⚠️ OS CLIENTES NÃO TRAVAM O RESTO. Se a leitura deles falhar, contratos e
+    // notas seguem copiados (é o que a Agenda usa no dia 1) e o erro fica no
+    // `detalhe` da sincronização; a tela de contratos mostra a cópia anterior.
+    let clientes = null, erroClientes = null;
+    try { clientes = await _listarClientes(); }
+    catch (e) { erroClientes = String(e.message).slice(0, 300); }
 
     const client = await pool.connect();
     let nNotas = 0;
@@ -111,7 +131,21 @@ async function sincronizar({ forcar = false } = {}) {
         );
         nNotas++;
       }
-      const detalhe = { contratos: contratos.length, notas_de_contrato: nNotas, notas_lidas: notas.length };
+      for (const c of clientes || []) {
+        if (!c.codigo_cliente_omie) continue;
+        const doc = String(c.cnpj_cpf || "").replace(/\D/g, "").slice(0, 14) || null;
+        await client.query(
+          `INSERT INTO omie_clientes (omie_codigo, documento, razao_social, nome_fantasia, email, cidade, inativo, atualizado_em)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+           ON CONFLICT (omie_codigo) DO UPDATE SET documento = EXCLUDED.documento, razao_social = EXCLUDED.razao_social,
+             nome_fantasia = EXCLUDED.nome_fantasia, email = EXCLUDED.email, cidade = EXCLUDED.cidade,
+             inativo = EXCLUDED.inativo, atualizado_em = NOW()`,
+          [c.codigo_cliente_omie, doc, c.razao_social || null, c.nome_fantasia || null,
+           c.email || null, c.cidade || null, c.inativo === "S"]
+        );
+      }
+      const detalhe = { contratos: contratos.length, notas_de_contrato: nNotas, notas_lidas: notas.length,
+                        clientes: clientes ? clientes.length : null, erro_clientes: erroClientes };
       await client.query(
         `INSERT INTO omie_sincronizacoes (nome, ultima_em, ultimo_erro, detalhe) VALUES ($1, NOW(), NULL, $2)
          ON CONFLICT (nome) DO UPDATE SET ultima_em = NOW(), ultimo_erro = NULL, detalhe = EXCLUDED.detalhe`,

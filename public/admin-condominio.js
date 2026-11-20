@@ -510,7 +510,10 @@ function _cfRenderCabecalho(c, d) {
     let ctr = "Contrato: carregando…";
     if (d.extraCarregado) {
       const vig = d.contratos.find(x => x.ativo);
-      if (!vig) ctr = "Sem contrato";
+      // Sem contrato no sistema, vale o ativo do Omie (integração, fase 1).
+      const om = !vig && window.GBOmie ? window.GBOmie.doPredio(c.id).find(k => k.ativo) : null;
+      if (om) ctr = `Contrato <b>${_cfMoeda(om.valor_mensal)}</b> por mês no Omie${om.vigencia_vencida ? ` · <b class="ls-txt-ri">vigência vencida</b>` : ""}`;
+      else if (!vig) ctr = "Sem contrato";
       else {
         const dias = vig.dias_para_vencer;
         const venc = dias != null && dias < 0 ? ` · <b class="ls-txt-ri">vencido</b>` : dias != null && dias <= 30 ? ` · <b class="ls-txt-at">vence em ${dias} dia${dias === 1 ? "" : "s"}</b>` : "";
@@ -597,6 +600,14 @@ function _cfColEsquerda(c, d) {
         ${_cfSeloLs(ct.ativo ? st.texto : "Encerrado", tom)}
       </button>`;
     }).join("");
+    // Os contratos do Omie deste prédio (a cobrança mora lá). Abrem na tela
+    // Contratos, com o contrato escolhido.
+    const linhasOm = (window.GBOmie ? window.GBOmie.doPredio(c.id) : []).map(k => `<button type="button" class="cp-linha" data-cf-omie="${k.omie_codigo}">
+        ${_cfIco("file-signature")}
+        <span class="cp-linha-txt"><b>No Omie${k.numero ? ` · <span class="ls-mono">${_cfEsc(k.numero)}</span>` : ""}</b>
+          <small>${k.vigencia_inicio ? _cfData(k.vigencia_inicio) : "—"} → ${k.vigencia_fim ? _cfData(k.vigencia_fim) : "sem fim"} · ${_cfMoeda(k.valor_mensal)} por mês${k.dia_faturamento ? ` · fatura dia ${k.dia_faturamento}` : ""}</small></span>
+        ${_cfSeloLs(!k.ativo ? k.situacao_rotulo : k.vigencia_vencida ? "Vigência vencida" : "Ativo", !k.ativo ? "neutro" : k.vigencia_vencida ? "risco" : "ok")}
+      </button>`).join("");
     const linhasPl = d.planos.map(p => {
       const atr = typeof _pmAtrasada === "function" && _pmAtrasada(p);
       const sel = !p.ativo ? _cfSeloLs("Inativo", "neutro") : atr ? _cfSeloLs("Atrasada", "risco") : p.estado === "feita" ? _cfSeloLs("Feita no mês", "ok") : _cfSeloLs("Ativa", "info");
@@ -608,7 +619,7 @@ function _cfColEsquerda(c, d) {
         ${sel}
       </button>`;
     }).join("");
-    ctr = (linhasCt || _cfNada("Nenhum contrato cadastrado."))
+    ctr = ((linhasCt + linhasOm) || _cfNada("Nenhum contrato cadastrado, nem no Omie."))
       + `<div class="cp-sub-cab">Manutenção preventiva</div>`
       + (linhasPl || _cfNada("Este prédio não tem preventiva cadastrada."))
       + `<div class="cp-rodape-bloco viewer-only-hide">
@@ -890,7 +901,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!sec) return;
 
   const agir = (e) => {
-    const alvo = e.target.closest("[data-cf-aba],[data-cf-acao],[data-cf-chamado],[data-cf-os],[data-cf-orc],[data-cf-contrato],[data-cf-plano],[data-cf-eq],[data-cf-conversa],[data-cf-novo],[data-cf-mais],[data-cf-nota-salvar],[data-cf-nota-apagar]");
+    const alvo = e.target.closest("[data-cf-aba],[data-cf-acao],[data-cf-chamado],[data-cf-os],[data-cf-orc],[data-cf-contrato],[data-cf-omie],[data-cf-plano],[data-cf-eq],[data-cf-conversa],[data-cf-novo],[data-cf-mais],[data-cf-nota-salvar],[data-cf-nota-apagar]");
     if (!alvo || !sec.contains(alvo)) return;
     const ds = alvo.dataset;
     if ("cfNotaSalvar" in ds) { _cfSalvarNota(); return; }
@@ -907,6 +918,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ds.cfOs)       { abrirOSDetalhe(Number(ds.cfOs)); return; }
     if (ds.cfOrc)      { _cfAbrirOrcamento(Number(ds.cfOrc)); return; }
     if (ds.cfContrato) { _ctrAbrirModal({ condoId: _cfCondoId, contratoId: Number(ds.cfContrato) }); return; }
+    if (ds.cfOmie) { window.GBOmie?.abrir(Number(ds.cfOmie)); return; }
     if (ds.cfPlano)    { showSection("planos"); return; }
     if (ds.cfEq)       { window.open(`/e/${encodeURIComponent(ds.cfEq)}`, "_blank", "noopener"); return; }
     if (ds.cfConversa) { showSection("whatsapp"); return; }
