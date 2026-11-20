@@ -2159,7 +2159,11 @@ function _alUnificar() {
       severidade: sev,
       sevLabel,
       slaEstourado,
-      status: status === "fechado" ? "resolvido" : "ativo",
+      // ⚠️ CANCELADO NÃO É ALERTA (20/11/2026). Só "fechado" virava
+      // resolvido, e o chamado cancelado (P1/P2) seguia contando no badge
+      // para sempre: em produção eram o #358 e o #386, o "2" do Monitoramento
+      // com a tela vazia.
+      status: _chEmAberto(status) ? "ativo" : "resolvido",
       criado_em: ch.criado_em,
       fechado_em: ch.fechado_em,
     });
@@ -2172,7 +2176,7 @@ function _alUnificar() {
 // resposta OU passou do TTR (prazo de resolução). Campos vêm do GET /chamados.
 function _chamadoSlaEstourado(ch) {
   const s = String(ch.status || "").toLowerCase();
-  if (s === "fechado") return false;
+  if (!_chEmAberto(s)) return false; // fechado OU cancelado
   return !!(ch.sla_ttfr_estourado || ch.sla_ttr_risco);
 }
 
@@ -2182,7 +2186,7 @@ function _chamadosAlertaAbertos() {
   return (_chamadosData || []).filter(ch => {
     const p = String(ch.prioridade || "").toLowerCase();
     const s = String(ch.status || "").toLowerCase();
-    if (s === "fechado") return false;
+    if (!_chEmAberto(s)) return false; // fechado OU cancelado
     return p === "p1" || p === "p2" || _chamadoSlaEstourado(ch);
   });
 }
@@ -2243,13 +2247,17 @@ function _alertasAtivosUnificados() {
   return _alUnificar().filter((it) => it.status === "ativo" && _alContaComoAlerta(it));
 }
 
+// ⚠️ SÓ A ÁGUA (20/11/2026). Este número acende o item Monitoramento, e a tela
+// Monitoramento mostra reservatórios, não chamados. Contar aqui os chamados
+// urgentes (P1/P2, prazo estourado) dava um número que a tela não explicava,
+// e duplicava o do Atendimento, onde esses chamados moram e já são contados.
+// O painel antigo (public/legado/) continua somando os dois: lá a tela é
+// "Alertas", com chamados e telemetria juntos.
 function _atualizarBadgeAlertas() {
   const badge = document.getElementById("navBadgeAlertas");
   if (!badge) return;
   const total = _alertasAtivosUnificados().filter((it) =>
-    it.origem === "telemetria"
-      ? !_alertasIdsAck.has(`al-${it.rawId}`)
-      : !_alertasIdsAck.has(`ch-${it.rawId}`)
+    it.origem === "telemetria" && !_alertasIdsAck.has(`al-${it.rawId}`)
   ).length;
   badge.textContent = total;
   badge.style.display = total > 0 ? "inline-flex" : "none";

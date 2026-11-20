@@ -18388,3 +18388,24 @@ ficha do turno mostrava "--:-- alteração" em toda linha (lia campos que a rota
 não devolve). Teste `chamado-escritorio.test.js` (22). `operador.js?v=87`,
 `operador.css?v=116`, `admin.js?v=420`, `admin.css?v=375`,
 `admin-carteira.js?v=11`.
+
+## O "2" do Monitoramento com a tela vazia (2026-11-20)
+
+Relato do Pedro: o item Monitoramento mostrava 2 sem nada na tela. Eram dois
+chamados **cancelados** (#358 e #386, P2): o contador de alertas só tirava o
+"fechado", e cancelado seguia contando como alerta ativo para sempre. Agora
+`_alUnificar`, `_chamadoSlaEstourado` e `_chamadosAlertaAbertos` usam
+`_chEmAberto` (fechado **ou** cancelado saem), no painel novo e na cópia do
+antigo (`public/legado/admin.js?v=366`). E no painel novo o número do
+Monitoramento passou a contar **só a água** (alertas de telemetria): os
+chamados urgentes moram no Atendimento, que já tem o número deles.
+`admin.js?v=421`.
+
+## Relatórios vira dashboard: maquete (2026-11-20)
+
+Só maquete, sem rota nem tela no admin. `public/_redesenho-preview-2.js` troca a
+placa "espera a definição" pelo dashboard: seis números com a variação contra o
+mês anterior, e os blocos Atendimento e prazo, Dinheiro, Técnicos e Prédios e
+equipamentos, com gráficos em SVG na própria página. Exportar sai de
+Relatórios. `_redesenho-preview.css?v=4`, `_redesenho-preview-2.js?v=4`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md#relatórios-vira-dashboard-maquete-20112026).
