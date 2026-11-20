@@ -1630,6 +1630,19 @@ Notas fiscais, Contratos e o faturamento dos contratos no Omie (que só a
 Agenda mostrava) viram **uma tela**, `#/financeiro`, em
 `public/admin-financeiro.js` (novo). Era o último item do menu com subabas.
 
+> ⚠️ **Contratos saiu do Financeiro (20/11/2026).** A troca "Notas fiscais |
+> Contratos" trazia só o cartão dos contratos assinados: o bloco "Contratos no
+> Omie" ficava para trás, e as linhas do cartão não abriam nada (os cliques do
+> `_ctrsBindEventos` são escutados na seção Contratos, e o cartão hospedado
+> já não estava nela). Relato do Pedro: "não acontecia nada quando clicava
+> naqueles condomínios". Agora **Contratos é item próprio da Carteira**, logo
+> abaixo de Condomínios (`#/contratos`, com os contratos do Omie em cima e os
+> assinados no sistema embaixo). O Financeiro fica com as notas: o número
+> "Contratos por mês" (agora o total dos ativos **no Omie**, quando a cópia
+> carregou), o botão "Contratos" do cabeçalho e os avisos de vencido levam a
+> `#/contratos`; o endereço antigo `#/financeiro/contratos` também. O texto
+> abaixo descreve a etapa 5 como foi feita.
+
 ### Como é
 
 - **Cabeçalho:** o mês ("Novembro de 2026") e a troca **Notas fiscais |

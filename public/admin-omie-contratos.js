@@ -70,6 +70,8 @@
       if (ativa()) lista.desenhar();
       // A lista de Condomínios e a página do prédio leem doPredio: redesenham.
       if (typeof renderClientes === "function") renderClientes();
+      // O Financeiro mostra o total mensal dos contratos ativos do Omie.
+      document.dispatchEvent(new CustomEvent("gb:omie-contratos"));
     })();
     return st.pedido;
   }
@@ -294,6 +296,11 @@
 
   window.GBOmie = {
     carregado: () => !!st.dados,
+    // Os ativos: quantos e quanto por mês (a faixa do Financeiro).
+    resumo: () => {
+      const a = lista0().filter(k => k.ativo);
+      return { ativos: a.length, valor: a.reduce((t, k) => t + (Number(k.valor_mensal) || 0), 0), semPredio: a.filter(semPredio).length };
+    },
     // Os contratos do Omie de um prédio, o ativo primeiro.
     doPredio: id => lista0().filter(k => Number(k.condominio_id) === Number(id)).sort((a, b) => b.ativo - a.ativo),
     abrir(codigo) {

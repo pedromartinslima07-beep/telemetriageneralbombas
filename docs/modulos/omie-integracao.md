@@ -64,7 +64,8 @@ como o de 18/11. O script fica pronto (só aceita chamadas `Listar`/`Pesquisar`/
 > prédio, senão nenhum e o motivo. Na tela, **"Contratos no Omie"** fica no
 > topo de Contratos (`admin-omie-contratos.js`, no molde): chips Ativos · Sem
 > prédio · Vigência vencida · Suspensos e em elaboração · Encerrados · Todos; o
-> painel tem o prédio (ou o motivo de não ter), "Ligar a este prédio" com o
+> painel tem o prédio (ou o motivo de não ter) — desde 20/11/2026 a tela
+> Contratos é item próprio do menu, na Carteira, abaixo de Condomínios; "Ligar a este prédio" com o
 > seletor de prédio e até três parecidos pelo nome **como sugestão** (só o
 > clique grava), "Trocar o prédio", "Desfazer o elo à mão", a cobrança, a
 > última nota e o cliente no Omie; o admin tem "Atualizar do Omie". O cartão

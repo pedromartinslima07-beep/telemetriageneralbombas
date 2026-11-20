@@ -34,12 +34,17 @@ const _NAV_ITENS = [
   { grupo: "Documentos" },
   { id: "os", rotulo: "Ordens de serviço", icone: "clipboard-check", membros: [["ordens-servico", "O.S."]], tambem: ["os-detalhe"] },
   { id: "orcamentos", rotulo: "Orçamentos", icone: "file-text", membros: [["orcamentos", "Orçamentos"]], tambem: ["orcamento-detalhe"] },
-  // Etapa 5 (19/11/2026): tela única. Notas e Contratos seguem alcançáveis
-  // por endereço e acendem este item.
+  // Etapa 5 (19/11/2026): tela única. Notas segue alcançável por endereço e
+  // acende este item.
   { id: "financeiro", rotulo: "Financeiro", icone: "landmark",
-    membros: [["financeiro", "Financeiro"]], tambem: ["notas", "contratos", "contrato-detalhe"] },
+    membros: [["financeiro", "Financeiro"]], tambem: ["notas"] },
   { grupo: "Carteira" },
   { id: "condominios", rotulo: "Condomínios", icone: "building-2", membros: [["cadastros", "Condomínios"]], tambem: ["condominio"] },
+  // 20/11/2026: Contratos saiu de dentro do Financeiro (era a troca "Notas
+  // fiscais | Contratos", e o bloco "Contratos no Omie" nem ia junto). O
+  // contrato diz o que o prédio tem (prioridade, preventiva, se é cliente de
+  // contrato): fica na Carteira, ao lado do prédio. O Financeiro só leva para cá.
+  { id: "contratos", rotulo: "Contratos", icone: "file-signature", membros: [["contratos", "Contratos"]], tambem: ["contrato-detalhe"] },
   { id: "preventivas", rotulo: "Preventivas", icone: "repeat", membros: [["planos", "Preventivas"]] },
   { id: "equipamentos", rotulo: "Equipamentos", icone: "package", membros: [["equipamentos", "Equipamentos"]] },
   { id: "relatorios", rotulo: "Relatórios", icone: "chart-column", membros: [["relatorios", "Relatórios"]] },

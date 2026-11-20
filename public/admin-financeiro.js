@@ -3,17 +3,23 @@
 // ============================================================
 //
 // Junta o que estava em três lugares: Notas fiscais (a nota mora no
-// orçamento), Contratos, e o faturamento dos contratos no Omie (que só a
-// Agenda mostrava). Em cima, uma faixa com os quatro números do mês; embaixo,
-// a troca "Notas fiscais | Contratos".
+// orçamento), o total dos contratos, e o faturamento dos contratos no Omie
+// (que só a Agenda mostrava). Em cima, uma faixa com os quatro números do
+// mês; embaixo, as notas fiscais.
 //
-// ⚠️ AS DUAS LISTAS NÃO FORAM REESCRITAS. O conteúdo da tela Notas (#nfRoot,
-// desenhado por renderNotas em admin-carteira.js) e o cartão da tela
-// Contratos (desenhado por _ctrsRender e companhia em admin.js) são MOVIDOS
-// para cá — a mesma técnica do Atendimento. Ações, filtros, busca, ordem pela
-// coluna e as páginas de orçamento e de contrato continuam as de sempre. As
-// telas antigas (#/notas, #/contratos) seguem alcançáveis por endereço e
-// pegam o conteúdo de volta.
+// ⚠️ CONTRATOS SAIU DAQUI (20/11/2026). Era a troca "Notas fiscais |
+// Contratos", que trazia para cá só o cartão dos contratos assinados: o
+// bloco "Contratos no Omie" ficava para trás, e as linhas do cartão não
+// abriam nada, porque os cliques do _ctrsBindEventos são escutados na seção
+// Contratos e o cartão hospedado aqui já não estava dentro dela. Agora
+// Contratos é item próprio da Carteira (admin-nav.js), e daqui só se vai
+// para lá: o número "Contratos por mês" e os avisos de vencido levam a
+// #/contratos. O endereço antigo #/financeiro/contratos também leva.
+//
+// ⚠️ A LISTA DE NOTAS NÃO FOI REESCRITA. O conteúdo da tela Notas (#nfRoot,
+// desenhado por renderNotas em admin-carteira.js) é MOVIDO para cá — a mesma
+// técnica do Atendimento. A tela antiga (#/notas) segue alcançável por
+// endereço e pega o conteúdo de volta.
 //
 // O faturamento do Omie (GET /agenda/faturamento) é só do admin; para os
 // outros perfis o cartão some. O painel do mês é o da Agenda
@@ -44,14 +50,22 @@
     else o.pai.appendChild(el);
   }
   const blocoNotas = () => document.getElementById("nfRoot");
-  const blocoContratos = () => document.querySelector('.section[data-section="contratos"] > .card') || document.querySelector("#finPalco > .card.al-card");
+  // Versões anteriores hospedavam aqui o cartão dos contratos: se ele ficou
+  // para trás em #finPalco, volta para a seção Contratos.
+  const blocoContratos = () => document.querySelector("#finPalco > .card.al-card");
 
   // ===== números =====
   const contratos = () => (typeof _ctrsLista !== "undefined" && Array.isArray(_ctrsLista) ? _ctrsLista : []);
   const orcs = () => (typeof _avData !== "undefined" && Array.isArray(_avData) ? _avData : []);
   function numeros() {
     const ativos = contratos().filter(c => c.ativo);
-    const receita = ativos.reduce((s, c) => s + (Number(c.valor_mensal) || 0), 0);
+    let receita = ativos.reduce((s, c) => s + (Number(c.valor_mensal) || 0), 0);
+    let nAtivos = ativos.length, fonte = "no sistema";
+    // A cobrança é a do Omie: com a cópia carregada, o total vem de lá.
+    if (window.GBOmie?.carregado?.()) {
+      const r = window.GBOmie.resumo();
+      if (r.ativos) { receita = r.valor; nAtivos = r.ativos; fonte = "no Omie"; }
+    }
     const chave = typeof _ctrsGetStatusKey === "function" ? _ctrsGetStatusKey : () => "ativo";
     const vencidos = contratos().filter(c => chave(c) === "vencido").length;
     const vencendo = contratos().filter(c => chave(c) === "vencendo").length;
@@ -59,7 +73,7 @@
     const aprovMes = orcs().filter(o => o.status === "aprovado" && String(o.respondido_em || o.aprovado_em || "").slice(0, 7) === mes);
     const semNota = orcs().filter(o => o.status === "aprovado" && !o.nota_status).length;
     const comErro = orcs().filter(o => o.nota_status === "erro").length;
-    return { ativos: ativos.length, receita, vencidos, vencendo, aprovMes, semNota, comErro };
+    return { ativos: nAtivos, fonte, receita, vencidos, vencendo, aprovMes, semNota, comErro };
   }
 
   function faixaHtml() {
@@ -80,7 +94,10 @@
     const totalAcao = n.comErro + n.semNota + n.vencidos + n.vencendo;
     return `
       <div class="fn-faixa${ehAdmin() ? "" : " is-3"}">
-        <div class="fn-num"><span>Contratos por mês</span><b>${moeda(n.receita)}</b><small>${n.ativos} contrato${n.ativos === 1 ? "" : "s"} ativo${n.ativos === 1 ? "" : "s"}</small></div>
+        <button type="button" class="fn-num is-link" data-fn-contratos>
+          <span>Contratos por mês</span><b>${moeda(n.receita)}</b>
+          <small>${n.ativos} contrato${n.ativos === 1 ? "" : "s"} ativo${n.ativos === 1 ? "" : "s"} ${n.fonte} · ver contratos</small>
+        </button>
         ${omie}
         <div class="fn-num"><span>Avulsos aprovados em ${MESES[m - 1]}</span><b>${moeda(n.aprovMes.reduce((s, o) => s + (Number(o.valor_total) || 0), 0))}</b><small>${n.aprovMes.length} orçamento${n.aprovMes.length === 1 ? "" : "s"}</small></div>
         <div class="fn-num${totalAcao ? " is-acao" : ""}">
@@ -101,10 +118,7 @@
       <header class="fn-cab">
         <p class="fn-mes">${MESES[m - 1][0].toUpperCase() + MESES[m - 1].slice(1)} de ${ano}</p>
         <span class="fn-esp"></span>
-        <div class="fn-seg" role="group" aria-label="O que listar">
-          <button type="button" data-fn-modo="notas" class="${st.modo === "notas" ? "is-on" : ""}" aria-pressed="${st.modo === "notas"}">${ico("receipt")}Notas fiscais</button>
-          <button type="button" data-fn-modo="contratos" class="${st.modo === "contratos" ? "is-on" : ""}" aria-pressed="${st.modo === "contratos"}">${ico("file-signature")}Contratos</button>
-        </div>
+        <button type="button" class="btn btn-sm" data-fn-contratos>${ico("file-signature")}Contratos</button>
       </header>
       <div id="finFaixa">${faixaHtml()}</div>
       <div class="fn-palco" id="finPalco"></div>`;
@@ -115,22 +129,10 @@
   function mostrarModo() {
     const palco = document.getElementById("finPalco");
     if (!palco) return;
-    if (st.modo === "notas") {
-      devolver(blocoContratos());
-      hospedar(blocoNotas(), palco);
-      if (typeof renderNotas === "function") renderNotas();
-    } else {
-      devolver(blocoNotas());
-      hospedar(blocoContratos(), palco);
-      if (typeof _ctrsBindEventos === "function") _ctrsBindEventos();
-      if (typeof _ctrsRender === "function" && contratos().length) { _ctrsRender(); _ctrsRenderKpi?.(); }
-    }
-    document.querySelectorAll("[data-fn-modo]").forEach(b => {
-      const on = b.dataset.fnModo === st.modo;
-      b.classList.toggle("is-on", on);
-      b.setAttribute("aria-pressed", String(on));
-    });
-    history.replaceState(null, "", `#/financeiro/${st.modo}`);
+    devolver(blocoContratos());
+    hospedar(blocoNotas(), palco);
+    if (typeof renderNotas === "function") renderNotas();
+    history.replaceState(null, "", "#/financeiro/notas");
   }
 
   function redesenharFaixa() {
@@ -171,27 +173,28 @@
   document.addEventListener("click", (e) => {
     if (!e.target.closest('.section[data-section="financeiro"]')) return;
     let el;
-    if ((el = e.target.closest("[data-fn-modo]"))) {
-      if (st.modo === el.dataset.fnModo) return;
-      st.modo = el.dataset.fnModo;
-      mostrarModo();
-      return;
-    }
+    if (e.target.closest("[data-fn-contratos]")) { irParaContratos(); return; }
     if (e.target.closest("[data-fn-omie]")) { if (typeof _agAbrirFaturamento === "function") _agAbrirFaturamento(comp()); return; }
     if ((el = e.target.closest("[data-fn-ir]"))) {
       const [modo, aba] = el.dataset.fnIr.split(":");
-      st.modo = modo;
-      mostrarModo();
+      if (modo === "contratos") { irParaContratos(aba); return; }
       // Vai direto ao filtro que mostra o que pede ação.
       setTimeout(() => {
-        if (modo === "notas") {
-          if (typeof _nfAba !== "undefined") { _nfAba = aba; renderNotas(); }
-        } else {
-          document.querySelector(`[data-ctrs-tab="${aba}"]`)?.click();
-        }
+        if (typeof _nfAba !== "undefined") { _nfAba = aba; renderNotas(); }
       }, 0);
     }
   });
+
+  // Leva à tela Contratos (Carteira); com `aba`, já no filtro dos contratos
+  // assinados (vencido, vencendo).
+  function irParaContratos(aba) {
+    history.pushState(null, "", "#/contratos");
+    showSection("contratos");
+    if (aba) setTimeout(() => document.querySelector(`.section[data-section="contratos"] [data-ctrs-tab="${aba}"]`)?.click(), 0);
+  }
+
+  // A cópia do Omie chegou depois da tela: o total dos contratos acompanha.
+  document.addEventListener("gb:omie-contratos", () => { if (ativa()) redesenharFaixa(); });
 
   // ===== ganchos =====
   (function () {
@@ -201,7 +204,8 @@
       const alvo = partes[0] === "financeiro" ? partes[1] : null;
       const r = origShow.call(this, name, ...resto);
       if (name === "financeiro") {
-        if (alvo === "notas" || alvo === "contratos") st.modo = alvo;
+        // Endereço antigo (#/financeiro/contratos): a tela agora é Contratos.
+        if (alvo === "contratos") { setTimeout(() => irParaContratos(), 0); return r; }
         render();
         garantirDados();
       } else if (name === "notas") {
@@ -209,6 +213,7 @@
         if (typeof renderNotas === "function") renderNotas();
       } else if (name === "contratos") {
         devolver(blocoContratos());
+        if (typeof _ctrsBindEventos === "function") _ctrsBindEventos();
       }
       return r;
     };

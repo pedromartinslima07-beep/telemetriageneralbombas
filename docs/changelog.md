@@ -18337,3 +18337,18 @@ Omie e lote do faturamento) foram aplicadas em produção antes do push,
 conferidas no `information_schema` antes (nenhuma existia) e depois (todas lá).
 A branch entrou na main por fast-forward. Em produção o painel novo só aparece
 para os e-mails da `PAINEL_NOVO` ([painel-novo.md](modulos/painel-novo.md)).
+
+## Contratos com tela própria na Carteira (2026-11-20)
+
+Pedido do Pedro, que não achou o bloco "Contratos no Omie" e viu que clicar
+nos condomínios da lista de contratos não fazia nada. As duas coisas vinham
+da troca "Notas fiscais | Contratos" do Financeiro: ela levava só o cartão
+dos contratos assinados, e o cartão fora da seção Contratos perdia os cliques.
+**Contratos** agora é item do menu na Carteira, abaixo de Condomínios
+(`#/contratos`), com os contratos do Omie e os assinados no sistema. O
+Financeiro fica com as notas fiscais, e "Contratos por mês" mostra o total dos
+ativos no Omie (R$ 59.035,16, 81 contratos) e leva para Contratos, assim como
+o botão do cabeçalho e o endereço antigo `#/financeiro/contratos`.
+`admin-nav.js?v=16`, `admin-financeiro.js?v=2`,
+`admin-omie-contratos.js?v=3`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
