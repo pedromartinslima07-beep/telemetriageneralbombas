@@ -148,6 +148,8 @@ const ok = (nome, cond) => r.push([nome, !!cond]);
     ok("chamado aberto no mês corrente → andamento", est[11] === "andamento");
     ok("operador NÃO lê os meses → 403", (await req("operador", "GET", `/planos-manutencao/meses?condominio_id=${cA}`)).st === 403);
     ok("condominio_id inválido → 400", (await req("admin", "GET", "/planos-manutencao/meses?condominio_id=abc")).st === 400);
+    const todos = await req("admin", "GET", "/planos-manutencao/meses");
+    ok("sem condominio_id: todos os planos (o deste prédio, igual)", todos.st === 200 && JSON.stringify(todos.j.planos?.[plano]) === JSON.stringify(est));
   } catch (e) {
     ok("sem exceção: " + e.message, false);
   } finally {

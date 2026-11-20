@@ -520,9 +520,11 @@ router.put("/zonas-responsaveis/:zona", authRequired, gestaoOnly, async (req, re
 //   sem      · nada registrado (plano não mensal pode não ter visita no mês)
 // ⚠️ "sem" NÃO É "não feita": só o cancelamento afirma que faltou visita.
 // (Sem crase nos comentarios do SQL abaixo: template literal. Ver CLAUDE.md.)
+// Sem condominio_id: todos os planos (a coluna da lista de Preventivas).
 router.get("/meses", authRequired, gestaoOnly, async (req, res) => {
-  const condoId = Number(req.query.condominio_id);
-  if (!Number.isInteger(condoId) || condoId <= 0) return res.status(400).json({ error: "condominio_id inválido" });
+  const temCondo = req.query.condominio_id != null && req.query.condominio_id !== "";
+  const condoId = temCondo ? Number(req.query.condominio_id) : null;
+  if (temCondo && (!Number.isInteger(condoId) || condoId <= 0)) return res.status(400).json({ error: "condominio_id inválido" });
   try {
     const r = await pool.query(
       `WITH m AS (
@@ -547,7 +549,7 @@ router.get("/meses", authRequired, gestaoOnly, async (req, res) => {
                          AND (ch.competencia = m.comp
                               OR (ch.competencia IS NULL AND date_trunc('month', ch.criado_em)::date = m.comp))) AS cancelada
          FROM planos_manutencao pm CROSS JOIN m
-        WHERE pm.condominio_id = $1
+        WHERE ($1::int IS NULL OR pm.condominio_id = $1::int)
         ORDER BY pm.id, m.comp`,
       [condoId]
     );

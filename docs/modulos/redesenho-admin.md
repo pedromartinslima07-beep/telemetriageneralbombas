@@ -1947,6 +1947,68 @@ Versões: `admin.css?v=350`, `admin.js?v=410`, `admin-condominio.js?v=13`,
 
 ---
 
+## Etapa 9 no código: Preventivas no molde (20/11/2026)
+
+Pedido do Pedro: *"pode seguir"* (a próxima da ordem). Quarta tela no molde
+(`public/admin-prev-lista.js`, novo), com o painel ao lado.
+
+| Antes | Agora |
+|---|---|
+| Seletor de mês na barra | O mês no **cabeçalho** (‹ novembro de 2026 › e "Hoje" quando fora do mês corrente), ao lado de **Nova preventiva** |
+| Abas Todos · Sem responsável · Com responsável · Em campo · Feitas · Sem preventiva · Inativos | Chips **Este mês** (padrão: o trabalho da competência) · Sem responsável · Com responsável · Em campo · Feitas · **Atrasadas** (só se houver) · Prédios sem preventiva · Inativas · Todas |
+| Tabela agrupada por zona, responsável editável no cabeçalho do grupo | Coluna **Zona** (com os responsáveis); a lista já vem na ordem zona → prédio; os responsáveis se editam no **painel**, em "Definir responsáveis" |
+| Prédio · Este mês · Próxima · menu ⋯ | Prédio · Zona · Este mês · Próxima · **Últimos 12 meses** (a tira da página do prédio) |
+| Menu ⋯ da linha (Gerar chamado, Escalar, Desativar) | No painel: **Editar**, **Escalar/Trocar técnico**, **Gerar chamado agora** (só sem chamado aberto), **Desativar** — ou **Reativar** na pausada |
+| Barra de lote própria | A do molde: Escalar técnico, Gerar chamados, Editar, Ativar, Desativar |
+| — | Busca sem acento, Exportar CSV (com "feitas nos últimos 12 meses"), paginação |
+
+O painel mostra o mês (situação, técnico e de onde ele veio — escalado ou
+pela zona —, o chamado aberto ou o fechado, a baixa à mão), o cadastro
+(próxima com a frase de sempre, última, periodicidade, o que fazer), a zona
+com os responsáveis e a **tira grande** com os meses embaixo e a legenda.
+O prédio sem preventiva é uma linha da lista (só na visão dele), com
+**Criar preventiva** (o modal já com o prédio).
+
+⚠️ **Nenhuma regra nova, nenhuma rota nova** (só a `GET
+/planos-manutencao/meses` aceita vir **sem** `condominio_id`, e aí devolve
+todos os planos). Leituras e ações são as do admin.js: `_pmData`,
+`carregarPlanos` (o estado do mês vem do servidor), `_pmBaldeDoMes`,
+`_pmAtrasada`, `_pmStatus`, `_pmAbrirModal`, `_pmAcao`, `_pmSalvarZona` e o
+lote (`_pmBulkEscalar`, `_pmBulkChamado`, `_pmAbrirModalBulk`, `_pmAcaoBulk`,
+que leem `_pmSelecionados`: o molde preenche antes e limpa quando o admin.js
+limpa — cancelar o prompt deixa marcado). O cartão antigo fica escondido
+(`.pm-antigo[hidden]`); o embrulho de `_pmRenderTudo` redesenha a tela nova, e
+o de `carregarPlanos` rebusca a tira. ⚠️ Trocar o mês limpa a seleção (a
+mesma regra de antes: escala é por competência).
+
+**Reativar** usa o `PATCH /planos-manutencao/bulk` com um id: o menu antigo
+chamava `DELETE` (que desativa) também para "Reativar preventiva".
+
+**Achado de passagem:** a lista de Condomínios mostrava "—" em vez de "sem
+preventiva" quando se chegava a ela vindo de Preventivas (desenhava antes de
+saber que os planos já estavam carregados). Corrigido.
+
+### Testado (banco de teste, 20/11/2026)
+
+1900×1000 e 390×844, sem erro no console: o mês para trás e "Hoje" de volta
+(a frase muda para outubro), as visões (Prédios sem preventiva com "Criar
+preventiva"; Inativas com "Reativar"), seleção de duas e a barra de lote,
+**Escalar** até o prompt ("Escalar 2 preventivas de novembro de 2026", e
+cancelar mantém as duas marcadas), "Definir responsáveis" abrindo com o
+técnico da zona marcado, **salvar a zona de verdade** (200, mesmo técnico),
+Editar abrindo o modal de sempre, rede toda 200. **Não feito de verdade:**
+escalar (moveria o chamado aberto do teste para outro técnico, e desfazer
+não o devolve), gerar chamado e desativar — são as funções de sempre.
+Passaram planos-tela 24/24, planos-fluxo 32/32, planos-lote 10/10,
+preventivas-mes 66/66, preventiva-competencia 20/20, preventiva-feita-a-mao
+33/33, preventiva-orfa 11/11 e condominio-notas-aviso 34/34 (com o caso
+"sem condominio_id").
+
+Versões: `admin.css?v=352`, `admin-prev-lista.js?v=2`,
+`admin-condo-lista.js?v=5`.
+
+---
+
 ## Onde paramos (19/11/2026, fim do dia) — retomar daqui
 
 **Branch:** `feature/admin-condominio` (sai da `feature/nota-fiscal-omie`),
@@ -1966,6 +2028,7 @@ aberta em `/dev/_redesenho-preview.html` com `npm run dev` (fora de produção).
 | 6 | **Molde de lista** e **Ordens de serviço** nele (20/11) | `admin-lista.js`, `admin-os-lista.js` |
 | 7 | **Orçamentos** numa lista só, do pedido ao aprovado (20/11) | `admin-orc-lista.js` |
 | 8 | **Condomínios** no molde e a **página do prédio em 3 colunas** (20/11) | `admin-condo-lista.js`, `admin-condominio.js` |
+| 9 | **Preventivas** no molde, com o mês no cabeçalho e a tira dos 12 meses (20/11) | `admin-prev-lista.js` |
 
 Nenhum item do menu tem mais subabas. As telas antigas seguem no HTML,
 abrindo por endereço, e os blocos movidos voltam para elas.
@@ -1976,7 +2039,7 @@ abrindo por endereço, e os blocos movidos voltam para elas.
    referência de cada uma), agora com `GBLista.criar` (ver etapa 6):
    ~~O.S.~~ (✅ 20/11) · ~~Orçamentos~~ (✅ 20/11, rotas paginadas) (lista única, "solicitado" vira
    estado, termina no aprovado) · ~~Condomínios~~ (✅ 20/11, lista + página do prédio
-   em 3 colunas no lugar das 10 abas) · Preventivas (tira dos 12 meses) ·
+   em 3 colunas no lugar das 10 abas) · ~~Preventivas~~ (✅ 20/11, com a tira dos 12 meses) ·
    Equipamentos · Colaboradores · Configurações (menu à esquerda). Molde:
    chips, busca, Exportar, seleção em lote, ordem pela coluna, paginação,
    painel ao lado.

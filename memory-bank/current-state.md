@@ -131,7 +131,9 @@ mesma peça entrar duas vezes, e os PDFs separam as duas. **Fase C, começo
 Preventiva) e a **página do prédio em três colunas** no lugar das 10 abas
 (cadastro/contrato/equipamentos · histórico com filtro · água/em aberto/acesso),
 com a nota livre, o aviso aos síndicos em lote e a tira dos 12 meses da
-preventiva (migration 095). As outras listas entram no mesmo molde.
+preventiva (migration 095). **Etapa 9 (20/11):** **Preventivas** no molde
+(o mês no cabeçalho, a zona como coluna, a tira dos 12 meses, a preventiva no
+painel ao lado). As outras listas entram no mesmo molde.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma

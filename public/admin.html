@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=350">
+  <link rel="stylesheet" href="/static/admin.css?v=352">
 </head>
 <body>
   <div id="appLoader">
@@ -1502,10 +1502,16 @@
       <!-- ===== SECTION: PLANOS DE MANUTENÇÃO ===== -->
       <div class="section" data-section="planos">
 
+        <!-- A lista no molde (admin-prev-lista.js, 20/11/2026): o mês no
+             cabeçalho, visões em chip, a preventiva no painel ao lado. O cartão
+             antigo fica escondido abaixo: carregarPlanos e _pmRenderTudo ainda
+             desenham nele, e o lote do admin.js lê os ids dele. -->
+        <div id="pvLsRoot" class="ls"></div>
+
         <!-- Responsáveis por zona não têm card próprio: aparecem (e são editados)
              no cabeçalho de cada grupo de zona da tabela abaixo. -->
 
-        <section class="card al-card">
+        <section class="card al-card pm-antigo" hidden>
           <div class="cardHead al-head">
             <h2>
               <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2948,7 +2954,8 @@
 <script src="/static/admin-os-lista.js?v=2" defer></script>
 <script src="/static/admin-orc-lista.js?v=2" defer></script>
 <script src="/static/admin-orc-pecas.js?v=4" defer></script>
-<script src="/static/admin-condo-lista.js?v=4" defer></script>
+<script src="/static/admin-condo-lista.js?v=5" defer></script>
+<script src="/static/admin-prev-lista.js?v=2" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>

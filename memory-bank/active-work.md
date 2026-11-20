@@ -19,8 +19,9 @@ aliases:
 > Atendimento (filas Chamados | Conversas), Agenda como quadro de despacho
 > com arrastar e soltar, Financeiro, e (20/11) o **molde de lista**
 > (`admin-lista.js`) com as listas de **O.S.**, **Orçamentos** e
-> **Condomínios** nele, e a página do prédio em 3 colunas. **Falta:**
-> as listas no molde (Preventivas,
+> **Condomínios** nele, e a página do prédio em 3 colunas, e
+> **Preventivas** (etapa 9). **Falta:**
+> as listas no molde (
 > Equipamentos, Colaboradores, Configurações), Relatórios (dashboard, a
 > definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
 > para a main: 090, 091, 092, 093, 094 e 095 em produção.** Maquete no repo:

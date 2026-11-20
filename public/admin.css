@@ -13850,3 +13850,33 @@ button.cp-fato:hover { border-color: var(--ls-fio-forte); background: var(--ls-h
 .cp-tira i.is-antes { background: transparent; box-shadow: inset 0 0 0 1px #e3e7ef; }
 .cp-tira i:last-of-type { outline: 1.5px solid var(--ls-tinta-2); outline-offset: 1px; }
 .cp-tira-n { margin-left: 6px; font: 600 11px/1 var(--ls-mono); color: var(--ls-muted); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PREVENTIVAS NO MOLDE (20/11/2026) — admin-prev-lista.js
+   ════════════════════════════════════════════════════════════════════════ */
+.pm-antigo[hidden] { display: none !important; }
+#pvLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }
+.pv-mes { display: inline-flex; align-items: center; gap: 4px; height: 34px; padding: 0 4px; border: 1px solid var(--ls-fio); border-radius: 8px; background: var(--ls-placa); }
+.pv-mes b { min-width: 150px; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--ls-tinta); }
+.pv-mes .ls-ib { width: 28px; height: 28px; }
+.pv-mes .ls-bt { height: 26px; }
+.pv-origem { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 8px; background: var(--ls-cz-f); color: var(--ls-muted); font-size: 11px; font-weight: 600; line-height: 17px; }
+.pv-origem.is-escala { background: var(--ls-in-f); color: var(--ls-in-t); }
+.pv-pill { display: inline-block; padding: 0 7px; border-radius: 9px; background: var(--ls-cz-f); color: var(--ls-tinta-2); font-size: 11.5px; font-weight: 600; line-height: 19px; vertical-align: 1px; }
+#pvLsRoot .cp-tira { margin-top: 0; }
+.pv-tira-grande .cp-tira { margin-top: 0; gap: 4px; }
+.pv-tira-grande .cp-tira i { width: 20px; height: 20px; border-radius: 4px; }
+.pv-tira-leg { display: grid; grid-template-columns: repeat(12, 20px); gap: 4px; margin-top: 4px; font: 500 9.5px/1.2 var(--ls-mono); letter-spacing: -.03em; color: var(--ls-muted); }
+.pv-tira-leg span { text-align: center; }
+.pv-tira-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 10px 0 0; color: var(--ls-muted); font-size: 12px; }
+.pv-tira-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #e3e7ef; margin-right: -6px; }
+.pv-tira-legenda i.is-ok { background: var(--ls-ok-m); } .pv-tira-legenda i.is-info { background: var(--ls-in-m); } .pv-tira-legenda i.is-ri { background: var(--ls-ri-m); }
+.pv-zona-resp { margin: 0 0 6px; font-weight: 600; color: var(--ls-tinta); }
+.pv-zona-bts { display: flex; gap: 8px; margin-top: 10px; }
+.pv-zona-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.pv-zona-edit label { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ls-tinta); cursor: pointer; }
+.pv-desc { white-space: pre-wrap; }
+@media (max-width: 768px) {
+  .pv-mes { flex: 1 1 100%; justify-content: space-between; }
+  .pv-mes b { min-width: 0; }
+}

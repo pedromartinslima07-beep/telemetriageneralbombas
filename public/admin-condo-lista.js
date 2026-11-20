@@ -275,7 +275,9 @@
   const origShow = window.showSection;
   window.showSection = function (name, ...resto) {
     const r = origShow.call(this, name, ...resto);
-    if (name === "cadastros") { lista.montar(); garantirPlanos(); }
+    // garantirPlanos antes: com os planos já carregados (vindo de Preventivas)
+    // ela não redesenha, e a coluna sairia "—" em vez de "sem preventiva".
+    if (name === "cadastros") { garantirPlanos(); lista.montar(); }
     return r;
   };
   for (const nomeFn of ["renderCliTabela", "_pmRenderTudo"]) {

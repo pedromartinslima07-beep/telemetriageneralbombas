@@ -18204,3 +18204,15 @@ novas: `GET/POST /admin/condominios/:id/notas`, `DELETE
 as linhas do orçamento "null" (400 no console). Teste novo
 `condominio-notas-aviso.test.js` (33/33). Ver
 [redesenho-admin.md](modulos/redesenho-admin.md).
+
+## Redesenho, etapa 9: Preventivas no molde (2026-11-20)
+
+A tela de Manutenção preventiva entra no molde (`admin-prev-lista.js`): o mês
+no cabeçalho, chips Este mês · Sem responsável · Com responsável · Em campo ·
+Feitas · Atrasadas · Prédios sem preventiva · Inativas · Todas, colunas Zona
+e Últimos 12 meses, e a preventiva no painel ao lado (o mês, o cadastro, os
+responsáveis da zona editáveis ali e a tira grande). O lote e as ações são os
+de sempre. `GET /planos-manutencao/meses` aceita vir sem `condominio_id`
+(todos os planos). Reativar usa o PATCH (o menu antigo chamava DELETE).
+`admin.css?v=352`, `admin-prev-lista.js?v=2`. Ver
+[redesenho-admin.md](modulos/redesenho-admin.md).
