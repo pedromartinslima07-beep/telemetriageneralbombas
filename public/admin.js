@@ -12397,14 +12397,36 @@ function _osRenderView(os) {
     </div>`;
   }
 
+  // ⚠️ PEÇA USADA × A ORÇAR (peças no orçamento, fase B, 20/11/2026, 094).
+  // A lista do técnico guarda as duas, e as duas são cobradas por orçamento.
+  // Aqui cada peça diz qual é ("Situação") e onde já foi orçada; as antigas,
+  // sem marcação, se marcam aqui. "Cobrar as peças usadas" cria (ou completa)
+  // o orçamento da O.S. com as usadas ainda não orçadas.
   const pecas = Array.isArray(os.pecas) ? os.pecas : [];
+  const podeMarcarPeca = _myRole === "admin";
+  const sitPeca = p => p.situacao === "usada" ? `<span class="os-peca-sit is-usada">Usada na visita</span>`
+    : p.situacao === "a_orcar" ? `<span class="os-peca-sit is-orcar">Falta, precisa orçar</span>`
+    : (podeMarcarPeca
+      ? `<span class="os-peca-marcar viewer-only-hide"><button type="button" class="btn btn-sm" data-os-peca-sit="usada" data-os-peca="${p.id}">Foi usada</button> <button type="button" class="btn btn-sm" data-os-peca-sit="a_orcar" data-os-peca="${p.id}">A orçar</button></span>`
+      : `<span class="os-muted">sem marcação</span>`);
+  const ondePeca = p => p.orcamento_id && p.orcamento_status !== "rejeitado"
+    ? `<button type="button" class="os-link" data-os-peca-orc="${p.orcamento_id}">orçada no ${_waEscaparHtml(p.orcamento_numero || "orçamento")}</button>`
+    : p.orcamento_id ? `<span class="os-muted">recusada no ${_waEscaparHtml(p.orcamento_numero || "orçamento")}</span>`
+    : `<span class="os-muted">ainda não orçada</span>`;
+  const usadasLivres = pecas.filter(p => p.situacao === "usada" && !(p.orcamento_id && p.orcamento_status !== "rejeitado"));
   const pecasHtml = pecas.length
-    ? `<table class="os-pecas-table"><thead><tr><th>Descrição</th><th>Qtd</th><th>Observação</th></tr></thead>
+    ? `<table class="os-pecas-table"><thead><tr><th>Descrição</th><th>Qtd</th><th>Observação</th><th>Situação</th><th>Orçamento</th></tr></thead>
        <tbody>${pecas.map(p => `<tr>
          <td>${_waEscaparHtml(p.descricao || "—")}</td>
          <td>${p.quantidade ?? 1}</td>
          <td>${_waEscaparHtml(p.observacao || "—")}</td>
-       </tr>`).join("")}</tbody></table>`
+         <td>${sitPeca(p)}</td>
+         <td>${ondePeca(p)}</td>
+       </tr>`).join("")}</tbody></table>
+       ${podeMarcarPeca && usadasLivres.length ? `<div class="os-pecas-acao viewer-only-hide">
+         <button type="button" class="btn btn-sm btnAccent" id="osBtnCobrarPecas">Cobrar ${usadasLivres.length === 1 ? "a peça usada" : "as " + usadasLivres.length + " peças usadas"}</button>
+         <span class="os-muted">Cria o orçamento da O.S. (ou completa o rascunho dela) com as peças usadas que ainda não foram orçadas.</span>
+       </div>` : ""}`
     : `<span class="os-muted">Nenhuma peça registrada.</span>`;
 
   const fotos = Array.isArray(os.fotos) ? os.fotos : [];
@@ -12523,7 +12545,9 @@ function _osRenderView(os) {
   const secoes = [
     temVerif ? secao("Verificações", itensHtml) : "",
     temCorr ? secao("Correntes elétricas", correntesHtml) : "",
-    temPecas ? secao("Peças usadas", pecasHtml) : "",
+    // "Peças", não "Peças usadas": a lista guarda também as que faltam orçar (094).
+    // Linha inteira: com Situação e Orçamento a tabela não cabe meia coluna.
+    temPecas ? secao("Peças", pecasHtml).replace("os-secao", "os-secao is-larga") : "",
     temFotos ? secao(`Fotos (${fotos.length})`, fotosHtml) : "",
     (temAssin || assinAcao) ? secao("Assinatura de quem recebeu", assin + assinRefeita + assinAcao) : "",
   ].filter(Boolean);
@@ -12633,6 +12657,42 @@ function _osBindViewEventos() {
   document.getElementById("osBtnCancelarPedidoAssin")?.addEventListener("click", (e) => {
     e.currentTarget.disabled = true;
     _osPedidoAssinatura(osId, false);
+  });
+
+  // Peças da O.S. (fase B): marcar as antigas, abrir o orçamento onde está, e
+  // cobrar as usadas.
+  document.querySelectorAll("#osModalBody [data-os-peca-sit]").forEach(b => {
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        const r = await fetch(`/ordens-servico/${osId}/pecas/${b.dataset.osPeca}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ situacao: b.dataset.osPecaSit }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) { alert(j.error || "Não foi possível marcar a peça."); b.disabled = false; return; }
+        abrirOSDetalhe(osId, { daRota: true });
+      } catch (e) { alert("Erro: " + e.message); b.disabled = false; }
+    });
+  });
+  document.querySelectorAll("#osModalBody [data-os-peca-orc]").forEach(b => {
+    b.addEventListener("click", () => _cfAbrirOrcamento(Number(b.dataset.osPecaOrc)));
+  });
+  document.getElementById("osBtnCobrarPecas")?.addEventListener("click", async (e) => {
+    const bt = e.currentTarget;
+    bt.disabled = true;
+    try {
+      const r = await fetch(`/admin/orcamentos/da-os/${osId}/cobrar-usadas`, { method: "POST", headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(j.error || "Não foi possível cobrar as peças.");
+        bt.disabled = false;
+        if (j.orcamento_id && confirm("Abrir o orçamento desta O.S.?")) _cfAbrirOrcamento(Number(j.orcamento_id));
+        return;
+      }
+      if (typeof carregarAvulsos === "function") await carregarAvulsos();
+      _cfAbrirOrcamento(Number(j.orcamento_id));
+    } catch (err) { alert("Erro: " + err.message); bt.disabled = false; }
   });
 
   document.querySelectorAll("#osModalBody .os-foto").forEach(fig => {
@@ -14415,7 +14475,10 @@ async function _avCarregarOsDoModal(condoId, osIdSelecionado) {
     os.forEach(o => {
       const opt = document.createElement("option");
       opt.value = o.id;
-      opt.textContent = `OS #${o.numero || o.id} — ${o.status}`;
+      // A rota do histórico não traz `status` da O.S. (o rótulo dizia
+      // "— undefined" em toda opção, achado em 20/11/2026): o estado sai de
+      // finalizada_em, que ela traz.
+      opt.textContent = `${o.numero || "OS #" + o.id} — ${o.finalizada_em ? "finalizada " + new Date(o.finalizada_em).toLocaleDateString("pt-BR") : "em andamento"}`;
       if (String(o.id) === String(osIdSelecionado)) opt.selected = true;
       sel.appendChild(opt);
     });

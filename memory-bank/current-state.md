@@ -122,7 +122,11 @@ no painel ao lado. **Etapa 7 (20/11):** **Orçamentos** é uma lista só
 ficam escondidas, e as rotas de orçamento são paginadas (`X-Total-Count`).
 **Peças no orçamento, fase A (20/11):** a linha de peça nasce ligada ao
 produto do Omie ao ser digitada (`admin-orc-pecas.js`), com o preço da última
-vez; a busca do catálogo entende bitola. Depende da 090/091 (nota fiscal). As outras listas entram no mesmo molde.
+vez; a busca do catálogo entende bitola. Depende da 090/091 (nota fiscal).
+**Fase B (20/11):** a peça da O.S. é "usada" ou "a orçar" (094); as duas vão
+para o orçamento (bloco "Peças da O.S.", "Cobrar as peças usadas"), sem a
+mesma peça entrar duas vezes, e os PDFs separam as duas. **Fase C, começo
+(20/11):** o Hoje lista as O.S. com peça usada sem cobrança ("Cobrar"). As outras listas entram no mesmo molde.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma

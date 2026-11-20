@@ -276,7 +276,19 @@ router.get("/:id", authRequired, osDonoOuAdmin(), async (req, res) => {
 
     const [fotos, pecas] = await Promise.all([
       pool.query(`SELECT id, os_id, url, tipo, legenda, criado_em FROM os_fotos WHERE os_id = $1 ORDER BY criado_em ASC`, [id]),
-      pool.query(`SELECT * FROM os_pecas WHERE os_id = $1 ORDER BY id ASC`, [id]),
+      // Cada peça com o orçamento em que está (peças no orçamento, fase B,
+      // 094): a O.S. diz "orçada no OR-…" e a tela não oferece trazer de novo.
+      pool.query(
+        `SELECT p.*, x.orcamento_id, x.orcamento_numero, x.orcamento_status
+           FROM os_pecas p
+           LEFT JOIN LATERAL (
+             SELECT o.id AS orcamento_id, o.numero AS orcamento_numero, o.status AS orcamento_status
+               FROM orcamento_linhas l JOIN orcamentos o ON o.id = l.orcamento_id
+              WHERE l.os_peca_id = p.id
+              ORDER BY (o.status <> 'rejeitado') DESC, o.criado_em DESC, o.id DESC
+              LIMIT 1
+           ) x ON true
+          WHERE p.os_id = $1 ORDER BY p.id ASC`, [id]),
     ]);
 
     // `assinatura_em_branco`: finalizada com o campo preenchido e sem tinta — o
@@ -695,6 +707,13 @@ router.delete("/:id/fotos/:foto_id", authRequired, osDonoOuAdmin({ forWrite: tru
   }
 });
 
+// A situação da peça (094): "usada" na visita ou "a_orcar" (falta, precisa
+// orçar). null = não se sabe; false = valor inválido.
+function _situacaoPeca(v) {
+  if (v == null || v === "") return null;
+  return v === "usada" || v === "a_orcar" ? v : false;
+}
+
 // POST /ordens-servico/:id/pecas — adiciona peça usada/substituída
 router.post("/:id/pecas", authRequired, osDonoOuAdmin({ forWrite: true }), async (req, res) => {
   const id = Number(req.params.id);
@@ -702,6 +721,9 @@ router.post("/:id/pecas", authRequired, osDonoOuAdmin({ forWrite: true }), async
 
   const { descricao, quantidade, observacao } = req.body || {};
   if (!descricao) return res.status(400).json({ error: "descricao é obrigatório" });
+  // "Usei na visita" / "Falta, precisa orçar" (094). Vazio = não se sabe.
+  const sit = _situacaoPeca((req.body || {}).situacao);
+  if (sit === false) return res.status(400).json({ error: "situacao deve ser usada, a_orcar ou vazia" });
   const qtd = quantidade != null ? Number(quantidade) : 1;
   if (!Number.isInteger(qtd) || qtd <= 0) {
     return res.status(400).json({ error: "quantidade inválida" });
@@ -709,9 +731,9 @@ router.post("/:id/pecas", authRequired, osDonoOuAdmin({ forWrite: true }), async
 
   try {
     const result = await pool.query(
-      `INSERT INTO os_pecas (os_id, descricao, quantidade, observacao)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [id, descricao, qtd, observacao || null]
+      `INSERT INTO os_pecas (os_id, descricao, quantidade, observacao, situacao)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [id, descricao, qtd, observacao || null, sit]
     );
     await invalidarPdfOS(id);
     return res.status(201).json(result.rows[0]);
@@ -749,6 +771,12 @@ router.patch("/:id/pecas/:peca_id", authRequired, osDonoOuAdmin({ forWrite: true
   if (b.observacao !== undefined) {
     values.push(b.observacao || null);
     sets.push(`observacao = $${values.length}`);
+  }
+  if (b.situacao !== undefined) {
+    const sit = _situacaoPeca(b.situacao);
+    if (sit === false) return res.status(400).json({ error: "situacao deve ser usada, a_orcar ou vazia" });
+    values.push(sit);
+    sets.push(`situacao = $${values.length}`);
   }
 
   if (sets.length === 0) return res.status(400).json({ error: "Nenhum campo para atualizar" });

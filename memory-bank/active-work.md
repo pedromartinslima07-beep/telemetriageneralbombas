@@ -22,7 +22,7 @@ aliases:
 > as listas no molde (Condomínios com a página em 3 colunas, Preventivas,
 > Equipamentos, Colaboradores, Configurações), Relatórios (dashboard, a
 > definir com o Pedro) e o teste com o perfil operador. ⚠️ **Antes do push
-> para a main: 090, 091, 092 e 093 em produção.** Maquete no repo:
+> para a main: 090, 091, 092, 093 e 094 em produção.** Maquete no repo:
 > `/dev/_redesenho-preview.html`. Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md#onde-paramos-19112026-fim-do-dia--retomar-daqui).
 

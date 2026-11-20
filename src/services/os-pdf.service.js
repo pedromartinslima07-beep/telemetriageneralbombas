@@ -201,12 +201,16 @@ function renderHTML({ os, fotos, pecas }) {
     : "";
 
   /* ── Peças ── */
-  const pecasHtml = pecas.length > 0 ? `
+  // ⚠️ A LISTA DO TÉCNICO GUARDA DUAS COISAS (094, 20/11/2026): a peça usada
+  // na visita e a que falta e precisa de orçamento. O documento não pode
+  // chamar a segunda de "usada": ela vai num bloco próprio. As sem marcação
+  // (registradas antes da 094) ficam no bloco de sempre, como sempre ficaram.
+  const tabelaPecas = (titulo, lista, nota) => `
     <div class="extra-section">
-      <div class="section-bar">Peças Usadas / Substituídas</div>
+      <div class="section-bar">${titulo}</div>
       <table class="tabela-pecas">
         <thead><tr><th>Descrição</th><th class="qtd-col">Qtd</th><th>Observação</th></tr></thead>
-        <tbody>${pecas.map(p => `
+        <tbody>${lista.map(p => `
           <tr>
             <td>${escapeHtml(p.descricao)}</td>
             <td class="qtd-col">${p.quantidade || 1}</td>
@@ -214,7 +218,12 @@ function renderHTML({ os, fotos, pecas }) {
           </tr>`).join("")}
         </tbody>
       </table>
-    </div>` : "";
+      ${nota ? `<div style="font-size:9px;color:#666;margin-top:3px;">${nota}</div>` : ""}
+    </div>`;
+  const pecasUsadas = pecas.filter(p => p.situacao !== "a_orcar");
+  const pecasOrcar = pecas.filter(p => p.situacao === "a_orcar");
+  const pecasHtml = (pecasUsadas.length ? tabelaPecas("Peças Usadas / Substituídas", pecasUsadas) : "")
+    + (pecasOrcar.length ? tabelaPecas("Peças Necessárias (a orçar)", pecasOrcar, "Não foram instaladas nesta visita. Seguem em orçamento à parte.") : "");
 
   /* ── Fotos (página extra) ── */
   const fotosHtml = (() => {
@@ -666,4 +675,6 @@ async function gerarPdfOS(osId) {
   return { pdf_url: urlPublic, fpath };
 }
 
-module.exports = { gerarPdfOS };
+// _paraTeste: o HTML sem o Puppeteer (scripts/testes/pecas-da-os.test.js confere
+// os blocos de peça usada × a orçar).
+module.exports = { gerarPdfOS, _paraTeste: { buscarDadosOS, renderHTML } };

@@ -149,11 +149,17 @@ async function buscarDadosAvulso(orcamentoId) {
   );
   if (!r.rows.length) throw new Error("Orçamento não encontrado");
 
+  // `peca_usada` (094): a peça já foi trocada na visita. O PDF separa essas
+  // linhas num bloco próprio — o síndico está aprovando a COBRANÇA do que já
+  // foi feito, não um serviço a fazer. A data da visita vem da O.S. da peça.
   const linhasRes = await pool.query(
-    `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico
-     FROM orcamento_linhas
-     WHERE orcamento_id = $1
-     ORDER BY id ASC`,
+    `SELECT l.id, l.descricao, l.ficha_tecnica, l.quantidade, l.valor_unitario, l.tipo_servico,
+            l.peca_usada, COALESCE(s.chegada_em, s.finalizada_em) AS visita_em
+     FROM orcamento_linhas l
+     LEFT JOIN os_pecas p ON p.id = l.os_peca_id
+     LEFT JOIN ordens_servico s ON s.id = p.os_id
+     WHERE l.orcamento_id = $1
+     ORDER BY l.id ASC`,
     [orcamentoId]
   );
 
@@ -266,7 +272,20 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
     return pags;
   }
 
-  const estrutura = paginar(itens);
+  // ── Peças usadas na visita × a instalar (094) ───────────────────────────
+  // Só quando há alguma linha de peça usada: sem ela o PDF é o de sempre.
+  // Os títulos de bloco entram na lista como pseudo-itens (`_grupo`), para a
+  // paginação contar a altura deles como a de um item.
+  let lista = itens;
+  if (itens.some(it => it.peca_usada)) {
+    const usadas = itens.filter(it => it.peca_usada);
+    const resto = itens.filter(it => !it.peca_usada);
+    // visita_em é timestamptz (chegada/finalização da O.S.): formatador COM fuso.
+    const dias = [...new Set(usadas.map(it => it.visita_em && fmtDateBR(it.visita_em)).filter(Boolean))];
+    const tituloUsadas = dias.length === 1 ? `Peças utilizadas na visita de ${dias[0]}` : "Peças utilizadas na visita";
+    lista = [{ _grupo: tituloUsadas }, ...usadas, ...(resto.length ? [{ _grupo: "Peças e serviços a executar" }, ...resto] : [])];
+  }
+  const estrutura = paginar(lista);
   const bgStyle   = timbrado ? `background-image:url('${timbrado}');` : "";
   let   itemIdx   = 0;
 
@@ -314,6 +333,10 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
         c += `<tr><td colspan="${totalManual ? 3 : 5}" class="it-vazio">Nenhum item adicionado ao orçamento.</td></tr>`;
       } else {
         pag.itens.forEach(it => {
+          if (it._grupo) {
+            c += `<tr class="it-grupo"><td colspan="${totalManual ? 3 : 5}">${escapeHtml(it._grupo)}</td></tr>`;
+            return;
+          }
           itemIdx++;
           const tot = it.valor_unitario == null ? null : Number(it.valor_unitario) * Number(it.quantidade);
           const fichaHtml = it.ficha_tecnica
@@ -464,6 +487,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   .tabela-itens th.it-num { text-align: right; }
   .tabela-itens tbody tr:nth-child(even) { background: rgba(247,250,252,0.9); }
   .tabela-itens td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  .tabela-itens tr.it-grupo td { padding: 7px 6px 4px; background: #fff; color: #1e3a5f; font-weight: 700; font-size: 10.5px; border-bottom: 1px solid #1e3a5f; }
   .it-idx  { width: 22px; text-align: center; color: #718096; }
   .it-desc-text { font-weight: 700; font-size: 12px; }
   .it-num  { text-align: right; white-space: nowrap; }
@@ -997,4 +1021,6 @@ async function gerarPdfAvulso(orcamentoId) {
   return _gerarPdf(dados, "avulso", String(orcamentoId));
 }
 
-module.exports = { gerarPdfAvulso };
+// _paraTeste: o HTML do PDF sem o Puppeteer (scripts/testes/pecas-da-os.test.js
+// confere os blocos "utilizadas na visita" × "a executar").
+module.exports = { gerarPdfAvulso, _paraTeste: { buscarDadosAvulso, renderHTML } };

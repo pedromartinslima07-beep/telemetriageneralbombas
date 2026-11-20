@@ -210,7 +210,12 @@
     } else {
       prod = `<span class="av-pc-fraco">sem produto do Omie</span>${g ? ` · <button type="button" class="av-pc-lk" data-pc-trocar="${l.id}">escolher</button>` : ""}`;
     }
-    return `<div class="av-pc" data-pc-chip="${l.id}">${seg}${prod}</div>`;
+    // Fase B: a linha de peça diz se a peça já foi usada na visita (vai no
+    // bloco "Peças utilizadas na visita" do PDF). Não trava com a nota.
+    const usada = nat === "peca" || l.omie_produto_codigo || l.peca_usada
+      ? `<button type="button" class="av-pc-usada${l.peca_usada ? " is-on" : ""}" data-pc-usada="${l.id}" ${podeGravar() ? "" : "disabled"} aria-pressed="${!!l.peca_usada}" title="Peça já trocada na visita: sai no bloco &quot;Peças utilizadas na visita&quot; do PDF">${l.peca_usada ? "usada na visita" : "a instalar"}</button>`
+      : "";
+    return `<div class="av-pc" data-pc-chip="${l.id}">${seg}${usada}${prod}</div>`;
   }
 
   function rodapeNota() {
@@ -242,9 +247,112 @@
       <button type="button" class="av-pc-lk is-fraco" data-pc-pend-tirar>tirar</button>`;
   }
 
+  // ===== Fase B: as peças da O.S. (usadas e a orçar) =====
+  // O bloco em cima dos itens, quando o orçamento é de uma O.S. que tem peças.
+  // "Trazer" cria as linhas pela rota (que trava a peça já orçada); marcar
+  // "usada" / "a orçar" grava na peça da O.S.
+  const osBloco = { orcId: null, dados: null, carregando: false, erro: false };
+  const SIT_PECA = { usada: "Usadas na visita", a_orcar: "Falta, precisa orçar", "": "Sem marcação (registradas antes)" };
+  const qtd = p => `${p.quantidade || 1}×`;
+
+  function estadoPeca(p) {
+    if (p.orcada) return `<span class="av-pc-ok">orçada no ${esc(p.orcamento_numero || "outro orçamento")}</span>`;
+    if (p.orcamento_id && p.orcamento_status === "rejeitado") return `<span class="av-pc-fraco">recusada no ${esc(p.orcamento_numero || "orçamento")} · pode trazer de novo</span>`;
+    return `<span class="av-pc-fraco">ainda não orçada</span>`;
+  }
+
+  function blocoOsHtml() {
+    const d = osBloco.dados;
+    if (!d || !d.os || !d.pecas.length) return "";
+    const g = podeGravar() && !travado();
+    const marcadasLivres = d.pecas.filter(p => p.situacao && !p.orcada);
+    const grupos = ["usada", "a_orcar", ""].map(k => [k, d.pecas.filter(p => (p.situacao || "") === k)]).filter(([, l]) => l.length);
+    const visita = d.os.chegada_em || d.os.finalizada_em;
+    return `<div class="av-pc-os" data-pc-os>
+      <div class="av-pc-os-cab">
+        <b>Peças da ${esc(d.os.numero || "O.S.")}</b>
+        <span class="av-pc-fraco">${[d.os.tecnico_nome, visita ? new Date(visita).toLocaleDateString("pt-BR") : ""].filter(Boolean).map(esc).join(" · ")}</span>
+        <span class="av-pc-esp"></span>
+        ${g && marcadasLivres.length ? `<button type="button" class="av-pc-bt" data-pc-trazer="${marcadasLivres.map(p => p.id).join(",")}">Trazer ${marcadasLivres.length === 1 ? "a peça que falta" : "as " + marcadasLivres.length + " que faltam"}</button>` : ""}
+      </div>
+      ${grupos.map(([k, lista]) => `<div class="av-pc-os-g">
+        <div class="av-pc-os-gt"><span class="av-pc-sit is-${k || "sem"}">${SIT_PECA[k]}</span></div>
+        ${lista.map(p => `<div class="av-pc-os-p">
+          <span class="av-pc-os-d">${qtd(p)} ${esc(p.descricao)}${p.observacao ? ` <span class="av-pc-fraco">· ${esc(p.observacao)}</span>` : ""}</span>
+          ${k ? estadoPeca(p) : ""}
+          ${g && !k ? `<button type="button" class="av-pc-bt is-p" data-pc-sit="usada" data-pc-peca="${p.id}">Foi usada</button><button type="button" class="av-pc-bt is-p" data-pc-sit="a_orcar" data-pc-peca="${p.id}">A orçar</button>` : ""}
+          ${g && k && !p.orcada ? `<button type="button" class="av-pc-lk" data-pc-trazer="${p.id}">trazer</button>` : ""}
+          ${g && k && !p.orcada ? `<button type="button" class="av-pc-lk is-fraco" data-pc-sit="" data-pc-peca="${p.id}" title="Desfazer a marcação">desmarcar</button>` : ""}
+        </div>`).join("")}
+      </div>`).join("")}
+      ${osBloco.erro ? `<div class="av-pc-fraco">Não consegui ler as peças da O.S.</div>` : ""}
+    </div>`;
+  }
+
+  async function carregarPecasOs(forcar) {
+    const o = orc();
+    if (!o || !o.id || !o.os_id) { osBloco.orcId = o?.id ?? null; osBloco.dados = null; return; }
+    if (!forcar && osBloco.orcId === o.id && (osBloco.dados || osBloco.carregando)) return;
+    osBloco.orcId = o.id; osBloco.carregando = true; osBloco.erro = false;
+    try {
+      const r = await fetch(`/admin/orcamentos/avulsos/${o.id}/pecas-da-os`, { headers: authHeaders() });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      if (orc()?.id === o.id) osBloco.dados = j;
+    } catch (_) { osBloco.erro = true; }
+    finally { osBloco.carregando = false; }
+    desenharBlocoOs();
+  }
+
+  function desenharBlocoOs() {
+    const wrap = document.getElementById("avItensWrap");
+    if (!wrap || !ehPecas()) return;
+    wrap.querySelector("[data-pc-os]")?.remove();
+    const html = blocoOsHtml();
+    if (html) wrap.insertAdjacentHTML("afterbegin", html);
+  }
+
+  async function trazerPecas(ids) {
+    const o = orc();
+    if (!o?.id) return;
+    try {
+      const r = await fetch(`/admin/orcamentos/avulsos/${o.id}/linhas/da-os`, {
+        method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ pecas: ids }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { alert(j.error || "Não foi possível trazer as peças."); await carregarPecasOs(true); return; }
+      const L = linhas();
+      for (const l of j.linhas || []) L.push(l);
+      if (typeof _avData !== "undefined") {
+        const oi = _avData.findIndex(x => x.id === o.id);
+        if (oi !== -1 && typeof _avComputeTotal === "function") _avData[oi].valor_total = _avComputeTotal(_avData[oi], L);
+      }
+      await carregarPecasOs(true);
+      _avRenderLinhas();
+      if (typeof _avRenderTudo === "function") _avRenderTudo();
+    } catch (e) { alert("Erro: " + e.message); }
+  }
+
+  async function marcarPeca(pecaId, situacao) {
+    const d = osBloco.dados;
+    if (!d?.os) return;
+    try {
+      const r = await fetch(`/ordens-servico/${d.os.id}/pecas/${pecaId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ situacao }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { alert(j.error || "Não foi possível marcar a peça."); return; }
+      await carregarPecasOs(true);
+    } catch (e) { alert("Erro: " + e.message); }
+  }
+
   function decorar() {
     const wrap = document.getElementById("avItensWrap");
     if (!wrap || !ehPecas()) { fechar(); return; }
+    if (orc()?.id !== osBloco.orcId) { osBloco.dados = null; carregarPecasOs(); }
+    else desenharBlocoOs();
     for (const tr of wrap.querySelectorAll("tr[data-av-linha-id]")) {
       const l = linhas().find(x => x.id === Number(tr.dataset.avLinhaId));
       const inp = tr.querySelector('input[data-av-linha-field="descricao"]');
@@ -331,6 +439,17 @@
       return;
     }
     if (e.target.closest("[data-pc-pend-tirar]")) { pendente = null; desenharPendente(); return; }
+    if ((el = e.target.closest("[data-pc-usada]"))) {
+      const l = linhas().find(x => x.id === Number(el.dataset.pcUsada));
+      if (l) gravar(l.id, { peca_usada: !l.peca_usada });
+      return;
+    }
+    if ((el = e.target.closest("[data-pc-trazer]"))) {
+      el.disabled = true;
+      trazerPecas(el.dataset.pcTrazer.split(",").map(Number).filter(Boolean));
+      return;
+    }
+    if ((el = e.target.closest("[data-pc-sit]"))) { marcarPeca(Number(el.dataset.pcPeca), el.dataset.pcSit); return; }
   });
 
   // ===== gancho =====
@@ -365,6 +484,7 @@
   // Trocou de orçamento: a escolha do item novo não vai junto.
   const origPainel = window._avRenderPainel;
   if (typeof origPainel === "function") {
-    window._avRenderPainel = function (...a) { pendente = null; fechar(); return origPainel.apply(this, a); };
+    // Abriu (ou reabriu) um orçamento: as peças da O.S. são lidas de novo.
+    window._avRenderPainel = function (...a) { pendente = null; fechar(); osBloco.orcId = null; osBloco.dados = null; return origPainel.apply(this, a); };
   }
 })();

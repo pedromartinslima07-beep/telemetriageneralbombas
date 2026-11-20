@@ -16,6 +16,7 @@
 // orçamentos, O.S. e contratos, que respondem 403 para ele.
 
 let _icContratosVencendo = null;   // null = ainda não buscou
+let _icPecasSemCobranca = null;    // O.S. com peça usada fora de orçamento (fase C das peças)
 let _icBuscando = false;
 let _icBuscadoEm = 0;
 
@@ -27,7 +28,7 @@ function _icNomeCondo(id, fallback) {
 async function _icGarantirDados({ forcar = false } = {}) {
   if (_icBuscando) return;
   const velho = Date.now() - _icBuscadoEm > 60000;
-  if (!forcar && !velho && _icContratosVencendo && _osLoaded && Array.isArray(_avData) && _avData.length && _icAgendaHoje !== null) return;
+  if (!forcar && !velho && _icContratosVencendo && _osLoaded && Array.isArray(_avData) && _avData.length && _icAgendaHoje !== null && _icPecasSemCobranca !== null) return;
   _icBuscando = true;
   const falhou = (fonte) => () => { _icErros.add(fonte); };
   const ok = (fonte) => { _icErros.delete(fonte); };
@@ -41,6 +42,12 @@ async function _icGarantirDados({ forcar = false } = {}) {
       _icContratosVencendo = await r.json();
       ok("contratos");
     })().catch(() => { _icContratosVencendo = _icContratosVencendo || []; _icErros.add("contratos"); }));
+    tarefas.push((async () => {
+      const r = await fetch("/admin/orcamentos/pecas-sem-cobranca", { headers: authHeaders() });
+      if (!r.ok) throw new Error("pecas " + r.status);
+      _icPecasSemCobranca = await r.json();
+      ok("pecas");
+    })().catch(() => { _icPecasSemCobranca = _icPecasSemCobranca || []; _icErros.add("pecas"); }));
     if (typeof _navSecaoVisivel !== "function" || _navSecaoVisivel("agenda")) {
       tarefas.push((async () => {
         const d = _icHojeISO();
@@ -82,7 +89,7 @@ function _icValor(o) { return Number(o?.valor_total) ? " · " + _cfMoeda(o.valor
 let _icFiltro = "tudo";
 let _icMostrarTudo = false;
 let _icAgendaHoje = null;      // null = ainda não buscou; [] = vazia
-let _icErros = new Set();      // "contratos", "agenda", "os", "orcamentos"
+let _icErros = new Set();      // "contratos", "agenda", "os", "orcamentos", "pecas"
 
 const _IC_TIPOS = [
   ["tudo", "Tudo"], ["agua", "Água"], ["chamados", "Chamados"],
@@ -171,6 +178,18 @@ function _icFila() {
       quando: o.respondido_em || o.criado_em, acao: "Emitir nota", attr: `data-ic-orc="${o.id}"` });
   }
 
+  // Peça usada na visita que não entrou em orçamento (fase C das peças): a
+  // ação abre a O.S., onde fica o "Cobrar as N peças usadas".
+  for (const x of (_icPecasSemCobranca || [])) {
+    const n = Number(x.pecas) || 0;
+    const nomes = (x.descricoes || []).filter(Boolean);
+    itens.push({ tipo: "faturamento", q: "hoje", cor: "at", ic: "package", ord: 5,
+      condo: x.condominio_id, condoNome: x.condominio_nome || _icNomeCondo(x.condominio_id),
+      t: `${x.numero || "O.S. #" + x.os_id}: ${n} peça${n === 1 ? "" : "s"} usada${n === 1 ? "" : "s"} sem cobrança`,
+      m: `${nomes.join(", ")}${n > nomes.length ? ` e mais ${n - nomes.length}` : ""}${x.tecnico_nome ? " · " + x.tecnico_nome : ""}`,
+      quando: x.finalizada_em || x.chegada_em, acao: "Cobrar", attr: `data-ic-os="${x.os_id}"` });
+  }
+
   const os = Array.isArray(_osData) ? _osData : [];
   for (const o of os.filter(_osFaltaEnviar)) {
     itens.push({ tipo: "os", q: "hoje", cor: "cz", ic: "send", ord: 6,
@@ -249,7 +268,7 @@ function renderInicio() {
 
   const erros = [..._icErros];
   const avisoErro = erros.length ? `<div class="hj-erro" role="alert">${_icIco("triangle-alert")}
-      <span>Não consegui carregar ${erros.map(e => ({ contratos: "os contratos", agenda: "a agenda", os: "as O.S.", orcamentos: "os orçamentos" }[e])).join(" e ")}. O resto da fila está certo.</span>
+      <span>Não consegui carregar ${erros.map(e => ({ contratos: "os contratos", agenda: "a agenda", os: "as O.S.", orcamentos: "os orçamentos", pecas: "as peças sem cobrança" }[e])).join(" e ")}. O resto da fila está certo.</span>
       <button type="button" class="hj-bt" data-ic-tentar>Tentar de novo</button></div>` : "";
 
   root.innerHTML = `
@@ -559,6 +578,7 @@ document.addEventListener("mousedown", (e) => {
     if (typeof orig !== "function") continue;
     window[nome] = function (...args) {
       if (nome === "_ctrRefrescarListas") _icBuscadoEm = 0; // contrato mudou: rebusca os que vencem
+      if (nome === "_avRenderTudo" || nome === "_osRenderTabela") _icBuscadoEm = 0; // orçamento ou O.S. mudou: as peças sem cobrança também
       const r = orig.apply(this, args);
       Promise.resolve(r).then(redesenhar, redesenhar);
       return r;

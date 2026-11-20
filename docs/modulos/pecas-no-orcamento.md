@@ -7,12 +7,12 @@ aliases:
   - Catálogo de peças
   - Peça ligada ao produto do Omie
 ---
-# Peças no orçamento: o catálogo do Omie na hora de montar (✅ fase A no código; B a D 📋, 20/11/2026)
+# Peças no orçamento: o catálogo do Omie na hora de montar (✅ fases A e B no código; C começada; D 📋, 20/11/2026)
 
 Pedido do Pedro: *"hj a gente salva as peças no sistema?"* → *"desenha isso
-pra mim"* → *"começa pela fase A"*. A **fase A está no código** (branch
-`feature/admin-condominio`, sem deploy; ver "Fase A no código" no fim); B, C
-e D continuam desenho. Ele parte do que já
+pra mim"* → *"começa pela fase A"* → *"começa a fase B"*. As **fases A e B
+estão no código** (branch `feature/admin-condominio`, sem deploy; ver "Fase A
+no código" e "Fase B no código" no fim); C e D continuam desenho. Ele parte do que já
 existe para a nota fiscal ([nota-fiscal.md](nota-fiscal.md)) e o leva para o
 começo do fluxo.
 
@@ -152,9 +152,10 @@ diferentes (a mesma peça pode estar nos dois, e está certo):
 - **Usadas na visita (consumo):** `os_pecas` com `situacao = 'usada'`. O que
   o técnico precisa levar no carro. Só fica exato com a Fase D (peça usada
   ligada ao produto); antes disso, conta por texto.
-- **Usada e não cobrada:** peça `usada` sem linha em orçamento aprovado. É
-  dinheiro esquecido, e cabe na fila do **Hoje** ("3 O.S. com peças usadas
-  sem cobrança → Cobrar").
+- **Usada e não cobrada:** peça `usada` sem linha em orçamento não
+  recusado. É dinheiro esquecido, e cabe na fila do **Hoje** ("3 O.S. com
+  peças usadas sem cobrança → Cobrar"). ✅ **No código** (ver "Fase C no
+  código: a fila do Hoje").
 
 Entra no **dashboard de Relatórios** (que ainda vai ser desenhado com o
 Pedro).
@@ -285,6 +286,124 @@ guarda e devolve o texto, os números e o cursor.
 
 Versões: `admin.css?v=344`, `admin.js?v=406`, `admin-orc-pecas.js?v=3`.
 
+## Fase B no código (20/11/2026)
+
+**Migration 094** (`094_pecas_da_os.sql`): `os_pecas.situacao` (`usada` |
+`a_orcar` | NULL, CHECK), `orcamento_linhas.os_peca_id` (FK SET NULL, índice) e
+`orcamento_linhas.peca_usada` (BOOLEAN, default false). ✅ banco de teste;
+⚠️ **produção antes do push**, depois de 090 a 093.
+
+### O que cada tela faz
+
+- **Página da O.S.** (seção "Peças", que deixou de se chamar "Peças usadas" e
+  ocupa a linha inteira): cada peça com **Situação** ("Usada na visita" /
+  "Falta, precisa orçar", ou os botões **Foi usada** / **A orçar** nas
+  antigas) e **Orçamento** ("orçada no OR-…", link; "recusada no OR-…";
+  "ainda não orçada"). **"Cobrar as N peças usadas"** cria o orçamento da O.S.
+  (ou completa o rascunho dela) com as usadas ainda não orçadas e o abre.
+- **Editor do orçamento** ligado a uma O.S.: o bloco **"Peças da OS-…"** em
+  cima dos itens, por grupo (usadas · a orçar · sem marcação), cada peça com
+  onde foi orçada, **"trazer"** e **"desmarcar"**, e **"Trazer as N que
+  faltam"** (as marcadas e livres). Nas antigas, **Foi usada** / **A orçar**.
+- **Linha de peça**: a marca **"usada na visita" / "a instalar"** (clicar
+  troca). É o que decide o bloco no PDF.
+- **"Fazer orçamento"** de um pedido: as peças marcadas (as duas situações)
+  entram sozinhas; as sem marcação ficam no bloco para alguém marcar.
+
+### Os PDFs
+
+- **Orçamento:** com alguma linha de peça usada, a tabela ganha dois títulos:
+  **"Peças utilizadas na visita de dd/mm/aaaa"** (a data é a da chegada da
+  O.S.) e **"Peças e serviços a executar"**, com as usadas primeiro. Os
+  títulos contam na paginação como um item. **Sem peça usada, o PDF é o de
+  sempre.**
+- **O.S.:** "Peças Usadas / Substituídas" (as usadas e as sem marcação, como
+  sempre foram) e, à parte, **"Peças Necessárias (a orçar)"** com a nota
+  "Não foram instaladas nesta visita. Seguem em orçamento à parte." O
+  documento não chama de usada a peça que não foi instalada.
+
+### As rotas
+
+| Rota | O quê |
+|---|---|
+| `POST/PATCH /ordens-servico/:id/pecas` | aceitam `situacao` (`usada`, `a_orcar`, vazia → NULL; outra → 400) |
+| `GET /ordens-servico/:id` | cada peça traz `orcamento_id`, `orcamento_numero`, `orcamento_status` (o não recusado mais recente; senão o recusado) |
+| `GET /admin/orcamentos/avulsos/:id/pecas-da-os` | `{ os, pecas }` do bloco do editor (cada peça com `orcada`); orçamento sem O.S. → `{ os: null, pecas: [] }` |
+| `POST /admin/orcamentos/avulsos/:id/linhas/da-os` | `{ pecas: [ids] }` → `{ linhas }`. Cria uma linha por peça (descrição, quantidade, observação na ficha, natureza peça, `peca_usada` da situação, produto **lembrado** e o preço da última vez). **409** se alguma já está em orçamento não recusado; 400 peça de outra O.S., lista vazia ou orçamento sem O.S.; 409 nota emitida |
+| `POST /admin/orcamentos/da-os/:os_id/cobrar-usadas` | garante o orçamento da O.S. **mesmo sem pedido do técnico** (`_garantirOrcamentoDaOs(..., { exigirPedido: false })`) e traz as usadas livres → `{ orcamento_id, criado, linhas }`. 400 se não há usada sem cobrança; **409 com `orcamento_id`** se o orçamento da O.S. já saiu do rascunho (o cliente já viu aquele documento) |
+| `PATCH /admin/orcamentos/avulsos/linhas/:id` | aceita `peca_usada` (não trava com a nota emitida: só muda o bloco do PDF) |
+| `PATCH /admin/orcamentos/:os_id` (Fazer orçamento) | ao **criar** o orçamento, traz as peças marcadas |
+
+⚠️ **A trava** (não cobrar a mesma peça duas vezes) roda numa transação com
+`FOR UPDATE` no orçamento e nas peças: dois cliques seguidos não criam a
+linha duas vezes. Orçamento **recusado libera** a peça; apagar a linha
+também.
+
+### Achados de passagem
+
+- **`String.replace` come `$$`** no texto de troca: os scripts de edição desta
+  rodada perderam o `$` de `$``{vals.length}` em três rotas (inclusive o
+  `observacao` do PATCH da peça, que não estava sendo mexido). Pego antes de
+  rodar, por varredura e pelo teste. **Editar por script com `split/join`**
+  (ou função de troca), nunca `replace` com texto que tenha `$`.
+- O seletor **"O.S. vinculada"** do orçamento mostrava "— undefined" em toda
+  opção: a rota do histórico não traz `status` da O.S. Agora diz
+  "finalizada dd/mm" ou "em andamento".
+
+### Testado (banco de teste, 20/11/2026)
+
+- `scripts/testes/pecas-da-os.test.js` (novo): **26/26** — situação na peça
+  (e 400), bloco do editor, trazer com `peca_usada`, **409 no mesmo e em
+  outro orçamento**, peça de outra O.S. (400), "orçada em" no detalhe da
+  O.S., **recusado libera**, cobrar usadas **sem pedido** (cria, origem os,
+  rascunho), de novo (400), já enviado (409 com o id), Fazer orçamento
+  trazendo só as marcadas, e os dois PDFs (blocos, ordem, e sem peça usada
+  igual ao de sempre).
+- Também passaram: `orcamento-linha-produto` 21/21, `excluir-pedido-orcamento`
+  12/12, `orcamento-vincula-os` 22/22, `orc-aprovados-feitos` 23/23,
+  `operador-le-os` 9/9, `nome-fantasia` 7/7, `os-envio-email` 38/38.
+- Na tela (O.S. de teste criada e apagada): página da O.S. com as quatro
+  peças → Boia **A orçar** → **Cobrar as 2 peças usadas** abriu o OR com as
+  duas "usada na visita" → **Trazer as 2 que faltam** → as quatro "orçada no
+  OR-…"; PDF do orçamento renderizado com os dois blocos. Sem erro de JS.
+- **Não feito:** o **app do técnico** ainda não marca "usei" / "falta" (é APK
+  novo); até lá as peças chegam sem marcação e o escritório marca. E a fila
+  do Hoje com "peça usada sem cobrança" é da fase C.
+
+Versões: `admin.css?v=346`, `admin.js?v=409`, `admin-orc-pecas.js?v=4`.
+
+## Fase C no código: a fila do Hoje (20/11/2026)
+
+Pedido do Pedro: *"pode seguir pela ordem natural"*. A parte da fase C que não
+depende do dashboard de Relatórios (ainda a desenhar) é a **peça usada sem
+cobrança** na fila do Hoje. Os outros dois números (vendidas, consumo)
+continuam esperando o dashboard.
+
+- **Rota nova** `GET /admin/orcamentos/pecas-sem-cobranca` (gestão): uma
+  linha por O.S. com peça `situacao = 'usada'` que **não está em orçamento
+  não recusado** — a mesma regra da trava da fase B (recusado e linha apagada
+  devolvem a peça). Traz `os_id`, `numero`, condomínio, técnico,
+  `chegada_em`/`finalizada_em`, `pecas` (quantas) e `descricoes` (as três
+  primeiras). Mais antiga primeiro. Nenhuma migration (colunas da 094); o
+  `sw.js` não muda (`/admin` já é network first).
+- **Hoje** (`admin-carteira.js`): o item "OS-…: N peças usadas sem cobrança",
+  com os nomes e o técnico, no grupo **Hoje**, filtro **Orçamentos e notas**.
+  A ação **Cobrar** abre a página da O.S., onde fica o "Cobrar as N peças
+  usadas" — a regra do Hoje (leva ao lugar, não grava daqui). Falha da rota
+  entra na faixa de erro ("as peças sem cobrança"), sem derrubar o resto.
+- Mexer em orçamento ou O.S. zera o relógio do Hoje: ao voltar para a tela,
+  a lista é buscada de novo. Sem mexer, vale o de sempre (rebusca depois de
+  60 s).
+
+**Testado (banco de teste, 20/11/2026):** `scripts/testes/pecas-sem-cobranca.test.js`
+**13/13** — conta só as usadas (a orçar e sem marcação ficam de fora), uma
+linha por O.S., rascunho/enviado/aprovado tiram a peça, recusado devolve,
+"Cobrar as peças usadas" tira a O.S. da fila. Na tela (O.S. de teste): o item
+aparece, **Cobrar** abre a O.S., o botão cria o orçamento e, de volta ao
+Hoje, o item sumiu. Sem erro no console.
+
+Versão: `admin-carteira.js?v=9`.
+
 ## Riscos
 
 - **Preço do Omie desatualizado.** Ele é sugestão, nunca substitui valor
@@ -306,7 +425,8 @@ Versões: `admin.css?v=344`, `admin.js?v=406`, `admin-orc-pecas.js?v=3`.
    "Cobrar as peças usadas" e os dois blocos no PDF). Precisa de APK novo
    para o técnico marcar; o lado do admin (marcar as antigas, trazer, cobrar)
    funciona antes dele.
-4. **Fase C** junto com o dashboard de Relatórios.
+4. **Fase C** junto com o dashboard de Relatórios (✅ a fila do Hoje já
+   entrou; vendidas e consumo esperam o dashboard).
 5. Fase D só se a A e a B pegarem.
 
 Ver também: [nota-fiscal.md](nota-fiscal.md),

@@ -747,6 +747,20 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 094 — peças da O.S.: usadas e a orçar (20/11/2026)
+
+- `os_pecas.situacao` VARCHAR(10), CHECK `usada` | `a_orcar` | NULL. NULL = não se
+  sabe (as registradas antes; ninguém adivinha pelo texto).
+- `orcamento_linhas.os_peca_id` INTEGER → `os_pecas(id)` ON DELETE SET NULL, com
+  índice parcial. A origem da linha e a **trava** contra cobrar a mesma peça
+  duas vezes (a rota recusa a peça que já está em orçamento não recusado).
+- `orcamento_linhas.peca_usada` BOOLEAN NOT NULL DEFAULT false. A linha é de peça
+  usada na visita: o PDF do orçamento a põe no bloco "Peças utilizadas na
+  visita". Copiada da peça ao trazer, editável.
+
+Fluxo em [pecas-no-orcamento.md](modulos/pecas-no-orcamento.md). ✅ Teste
+(20/11/2026). ⏳ **Falta produção** (antes do push, depois de 090–093).
+
 ## 093 — `compromissos.chamado_id` (19/11/2026)
 
 `ALTER TABLE compromissos ADD COLUMN chamado_id INTEGER REFERENCES

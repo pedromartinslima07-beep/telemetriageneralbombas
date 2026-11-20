@@ -310,7 +310,7 @@ body *:not(
   .gb-sb, .gb-sb *, .gb-menu, .gb-menu *, .gb-cmdk-veu *, .gb-topo-busca, .gb-topo-busca *, .hj *, .mn *,
   .at-cab *, .at-caixa, .at-fila *, .at-abas *, .at-centro-vazio *, .at-voltar-bar *,
   .dq *, .dq-pop, .dq-pop *, .dq-toast, .dq-toast *, .fn-cab *, .fn-faixa, .fn-faixa *,
-  .ls *, .ls-placa, .av-pc *, .av-pc-drop, .av-pc-drop *, .av-pc-nota
+  .ls *, .ls-placa, .av-pc *, .av-pc-drop, .av-pc-drop *, .av-pc-nota, .av-pc-os, .av-pc-os *
 ) {
   border-radius: 0;
 }
@@ -13649,3 +13649,42 @@ body.gb-cmdk-aberta { overflow: hidden; }
 .av-pc-msg { padding: 12px 14px; color: var(--pc-muted); font-size: 12.5px; line-height: 1.5; }
 .av-pc-pe { display: flex; gap: 14px; padding: 6px 12px; color: var(--pc-muted); font-size: 11.5px; background: #fbfcfe; }
 @media (max-width: 640px) { .av-pc-l2 { flex-wrap: wrap; } .av-pc-pe { display: none; } }
+
+/* Peças no orçamento, fase B (20/11/2026): o bloco "Peças da O.S." e a marca
+   "usada na visita" da linha. Mesmos tokens --pc do bloco da fase A. */
+.av-pc-os { --pc-tinta: #061033; --pc-tinta-2: #3a4669; --pc-muted: #56648a; --pc-mar-2: #0d2775; --pc-fio: rgba(6,16,51,.12); --pc-fio-fraco: rgba(6,16,51,.07); --pc-ok-t: #105c31; --pc-ok-f: #e2f3e9; --pc-at-t: #7a5410; --pc-at-f: #fbf0d3; --pc-in-t: #0d2775; --pc-in-f: #e6edf8;
+  margin: 0 0 12px; border: 1px solid var(--pc-fio); border-radius: 10px; background: #fff; font-size: 12.5px; color: var(--pc-tinta); }
+.av-pc-os-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid var(--pc-fio-fraco); }
+.av-pc-os-cab b { font-size: 13px; }
+.av-pc-os-g { padding: 8px 12px; border-bottom: 1px solid var(--pc-fio-fraco); }
+.av-pc-os-g:last-child { border-bottom: 0; }
+.av-pc-os-gt { margin-bottom: 5px; }
+.av-pc-sit { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; }
+.av-pc-sit.is-usada { background: var(--pc-in-f); color: var(--pc-in-t); }
+.av-pc-sit.is-a_orcar { background: var(--pc-at-f); color: var(--pc-at-t); }
+.av-pc-sit.is-sem { background: #eef1f6; color: var(--pc-tinta-2); }
+.av-pc-os-p { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.av-pc-os-d { flex: 1; min-width: 0; }
+.av-pc-ok { color: var(--pc-ok-t); font-weight: 600; font-size: 12px; white-space: nowrap; }
+.av-pc-os .av-pc-fraco { color: var(--pc-muted); font-size: 12px; }
+.av-pc-os .av-pc-lk { border: 0; background: none; padding: 0; color: var(--pc-mar-2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.av-pc-os .av-pc-lk.is-fraco { color: var(--pc-muted); font-weight: 500; }
+.av-pc-os .av-pc-esp { flex: 1; }
+.av-pc-bt { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 6px; border: 1px solid rgba(6,16,51,.24); background: #fff; color: var(--pc-tinta); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.av-pc-bt:hover:not(:disabled) { background: #f4f6fa; }
+.av-pc-bt:disabled { opacity: .55; cursor: default; }
+.av-pc-bt.is-p { height: 24px; padding: 0 8px; font-size: 11.5px; }
+.av-pc-usada { flex: none; height: 20px; padding: 0 7px; border: 1px dashed rgba(6,16,51,.24); border-radius: 10px; background: transparent; color: var(--pc-muted); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.av-pc-usada.is-on { border-style: solid; border-color: transparent; background: #e6edf8; color: #0d2775; }
+.av-pc-usada:disabled { cursor: default; }
+@media (max-width: 640px) { .av-pc-os-p { flex-wrap: wrap; } .av-pc-os-d { flex-basis: 100%; } }
+
+/* Página da O.S.: situação e orçamento de cada peça (peças no orçamento,
+   fase B, 20/11/2026). */
+.os-peca-sit { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.os-peca-sit.is-usada { background: #e6edf8; color: #0d2775; }
+.os-peca-sit.is-orcar { background: #fbf0d3; color: #7a5410; }
+.os-peca-marcar { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.os-pecas-acao { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.os-pecas-acao .os-muted { font-size: 12px; }
+.os-secoes .os-secao.is-larga { grid-column: 1 / -1; min-width: 0; overflow-x: auto; }

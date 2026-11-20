@@ -7,6 +7,7 @@ const { pool } = require("../db");
 const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 const { sendOrcamentoCliente } = require("../services/email");
 const { refletirStatusOrcamento } = require("../services/equipamento-bancada.service");
+const omieCatalogo = require("../services/omie-produtos.service");
 
 const { authRequired } = require("../middleware/authRequired");
 const { adminOnly } = require("../middleware/adminOnly");
@@ -879,9 +880,12 @@ function _orcStatusIn(status) {
 
 // Garante que existe um registro em `orcamentos` para a OS (cria se não tiver).
 // Retorna { id, criado } do orçamento.
-async function _garantirOrcamentoDaOs(osId, userId) {
+// `exigirPedido: false` (peças no orçamento, fase B, 20/11/2026): cobrar as
+// peças USADAS na visita é orçamento da O.S. mesmo quando o técnico não
+// marcou "preciso de orçamento" — a peça já foi trocada, falta cobrar.
+async function _garantirOrcamentoDaOs(osId, userId, { exigirPedido = true } = {}) {
   const existente = await pool.query(
-    "SELECT id FROM orcamentos WHERE os_id = $1 LIMIT 1",
+    "SELECT id FROM orcamentos WHERE os_id = $1 ORDER BY id LIMIT 1",
     [osId]
   );
   if (existente.rows.length) return { id: existente.rows[0].id, criado: false };
@@ -891,7 +895,7 @@ async function _garantirOrcamentoDaOs(osId, userId) {
     [osId]
   );
   if (!osRow.rows.length) throw Object.assign(new Error("O.S. não encontrada"), { status: 404 });
-  if (!osRow.rows[0].orcamento_necessario) {
+  if (exigirPedido && !osRow.rows[0].orcamento_necessario) {
     throw Object.assign(new Error("Esta O.S. não tem orçamento solicitado"), { status: 400 });
   }
 
@@ -930,6 +934,194 @@ async function _garantirOrcamentoDaOs(osId, userId) {
   );
   return { id: ins.rows[0].id, criado: true };
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// PEÇAS DA O.S. NO ORÇAMENTO (fase B, 20/11/2026, migration 094)
+// ════════════════════════════════════════════════════════════════════════
+// O técnico registra em os_pecas a peça que USOU e a que FALTA orçar; as duas
+// são cobradas por orçamento, em blocos separados no PDF. A linha criada
+// guarda a origem (os_peca_id) e se é peça usada (peca_usada).
+//
+// ⚠️ A TRAVA É NÃO COBRAR A MESMA PEÇA DUAS VEZES: peça que já está numa
+// linha de orçamento NÃO recusado não entra de novo (recusado libera; apagar
+// a linha libera). Feito dentro de transação com FOR UPDATE nas peças, para
+// dois cliques seguidos não criarem a linha duas vezes.
+// Ver docs/modulos/pecas-no-orcamento.md.
+
+// As peças de uma O.S., cada uma com o orçamento em que está (o não recusado
+// mais recente; senão o recusado, para a tela dizer "recusada no OR-…").
+async function _pecasDaOs(osId, db = pool) {
+  const r = await db.query(
+    `SELECT p.id, p.os_id, p.descricao, p.quantidade, p.observacao, p.situacao,
+            x.orcamento_id, x.orcamento_numero, x.orcamento_status
+       FROM os_pecas p
+       LEFT JOIN LATERAL (
+         SELECT o.id AS orcamento_id, o.numero AS orcamento_numero, o.status AS orcamento_status
+           FROM orcamento_linhas l JOIN orcamentos o ON o.id = l.orcamento_id
+          WHERE l.os_peca_id = p.id
+          ORDER BY (o.status <> 'rejeitado') DESC, o.criado_em DESC, o.id DESC
+          LIMIT 1
+       ) x ON true
+      WHERE p.os_id = $1
+      ORDER BY p.id`,
+    [osId]
+  );
+  return r.rows.map(p => ({ ...p, orcada: !!p.orcamento_id && p.orcamento_status !== "rejeitado" }));
+}
+
+// Cria as linhas das peças pedidas no orçamento. Lança { status, message } nas
+// recusas. Devolve as linhas no formato de sempre (_LINHA_SELECT).
+async function _trazerPecas(orcId, pecaIds) {
+  const ids = [...new Set((pecaIds || []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  if (!ids.length) throw Object.assign(new Error("Nenhuma peça escolhida"), { status: 400 });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const o = (await client.query("SELECT id, os_id, nota_status FROM orcamentos WHERE id = $1 FOR UPDATE", [orcId])).rows[0];
+    if (!o) throw Object.assign(new Error("Orçamento não encontrado"), { status: 404 });
+    if (!o.os_id) throw Object.assign(new Error("Este orçamento não está ligado a uma O.S."), { status: 400 });
+    if (o.nota_status === "emitida" || o.nota_status === "processando") {
+      throw Object.assign(new Error("A nota deste orçamento já foi emitida: não dá para trazer peças."), { status: 409 });
+    }
+    const pecas = (await client.query(
+      "SELECT id, descricao, quantidade, observacao, situacao FROM os_pecas WHERE id = ANY($1::int[]) AND os_id = $2 ORDER BY id FOR UPDATE",
+      [ids, o.os_id]
+    )).rows;
+    if (pecas.length !== ids.length) throw Object.assign(new Error("Alguma peça não é da O.S. deste orçamento."), { status: 400 });
+    const ja = (await client.query(
+      `SELECT l.os_peca_id, o2.numero FROM orcamento_linhas l JOIN orcamentos o2 ON o2.id = l.orcamento_id
+        WHERE l.os_peca_id = ANY($1::int[]) AND o2.status <> 'rejeitado'`,
+      [ids]
+    )).rows;
+    if (ja.length) {
+      const lista = [...new Set(ja.map(x => x.numero || "outro orçamento"))].join(", ");
+      throw Object.assign(new Error(`${ja.length === 1 ? "Uma peça já está" : ja.length + " peças já estão"} em ${lista}. Recuse aquele orçamento ou apague a linha de lá para trazer de novo.`), { status: 409 });
+    }
+    // Produto lembrado e preço: o mesmo da busca do editor (fase A). Sem
+    // lembrado, a linha vem sem produto e a pessoa escolhe na lista.
+    const novos = [];
+    for (const p of pecas) {
+      const lemb = await omieCatalogo.lembradoPara(p.descricao).catch(() => null);
+      let valor = null;
+      if (lemb) {
+        const h = (await omieCatalogo.historico([lemb.codigo_produto], orcId).catch(() => new Map())).get(lemb.codigo_produto);
+        valor = h && h.valor != null ? h.valor : (lemb.valor_unitario != null ? Math.round(lemb.valor_unitario * 100) / 100 : null);
+      }
+      const ins = await client.query(
+        `INSERT INTO orcamento_linhas
+           (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario, natureza, omie_produto_codigo, os_peca_id, peca_usada)
+         VALUES ($1, $2, $3, $4, $5, 'peca', $6, $7, $8) RETURNING id`,
+        [orcId, String(p.descricao).slice(0, 500), p.observacao || null, p.quantidade || 1, valor,
+         lemb ? lemb.codigo_produto : null, p.id, p.situacao === "usada"]
+      );
+      novos.push(ins.rows[0].id);
+    }
+    await client.query("COMMIT");
+    return (await pool.query(_LINHA_SELECT + " WHERE l.id = ANY($1::int[]) ORDER BY l.id", [novos])).rows;
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// As peças MARCADAS (usada / a orçar) e ainda livres de uma O.S.
+async function _trazerPecasMarcadas(orcId, osId) {
+  const livres = (await _pecasDaOs(osId)).filter(p => p.situacao && !p.orcada).map(p => p.id);
+  return livres.length ? _trazerPecas(orcId, livres) : [];
+}
+
+// GET /admin/orcamentos/avulsos/:id/pecas-da-os — o bloco "Peças da O.S." do
+// editor: a O.S. ligada e as peças dela, com a situação e onde já foram orçadas.
+router.get("/orcamentos/avulsos/:id/pecas-da-os", authRequired, gestaoOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    const o = (await pool.query("SELECT os_id FROM orcamentos WHERE id = $1", [id])).rows[0];
+    if (!o) return res.status(404).json({ error: "Orçamento não encontrado" });
+    if (!o.os_id) return res.json({ os: null, pecas: [] });
+    const os = (await pool.query(
+      `SELECT os.id, os.numero, os.chegada_em, os.finalizada_em, t.nome AS tecnico_nome
+         FROM ordens_servico os LEFT JOIN tecnicos t ON t.id = os.tecnico_id WHERE os.id = $1`,
+      [o.os_id]
+    )).rows[0] || null;
+    return res.json({ os, pecas: await _pecasDaOs(o.os_id) });
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/avulsos/:id/pecas-da-os:", err);
+    return res.status(500).json({ error: "Erro ao buscar as peças da O.S." });
+  }
+});
+
+// POST /admin/orcamentos/avulsos/:id/linhas/da-os  { pecas: [ids] }
+router.post("/orcamentos/avulsos/:id/linhas/da-os", authRequired, gestaoOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    return res.status(201).json({ linhas: await _trazerPecas(id, (req.body || {}).pecas) });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error("[admin] POST /orcamentos/avulsos/:id/linhas/da-os:", err);
+    return res.status(500).json({ error: "Erro ao trazer as peças da O.S." });
+  }
+});
+
+// POST /admin/orcamentos/da-os/:os_id/cobrar-usadas — "Cobrar as peças usadas"
+// da página da O.S.: garante o orçamento da O.S. (mesmo sem pedido do técnico)
+// e traz as peças USADAS ainda não orçadas. Orçamento da O.S. que já saiu do
+// rascunho não recebe linha nova (409): o cliente já viu aquele documento.
+router.post("/orcamentos/da-os/:os_id/cobrar-usadas", authRequired, gestaoOnly, async (req, res) => {
+  const osId = Number(req.params.os_id);
+  if (!Number.isInteger(osId) || osId <= 0) return res.status(400).json({ error: "os_id inválido" });
+  try {
+    const livres = (await _pecasDaOs(osId)).filter(p => p.situacao === "usada" && !p.orcada);
+    if (!livres.length) return res.status(400).json({ error: "Nenhuma peça usada sem cobrança nesta O.S." });
+    const atual = (await pool.query("SELECT id, numero, status FROM orcamentos WHERE os_id = $1 ORDER BY id LIMIT 1", [osId])).rows[0];
+    if (atual && atual.status !== "rascunho") {
+      return res.status(409).json({
+        error: `O orçamento desta O.S. (${atual.numero || "sem número"}) já foi ${atual.status === "aprovado" ? "aprovado" : atual.status === "rejeitado" ? "recusado" : "enviado"}. Crie um orçamento novo, ligue à O.S. e traga as peças por ele.`,
+        orcamento_id: atual.id,
+      });
+    }
+    const { id: orcId, criado } = await _garantirOrcamentoDaOs(osId, req.user.id, { exigirPedido: false });
+    const linhas = await _trazerPecas(orcId, livres.map(p => p.id));
+    return res.status(201).json({ orcamento_id: orcId, criado, linhas });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error("[admin] POST /orcamentos/da-os/:os_id/cobrar-usadas:", err);
+    return res.status(500).json({ error: "Erro ao cobrar as peças usadas" });
+  }
+});
+
+// GET /admin/orcamentos/pecas-sem-cobranca — a fila do Hoje (fase C,
+// 20/11/2026): as O.S. com peça USADA na visita que não está em nenhum
+// orçamento não recusado. É dinheiro esquecido. A regra de "livre" é a mesma
+// da trava acima (recusado libera; apagar a linha libera). Uma linha por O.S.
+router.get("/orcamentos/pecas-sem-cobranca", authRequired, gestaoOnly, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT os.id AS os_id, os.numero, os.condominio_id,
+              COALESCE(c.nome_fantasia, c.nome) AS condominio_nome,
+              t.nome AS tecnico_nome, os.chegada_em, os.finalizada_em,
+              COUNT(p.id)::int AS pecas,
+              (ARRAY_AGG(p.descricao ORDER BY p.id))[1:3] AS descricoes
+         FROM os_pecas p
+         JOIN ordens_servico os ON os.id = p.os_id
+         LEFT JOIN condominios c ON c.id = os.condominio_id
+         LEFT JOIN tecnicos t ON t.id = os.tecnico_id
+        WHERE p.situacao = 'usada'
+          AND NOT EXISTS (
+            SELECT 1 FROM orcamento_linhas l JOIN orcamentos o ON o.id = l.orcamento_id
+             WHERE l.os_peca_id = p.id AND o.status <> 'rejeitado')
+        GROUP BY os.id, c.id, t.id
+        ORDER BY COALESCE(os.finalizada_em, os.chegada_em, os.criado_em)`
+    );
+    return res.json(r.rows);
+  } catch (err) {
+    console.error("[admin] GET /orcamentos/pecas-sem-cobranca:", err);
+    return res.status(500).json({ error: "Erro ao buscar as peças usadas sem cobrança" });
+  }
+});
 
 // Helpers de status: rascunho|enviado|aprovado|rejeitado (não há mais "pendente").
 const ORC_STATUS_VALIDOS = ["rascunho", "enviado", "aprovado", "rejeitado"];
@@ -1166,7 +1358,11 @@ router.patch("/orcamentos/:os_id", authRequired, gestaoOnly, async (req, res) =>
   }
 
   try {
-    const { id: orcId } = await _garantirOrcamentoDaOs(osId, req.user.id);
+    const { id: orcId, criado } = await _garantirOrcamentoDaOs(osId, req.user.id);
+    // "Fazer orçamento" de um pedido: as peças da O.S. já marcadas (usadas e
+    // a orçar) entram sozinhas (peças no orçamento, fase B). As sem marcação
+    // ficam no bloco "Peças da O.S." do editor, para alguém marcar.
+    if (criado) await _trazerPecasMarcadas(orcId, osId).catch(e => console.error("[admin] trazer peças da O.S.:", e.message));
 
     let sets = [], vals = [orcId];
 
@@ -1780,7 +1976,7 @@ const TIPOS_SERVICO_LINHA = new Set(["limpeza_reservatorio", "dedetizacao"]);
 // docs/modulos/pecas-no-orcamento.md.
 const _LINHA_SELECT = `
   SELECT l.id, l.descricao, l.ficha_tecnica, l.quantidade, l.valor_unitario, l.tipo_servico,
-         l.natureza, l.omie_produto_codigo,
+         l.natureza, l.omie_produto_codigo, l.os_peca_id, l.peca_usada,
          p.codigo AS produto_codigo, p.descricao AS produto_descricao, p.ncm AS produto_ncm,
          p.unidade AS produto_unidade, p.inativo AS produto_inativo
     FROM orcamento_linhas l
@@ -1796,6 +1992,7 @@ async function _linhaProduto(body) {
     if (n !== null && !NATUREZAS_LINHA.has(n)) return { erro: "natureza deve ser servico, peca ou vazia", status: 400 };
     campos.natureza = n;
   }
+  if ("peca_usada" in body) campos.peca_usada = body.peca_usada === true || body.peca_usada === "true";
   if ("omie_produto_codigo" in body) {
     const v = body.omie_produto_codigo;
     if (v == null || v === "") campos.omie_produto_codigo = null;
@@ -1881,10 +2078,13 @@ router.patch("/orcamentos/avulsos/linhas/:linha_id", authRequired, gestaoOnly, a
     if (pr.erro) return res.status(pr.status).json({ error: pr.erro });
     for (const [k, v] of Object.entries(pr.campos)) {
       vals.push(v);
-      sets.push(k === "natureza" ? `natureza = $${vals.length}::varchar` : `omie_produto_codigo = $${vals.length}::bigint`);
+      sets.push(k === "natureza" ? `natureza = $${vals.length}::varchar`
+        : k === "peca_usada" ? `peca_usada = $${vals.length}::boolean`
+        : `omie_produto_codigo = $${vals.length}::bigint`);
     }
     if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
-    if (Object.keys(pr.campos).length) {
+    // "Usada na visita" só muda o bloco do PDF: não trava com a nota.
+    if ("natureza" in pr.campos || "omie_produto_codigo" in pr.campos) {
       const dono = await pool.query("SELECT orcamento_id FROM orcamento_linhas WHERE id = $1", [linhaId]);
       if (!dono.rows.length) return res.status(404).json({ error: "Linha não encontrada" });
       if (await _notaTravaLinha(dono.rows[0].orcamento_id)) {

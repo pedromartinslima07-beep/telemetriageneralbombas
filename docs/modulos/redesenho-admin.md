@@ -1335,7 +1335,9 @@ novo escuta na captura da `window` e para a propagação.
 - **"Precisa de você": uma fila só**, em Agora / Hoje / Nos próximos dias,
   com filtro em chip por tipo e **a ação com nome na linha**. As regras são as
   de sempre (`_chamadosAlertaAbertos`, `_avPendente`, `_osFaltaEnviar`,
-  aprovado sem nota, nota com erro, contrato vencendo em 30 dias). ⚠️ **A ação
+  aprovado sem nota, nota com erro, contrato vencendo em 30 dias; e, desde
+  20/11, O.S. com peça usada sem cobrança, ver
+  [pecas-no-orcamento.md](pecas-no-orcamento.md)). ⚠️ **A ação
   leva ao lugar onde a coisa é feita, não grava daqui**: "Emitir nota" e "Dar
   baixa" abrem o orçamento, "Enviar ao cliente" abre a O.S., "Atribuir
   técnico" abre o chamado.
@@ -1849,8 +1851,8 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 
 ### Para subir para produção (o Pedro decide quando)
 
-1. Rodar em produção, **antes** do push, as migrations **090, 091, 092 e
-   093** (conferir antes no `information_schema` o que já está lá; eu sou
+1. Rodar em produção, **antes** do push, as migrations **090, 091, 092,
+   093 e 094** (094 = peças da O.S., fase B; conferir antes no `information_schema` o que já está lá; eu sou
    bloqueado de rodar com `--prod`, quem roda é ele).
 2. Merge da `feature/nota-fiscal-omie` na main → merge desta → push (= deploy).
 3. Passo a passo do Omie depois do deploy: [nota-fiscal.md](nota-fiscal.md).

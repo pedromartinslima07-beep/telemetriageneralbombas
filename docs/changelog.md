@@ -18154,3 +18154,25 @@ linha aceitam `omie_produto_codigo` e `natureza` e travam os dois com a nota
 emitida. Nenhuma migration (colunas da 090/091). Teste novo:
 `orcamento-linha-produto.test.js` (21/21). Ver
 [pecas-no-orcamento.md](modulos/pecas-no-orcamento.md).
+
+## Peças no orçamento, fase B (2026-11-20)
+
+Migration **094**: `os_pecas.situacao` (usada / a orçar),
+`orcamento_linhas.os_peca_id` e `peca_usada`. A peça da O.S. diz se foi usada na
+visita ou falta orçar, e as duas vão para o orçamento: o bloco "Peças da
+O.S." do editor traz as que faltam, a página da O.S. tem "Cobrar as peças
+usadas" (mesmo sem pedido do técnico), e o "Fazer orçamento" já traz as
+marcadas. A mesma peça não entra em dois orçamentos (recusado libera). O PDF
+do orçamento separa "Peças utilizadas na visita" de "a executar", e o da O.S.
+separa "Peças Necessárias (a orçar)" das usadas. Corrigido de passagem: o
+seletor de O.S. do orçamento dizia "undefined". Teste novo:
+`pecas-da-os.test.js` (26/26). Ver
+[pecas-no-orcamento.md](modulos/pecas-no-orcamento.md).
+
+## Peças no orçamento, fase C: a fila do Hoje (2026-11-20)
+
+Rota nova `GET /admin/orcamentos/pecas-sem-cobranca`: as O.S. com peça usada
+na visita fora de orçamento não recusado. O Hoje mostra "OS-…: N peças usadas
+sem cobrança" com a ação **Cobrar**, que abre a O.S. Nenhuma migration.
+`admin-carteira.js?v=9`. Teste novo: `pecas-sem-cobranca.test.js` (13/13). Ver
+[pecas-no-orcamento.md](modulos/pecas-no-orcamento.md).
