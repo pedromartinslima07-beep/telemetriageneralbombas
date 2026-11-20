@@ -24,12 +24,34 @@ function _decodificar(s) {
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
+// ⚠️ POLEGADA SE ESCREVE DE SEIS JEITOS NO CATÁLOGO (levantamento de
+// 20/11/2026, 1.318 produtos): 2", 1.1/2", 1 1/2, 2.1/2, 3/4 e até 11/2
+// querendo dizer 1½ ("REGISTRO DE GAVETA HD 11/2 DN40", "ADAPTADOR CURTO
+// 11/2."). Sem converter, "registro 1.1/2" e "registro 11/2" não se achavam, e
+// "bomba 1/2 cv" não casava com "1/2CV". A fração vira decimal ANTES das
+// unidades, para "1/2cv" virar "0.5cv" e "1.1/2"" virar "1.5pol".
+const _FRAC = { "1/2": 0.5, "1/4": 0.25, "3/4": 0.75, "1/8": 0.125, "3/8": 0.375, "5/8": 0.625, "7/8": 0.875 };
+const _dec = n => String(Math.round(n * 1000) / 1000);
+function _fracoes(s) {
+  return s
+    // 1.1/2  1 1/2  1-1/2 → 1.5
+    // O fim é "não seguido de dígito", não \b: o cadastro cola a fração na
+    // palavra ("2 1/2DECA", "1/2CV"). O espaço depois separa o que vem colado.
+    .replace(/\b(\d{1,2})[.\s-]([1357])\/([248])(?!\d)/g, (m, i, a, b) => (_FRAC[`${a}/${b}`] != null ? _dec(Number(i) + _FRAC[`${a}/${b}`]) + " " : m))
+    // 11/2 → 1.5, 21/2 → 2.5, 13/4 → 1.75 (o jeito apressado do cadastro).
+    // Só com 1/2, 1/4 e 3/4 depois do inteiro: 15/8 de verdade não aparece.
+    .replace(/\b([1-9])(1\/2|1\/4|3\/4)(?!\d)/g, (m, i, f) => _dec(Number(i) + _FRAC[f]) + " ")
+    // 3/4 sozinho → 0.75
+    .replace(/\b([1357])\/([248])(?!\d)/g, (m, a, b) => (_FRAC[`${a}/${b}`] != null ? _dec(_FRAC[`${a}/${b}`]) + " " : m));
+}
+
 function normalizar(s) {
-  return _decodificar(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
-    .replace(/(\d),(\d)/g, "$1.$2")                       // 1,5cv → 1.5cv
+  return _fracoes(_decodificar(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/(\d),(\d)/g, "$1.$2"))                      // 1,5cv → 1.5cv
     .replace(/\b(\d+(?:\.\d+)?)\s*(cv|hp)\b/g, "$1cv")    // 1HP / 1 cv → 1cv (a General usa os dois)
     .replace(/\b(\d+)\s*mm\b/g, "$1mm")                   // 60 mm → 60mm
-    .replace(/["”¨]/g, "pol")                   // 2" → 2pol
+    .replace(/(\d+(?:\.\d+)?)\s*(?:["”¨]|''|\bpol(?:egadas?)?\b)/g, "$1pol ") // 2" · 2 pol · 2 polegadas → 2pol
+    .replace(/["”¨]/g, " ")
     .replace(/\s+/g, " ").trim();
 }
 
@@ -44,11 +66,15 @@ function _singular(t) {
   if (t.endsWith("oes")) return t.slice(0, -3) + "ao";
   if (t.endsWith("ais")) return t.slice(0, -3) + "al";
   if (t.endsWith("eis")) return t.slice(0, -3) + "el";
+  if (t.endsWith("res") && t.length > 5) return t.slice(0, -2); // adaptadores → adaptador, motores → motor
   if (t.endsWith("s") && !t.endsWith("ss")) return t.slice(0, -1);
   return t;
 }
 function _tokens(s) {
-  return normalizar(s).split(/[^a-z0-9.]+/).filter(t => t && t.length > 1 && !_STOP.has(t)).map(t => _singular(_ABREV[t] || t));
+  // O número sozinho fica (o "2" de "registro de gaveta 2" é a bitola); o
+  // ponto que sobra no fim ("11/2." → "1.5.") sai.
+  return normalizar(s).split(/[^a-z0-9.]+/).map(t => t.replace(/^\.+|\.+$/g, ""))
+    .filter(t => t && (t.length > 1 || /^\d$/.test(t)) && !_STOP.has(t)).map(t => _singular(_ABREV[t] || t));
 }
 
 // O que a peça É: a primeira palavra da linha. "Cola para tubo pvc" é cola,
@@ -81,6 +107,7 @@ async function _carregarCatalogo() {
     row: { ...row, codigo_produto: Number(row.codigo_produto), valor_unitario: row.valor_unitario == null ? null : Number(row.valor_unitario) },
     tokens: new Set(_tokens(`${row.descricao} ${row.codigo || ""}`)),
     nucleo: _nucleo(_tokens(row.descricao), true),
+    polegadas: _polegadas(_tokens(row.descricao)),
   }));
   const df = {};
   for (const i of itens) for (const t of i.tokens) df[t] = (df[t] || 0) + 1;
@@ -224,6 +251,34 @@ function _medidas(tokens) {
   return m;
 }
 
+// ⚠️ BITOLA SEM UNIDADE (20/11/2026). Quem orça escreve "registro de gaveta
+// 2", e o cadastro escreve "ADAPTADORES 3/4" ou "LUVA LR 50X1.1/2", também
+// sem aspas. Número sozinho até 12 (as bitolas de polegada que a General
+// usa) é tratado como bitola dos dois lados; acima disso é tensão, código ou
+// quantidade (220, 1510) e não conta.
+function _bitolas(tokens) {
+  const s = new Set();
+  for (const t of tokens) {
+    if (!/^\d+(?:\.\d+)?$/.test(t)) continue;
+    const n = Number(t);
+    if (n > 0 && n <= 12) s.add(String(n));
+  }
+  return s;
+}
+
+// Soldável em mm × rosca em polegada: a tabela de PVC que o próprio cadastro
+// usa ("ADAPTADOR LR 60MM X 2"", "LR 50MM X 1.1/2""). Com ela, pedir
+// "registro 2" penaliza o de 110 mm e acha o "REGISTRO DECA 60MM".
+const _MM_POL = { 20: "0.5", 25: "0.75", 32: "1", 40: "1.25", 50: "1.5", 60: "2", 75: "2.5", 85: "3", 110: "4" };
+// Todas as bitolas de polegada que um produto declara, de qualquer jeito.
+function _polegadas(tokens) {
+  const med = _medidas(tokens);
+  const s = new Set([...(med.get("pol") || [])].map(v => String(Number(v))));
+  for (const v of _bitolas(tokens)) s.add(v);
+  for (const v of med.get("mm") || []) if (_MM_POL[Number(v)]) s.add(_MM_POL[Number(v)]);
+  return s;
+}
+
 function _pontuar(cat, texto) {
   const tks = _tokens(texto);
   if (!tks.length) return [];
@@ -235,6 +290,7 @@ function _pontuar(cat, texto) {
   const unicos = [...new Set(tks)];
   const peso = unicos.reduce((a, t) => a + idf(t), 0) || 1;
   const pedidas = _medidas(tks);
+  const soltas = _bitolas(tks);
   const out = [];
   for (const i of cat.itens) {
     let s = 0;
@@ -248,9 +304,17 @@ function _pontuar(cat, texto) {
     if (pedidas.size) {
       const doProduto = _medidas(i.tokens);
       for (const [un, vals] of pedidas) {
-        const tem = doProduto.get(un);
-        if (tem && ![...vals].some(v => tem.has(v))) { base *= 0.5; break; }
+        // Polegada pedida casa com a do produto escrita de qualquer jeito
+        // (aspas, sem aspas, ou o mm equivalente).
+        const tem = un === "pol" ? i.polegadas : doProduto.get(un);
+        if (!tem || !tem.size) continue;
+        if (![...vals].some(v => tem.has(String(Number(v))) || tem.has(v))) { base *= 0.5; break; }
+        if (un === "pol" && ![...vals].some(v => (doProduto.get("pol") || new Set()).has(v))) base *= 1.3; // achou por outro jeito de escrever
       }
+    }
+    if (soltas.size) {
+      if ([...soltas].some(v => i.polegadas.has(v))) base *= 1.3;
+      else if (i.polegadas.size) base *= 0.5;
     }
     out.push({ row: i.row, score: base + Math.min(0.08, Math.log1p(i.row.vezes_faturado || 0) * 0.02) });
   }
@@ -301,6 +365,45 @@ async function sugerir(descricoes) {
   return out;
 }
 
+// ── Para quem MONTA o orçamento (peças no orçamento, fase A, 20/11/2026) ───
+// O que a pessoa quer ver ao escolher a peça não é o preço do cadastro do
+// Omie (muitas vezes velho): é o que a própria General cobrou da última vez.
+// Lido das linhas de orçamentos APROVADOS ligadas ao produto. O orçamento que
+// está sendo montado fica de fora (senão a linha recém-ligada vira "a última
+// vez" dela mesma).
+async function historico(codigos, excetoOrcamentoId = null) {
+  const cods = [...new Set(codigos.map(Number).filter(Boolean))];
+  if (!cods.length) return new Map();
+  const r = await pool.query(
+    `SELECT DISTINCT ON (l.omie_produto_codigo)
+            l.omie_produto_codigo AS cod, l.valor_unitario, o.id AS orcamento_id, o.numero,
+            COALESCE(o.respondido_em, o.aprovado_em, o.criado_em) AS em
+       FROM orcamento_linhas l
+       JOIN orcamentos o ON o.id = l.orcamento_id
+      WHERE l.omie_produto_codigo = ANY($1::bigint[])
+        AND o.status = 'aprovado'
+        AND l.valor_unitario IS NOT NULL
+        AND ($2::int IS NULL OR o.id <> $2::int)
+      ORDER BY l.omie_produto_codigo, COALESCE(o.respondido_em, o.aprovado_em, o.criado_em) DESC, l.id DESC`,
+    [cods, excetoOrcamentoId]
+  );
+  return new Map(r.rows.map(x => [Number(x.cod), {
+    valor: x.valor_unitario == null ? null : Number(x.valor_unitario),
+    orcamento_id: x.orcamento_id, numero: x.numero, em: x.em,
+  }]));
+}
+
+// O produto que este texto já foi da última vez (memória da nota), ou null.
+async function lembradoPara(texto) {
+  const k = normalizar(texto);
+  if (!k) return null;
+  const r = await pool.query(`SELECT codigo_produto FROM omie_produto_vinculos WHERE descricao_norm = $1`, [k]);
+  if (!r.rows.length) return null;
+  const cat = await _carregarCatalogo();
+  const row = cat.porCodigo.get(Number(r.rows[0].codigo_produto));
+  return row ? _publico(row, { lembrado: true }) : null;
+}
+
 async function porCodigos(codigos) {
   if (!codigos.length) return new Map();
   const cat = await _carregarCatalogo();
@@ -342,6 +445,8 @@ module.exports = {
   sugerir,
   porCodigos,
   lembrar,
+  historico,
+  lembradoPara,
   _pontuar,
   _tokens,
   _resetCache: () => { _cache = null; },

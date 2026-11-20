@@ -15610,10 +15610,14 @@ async function _avAcao(acao) {
       const r = await fetch(`/admin/orcamentos/avulsos/${id}/linhas`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ descricao: desc, ficha_tecnica: ficha, quantidade: qtd, valor_unitario: valor }),
+        // O produto do Omie escolhido na busca do item novo (admin-orc-pecas.js,
+        // peças no orçamento, 20/11/2026) vai junto, e a linha já nasce ligada.
+        body: JSON.stringify({ descricao: desc, ficha_tecnica: ficha, quantidade: qtd, valor_unitario: valor,
+          ...(typeof _avPecaPendente === "function" ? _avPecaPendente() : {}) }),
       });
       const j = await r.json();
       if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
+      if (typeof _avPecaLimpar === "function") _avPecaLimpar();
       _avLinhas.push(j);
       const clr = (i, v="") => { const el = document.getElementById(i); if (el) el.value = v; };
       clr("avNewDesc"); clr("avNewQtd","1"); clr("avNewVal"); clr("avNewFicha");

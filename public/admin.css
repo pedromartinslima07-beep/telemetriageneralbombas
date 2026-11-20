@@ -310,7 +310,7 @@ body *:not(
   .gb-sb, .gb-sb *, .gb-menu, .gb-menu *, .gb-cmdk-veu *, .gb-topo-busca, .gb-topo-busca *, .hj *, .mn *,
   .at-cab *, .at-caixa, .at-fila *, .at-abas *, .at-centro-vazio *, .at-voltar-bar *,
   .dq *, .dq-pop, .dq-pop *, .dq-toast, .dq-toast *, .fn-cab *, .fn-faixa, .fn-faixa *,
-  .ls *, .ls-placa
+  .ls *, .ls-placa, .av-pc *, .av-pc-drop, .av-pc-drop *, .av-pc-nota
 ) {
   border-radius: 0;
 }
@@ -13598,3 +13598,54 @@ body.gb-cmdk-aberta { overflow: hidden; }
   .ls .ls-tab td.ls-c-val { grid-column: 2; grid-row: 2; text-align: right; align-self: start; font-size: 12.5px; }
 }
 @media (max-width: 768px) { #orcLsRoot .ls-tab td:nth-child(3) { grid-column: 1; } }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PEÇAS NO ORÇAMENTO, fase A (20/11/2026) — admin-orc-pecas.js
+   A linha do editor de itens com o produto do Omie embaixo, Peça | Serviço,
+   e a lista de sugestões ao digitar. Tokens próprios no bloco: os nomes do
+   admin.css não batem com os da maquete (memória "tokens divergem").
+   ════════════════════════════════════════════════════════════════════════ */
+.av-pc, .av-pc-drop, .av-pc-nota {
+  --pc-tinta: #061033; --pc-tinta-2: #3a4669; --pc-muted: #56648a; --pc-mar: #071b5c; --pc-mar-2: #0d2775;
+  --pc-fio: rgba(6,16,51,.12); --pc-fio-fraco: rgba(6,16,51,.07); --pc-hover: #f4f6fa; --pc-sel: #e6edf8;
+  --pc-ok-t: #105c31; --pc-ok-f: #e2f3e9; --pc-at-t: #7a5410; --pc-at-f: #fbf0d3; --pc-ri-t: #8a1010;
+  --pc-mono: "Martian Mono", ui-monospace, SFMono-Regular, monospace;
+}
+.av-pc { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; margin-top: 5px; font-size: 11.5px; color: var(--pc-tinta-2); line-height: 1.35; }
+.av-pc-seg { display: inline-flex; padding: 2px; gap: 1px; border-radius: 6px; background: #e9edf3; flex: none; }
+.av-pc-seg button { height: 20px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: var(--pc-muted); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.av-pc-seg button:hover:not(:disabled) { color: var(--pc-tinta); }
+.av-pc-seg button.is-on { background: #fff; color: var(--pc-tinta); box-shadow: 0 1px 2px rgba(6,16,51,.14); }
+.av-pc-seg button.is-on[data-pc-nat="peca"] { color: var(--pc-ok-t); }
+.av-pc-seg button:disabled { cursor: default; }
+.av-pc-cod { font-family: var(--pc-mono); font-size: 11px; color: var(--pc-muted); flex: none; }
+.av-pc { flex-wrap: nowrap; }
+.av-pc-prod { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pc-tinta-2); }
+.av-pc-acoes { display: inline-flex; gap: 10px; flex: none; margin-left: 2px; }
+@media (max-width: 640px) { .av-pc { flex-wrap: wrap; } .av-pc-prod { flex-basis: 100%; order: 3; } }
+.av-pc-fraco { color: var(--pc-muted); }
+.av-pc-aviso { color: var(--pc-ri-t); font-weight: 600; }
+.av-pc-lk { border: 0; background: none; padding: 0; color: var(--pc-mar-2); font: inherit; font-weight: 600; cursor: pointer; }
+.av-pc-lk:hover { text-decoration: underline; text-underline-offset: 2px; }
+.av-pc-lk.is-fraco { color: var(--pc-muted); font-weight: 500; }
+.av-pc-pend { margin: 6px 0 0; padding: 6px 8px; border-radius: 6px; background: var(--pc-ok-f); }
+.av-pc-tag { font-weight: 600; color: var(--pc-ok-t); }
+.av-pc-nota { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 2px; padding: 8px 10px; border-radius: 8px; background: #f7f8fb; color: var(--pc-tinta-2); font-size: 12px; line-height: 1.45; }
+.av-pc-nota b { color: var(--pc-tinta); }
+
+/* a lista de sugestões (fica no body: o editor rola dentro de uma caixa) */
+.av-pc-drop { position: fixed; z-index: 9800; max-height: 360px; overflow-y: auto; background: #fff; border: 1px solid var(--pc-fio); border-radius: 10px; box-shadow: 0 12px 32px -8px rgba(6,16,51,.28), 0 2px 6px rgba(6,16,51,.08); font-family: var(--fonte, "Archivo", system-ui, sans-serif); color: var(--pc-tinta); font-size: 13px; }
+.av-pc-drop[hidden] { display: none; }
+.av-pc-it { padding: 8px 12px; border-bottom: 1px solid var(--pc-fio-fraco); cursor: pointer; }
+.av-pc-it:hover { background: var(--pc-hover); }
+.av-pc-it.is-ativo { background: var(--pc-sel); }
+.av-pc-l1 { display: flex; align-items: baseline; gap: 8px; }
+.av-pc-l1 .av-pc-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.av-pc-l1 b { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.av-pc-l2 { display: flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--pc-muted); font-size: 12px; }
+.av-pc-esp { flex: 1; }
+.av-pc-uv { color: var(--pc-ok-t); font-weight: 600; white-space: nowrap; }
+.av-pc-lemb { padding: 0 6px; border-radius: 8px; background: var(--pc-at-f); color: var(--pc-at-t); font-weight: 600; font-size: 11px; white-space: nowrap; }
+.av-pc-msg { padding: 12px 14px; color: var(--pc-muted); font-size: 12.5px; line-height: 1.5; }
+.av-pc-pe { display: flex; gap: 14px; padding: 6px 12px; color: var(--pc-muted); font-size: 11.5px; background: #fbfcfe; }
+@media (max-width: 640px) { .av-pc-l2 { flex-wrap: wrap; } .av-pc-pe { display: none; } }

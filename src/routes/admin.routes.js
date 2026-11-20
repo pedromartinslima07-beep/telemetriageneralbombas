@@ -1756,10 +1756,7 @@ router.get("/orcamentos/avulsos/:id/linhas", authRequired, gestaoOnly, async (re
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
   try {
-    const r = await pool.query(
-      `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico
-       FROM orcamento_linhas WHERE orcamento_id = $1 ORDER BY id ASC`, [id]
-    );
+    const r = await pool.query(_LINHA_SELECT + ` WHERE l.orcamento_id = $1 ORDER BY l.id ASC`, [id]);
     return res.json(r.rows);
   } catch (err) {
     console.error("[admin] GET /orcamentos/avulsos/:id/linhas:", err);
@@ -1772,6 +1769,58 @@ router.get("/orcamentos/avulsos/:id/linhas", authRequired, gestaoOnly, async (re
 // o PDF achar a especificação da cláusula por chave em vez de por regex na
 // descrição. Só o preset do tipo manda esse campo; item avulso vem sem ele.
 const TIPOS_SERVICO_LINHA = new Set(["limpeza_reservatorio", "dedetizacao"]);
+
+// ── O PRODUTO DO OMIE NA LINHA (peças no orçamento, fase A, 20/11/2026) ──
+// A linha de peça passa a nascer ligada ao produto, quando é digitada, e não
+// só no modal da nota. As colunas são as da nota (090: natureza; 091:
+// omie_produto_codigo): o modal da nota lê a mesma escolha e só confere.
+// Toda rota de linha devolve o MESMO formato (_LINHA_SELECT), com o produto
+// junto, porque o editor troca a linha inteira pela resposta: uma rota que
+// devolvesse menos colunas apagaria o produto da tela. Ver
+// docs/modulos/pecas-no-orcamento.md.
+const _LINHA_SELECT = `
+  SELECT l.id, l.descricao, l.ficha_tecnica, l.quantidade, l.valor_unitario, l.tipo_servico,
+         l.natureza, l.omie_produto_codigo,
+         p.codigo AS produto_codigo, p.descricao AS produto_descricao, p.ncm AS produto_ncm,
+         p.unidade AS produto_unidade, p.inativo AS produto_inativo
+    FROM orcamento_linhas l
+    LEFT JOIN omie_produtos p ON p.codigo_produto = l.omie_produto_codigo`;
+const NATUREZAS_LINHA = new Set(["servico", "peca"]);
+
+// Valida produto e natureza vindos do corpo. Devolve { campos } com o que
+// gravar, ou { erro, status }. Só olha as chaves que vieram.
+async function _linhaProduto(body) {
+  const campos = {};
+  if ("natureza" in body) {
+    const n = body.natureza == null || body.natureza === "" ? null : String(body.natureza);
+    if (n !== null && !NATUREZAS_LINHA.has(n)) return { erro: "natureza deve ser servico, peca ou vazia", status: 400 };
+    campos.natureza = n;
+  }
+  if ("omie_produto_codigo" in body) {
+    const v = body.omie_produto_codigo;
+    if (v == null || v === "") campos.omie_produto_codigo = null;
+    else {
+      const cod = Number(v);
+      if (!Number.isSafeInteger(cod) || cod <= 0) return { erro: "omie_produto_codigo inválido", status: 400 };
+      const pr = await pool.query("SELECT inativo FROM omie_produtos WHERE codigo_produto = $1", [cod]);
+      if (!pr.rows.length) return { erro: "Produto não está no catálogo do Omie. Atualize o catálogo e tente de novo.", status: 422 };
+      if (pr.rows[0].inativo) return { erro: "Este produto está inativo no Omie.", status: 422 };
+      campos.omie_produto_codigo = cod;
+      // Produto escolhido é peça: o produto do Omie só existe na DANFE.
+      if (!("natureza" in campos)) campos.natureza = "peca";
+    }
+  }
+  return { campos };
+}
+
+// ⚠️ NOTA EMITIDA (ou emitindo) TRAVA PRODUTO E NATUREZA. A nota já saiu
+// com aquelas escolhas; trocar aqui deixaria o orçamento dizendo uma coisa e
+// a nota outra. Descrição e valor continuam como sempre foram.
+async function _notaTravaLinha(orcamentoId) {
+  const r = await pool.query("SELECT nota_status FROM orcamentos WHERE id = $1", [orcamentoId]);
+  const st = r.rows[0]?.nota_status;
+  return st === "emitida" || st === "processando" ? st : null;
+}
 router.post("/orcamentos/avulsos/:id/linhas", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
@@ -1782,12 +1831,20 @@ router.post("/orcamentos/avulsos/:id/linhas", authRequired, gestaoOnly, async (r
   // Valor fora da lista vira NULL em vez de estourar o CHECK do banco.
   const ts  = TIPOS_SERVICO_LINHA.has(tipo_servico) ? tipo_servico : null;
   try {
-    const r = await pool.query(
-      `INSERT INTO orcamento_linhas (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico`,
-      [id, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu, ts]
+    const pr = await _linhaProduto(req.body || {});
+    if (pr.erro) return res.status(pr.status).json({ error: pr.erro });
+    const prod = pr.campos;
+    if (("omie_produto_codigo" in prod || "natureza" in prod) && await _notaTravaLinha(id)) {
+      return res.status(409).json({ error: "A nota deste orçamento já foi emitida: não dá para mudar peça e serviço." });
+    }
+    const ins = await pool.query(
+      `INSERT INTO orcamento_linhas (orcamento_id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico, natureza, omie_produto_codigo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id`,
+      [id, String(descricao).trim(), ficha_tecnica ? String(ficha_tecnica).trim() : null, qtd, vu, ts,
+       prod.natureza ?? null, prod.omie_produto_codigo ?? null]
     );
+    const r = await pool.query(_LINHA_SELECT + " WHERE l.id = $1", [ins.rows[0].id]);
     return res.status(201).json(r.rows[0]);
   } catch (err) {
     console.error("[admin] POST /orcamentos/avulsos/:id/linhas:", err);
@@ -1819,15 +1876,24 @@ router.patch("/orcamentos/avulsos/linhas/:linha_id", authRequired, gestaoOnly, a
     }
   }
 
-  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
-
   try {
-    const r = await pool.query(
-      `UPDATE orcamento_linhas SET ${sets.join(",")} WHERE id = $1
-       RETURNING id, descricao, ficha_tecnica, quantidade, valor_unitario`,
-      vals
-    );
-    if (!r.rows.length) return res.status(404).json({ error: "Linha não encontrada" });
+    const pr = await _linhaProduto(req.body || {});
+    if (pr.erro) return res.status(pr.status).json({ error: pr.erro });
+    for (const [k, v] of Object.entries(pr.campos)) {
+      vals.push(v);
+      sets.push(k === "natureza" ? `natureza = $${vals.length}::varchar` : `omie_produto_codigo = $${vals.length}::bigint`);
+    }
+    if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar" });
+    if (Object.keys(pr.campos).length) {
+      const dono = await pool.query("SELECT orcamento_id FROM orcamento_linhas WHERE id = $1", [linhaId]);
+      if (!dono.rows.length) return res.status(404).json({ error: "Linha não encontrada" });
+      if (await _notaTravaLinha(dono.rows[0].orcamento_id)) {
+        return res.status(409).json({ error: "A nota deste orçamento já foi emitida: não dá para mudar peça e serviço." });
+      }
+    }
+    const u = await pool.query(`UPDATE orcamento_linhas SET ${sets.join(",")} WHERE id = $1 RETURNING id`, vals);
+    if (!u.rows.length) return res.status(404).json({ error: "Linha não encontrada" });
+    const r = await pool.query(_LINHA_SELECT + " WHERE l.id = $1", [linhaId]);
     return res.json(r.rows[0]);
   } catch (err) {
     console.error("[admin] PATCH /orcamentos/avulsos/linhas/:linha_id:", err);

@@ -18141,3 +18141,16 @@ em `X-Total-Count-OS` e `X-Total-Count-Bancada`). Cortavam em 300 e 200 fixos,
 e os orçamentos mais antigos sumiam da tela. O admin traz todas as páginas.
 Sem parâmetro, as rotas respondem como antes. Nenhuma migration. Ver
 [api.md](api.md).
+
+## Peças no orçamento, fase A (2026-11-20)
+
+A linha de peça do orçamento nasce ligada ao produto do Omie quando é
+digitada (`public/admin-orc-pecas.js`, novo): lista de sugestões com preço do
+Omie, NCM, vezes faturado e **o preço da última vez** que a General cobrou;
+escolher liga a linha e preenche o valor vazio; Peça | Serviço por linha; e
+qual nota vai sair. A busca do catálogo passou a entender bitola (fração,
+número sozinho, mm ↔ polegada), o que vale também para a nota. As rotas de
+linha aceitam `omie_produto_codigo` e `natureza` e travam os dois com a nota
+emitida. Nenhuma migration (colunas da 090/091). Teste novo:
+`orcamento-linha-produto.test.js` (21/21). Ver
+[pecas-no-orcamento.md](modulos/pecas-no-orcamento.md).

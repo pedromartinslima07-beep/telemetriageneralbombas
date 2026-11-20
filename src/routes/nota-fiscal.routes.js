@@ -78,10 +78,28 @@ router.post("/orcamentos/avulsos/:id/nota/atualizar", authRequired, gestaoOnly, 
   } catch (err) { return _falha(res, "POST nota/atualizar", err); }
 });
 
+// ?historico=1 é o modo do EDITOR DE ITENS do orçamento (peças no orçamento,
+// fase A, 20/11/2026): cada produto vem com `ultima_vez` (o preço que a
+// General cobrou num orçamento aprovado), o produto lembrado para o texto
+// sobe para o topo com `lembrado: true`, e catálogo vazio NÃO dispara a
+// sincronização (1 min) no meio da digitação — devolve lista vazia e o
+// estado, e a tela diz que o catálogo não está carregado.
+// ?orcamento_id= tira o próprio orçamento do "última vez".
 router.get("/omie/produtos", authRequired, gestaoOnly, async (req, res) => {
   try {
     const q = String(req.query.q || "").slice(0, 120);
-    return res.json({ produtos: await catalogo.buscar(q, 15), catalogo: await catalogo.estado() });
+    const estado = await catalogo.estado();
+    if (req.query.historico !== "1") return res.json({ produtos: await catalogo.buscar(q, 15), catalogo: estado });
+
+    if (!estado.total) return res.json({ produtos: [], catalogo: estado });
+    const limite = Math.min(Math.max(parseInt(req.query.limite, 10) || 6, 1), 15);
+    const orcId = Number(req.query.orcamento_id) || null;
+    let produtos = await catalogo.buscar(q, limite);
+    const lemb = await catalogo.lembradoPara(q);
+    if (lemb) produtos = [lemb, ...produtos.filter(p => p.codigo_produto !== lemb.codigo_produto)].slice(0, limite);
+    const hist = await catalogo.historico(produtos.map(p => p.codigo_produto), orcId);
+    produtos = produtos.map(p => ({ ...p, ultima_vez: hist.get(p.codigo_produto) || null }));
+    return res.json({ produtos, catalogo: estado });
   } catch (err) { return _falha(res, "GET omie/produtos", err); }
 });
 

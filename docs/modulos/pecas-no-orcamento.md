@@ -7,10 +7,12 @@ aliases:
   - Catálogo de peças
   - Peça ligada ao produto do Omie
 ---
-# Peças no orçamento: o catálogo do Omie na hora de montar (📋 desenho, 20/11/2026)
+# Peças no orçamento: o catálogo do Omie na hora de montar (✅ fase A no código; B a D 📋, 20/11/2026)
 
 Pedido do Pedro: *"hj a gente salva as peças no sistema?"* → *"desenha isso
-pra mim"*. Este é o desenho, **nada foi implementado**. Ele parte do que já
+pra mim"* → *"começa pela fase A"*. A **fase A está no código** (branch
+`feature/admin-condominio`, sem deploy; ver "Fase A no código" no fim); B, C
+e D continuam desenho. Ele parte do que já
 existe para a nota fiscal ([nota-fiscal.md](nota-fiscal.md)) e o leva para o
 começo do fluxo.
 
@@ -185,7 +187,103 @@ Testado no banco de teste com a cópia dos 1.318 produtos:
 | luva de união 60mm | PRD00268 · LUVA DE UNIÃO 60MM · R$ 128 · faturado 37× | exata |
 | contator 32a | 018536 · CONTATOR WEG CWM32 32A · R$ 394 (0×); PRD00135 CWB 32 A · R$ 391 (6×); 103 · CJX2 · R$ 66 (5×) | três contatores 32 A: **é por isso que a pessoa escolhe** |
 | boia elétrica | PRD00258 · BOIA AUTOMÁTICA DE NÍVEL · R$ 50 · 12× | boa |
-| registro de gaveta 2 | 1½" DN40; DECA 110 mm; DECA 85 mm | ⚠️ **"2" sem unidade não conta como medida**: o de 2" não veio. A Fase A precisa entender `2`, `2"`, `2 pol` como a mesma medida |
+| registro de gaveta 2 | antes: 1½" DN40; DECA 110 mm. **Depois da fase A: REGISTRO 1502 AMARELO 2"; REGISTRO DECA 60MM** | o "2" sem unidade passou a contar como bitola (ver abaixo) |
+
+## Fase A no código (20/11/2026)
+
+### A busca entende bitola
+
+`src/services/omie-produtos.service.js` (vale também para as sugestões do modal
+da nota, que usam o mesmo motor):
+
+- **Fração vira decimal antes de tudo.** O catálogo escreve polegada de seis
+  jeitos: `2"`, `1.1/2"`, `1 1/2`, `2.1/2`, `3/4` e até `11/2` querendo dizer 1½
+  (`REGISTRO DE GAVETA HD 11/2 DN40`). Todos viram `1.5`; `1/2CV` vira `0.5cv`
+  (casa com "0,5CV"); fração colada em palavra (`2 1/2DECA`) se separa.
+- **`2 pol`, `2 polegadas`, `2"`** viram `2pol`.
+- **Número sozinho até 12 é bitola** ("registro de gaveta 2"), dos dois lados:
+  o produto que declara bitola diferente perde metade; o que bate ganha 30%.
+  Acima de 12 é tensão, código ou quantidade e não conta.
+- **mm ↔ polegada pela tabela de PVC** que o próprio cadastro usa (20 = ½",
+  25 = ¾", 32 = 1", 40 = 1¼", 50 = 1½", 60 = 2", 75 = 2½", 85 = 3", 110 = 4"):
+  pedir "registro 2" penaliza o de 110 mm e acha o "REGISTRO DECA 60MM".
+- **Plural em -res**: "ADAPTADORES" → adaptador.
+
+Doze buscas conferidas no catálogo real (todas com a peça certa em 1º):
+registro de gaveta 2 · registro gaveta 1.1/2 · adaptador 3/4 · luva de união
+60mm · contator 32a · bomba 1/2 cv · boia elétrica · cotovelo 60mm · adaptador
+lr 50mm 1.1/2 · luva 1" · adaptador 2 1/2 · cola para tubo pvc.
+
+⚠️ `normalizar` também é a chave de `omie_produto_vinculos` (a memória da
+nota). Mudar a normalização muda a chave das descrições com fração. Em
+produção a tabela ainda não existe (091 não rodou); no teste estava vazia.
+
+### As rotas
+
+| Rota | O que mudou |
+|---|---|
+| `GET /admin/omie/produtos?q=&historico=1&orcamento_id=&limite=` | O modo do editor: cada produto traz `ultima_vez` (`{ valor, orcamento_id, numero, em }`, da linha mais recente de um orçamento **aprovado**, sem contar o próprio); o produto lembrado para o texto sobe com `lembrado: true`; catálogo vazio devolve lista vazia **sem** disparar a sincronização de 1 min. Sem `historico=1`, é a busca de sempre |
+| `POST /admin/orcamentos/avulsos/:id/linhas` | Aceita `omie_produto_codigo` e `natureza` |
+| `PATCH /admin/orcamentos/avulsos/linhas/:id` | Aceita `omie_produto_codigo` (null tira) e `natureza` (`peca`, `servico` ou vazio). Produto escolhido sem natureza vira `peca` |
+| as três rotas de linha (GET, POST, PATCH) | Devolvem **o mesmo formato**, com `natureza`, `omie_produto_codigo`, `produto_codigo`, `produto_descricao`, `produto_ncm`, `produto_unidade`, `produto_inativo` (`_LINHA_SELECT`) |
+
+Recusas: produto fora do catálogo ou inativo → **422**; natureza inválida →
+**400**; **nota emitida ou processando trava produto e natureza (409)**, mas
+não descrição e valor (a nota já saiu com aquelas escolhas).
+
+⚠️ **Toda rota de linha devolve o produto.** O editor troca a linha inteira
+pela resposta (`_avLinhas[idx] = j`): um PATCH de valor que devolvesse as
+colunas de antes apagaria o produto da tela. É o mesmo tipo de defeito do
+vínculo do orçamento com a O.S. (`orcamento-vincula-os.test.js`).
+
+Nenhuma migration: as colunas são as da nota (090, 091).
+
+### A tela
+
+`public/admin-orc-pecas.js` (novo), que **decora** o editor de sempre (embrulho
+em `_avRenderLinhas`); no `admin.js` só o POST do item novo mudou (manda o
+produto escolhido, lido por `_avPecaPendente`).
+
+- Digitar 3 letras na descrição (de uma linha ou do item novo) abre a lista:
+  código, nome, preço do Omie, NCM, "faturado N×", **"última vez R$ X · OR-…"**
+  e "usado da última vez". ↑/↓, Enter, Esc. A lista mora no `body`
+  (`position: fixed`): o editor rola dentro de uma caixa.
+- Escolher liga a linha e **preenche o valor só se estiver vazio** (o da
+  última vez; senão o do Omie). A descrição fica a digitada.
+- Em cada linha: **Peça | Serviço** (clicar no marcado desmarca; Serviço tira
+  o produto), o produto com **trocar**, **usar o nome do Omie** e **tirar**,
+  ou "sem produto do Omie · escolher".
+- No item novo, a escolha aparece como "Vai ligado a PRD… · tirar" até o
+  "+ Adicionar".
+- Embaixo dos itens: **qual nota vai sair** (com peça, DANFE; só serviço,
+  NFS-e; ou quantas linhas faltam marcar).
+- Só no tipo **Peças e serviços**; perfil sem gravação e nota emitida veem
+  sem poder mudar.
+
+⚠️ **O redesenho recria o formulário do item novo.** Uma gravação que
+chegava enquanto a pessoa digitava o item novo apagava o texto e tirava o
+foco (já era assim antes; agora é nesse campo que se busca). O embrulho
+guarda e devolve o texto, os números e o cursor.
+
+### Testado (banco de teste, 20/11/2026)
+
+- `scripts/testes/orcamento-linha-produto.test.js` (novo): **21/21** — POST e
+  PATCH com produto, o PATCH de valor continuando a devolver o produto,
+  tirar/pôr, natureza à mão e vazia, 422/400, trava da nota emitida (409) sem
+  travar o valor, "última vez" só de aprovado e nunca do próprio orçamento,
+  bitola na busca.
+- `nota-fiscal-danfe.test.js`: **81/81** (o motor de sugestão mudou).
+- Na tela (1900×1000 e 390×844, orçamento de teste criado e apagado):
+  "Registro de gaveta 2" → 6 sugestões, Enter liga ao registro de 2" e
+  preenche R$ 208; Mão de obra → Serviço; item novo "contator 32a" → ↓ Enter →
+  "Vai ligado a PRD00135", R$ 391,57 → Adicionar já ligado; tudo continua
+  depois do F5; redesenho no meio da digitação preserva texto e foco. Sem
+  erro de JS.
+- **Não testado:** o modal da nota abrindo com as linhas já ligadas (lê as
+  mesmas colunas, mas não foi aberto), e com o banco de produção, onde a 091
+  ainda não existe.
+
+Versões: `admin.css?v=344`, `admin.js?v=406`, `admin-orc-pecas.js?v=3`.
 
 ## Riscos
 

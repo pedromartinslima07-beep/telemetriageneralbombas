@@ -119,7 +119,10 @@ movidos para a tela nova.
 (`admin-os-lista.js`): chips, busca, Exportar, lote, ordem, paginação e a O.S.
 no painel ao lado. **Etapa 7 (20/11):** **Orçamentos** é uma lista só
 (`admin-orc-lista.js`), do pedido do técnico ao aprovado; as duas abas antigas
-ficam escondidas, e as rotas de orçamento são paginadas (`X-Total-Count`). As outras listas entram no mesmo molde.
+ficam escondidas, e as rotas de orçamento são paginadas (`X-Total-Count`).
+**Peças no orçamento, fase A (20/11):** a linha de peça nasce ligada ao
+produto do Omie ao ser digitada (`admin-orc-pecas.js`), com o preço da última
+vez; a busca do catálogo entende bitola. Depende da 090/091 (nota fiscal). As outras listas entram no mesmo molde.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma

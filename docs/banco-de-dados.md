@@ -379,7 +379,11 @@ não tem condomínio não tem login, e a resposta dele continua vindo por fora.
 
 - `orcamento_linhas.omie_produto_codigo` (BIGINT): o produto do Omie
   escolhido para a linha de **peça**. NULL = ninguém escolheu. A NF-e só
-  aceita produto cadastrado, e a linha é texto livre.
+  aceita produto cadastrado, e a linha é texto livre. Desde 20/11/2026
+  (peças no orçamento, fase A) é gravado também **ao montar o orçamento**,
+  pela busca do editor de itens, e não só no modal da nota; com a nota
+  emitida ou processando, a rota da linha recusa trocar (409). Ver
+  [pecas-no-orcamento.md](modulos/pecas-no-orcamento.md).
 - `orcamentos.omie_pedido_codigo` (pedido de venda, o equivalente do
   `omie_os_codigo`) e `orcamentos.omie_nf_codigo` (`nIdNF` da NF-e gerada).
 - **`omie_produtos`**: cópia local do catálogo do Omie (PK `codigo_produto`;

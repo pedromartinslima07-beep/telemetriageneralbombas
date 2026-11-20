@@ -55,7 +55,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`painel-cliente.md`](docs/modulos/painel-cliente.md) — painel do síndico: "a resposta, não o painel", sem seções, tudo abre como ficha `#fluxo`
 - [`orcamentos-envio.md`](docs/modulos/orcamentos-envio.md) — as duas opções de envio do orçamento e por que as listas de destinatários são diferentes `#fluxo`
 - [`nota-fiscal.md`](docs/modulos/nota-fiscal.md) — nota do orçamento aprovado pelo Omie: uma nota por orçamento, molde copiado das notas feitas à mão, kill-switch `OMIE_EMISSAO` `#fluxo`
-- [`pecas-no-orcamento.md`](docs/modulos/pecas-no-orcamento.md) — 📋 desenho: a linha de peça do orçamento nasce ligada ao produto do Omie (sugestão ao digitar, preço da última vez, peças da O.S.) `#fluxo`
+- [`pecas-no-orcamento.md`](docs/modulos/pecas-no-orcamento.md) — a linha de peça do orçamento nasce ligada ao produto do Omie: ✅ fase A (sugestão ao digitar, preço da última vez, bitola na busca); 📋 peças da O.S. e contagem `#fluxo`
 - [`painel-admin.md`](docs/modulos/painel-admin.md) — painel de operação: as 15 telas, os 3 moldes, os defeitos medidos e a direção proposta `#fluxo`
 - [`redesenho-admin.md`](docs/modulos/redesenho-admin.md) — 📋 plano aprovado: o condomínio como eixo do admin, menu de 15 para 9, fundo claro `#fluxo`
 - [`agenda.md`](docs/modulos/agenda.md) — agenda da empresa: compromissos, retornos, contratos, preventivas e o faturamento dos contratos do Omie (só leitura) `#fluxo`

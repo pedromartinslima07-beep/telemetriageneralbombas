@@ -78,6 +78,8 @@ ganha um seletor:
   da mesma unidade (mm, cv, pol) e nenhuma igual à pedida perde metade da
   pontuação.
 - **Busca** por nome ou código, no catálogo local.
+- **Bitola (20/11/2026):** fração vira decimal (`1.1/2"`, `1 1/2`, `11/2` → 1.5), número sozinho até 12 é bitola, e mm ↔ polegada pela tabela de PVC (60 mm = 2"). Ver [pecas-no-orcamento.md](pecas-no-orcamento.md).
+- **A linha pode chegar já ligada** ao produto, escolhido ao montar o orçamento (peças no orçamento, fase A). O modal só confere.
 - **Lembrado da última vez**: quando o Omie aceita o pedido, a escolha fica
   em `omie_produto_vinculos` pela descrição normalizada. Na próxima linha com
   o mesmo texto, o produto **já vem escolhido**, marcado "usado da última vez".
