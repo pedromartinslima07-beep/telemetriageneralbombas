@@ -18421,3 +18421,12 @@ seção `relatorios`, que troca o painel ao vivo e o exportar pelo `#relDash`
 e a tela na lista de exceções do raio zero). Sem migration. Teste
 `relatorios-dashboard.test.js` (25). Ver
 [relatorios-dashboard.md](modulos/relatorios-dashboard.md).
+
+## Notas fiscais paradas dentro do Financeiro (2026-11-20)
+
+No Financeiro, as abas das notas (Emitidas, Com erro, Aprovados sem nota…),
+a busca e o clique na linha não faziam nada. Os cliques eram escutados na
+seção Notas, mas o `admin-financeiro.js` **move** o `#nfRoot` para dentro do
+Financeiro — e fora da seção o evento não chegava ao listener. Agora o
+`admin-carteira.js` escuta no próprio `#nfRoot`, que vai junto para onde
+estiver; a tela antiga `#/notas` segue funcionando. `admin-carteira.js` v=12.

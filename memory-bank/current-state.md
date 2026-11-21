@@ -183,6 +183,8 @@ Na mesma branch (fase 3): o menu virou **9 grupos** com subabas
 e continua sendo a fonte de perfil, badge e item ativo. A tela de abertura
 passou a ser o **Início** (`public/admin-carteira.js`), com o que pede ação
 na carteira; há também uma lista geral de **notas fiscais** em Financeiro.
+(A lista de notas é o `#nfRoot`, movido entre as seções Notas e Financeiro;
+por isso os cliques dela são escutados no próprio `#nfRoot`, nunca na seção.)
 
 Fase 4, na mesma branch: a **área de trabalho é clara** (`#f3f5f9`) com o
 menu lateral marinho, e a forma deixou o chanfro do Chapa pela de sistema de

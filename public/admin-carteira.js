@@ -547,7 +547,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ds.icContrato) { _ctrAbrirModal({ condoId: Number(ds.icContratoCondo), contratoId: Number(ds.icContrato) }); return; }
     if (ds.icCondo)    { abrirFichaCondominio(Number(ds.icCondo), ds.icAba || "resumo"); return; }
   };
-  for (const sel of ['.section[data-section="inicio"]', '.section[data-section="notas"]']) {
+  // ⚠️ As notas escutam no próprio #nfRoot, não na seção Notas: o Financeiro
+  // (admin-financeiro.js) MOVE o #nfRoot para dentro dele, e preso à seção os
+  // cliques nas abas, na busca e nas linhas não chegavam (20/11/2026).
+  for (const sel of ['.section[data-section="inicio"]', '#nfRoot']) {
     const sec = document.querySelector(sel);
     if (!sec) continue;
     sec.addEventListener("click", agir);
@@ -555,7 +558,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.key === "Enter" && e.target.matches?.(".cf-linha, .pro-row")) { e.preventDefault(); agir(e); }
     });
   }
-  document.querySelector('.section[data-section="notas"]')?.addEventListener("input", (e) => {
+  document.getElementById("nfRoot")?.addEventListener("input", (e) => {
     if (e.target.id !== "nfBusca") return;
     _nfBusca = e.target.value;
     const pos = e.target.selectionStart;
