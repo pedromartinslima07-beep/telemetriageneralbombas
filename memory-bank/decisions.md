@@ -1668,3 +1668,19 @@ desenho em camadas original continua válido.
   Empresa (Serviços Operacionais → API → Integração com parceiros →
   Contratação, parceiro OMIE), mas pede um "documento de apoio ao negócio"
   que ninguém soube dizer qual é. O Pedro preferiu seguir sem ela.
+
+## Boleto junto com a nota (23/11/2026)
+
+- **O banco é escolhido nota a nota.** Sicredi ou Bradesco no modal, padrão
+  Bradesco (a conta das avulsas feitas à mão). Pedido do Pedro: "escolher
+  parcelamento e vencimento assim como é no Omie".
+- **O sistema gera o boleto, não a remessa.** A API do Omie não entrega
+  remessa. Cheguei a levantar o CNAB 400 do Bradesco (carteira 09, nosso
+  número e multa/juros vêm do Omie), mas o Omie também gera remessa e o
+  número sequencial de duas fontes se atropelaria no banco. O Pedro decidiu:
+  ele continua tirando a remessa no Omie.
+- **A parcela única ganhou data e vai com `999`.** Com boleto, deixar o Omie
+  decidir o vencimento da nota à vista não servia. A primeira nota à vista em
+  produção confirma que o Omie aceita `999` com uma parcela.
+- **Falha no boleto não derruba a nota.** São duas coisas no Omie: a nota já
+  emitida fica, e o boleto tem estado e "tentar de novo" próprios.

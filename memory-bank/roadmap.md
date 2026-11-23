@@ -976,6 +976,13 @@ NF-e foi autorizada.
 orçamento, com o calendário das notas feitas à mão e vencimentos editáveis.
 A primeira nota parcelada em produção confirma o código `999`.
 
+**Banco e boleto** (23/11/2026, migration 101): ✅ no código. O modal escolhe
+o banco (Bradesco ou Sicredi) e o vencimento também da parcela única, e o
+sistema pede o boleto de cada parcela ao Omie quando a nota sai. A remessa do
+Bradesco continua no Omie. ✅ 101 em produção (23/11/2026). ⏳ Falta: a
+primeira nota com boleto acompanhada (conferir no Omie a conta, a data da
+parcela única e o boleto de cada parcela).
+
 **Depois, se pedirem:** venda para fora de SP (CFOP 6.xxx) e orçamentos de
 limpeza/dedetização. Peça nova continua sendo cadastrada no Omie à mão (NCM é
 com o contador).

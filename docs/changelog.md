@@ -94,6 +94,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
 | 099 | cobranca_atrasados | tabelas **`omie_receber_atrasados`** (cópia dos títulos em atraso no Omie que o sistema emitiu), **`omie_boleto_links`** e **`omie_receber_pagos`** (o "já pagou" só no sistema); `omie_clientes.telefone`, `telefone2`, `contato`. **Aplicada em teste e em produção em 23/11/2026**, antes do push. Ver a entrada de 23/11/2026 abaixo |
 | 100 | guias_tributos | tabelas **`guias_tributos`** (a guia lida do PDF, o PDF, o destino e a situação no Omie; código de barras único entre as vivas) e **`guias_regras`** (fornecedor/categoria/conta por tipo, semeada com o que o Omie usa). **Aplicada em teste em 23/11/2026; falta produção, antes do push.** Ver a entrada de 23/11/2026 abaixo |
+| 101 | nota_boletos | `orcamentos.nota_conta_corrente`, `boleto_status`, `boleto_erro`, `boleto_atualizado_em`; tabela **`orcamento_boletos`** (uma linha por parcela da nota, com o nosso número). **Aplicada em teste e em produção em 23/11/2026**, antes do push. Ver a entrada de 23/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
 | 092 | agenda | tabelas **`compromissos`** (agenda da empresa, com repetição semanal/mensal e `so_admin`), **`omie_contratos`** e **`omie_contrato_notas`** (cópia dos contratos de serviço do Omie e das NFS-e de cada um) e **`omie_sincronizacoes`**. **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push que levar a agenda** (a rota e o job leem as tabelas). Ver [agenda.md](modulos/agenda.md) |
@@ -18504,3 +18505,26 @@ correntes. `admin-guias.js?v=2` (novo), `admin-financeiro.js?v=5`,
 Teste `guias-tributos.test.js` (46/46). Na tela (banco de teste, 1440px e
 375px). **`IncluirContaPagar` e `IncluirAnexo` nunca foram chamados de
 verdade.** Ver [guias-tributos.md](modulos/guias-tributos.md).
+
+## O boleto sai junto com a nota do orçamento (2026-11-23)
+
+Pedido do Pedro. No modal da nota, além das parcelas, agora se escolhe o
+**banco** (Bradesco, o padrão das avulsas, ou Sicredi), o **vencimento
+também da parcela única** (padrão de 5 dias, que vai com `999` e uma
+parcela) e **"gerar o boleto junto"**. A conta escolhida vai na OS ou no
+pedido. Quando a nota fica emitida, o Atualizar acha os títulos no Omie e
+chama `GerarBoleto` em cada parcela que ainda não tem boleto. Recusa e
+título que ainda não apareceu ficam no bloco **Boleto** do trilho, com
+**Gerar boletos** para tentar de novo e **Abrir** para cada parcela.
+
+**A remessa do Bradesco continua no Omie.** A API não gera remessa, e o
+sistema gerar o CNAB por conta própria atropelaria o número sequencial das
+remessas que o Omie já gera. O trilho avisa "Falta a remessa" nas notas do
+Bradesco.
+
+Migration 101. Rotas `POST /admin/orcamentos/avulsos/:id/nota/boletos` e
+`GET .../nota/boletos/:titulo/link`. `admin.js?v=423`, `admin.css?v=381`
+(`.av-nota-banco`, `.av-nota-chk`, `.av-nota-boletos`). Teste
+`nota-fiscal-danfe.test.js` 98/98 (Omie simulado). Na tela, no banco de
+teste. **`GerarBoleto` pela nota nunca foi chamado de verdade.** Ver
+[nota-fiscal.md](modulos/nota-fiscal.md).

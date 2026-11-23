@@ -7,7 +7,9 @@
 //   GET  /admin/orcamentos/avulsos/:id/nota            prévia (não fala com o Omie)
 //   POST /admin/orcamentos/avulsos/:id/nota/previa     prévia com o que está marcado no modal
 //   POST /admin/orcamentos/avulsos/:id/nota/emitir     emite (exige OMIE_EMISSAO=1)
-//   POST /admin/orcamentos/avulsos/:id/nota/atualizar  relê o status no Omie
+//   POST /admin/orcamentos/avulsos/:id/nota/atualizar  relê o status no Omie (e gera o boleto pendente)
+//   POST /admin/orcamentos/avulsos/:id/nota/boletos    gera o boleto das parcelas (exige OMIE_EMISSAO=1)
+//   GET  /admin/orcamentos/avulsos/:id/nota/boletos/:titulo/link  PDF do boleto (só leitura)
 //   GET  /admin/omie/produtos?q=                       busca no catálogo local (DANFE)
 //   POST /admin/omie/produtos/sincronizar              recarrega o catálogo do Omie (só leitura lá)
 
@@ -31,13 +33,16 @@ function _obj(v) {
   return v && typeof v === "object" && !Array.isArray(v) ? v : {};
 }
 
-// { parcelas: 1..12, vencimentos?: ["AAAA-MM-DD", ...] } — o resto é validado
-// em montarPagamento (datas em ordem, nenhuma antes de hoje).
+// { parcelas: 1..12, vencimentos?: ["AAAA-MM-DD", ...], banco?: 'bradesco'|'sicredi',
+//   boleto?: bool } — o resto é validado em montarPagamento (datas em ordem,
+// nenhuma antes de hoje; banco desconhecido vira o padrão).
 function _pagamento(v) {
   if (!v || typeof v !== "object") return null;
   const parcelas = Number(v.parcelas);
   const vencimentos = Array.isArray(v.vencimentos) ? v.vencimentos.slice(0, 12).map(x => String(x).slice(0, 10)) : null;
-  return Number.isInteger(parcelas) ? { parcelas, vencimentos } : null;
+  const banco = typeof v.banco === "string" ? v.banco.slice(0, 20) : undefined;
+  const boleto = v.boleto === false ? false : undefined;
+  return Number.isInteger(parcelas) ? { parcelas, vencimentos, banco, boleto } : null;
 }
 
 function _falha(res, rota, err) {
@@ -78,6 +83,26 @@ router.post("/orcamentos/avulsos/:id/nota/atualizar", authRequired, gestaoOnly, 
   try {
     return res.json(await nota.atualizar(id));
   } catch (err) { return _falha(res, "POST nota/atualizar", err); }
+});
+
+// ⚠️ GRAVA NO OMIE (GerarBoleto). O boleto de cada parcela da nota emitida;
+// o Atualizar já tenta sozinho quando a nota sai, isto é o "tentar de novo".
+router.post("/orcamentos/avulsos/:id/nota/boletos", authRequired, gestaoOnly, painelNovoOnly, async (req, res) => {
+  const id = _id(req, res); if (!id) return;
+  try {
+    const r = await nota.gerarBoletos(id);
+    console.log(`[nota] orcamento=${id} boletos usuario=${req.user.id} -> ${r.boleto_status}`);
+    return res.json(r);
+  } catch (err) { return _falha(res, "POST nota/boletos", err); }
+});
+
+// O PDF do boleto de uma parcela (ObterBoleto, só leitura no Omie).
+router.get("/orcamentos/avulsos/:id/nota/boletos/:titulo/link", authRequired, gestaoOnly, async (req, res) => {
+  const id = _id(req, res); if (!id) return;
+  const t = String(req.params.titulo || "");
+  if (!/^\d{1,18}$/.test(t)) return res.status(400).json({ error: "título inválido" });
+  try { return res.json(await nota.linkBoleto(id, t)); }
+  catch (err) { return _falha(res, "GET nota/boletos/link", err); }
 });
 
 // ?historico=1 é o modo do EDITOR DE ITENS do orçamento (peças no orçamento,

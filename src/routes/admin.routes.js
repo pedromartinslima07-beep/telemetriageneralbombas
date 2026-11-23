@@ -1738,6 +1738,8 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
               -- trilho da ficha mostra situacao e numero; a previa completa
               -- vem de GET /admin/orcamentos/avulsos/:id/nota ao abrir o modal.
               o.nota_tipo, o.nota_status, o.nota_numero, o.nota_url, o.nota_erro,
+              -- O boleto que saiu junto com a nota (migration 101).
+              o.nota_conta_corrente, o.boleto_status, o.boleto_erro,
               ch.id     AS chamado_id,
               ch.status AS chamado_status
        FROM orcamentos o

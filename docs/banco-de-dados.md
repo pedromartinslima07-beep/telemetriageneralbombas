@@ -749,6 +749,25 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 101 — o boleto sai junto com a nota do orçamento (23/11/2026)
+
+Fluxo em [nota-fiscal.md](modulos/nota-fiscal.md), seção "Banco e boleto".
+
+- `orcamentos.nota_conta_corrente` (BIGINT): a conta do Omie em que a nota
+  cobra (`5960922842` Sicredi, `6109178168` Bradesco). NULL = nota de antes,
+  que saía sempre no Bradesco.
+- `orcamentos.boleto_status` (VARCHAR(20)): NULL = não pedido; `pendente` =
+  pedido com a nota e ainda não gerado; `gerado`; `erro` (texto em
+  `boleto_erro`). `boleto_atualizado_em` é a trava de 70 s entre pedidos.
+- **`orcamento_boletos`** (PK `omie_titulo` = `codigo_lancamento_omie`;
+  `orcamento_id` FK CASCADE, `parcela`, `vencimento`, `valor`,
+  `conta_corrente`, `nosso_numero` = `cNumBancario`, `gerado`, `erro`,
+  `gerado_em`, `atualizado_em`): uma linha por parcela.
+
+✅ **Aplicada em teste e em produção em 23/11/2026**, antes do push (conferido
+no `information_schema` de produção). `GET /admin/orcamentos/avulsos` e a nota
+leem as colunas novas.
+
 ## 100 — guias de tributos → contas a pagar no Omie (23/11/2026)
 
 Fluxo em [guias-tributos.md](modulos/guias-tributos.md). O PDF que o contador

@@ -223,6 +223,12 @@ sempre desligado. ⏳ A 090 e a 091 ainda não estão em produção e nenhuma no
 real foi emitida. Ver
 [`../docs/modulos/nota-fiscal.md`](../docs/modulos/nota-fiscal.md).
 
+**Desde 23/11/2026 (migration 101, em produção):** o modal escolhe o banco
+(Bradesco ou Sicredi) e o vencimento também da parcela única, e o boleto de
+cada parcela é pedido ao Omie (`GerarBoleto`) quando a nota fica emitida
+(`orcamento_boletos`). A remessa do Bradesco **não** é gerada pelo sistema:
+continua sendo tirada no Omie.
+
 ### ⚠️ Lista de O.S. paginada (13/11/2026)
 
 `GET /ordens-servico` aceita `limit` (até 500) e `offset` e devolve o total em

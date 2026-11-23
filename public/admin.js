@@ -14065,13 +14065,81 @@ function _avNotaRailHtml(o) {
     </div>
     ${o.nota_url ? `<a class="btn btn-sm" href="${_waEscaparHtml(o.nota_url)}" target="_blank" rel="noopener">Ver nota</a>` : ""}
     ${st === "processando" || st === "emitida" ? `<button class="btn btn-sm" data-av-action="nota-atualizar">Atualizar</button>` : ""}
-    ${st === "erro" ? `<button class="btn btn-sm" data-av-action="nota-emitir">Tentar de novo…</button>` : ""}`;
+    ${st === "erro" ? `<button class="btn btn-sm" data-av-action="nota-emitir">Tentar de novo…</button>` : ""}
+    ${_avBoletoRailHtml(o)}`;
+}
+
+// O boleto das parcelas (migration 101). Pedido junto com a nota, sai quando
+// ela é emitida (o Atualizar já tenta). Bradesco: vale no banco só depois da
+// remessa, tirada no Omie — o sistema não gera remessa.
+const _AV_BOLETO_STATUS = {
+  pendente: "esperando a nota",
+  gerado: "gerado no Omie",
+  erro: "falhou",
+};
+function _avBoletoRailHtml(o) {
+  const st = o.boleto_status;
+  if (!st && !(o.boletos || []).length) return "";
+  const esc = _waEscaparHtml;
+  const bancoNome = o.banco || (String(o.nota_conta_corrente) === "5960922842" ? "Sicredi" : String(o.nota_conta_corrente) === "6109178168" ? "Bradesco" : "");
+  const remessa = o.remessa != null ? o.remessa : bancoNome === "Bradesco";
+  const lista = (o.boletos || []).map(b => `
+      <li><span>${esc(b.parcela || "")}${b.vencimento ? " · " + esc(b.vencimento.split("-").reverse().join("/")) : ""}</span>
+        <b>${b.valor != null ? _orcFmtValor(b.valor) : ""}</b>
+        ${b.gerado
+          ? `<button type="button" class="btn btn-sm" data-av-action="boleto-abrir" data-titulo="${esc(b.omie_titulo)}">Abrir</button>`
+          : `<i class="av-nota-erro">${esc(b.erro || "sem boleto")}</i>`}</li>`).join("");
+  const podePedir = o.nota_status === "emitida" && (st === "pendente" || st === "erro");
+  return `
+    <div class="av-envio-t">Boleto${bancoNome ? " · " + esc(bancoNome) : ""}</div>
+    <div class="av-envio-to">
+      ${st === "pendente" && o.nota_status !== "emitida" ? "Sai quando a nota for emitida." : esc(_AV_BOLETO_STATUS[st] || st || "")}
+      ${o.boleto_erro ? `<br><span class="av-nota-erro">${esc(o.boleto_erro)}</span>` : ""}
+      ${st === "gerado" && remessa ? `<br>Falta a remessa: gere no Omie e suba no Net Empresa.` : ""}
+    </div>
+    ${lista ? `<ul class="av-nota-boletos">${lista}</ul>` : ""}
+    ${podePedir ? `<button class="btn btn-sm" data-av-action="boleto-gerar">Gerar boletos</button>` : ""}`;
+}
+
+async function _avGerarBoletos() {
+  const orc = _avSelecionado;
+  if (!orc?.id) return;
+  const fmsg = document.getElementById("avFormMsg");
+  if (fmsg) { fmsg.style.color = "var(--muted)"; fmsg.textContent = "Pedindo o boleto ao Omie…"; }
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/boletos`, { method: "POST", headers: authHeaders() });
+    const j = await lerRespostaJson(r, "Gerar boletos");
+    if (!r.ok) throw new Error(j.error || "Erro ao gerar o boleto");
+    _avAplicarNota(orc, j);
+    if (fmsg) fmsg.textContent = "";
+  } catch (e) {
+    if (fmsg) { fmsg.style.color = "var(--danger)"; fmsg.textContent = e.message; }
+  }
+}
+
+async function _avAbrirBoleto(titulo, el) {
+  const orc = _avSelecionado;
+  if (!orc?.id) return;
+  // A janela abre no clique (senão o bloqueador de pop-up segura).
+  const w = window.open("", "_blank");
+  if (el) el.disabled = true;
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/boletos/${encodeURIComponent(titulo)}/link`, { headers: authHeaders() });
+    const j = await lerRespostaJson(r, "Boleto");
+    if (!r.ok) throw new Error(j.error || "Não consegui o link do boleto");
+    if (w) w.location.href = j.link; else window.open(j.link, "_blank", "noopener");
+  } catch (e) {
+    if (w) w.close();
+    alert(e.message);
+  } finally { if (el) el.disabled = false; }
 }
 
 function _avAplicarNota(orc, nota) {
   const campos = {
     nota_tipo: nota.nota_tipo, nota_status: nota.nota_status, nota_numero: nota.nota_numero,
     nota_url: nota.nota_url, nota_erro: nota.nota_erro,
+    nota_conta_corrente: nota.nota_conta_corrente, banco: nota.banco, remessa: nota.remessa,
+    boleto_status: nota.boleto_status, boleto_erro: nota.boleto_erro, boletos: nota.boletos,
   };
   Object.assign(orc, campos);
   const idx = _avData.findIndex(x => x.id === orc.id);
@@ -14130,7 +14198,10 @@ async function _avAbrirNota() {
   // notas feitas à mão; aqui fica o que está na tela, mandado a cada prévia.
   let pag = null;
   const sincPag = () => {
-    if (p.pagamento) pag = { parcelas: p.pagamento.parcelas, vencimentos: p.pagamento.parcelas > 1 ? p.pagamento.lista.map(x => x.vencimento) : null };
+    if (p.pagamento) pag = {
+      parcelas: p.pagamento.parcelas, vencimentos: p.pagamento.lista.map(x => x.vencimento),
+      banco: p.pagamento.banco, boleto: p.pagamento.boleto,
+    };
   };
   sincPag();
   const iniciar = () => {
@@ -14279,16 +14350,28 @@ async function _avAbrirNota() {
     const doOrc = pg.forma_pagamento
       ? `no orçamento: ${esc(pg.forma_pagamento)}${pg.parcelas !== pg.do_orcamento ? " — alterado aqui" : ""}`
       : "o orçamento não diz a forma de pagamento";
+    // Banco do boleto (migration 101): Sicredi registra sozinho; Bradesco
+    // precisa da remessa, que continua sendo tirada no Omie.
+    const bancos = (pg.bancos || []).map(b => `<option value="${esc(b.id)}"${b.id === pg.banco ? " selected" : ""}>${esc(b.nome)}</option>`).join("");
+    const nomeBanco = (pg.bancos || []).find(b => b.id === pg.banco)?.nome || "";
+    const dicaBoleto = !pg.boleto
+      ? "Sem boleto: a nota sai com as parcelas, e o boleto fica para gerar depois."
+      : pg.remessa
+        ? `O sistema pede ao Omie o boleto de cada parcela logo depois da nota. No ${esc(nomeBanco)} ele só vale depois da remessa: gere a remessa no Omie e suba no Net Empresa.`
+        : `O sistema pede ao Omie o boleto de cada parcela logo depois da nota. O ${esc(nomeBanco)} registra sozinho.`;
     return `
       <div class="av-nota-kv av-nota-pag"><span>Pagamento</span>
         <b><select class="select" data-pag-qtd aria-label="Quantidade de parcelas">${opcoes}</select><i>${doOrc}</i></b></div>
-      ${pg.parcelas > 1 ? `
-        <ul class="av-nota-parcelas">
-          ${pg.lista.map(x => `
-            <li><span>${x.numero}ª parcela</span>
-              <input type="date" data-pag-venc="${x.numero - 1}" value="${esc(x.vencimento)}" aria-label="Vencimento da parcela ${x.numero}">
-              <b>${_orcFmtValor(x.valor)}</b></li>`).join("")}
-        </ul>` : ""}`;
+      <ul class="av-nota-parcelas">
+        ${pg.lista.map(x => `
+          <li><span>${pg.parcelas === 1 ? "Vencimento" : `${x.numero}ª parcela`}</span>
+            <input type="date" data-pag-venc="${x.numero - 1}" value="${esc(x.vencimento || "")}" aria-label="Vencimento${pg.parcelas === 1 ? "" : " da parcela " + x.numero}">
+            <b>${_orcFmtValor(x.valor)}</b></li>`).join("")}
+      </ul>
+      <div class="av-nota-kv av-nota-pag av-nota-banco"><span>Boleto</span>
+        <b><select class="select" data-pag-banco aria-label="Banco do boleto">${bancos}</select>
+          <label class="av-nota-chk"><input type="checkbox" data-pag-boleto${pg.boleto ? " checked" : ""}> gerar o boleto junto</label></b></div>
+      <div class="hint">${dicaBoleto}</div>`;
   }
 
   function render() { renderLinhas(); renderPrevia(); }
@@ -14370,10 +14453,14 @@ async function _avAbrirNota() {
     const qtd = e.target.closest("[data-pag-qtd]");
     if (qtd) {
       // Outra quantidade: o servidor refaz o calendário padrão.
-      pag = { parcelas: Number(qtd.value), vencimentos: null };
+      pag = { ...pag, parcelas: Number(qtd.value), vencimentos: null };
       atualizarPrevia();
       return;
     }
+    const banco = e.target.closest("[data-pag-banco]");
+    if (banco) { pag = { ...pag, banco: banco.value }; atualizarPrevia(); return; }
+    const chk = e.target.closest("[data-pag-boleto]");
+    if (chk) { pag = { ...pag, boleto: chk.checked }; atualizarPrevia(); return; }
     const venc = e.target.closest("[data-pag-venc]");
     if (venc && pag?.vencimentos) {
       pag.vencimentos[Number(venc.dataset.pagVenc)] = venc.value;
@@ -14720,6 +14807,7 @@ async function _avAcao(acao) {
   if (acao === "enviar-email") { _avAbrirEnvioEmail(); return; }
   if (acao === "nota-emitir") { _avAbrirNota(); return; }
   if (acao === "nota-atualizar") { _avAtualizarNota(); return; }
+  if (acao === "boleto-gerar") { _avGerarBoletos(); return; }
 
   if (acao === "gerar-pdf") {
     if (msg) msg.textContent = "Gerando PDF…";
@@ -14888,6 +14976,7 @@ function _avBindEventos() {
     if (!btn) return;
     const acao = btn.dataset.avAction;
     if (acao === "fechar") { _avTentarFechar(); }
+    else if (acao === "boleto-abrir") { _avAbrirBoleto(btn.dataset.titulo, btn); }
     else _avAcao(acao);
   });
 

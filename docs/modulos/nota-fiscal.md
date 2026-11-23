@@ -164,7 +164,8 @@ inventado.**
   `cCodServMun 140101`, `cCodServLC116 14.01`, `cTribServ 01`,
   `cNbs 120029000`, `cRetemISS N`. A descrição vai em maiúsculas.
 - Cabeçalho: `cCodParc 000`, 1 parcela, categoria `1.01.02`, conta corrente
-  `6109178168`, etapa `50`.
+  `6109178168`, etapa `50`. (Desde 23/11/2026 a parcela vai com `999` e a
+  data, e a conta é a do banco escolhido. Ver "Banco e boleto".)
 - Constantes em `MOLDE_NFSE` (`src/services/nota-fiscal.service.js`).
 
 ⚠️ **No cadastro do Omie há três serviços com 140101** (cód. 3, 5 e 11).
@@ -198,11 +199,61 @@ boletos. O modal mostra **Pagamento** abaixo do total:
 - O parcelamento **não é gravado** no orçamento: vai na emissão. A retomada
   acha a OS ou o pedido já criado, com as parcelas que foram.
 
+- **Desde 23/11/2026 a parcela única também tem vencimento** (padrão: 5
+  dias) e vai com `999` e uma parcela só. Antes ia `000` e o Omie escolhia a
+  data. Ver "Banco e boleto" abaixo.
+
 ⚠️ **As notas feitas à mão usam `002`/`003` com as datas editadas na
 tela.** Pela API, a documentação diz que só o `999` aceita lista; com os
 outros códigos o Omie calcula as datas sozinho. Por isso o `999`. A
 primeira nota parcelada em produção é a que confirma: conferir no Omie se
 as datas e os valores saíram como na prévia.
+
+## Banco e boleto (23/11/2026, migration 101)
+
+Pedido do Pedro: o boleto sai junto com a nota, com o banco, as parcelas e os
+vencimentos escolhidos no modal, como no Omie.
+
+- **Banco** no modal: Bradesco (padrão, a conta das notas avulsas feitas à
+  mão, `6109178168`) ou Sicredi (`5960922842`, a dos contratos). A conta vai
+  na OS (`InformacoesAdicionais.nCodCC`) ou no pedido
+  (`informacoes_adicionais.codigo_conta_corrente`) e fica em
+  `orcamentos.nota_conta_corrente`. Constantes em `BANCOS`
+  (`src/services/nota-fiscal.service.js`).
+- **"Gerar o boleto junto"** (ligado por padrão) marca
+  `orcamentos.boleto_status = 'pendente'` na emissão. Quando o Atualizar vê a
+  nota **emitida**, o sistema acha os títulos que o faturamento criou
+  (`ListarContasReceber` pela data de emissão, casados pelo `nCodOS` /
+  `nCodPedido`, o mesmo casamento da cobrança) e chama `GerarBoleto` em cada
+  um que ainda não tem boleto. Cada parcela vira uma linha em
+  `orcamento_boletos` com o nosso número.
+- **Nunca pede duas vezes**: título que o Omie mostra com boleto
+  (`boleto.cGerado S`) ou que o sistema já gerou só é guardado. Recusa do
+  Omie fica na parcela (`boleto_status = 'erro'`), e **Gerar boletos** no
+  trilho tenta só as que faltaram. Trava de 70 s entre tentativas, por
+  causa do "Consumo redundante" do Omie e do clique duplo.
+- **Título ainda não apareceu**: fica `pendente` com o aviso, e o próximo
+  Atualizar ou Gerar boletos tenta de novo.
+- **Falha no boleto não derruba a nota.** A nota fica emitida, e o problema
+  aparece só no bloco do boleto.
+- O trilho mostra cada parcela, com **Abrir** (o PDF por `ObterBoleto`; o
+  link vale 24 h e não é guardado).
+- Exige `OMIE_EMISSAO=1`, como a nota.
+
+⚠️ **Sicredi registra sozinho; Bradesco precisa da remessa, e a remessa
+continua no Omie.** A API do Omie não gera arquivo de remessa
+(`contareceberboleto` só tem `GerarBoleto`, `ObterBoleto`,
+`ProrrogarBoleto` e `CancelarBoleto`). O sistema poderia montar o CNAB 400,
+mas o Omie também gera remessa, e o número sequencial vindo de dois lugares
+se atropelaria no banco. Decisão do Pedro (23/11/2026): o sistema gera o
+boleto e ele tira a remessa no Omie e sobe no Net Empresa. O trilho avisa
+"Falta a remessa" nas notas do Bradesco.
+
+Levantamento de 23/11/2026 (só leitura): no Bradesco, o Omie devolve o nosso
+número como `09/00000000866-7` (carteira 09), com multa de 4% e juros de 1%,
+e o retorno `CB191100.RET` traz esse mesmo número. Das 10 parcelas Bradesco
+de 17 a 19/11, 3 estavam sem boleto (`cGerado N`), o que acontece quando
+ninguém gera.
 
 ## Rateio: valor manual e serviço embutido
 
@@ -304,6 +355,12 @@ quantidade, os bloqueios, o caminho inteiro pelas rotas (prévia → emitir →
 atualizar), o molde do pedido, a memória da escolha, a retomada sem
 duplicar, a NFS-e pelo caminho de sempre e o kill-switch. **Não prova que o
 Omie aceita o payload**: isso só a primeira DANFE real, acompanhada.
+Desde 23/11/2026 (98/98) cobre também o banco (a conta na OS e no pedido), a
+parcela única com data, o boleto automático depois da nota (só as parcelas
+sem boleto, só os títulos desta nota), a recusa numa parcela, a trava de 1
+minuto, o tentar de novo só no que faltou e o kill-switch do boleto.
+**`GerarBoleto` nunca foi chamado de verdade pela nota**: a primeira nota com
+boleto em produção é acompanhada no Omie.
 
 ## Pré-requisitos (fora do código)
 

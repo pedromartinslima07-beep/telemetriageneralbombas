@@ -88,8 +88,26 @@ const ok = (n, c, extra) => { r.push([n, Boolean(c)]); if (!c && extra !== undef
 
   const os = nota.montarOs({ orc: { id: 9 }, itens: [{ descricao: "x", quantidade: 1, unitCent: 100000 }], nCodCli: 1, pagamento: { parcelas: 2, lista: [{ numero: 1, vencimento: "2026-11-23", valor: 500, percentual: 50 }, { numero: 2, vencimento: "2026-12-18", valor: 500, percentual: 50 }] } });
   ok("OS parcelada vai com 999 e a lista", os.Cabecalho.cCodParc === "999" && os.Cabecalho.nQtdeParc === 2 && os.Parcelas[1].dDtVenc === "18/12/2026" && os.Parcelas[0].tipo_documento === "BOL");
-  const osAv = nota.montarOs({ orc: { id: 9 }, itens: [{ descricao: "x", quantidade: 1, unitCent: 100000 }], nCodCli: 1, pagamento: { parcelas: 1, lista: [] } });
-  ok("OS à vista continua 000 sem lista", osAv.Cabecalho.cCodParc === "000" && !osAv.Parcelas);
+  const osSem = nota.montarOs({ orc: { id: 9 }, itens: [{ descricao: "x", quantidade: 1, unitCent: 100000 }], nCodCli: 1, pagamento: { parcelas: 1, lista: [] } });
+  ok("OS sem lista de vencimentos continua 000", osSem.Cabecalho.cCodParc === "000" && !osSem.Parcelas);
+
+  // Boleto junto com a nota (migration 101): à vista também tem vencimento,
+  // e o banco escolhido decide a conta corrente.
+  const av = nota.montarPagamento({}, 100000, null, "2026-11-18");
+  ok("à vista: vencimento padrão em 5 dias", av.parcelas === 1 && av.lista[0].vencimento === "2026-11-23" && av.erro === null, av);
+  ok("padrão: Bradesco, com boleto", av.banco === "bradesco" && av.conta === 6109178168 && av.boleto === true, av);
+  const sic = nota.montarPagamento({}, 100000, { parcelas: 1, vencimentos: ["2026-11-30"], banco: "sicredi", boleto: false }, "2026-11-18");
+  ok("Sicredi escolhido: conta 5960922842, data do modal, sem boleto", sic.conta === 5960922842 && sic.lista[0].vencimento === "2026-11-30" && sic.boleto === false, sic);
+  const ontem = nota.montarPagamento({}, 100000, { parcelas: 1, vencimentos: ["2026-11-17"] }, "2026-11-18");
+  ok("à vista vencendo antes de hoje bloqueia", /antes de hoje/.test(ontem.erro || ""), ontem.erro);
+  const estranho = nota.montarPagamento({}, 100000, { parcelas: 1, banco: "itau" }, "2026-11-18");
+  ok("banco desconhecido vira o padrão", estranho.banco === "bradesco");
+  const osAv = nota.montarOs({ orc: { id: 9 }, itens: [{ descricao: "x", quantidade: 1, unitCent: 100000 }], nCodCli: 1, pagamento: sic });
+  ok("OS à vista com data: 999, uma parcela, conta do Sicredi", osAv.Cabecalho.cCodParc === "999" && osAv.Parcelas.length === 1
+    && osAv.Parcelas[0].dDtVenc === "30/11/2026" && osAv.InformacoesAdicionais.nCodCC === 5960922842, osAv);
+  const pedAv = nota.montarPedido({ orc: { id: 9 }, itens: [{ linha_id: 1, codigo_produto: 5, quantidade: 1, valor_unitario: 1000 }], nCodCli: 1, pagamento: sic });
+  ok("pedido à vista com data: 999 e conta do Sicredi", pedAv.cabecalho.codigo_parcela === "999" && pedAv.lista_parcelas.parcela.length === 1
+    && pedAv.informacoes_adicionais.codigo_conta_corrente === 5960922842, pedAv);
 }
 
 // ── 1c. Sugestão peça × serviço (casos de produção) ─────────────────────────
@@ -154,6 +172,19 @@ Object.assign(omie, {
   documentosNfe: async (n) => { chamadas.push(["documentosNfe", n]); return { cCodStatus: "0", cPdf: "https://click.omie.com/pdfnfe-teste" }; },
   consultarOsPorIntegracao: async () => { throw new Error("DANFE não devia consultar OS"); },
   incluirOs: async () => { throw new Error("DANFE não devia criar OS"); },
+  // Boleto (migration 101): os títulos que o faturamento criou, e o GerarBoleto.
+  listarContasReceber: async (f) => { chamadas.push(["listarContasReceber", f]); return titulosOmie; },
+  gerarBoleto: async (n) => {
+    chamadas.push(["gerarBoleto", n]);
+    if (recusarBoleto.has(n)) throw new omie.OmieErro("Conta sem cobrança configurada", { call: "GerarBoleto" });
+    return { cNumBancario: `09/00000000${n % 1000}-1`, cNumBoleto: String(n % 1000) };
+  },
+});
+let titulosOmie = [];
+const recusarBoleto = new Set();
+const titulo = (cod, parcela, extra = {}) => ({
+  codigo_lancamento_omie: cod, numero_parcela: parcela, data_vencimento: "23/11/2026", valor_documento: 100,
+  id_conta_corrente: 6109178168, status_titulo: "A VENCER", boleto: { cGerado: "N", cNumBancario: "" }, ...extra,
 });
 
 (async () => {
@@ -202,10 +233,27 @@ Object.assign(omie, {
     const [s2b, pv4] = await post(`/orcamentos/avulsos/${orcId}/nota/previa`, { naturezas: nat, produtos: { [lA]: p1, [lB]: p2 }, pagamento: { parcelas: 3 } });
     ok("prévia com 3 parcelas e calendário padrão", s2b === 200 && pv4.pagamento?.parcelas === 3 && pv4.pagamento.lista.length === 3 && pv4.pagamento.lista.every(x => x.vencimento), pv4.pagamento);
 
+    // Os 3 títulos que o faturamento do pedido 55501 cria no Omie; um já veio
+    // com boleto (o Omie pode gerar sozinho) e um título de outra nota.
+    titulosOmie = [
+      titulo(900001, "001/003", { nCodPedido: 55501 }),
+      titulo(900002, "002/003", { nCodPedido: 55501, boleto: { cGerado: "S", cNumBancario: "09/00000000872-1" } }),
+      titulo(900003, "003/003", { nCodPedido: 55501 }),
+      titulo(900099, "001/001", { nCodPedido: 12345 }),
+    ];
     const [s3, em] = await post(`/orcamentos/avulsos/${orcId}/nota/emitir`, { naturezas: nat, produtos: { [lA]: p1, [lB]: p2 }, pagamento: { parcelas: 3 } });
     ok("emitir responde 200", s3 === 200, em);
     ok("nota emitida com o número da NF-e", em.nota_status === "emitida" && em.nota_numero === "801" && em.nota_tipo === "nfe", em);
     ok("link da DANFE gravado", em.nota_url === "https://click.omie.com/pdfnfe-teste");
+
+    // O boleto sai sozinho quando a nota é emitida.
+    const gerados = chamadas.filter(c => c[0] === "gerarBoleto").map(c => c[1]);
+    ok("boleto: gerado só para as parcelas sem boleto desta nota", JSON.stringify(gerados) === JSON.stringify([900001, 900003]), gerados);
+    ok("boleto: status gerado, 3 parcelas, Bradesco com remessa", em.boleto_status === "gerado" && em.boletos.length === 3 && em.banco === "Bradesco" && em.remessa === true, em);
+    ok("boleto: o nosso número já existente foi guardado", em.boletos.find(b => b.omie_titulo === "900002")?.nosso_numero === "09/00000000872-1", em.boletos);
+    ok("boleto: a conta da nota gravada", Number(em.nota_conta_corrente) === 6109178168);
+    const [s3b, de2] = await post(`/orcamentos/avulsos/${orcId}/nota/boletos`, {});
+    ok("boleto: pedir de novo com tudo gerado não chama o Omie", s3b === 200 && chamadas.filter(c => c[0] === "gerarBoleto").length === 2, de2);
 
     const inc = chamadas.find(c => c[0] === "incluirPedido")?.[1];
     ok("pedido com código de integração ORC-<id>", inc?.cabecalho?.codigo_pedido_integracao === `ORC-${orcId}`);
@@ -243,7 +291,12 @@ Object.assign(omie, {
 
     // NFS-e continua pelo caminho de sempre (o emitir foi dividido em dois).
     // Mesmo orçamento, tudo marcado como serviço, sem pedido anterior.
-    await pool.query(`UPDATE orcamentos SET nota_status = NULL, nota_numero = NULL, nota_url = NULL, nota_tipo = NULL, omie_pedido_codigo = NULL WHERE id = $1`, [orcId]);
+    await pool.query(`UPDATE orcamentos SET nota_status = NULL, nota_numero = NULL, nota_url = NULL, nota_tipo = NULL, omie_pedido_codigo = NULL,
+                        boleto_status = NULL, boleto_atualizado_em = NULL WHERE id = $1`, [orcId]);
+    await pool.query(`DELETE FROM orcamento_boletos WHERE orcamento_id = $1`, [orcId]);
+    // NFS-e no Sicredi: a parcela 2 é recusada pelo Omie.
+    titulosOmie = [titulo(910001, "001/002", { nCodOS: 4401, id_conta_corrente: 5960922842 }), titulo(910002, "002/002", { nCodOS: 4401, id_conta_corrente: 5960922842 })];
+    recusarBoleto.add(910002);
     let osIncluida = null;
     Object.assign(omie, {
       consultarOsPorIntegracao: async () => (osIncluida ? { Cabecalho: { nCodOS: 4401 } } : null),
@@ -254,11 +307,28 @@ Object.assign(omie, {
       faturarOs: async () => ({}),
     });
     const tudoServico = { [lA]: "servico", [lB]: "servico", [lS]: "servico" };
-    const [s8, ns] = await post(`/orcamentos/avulsos/${orcId}/nota/emitir`, { naturezas: tudoServico, produtos: {}, pagamento: { parcelas: 2 } });
+    const [s8, ns] = await post(`/orcamentos/avulsos/${orcId}/nota/emitir`, { naturezas: tudoServico, produtos: {}, pagamento: { parcelas: 2, banco: "sicredi" } });
     ok("NFS-e: emitir responde 200 e emite", s8 === 200 && ns.nota_tipo === "nfse" && ns.nota_status === "emitida" && ns.nota_numero === "1234", ns);
     ok("NFS-e: OS com as 3 linhas como serviço", osIncluida?.ServicosPrestados?.length >= 3, osIncluida?.ServicosPrestados);
     ok("NFS-e: OS parcelada em 2 (999 + lista)", osIncluida?.Cabecalho?.cCodParc === "999" && osIncluida.Parcelas?.length === 2
       && Math.round(osIncluida.Parcelas.reduce((a, x) => a + x.nValor, 0) * 100) === 679000, osIncluida?.Parcelas);
+    ok("NFS-e: OS na conta do Sicredi", osIncluida?.InformacoesAdicionais?.nCodCC === 5960922842, osIncluida?.InformacoesAdicionais);
+    ok("NFS-e: recusa do Omie numa parcela vira erro, a outra fica gerada", ns.boleto_status === "erro" && /recusou/.test(ns.boleto_erro || "")
+      && ns.boletos.filter(b => b.gerado).length === 1 && ns.banco === "Sicredi" && ns.remessa === false, ns);
+    // Tentar de novo logo em seguida esbarra na trava de 1 minuto.
+    const [s8b, tr] = await post(`/orcamentos/avulsos/${orcId}/nota/boletos`, {});
+    ok("boleto: tentar de novo em menos de 1 min é 409", s8b === 409 && /menos de um minuto/.test(tr.error || ""), tr);
+    recusarBoleto.clear();
+    await pool.query(`UPDATE orcamentos SET boleto_atualizado_em = now() - interval '2 minutes' WHERE id = $1`, [orcId]);
+    const antesGer = chamadas.filter(c => c[0] === "gerarBoleto").length;
+    const [s8c, tr2] = await post(`/orcamentos/avulsos/${orcId}/nota/boletos`, {});
+    ok("boleto: tentar de novo gera só a parcela que faltou", s8c === 200 && tr2.boleto_status === "gerado"
+      && chamadas.filter(c => c[0] === "gerarBoleto").length === antesGer + 1, tr2);
+    process.env.OMIE_EMISSAO = "";
+    await pool.query(`UPDATE orcamentos SET boleto_status = 'erro', boleto_atualizado_em = NULL WHERE id = $1`, [orcId]);
+    const [s8d, ks2] = await post(`/orcamentos/avulsos/${orcId}/nota/boletos`, {});
+    ok("boleto: sem OMIE_EMISSAO é 503", s8d === 503, ks2);
+    process.env.OMIE_EMISSAO = "1";
 
     // Sugestão de produto nos casos que erravam (só se os produtos ainda
     // existirem no catálogo — ele é cópia do Omie, que muda).

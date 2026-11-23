@@ -53,6 +53,19 @@ const MOLDE_NFE = Object.freeze({
   freteModalidade: "9",        // sem frete
 });
 
+// ── Banco do boleto (23/11/2026, migration 101) ─────────────────────────────
+// Quem emite escolhe. As duas contas que cobram no Omie (lidas pela API em
+// 20/11/2026, docs/modulos/omie-integracao.md). Sicredi registra o boleto no
+// banco sozinho (integração por API no Omie); Bradesco só depois da remessa,
+// que o Pedro tira no Omie e sobe no Net Empresa — o sistema não gera remessa.
+// Padrão Bradesco: é a conta das notas avulsas feitas à mão (o molde).
+const BANCOS = Object.freeze({
+  bradesco: { conta: 6109178168, nome: "Bradesco", remessa: true },
+  sicredi:  { conta: 5960922842, nome: "Sicredi",  remessa: false },
+});
+const BANCO_PADRAO = "bradesco";
+const bancoDaConta = (cc) => Object.keys(BANCOS).find(k => BANCOS[k].conta === Number(cc)) || null;
+
 // ── Kill-switch ─────────────────────────────────────────────────────────────
 // ⚠️ O Omie NÃO TEM AMBIENTE DE TESTE. Com as chaves no .env, um servidor
 // local apontando para o banco de teste emitiria nota REAL na prefeitura para
@@ -210,29 +223,34 @@ function vencimentosPadrao(n, hoje = _hojeIso()) {
   return Array.from({ length: n }, (_, k) => (k === 0 ? _isoMaisDias(hoje, 5) : _isoMaisMeses(hoje, k)));
 }
 
-// `pedido` = { parcelas, vencimentos? } do modal, ou nada (vale o texto do
-// orçamento e o calendário padrão). Devolve a lista pronta e, se houver, o
-// erro que bloqueia a emissão.
+// `pedido` = { parcelas, vencimentos?, banco?, boleto? } do modal, ou nada
+// (vale o texto do orçamento, o calendário padrão, o Bradesco e o boleto
+// ligado). Devolve a lista pronta e, se houver, o erro que bloqueia a emissão.
+//
+// ⚠️ A PARCELA ÚNICA TAMBÉM TEM VENCIMENTO (23/11/2026). Antes, à vista ia
+// com `000` e o Omie decidia a data; com o boleto junto, quem emite escolhe
+// (padrão: 5 dias, como a 1ª parcela das notas feitas à mão) e ela vai com
+// `999` e uma parcela só. A primeira nota à vista em produção confirma.
 function montarPagamento(orc, totalCent, pedido, hoje = _hojeIso()) {
   const doOrcamento = parcelasDoTexto(orc.forma_pagamento);
   let n = Number(pedido?.parcelas);
   if (!Number.isInteger(n) || n < 1 || n > MAX_PARCELAS) n = doOrcamento;
   const veio = Array.isArray(pedido?.vencimentos) && pedido.vencimentos.length === n ? pedido.vencimentos.map(String) : null;
   const venc = veio || vencimentosPadrao(n, hoje);
+  const banco = BANCOS[pedido?.banco] ? pedido.banco : BANCO_PADRAO;
+  const boleto = pedido?.boleto !== false;
 
   let erro = null;
-  if (n > 1) {
-    for (let k = 0; k < n && !erro; k++) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(venc[k]) || Number.isNaN(Date.parse(venc[k]))) erro = `Vencimento da parcela ${k + 1} inválido.`;
-      else if (venc[k] < hoje) erro = `A parcela ${k + 1} vence antes de hoje.`;
-      else if (k > 0 && venc[k] <= venc[k - 1]) erro = `A parcela ${k + 1} precisa vencer depois da ${k}.`;
-    }
+  for (let k = 0; k < n && !erro; k++) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(venc[k]) || Number.isNaN(Date.parse(venc[k]))) erro = `Vencimento da parcela ${k + 1} inválido.`;
+    else if (venc[k] < hoje) erro = n === 1 ? "O vencimento é antes de hoje." : `A parcela ${k + 1} vence antes de hoje.`;
+    else if (k > 0 && venc[k] <= venc[k - 1]) erro = `A parcela ${k + 1} precisa vencer depois da ${k}.`;
   }
 
   const base = Math.floor(Math.max(totalCent, 0) / n);
   const lista = Array.from({ length: n }, (_, k) => ({
     numero: k + 1,
-    vencimento: n > 1 ? venc[k] : null,
+    vencimento: venc[k],
     valorCent: k === n - 1 ? Math.max(totalCent, 0) - base * (n - 1) : base,
   }));
   // Percentual com 4 casas; o da última fecha 100 exato.
@@ -244,6 +262,9 @@ function montarPagamento(orc, totalCent, pedido, hoje = _hojeIso()) {
   return {
     parcelas: n,
     do_orcamento: doOrcamento,
+    banco,
+    conta: BANCOS[banco].conta,
+    boleto,
     erro,
     lista: lista.map(p => ({ numero: p.numero, vencimento: p.vencimento, valor: p.valorCent / 100, percentual: p.percentual })),
   };
@@ -273,16 +294,31 @@ async function _carregar(orcId, db = pool) {
        FROM orcamento_linhas WHERE orcamento_id = $1 ORDER BY id`,
     [orcId]
   );
+  const b = await db.query(
+    `SELECT omie_titulo, parcela, to_char(vencimento, 'YYYY-MM-DD') AS vencimento, valor, nosso_numero, gerado, erro
+       FROM orcamento_boletos WHERE orcamento_id = $1 ORDER BY parcela, omie_titulo`,
+    [orcId]
+  );
+  r.rows[0]._boletos = b.rows;
   return { orc: r.rows[0], linhas: l.rows };
 }
 
 function _resumoNota(orc) {
+  const banco = bancoDaConta(orc.nota_conta_corrente);
   return {
     nota_tipo: orc.nota_tipo, nota_status: orc.nota_status, nota_numero: orc.nota_numero,
     nota_url: orc.nota_url, nota_valor: orc.nota_valor, nota_erro: orc.nota_erro,
     nota_solicitada_em: orc.nota_solicitada_em, nota_emitida_em: orc.nota_emitida_em,
     nota_emitida_por_nome: orc.nota_emitida_por_nome || null, omie_os_codigo: orc.omie_os_codigo,
     omie_pedido_codigo: orc.omie_pedido_codigo || null,
+    nota_conta_corrente: orc.nota_conta_corrente || null,
+    banco: banco ? BANCOS[banco].nome : null,
+    remessa: banco ? BANCOS[banco].remessa : null,
+    boleto_status: orc.boleto_status || null, boleto_erro: orc.boleto_erro || null,
+    boletos: (orc._boletos || []).map(b => ({
+      omie_titulo: String(b.omie_titulo), parcela: b.parcela, vencimento: b.vencimento, valor: b.valor == null ? null : Number(b.valor),
+      nosso_numero: b.nosso_numero, gerado: b.gerado, erro: b.erro,
+    })),
   };
 }
 
@@ -370,7 +406,11 @@ function _conferir(orc, linhas, naturezas, escolhas, prodInfo = new Map(), pagam
     // o serviço some como linha e entra no preço das peças.
     rateado: tipo === "nfe" ? totalCent !== base(pecas) : orc.valor != null && somaLinhasCent !== totalCent,
     servico_embutido: servicoCent / 100,
-    pagamento: { parcelas: pag.parcelas, do_orcamento: pag.do_orcamento, forma_pagamento: orc.forma_pagamento || null, lista: pag.lista },
+    pagamento: {
+      parcelas: pag.parcelas, do_orcamento: pag.do_orcamento, forma_pagamento: orc.forma_pagamento || null, lista: pag.lista,
+      banco: pag.banco, conta: pag.conta, boleto: pag.boleto, remessa: BANCOS[pag.banco].remessa,
+      bancos: Object.entries(BANCOS).map(([k, b]) => ({ id: k, nome: b.nome, remessa: b.remessa })),
+    },
     cliente: orc.condominio_id
       ? { nome: orc.condo_fantasia || orc.condo_nome, documento: orc.condo_cnpj, omie_codigo: orc.omie_cliente_codigo || null }
       : { nome: orc.cliente_nome, documento: orc.cliente_documento, omie_codigo: null },
@@ -471,10 +511,12 @@ function _hojeBR() {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-// Parcelas: à vista = 000 sem lista (o Omie preenche); 2 ou mais = 999 com a
-// lista, boleto (meio 15), como nas OS parceladas feitas à mão.
+// Parcelas: com a lista de vencimentos (1 ou mais) = 999 com a lista, boleto
+// (meio 15), como nas OS parceladas feitas à mão. Sem lista = 000 (o Omie
+// preenche) — só acontece em quem chama sem passar pelo montarPagamento.
+// A conta corrente é a do banco escolhido (BANCOS); sem ela, a do molde.
 function montarOs({ orc, itens, nCodCli, pagamento }) {
-  const parc = pagamento && pagamento.parcelas > 1 ? pagamento : null;
+  const parc = pagamento && pagamento.lista?.length && pagamento.lista.every(p => p.vencimento) ? pagamento : null;
   return {
     Cabecalho: {
       cCodIntOS: `ORC-${orc.id}`,
@@ -492,7 +534,7 @@ function montarOs({ orc, itens, nCodCli, pagamento }) {
     } : {}),
     InformacoesAdicionais: {
       cCodCateg: MOLDE_NFSE.cCodCateg,
-      nCodCC: MOLDE_NFSE.nCodCC,
+      nCodCC: pagamento?.conta || MOLDE_NFSE.nCodCC,
       cCidPrestServ: orc.condo_cidade && orc.condo_uf ? `${String(orc.condo_cidade).toUpperCase()} (${orc.condo_uf})` : "SAO PAULO (SP)",
       cDadosAdicNF: orc.numero ? `Orçamento ${orc.numero}` : "",
     },
@@ -515,7 +557,7 @@ function montarOs({ orc, itens, nCodCli, pagamento }) {
 // O código de item é `<linha>-<seq>`: a mesma linha pode virar dois itens
 // (ver ratearNfe), e o Omie limita o campo a 30 caracteres.
 function montarPedido({ orc, itens, nCodCli, pagamento }) {
-  const parc = pagamento && pagamento.parcelas > 1 ? pagamento : null;
+  const parc = pagamento && pagamento.lista?.length && pagamento.lista.every(p => p.vencimento) ? pagamento : null;
   return {
     cabecalho: {
       codigo_pedido_integracao: `ORC-${orc.id}`,
@@ -552,7 +594,7 @@ function montarPedido({ orc, itens, nCodCli, pagamento }) {
     frete: { modalidade: MOLDE_NFE.freteModalidade },
     informacoes_adicionais: {
       codigo_categoria: MOLDE_NFE.cCodCateg,
-      codigo_conta_corrente: MOLDE_NFE.nCodCC,
+      codigo_conta_corrente: pagamento?.conta || MOLDE_NFE.nCodCC,
       codVend: MOLDE_NFE.codVend,
       consumidor_final: "S",
       dados_adicionais_nf: orc.numero ? `Orçamento ${orc.numero}` : "",
@@ -595,13 +637,14 @@ async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento
   const trava = await pool.query(
     `UPDATE orcamentos
         SET nota_tipo = $3, nota_status = 'processando', nota_erro = NULL,
-            nota_solicitada_em = now(), nota_emitida_por = $2
+            nota_solicitada_em = now(), nota_emitida_por = $2,
+            nota_conta_corrente = $4, boleto_status = $5, boleto_erro = NULL
       WHERE id = $1
         AND (nota_status IS NULL OR nota_status = 'erro'
              OR (nota_status = 'processando' AND omie_os_codigo IS NULL AND omie_pedido_codigo IS NULL
                  AND nota_solicitada_em < now() - interval '5 minutes'))
       RETURNING id`,
-    [orcId, usuarioId, conf.tipo]
+    [orcId, usuarioId, conf.tipo, conf.pagamento.conta, conf.pagamento.boleto ? "pendente" : null]
   );
   if (!trava.rowCount) throw new NotaErro(409, "Já existe uma emissão em andamento para este orçamento.");
 
@@ -690,8 +733,123 @@ async function atualizar(orcId) {
     [orcId, r.status, r.numero, r.url, r.status === "erro" ? (r.erro || "").slice(0, 1000) : null, r.nfCodigo || null]
   );
   console.log(`[nota] orcamento=${orcId} tipo=${orc.nota_tipo || "nfse"} status=${r.status} numero=${r.numero || "-"}`);
+
+  // O boleto pedido junto com a nota sai quando a nota existe: antes disso o
+  // Omie ainda não criou os títulos. Falha aqui não derruba a nota — fica
+  // registrada no boleto, e o botão "Gerar boletos" tenta de novo.
+  if (r.status === "emitida" && orc.boleto_status === "pendente" && emissaoLigada()) {
+    try { await gerarBoletos(orcId, { automatico: true }); }
+    catch (e) { console.error(`[nota] orcamento=${orcId} boleto automático: ${e.message}`); }
+  }
   const { orc: depois } = await _carregar(orcId);
   return _resumoNota(depois);
+}
+
+// ── Boleto das parcelas (23/11/2026, migration 101) ─────────────────────────
+// ⚠️ GRAVA NO OMIE (GerarBoleto). Acha os títulos que o faturamento criou
+// (ListarContasReceber pela data de emissão, casados pelo nCodOS / nCodPedido
+// — o mesmo casamento da cobrança) e gera o boleto de cada um que ainda não
+// tem. Título que já tem boleto (o Omie pode ter gerado sozinho, ou alguém
+// pela tela de lá) só é guardado: nunca se pede duas vezes.
+//
+// No Bradesco o boleto existe no Omie mas só vale no banco depois da remessa,
+// que o Pedro tira no Omie (o sistema não gera remessa — decisão de 23/11).
+//
+// Trava de 70 s: o Omie recusa a mesma chamada repetida em menos de 60 s
+// ("Consumo redundante") e o clique duplo pediria o boleto em dobro.
+const _brData = (d) => new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+const _isoDeBr = (s) => { const m = String(s || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : null; };
+
+async function gerarBoletos(orcId, { automatico = false } = {}) {
+  const { orc } = await _carregar(orcId);
+  if (orc.nota_status !== "emitida") throw new NotaErro(409, "O boleto sai depois que a nota é emitida. Use Atualizar na nota antes.");
+  if (!orc.omie_os_codigo && !orc.omie_pedido_codigo) throw new NotaErro(409, "A nota deste orçamento não tem OS nem pedido no Omie.");
+  if (orc.boleto_status === "gerado") return _resumoNota(orc);
+  if (!emissaoLigada()) throw new NotaErro(503, "Geração de boleto desligada neste ambiente (OMIE_EMISSAO). Nada foi enviado.");
+
+  const trava = await pool.query(
+    `UPDATE orcamentos SET boleto_atualizado_em = now()
+      WHERE id = $1 AND (boleto_atualizado_em IS NULL OR boleto_atualizado_em < now() - interval '70 seconds')
+      RETURNING id`,
+    [orcId]
+  );
+  if (!trava.rowCount) {
+    if (automatico) return _resumoNota(orc);
+    throw new NotaErro(409, "O Omie foi consultado há menos de um minuto. Espere um pouco e tente de novo.");
+  }
+
+  const marcar = (status, erro) => pool.query(
+    `UPDATE orcamentos SET boleto_status = $2, boleto_erro = $3 WHERE id = $1`, [orcId, status, erro ? String(erro).slice(0, 1000) : null]);
+
+  // Um dia antes da solicitação: a virada da meia-noite não esconde o título.
+  const de = _brData(new Date(new Date(orc.nota_solicitada_em || Date.now()).getTime() - 86400000));
+  const ate = _brData(Date.now());
+  let titulos;
+  try {
+    titulos = await omie.listarContasReceber({ de, ate });
+  } catch (e) {
+    await marcar("pendente", `Não consegui ler os títulos no Omie: ${e.message}`);
+    throw e instanceof NotaErro || e instanceof omie.OmieErro ? e : new NotaErro(502, e.message);
+  }
+  const nossos = titulos.filter(t =>
+    (orc.omie_os_codigo && String(t.nCodOS || "") === String(orc.omie_os_codigo)) ||
+    (orc.omie_pedido_codigo && String(t.nCodPedido || "") === String(orc.omie_pedido_codigo)))
+    .filter(t => !["CANCELADO"].includes(String(t.status_titulo || "").toUpperCase()))
+    .sort((a, b) => String(a.numero_parcela || "").localeCompare(String(b.numero_parcela || "")));
+
+  if (!nossos.length) {
+    await marcar("pendente", "Os títulos da nota ainda não apareceram no Omie. Tente de novo em alguns minutos.");
+    console.log(`[nota] orcamento=${orcId} boleto: títulos ainda não apareceram`);
+    const { orc: o2 } = await _carregar(orcId);
+    return _resumoNota(o2);
+  }
+
+  const guardar = (t, { gerado, nosso, erro }) => pool.query(
+    `INSERT INTO orcamento_boletos (omie_titulo, orcamento_id, parcela, vencimento, valor, conta_corrente, nosso_numero, gerado, erro, gerado_em)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::boolean, $9, CASE WHEN $8::boolean THEN now() END)
+     ON CONFLICT (omie_titulo) DO UPDATE SET
+       parcela = EXCLUDED.parcela, vencimento = EXCLUDED.vencimento, valor = EXCLUDED.valor,
+       conta_corrente = EXCLUDED.conta_corrente, nosso_numero = COALESCE(EXCLUDED.nosso_numero, orcamento_boletos.nosso_numero),
+       gerado = orcamento_boletos.gerado OR EXCLUDED.gerado, erro = EXCLUDED.erro,
+       gerado_em = COALESCE(orcamento_boletos.gerado_em, EXCLUDED.gerado_em), atualizado_em = now()`,
+    [t.codigo_lancamento_omie, orcId, t.numero_parcela || null, _isoDeBr(t.data_vencimento), t.valor_documento ?? null,
+     t.id_conta_corrente || null, nosso || null, !!gerado, erro ? String(erro).slice(0, 500) : null]);
+
+  // O que este sistema já gerou vale mesmo que a listagem do Omie ainda não
+  // mostre o boleto: nunca pedir duas vezes o mesmo título.
+  const jaGerados = new Map((orc._boletos || []).filter(b => b.gerado).map(b => [String(b.omie_titulo), b.nosso_numero]));
+  const falhas = [];
+  for (const t of nossos) {
+    const jaTem = t.boleto?.cGerado === "S" || !!t.boleto?.cNumBancario;
+    if (jaTem) { await guardar(t, { gerado: true, nosso: t.boleto.cNumBancario || t.boleto.cNumBoleto }); continue; }
+    if (jaGerados.has(String(t.codigo_lancamento_omie))) { await guardar(t, { gerado: true, nosso: jaGerados.get(String(t.codigo_lancamento_omie)) }); continue; }
+    if (String(t.status_titulo || "").toUpperCase() === "RECEBIDO") { await guardar(t, { gerado: false, erro: "Título já recebido: sem boleto." }); continue; }
+    try {
+      const b = await omie.gerarBoleto(Number(t.codigo_lancamento_omie));
+      await guardar(t, { gerado: true, nosso: b.cNumBancario || b.cNumBoleto || null });
+      console.log(`[nota] orcamento=${orcId} boleto gerado titulo=${t.codigo_lancamento_omie} nosso=${b.cNumBancario || "-"}`);
+    } catch (e) {
+      // Sem resposta, o boleto pode ter saído: a próxima volta lê o título e,
+      // se ele já tiver boleto, só guarda. Recusa fica com o motivo do Omie.
+      const msg = e.status === 504 ? "O Omie não respondeu — o boleto pode ter saído; a próxima tentativa confere antes." : `O Omie recusou: ${e.message}`;
+      await guardar(t, { gerado: false, erro: msg });
+      falhas.push(`parcela ${t.numero_parcela || t.codigo_lancamento_omie}: ${msg}`);
+      console.error(`[nota] orcamento=${orcId} boleto FALHA titulo=${t.codigo_lancamento_omie}: ${e.message}`);
+    }
+  }
+  await marcar(falhas.length ? "erro" : "gerado", falhas.length ? falhas.join(" · ") : null);
+  const { orc: depois } = await _carregar(orcId);
+  return _resumoNota(depois);
+}
+
+// O PDF do boleto de uma parcela (ObterBoleto; o link vale 24 h, então não
+// se guarda). Só leitura no Omie.
+async function linkBoleto(orcId, omieTitulo) {
+  const r = await pool.query(`SELECT gerado FROM orcamento_boletos WHERE orcamento_id = $1 AND omie_titulo = $2`, [orcId, omieTitulo]);
+  if (!r.rowCount) throw new NotaErro(404, "Esta parcela não é deste orçamento.");
+  const b = await omie.obterBoleto(Number(omieTitulo));
+  if (!b || !b.cLinkBoleto) throw new NotaErro(404, "O Omie não devolveu o link do boleto desta parcela.");
+  return { link: b.cLinkBoleto };
 }
 
 async function _lerNfse(orc) {
@@ -751,6 +909,9 @@ module.exports = {
   preparar,
   emitir,
   atualizar,
+  gerarBoletos,
+  linkBoleto,
+  BANCOS,
   _conferir,
   _separarEndereco,
 };
