@@ -52,12 +52,17 @@
 
   // ===== estado de cada linha =====
   const hojeIso = () => new Date().toISOString().slice(0, 10);
-  const venceu = r => r.status === "enviado" && r.valido_ate && String(r.valido_ate).slice(0, 10) < hojeIso();
+  // ARQUIVADO (migration 103): o enviado que venceu sem resposta. O job
+  // orcamento-vencimento arquiva; mudar a validade para o futuro ou reenviar
+  // traz de volta. O status continua enviado, por isso o teste é a coluna.
+  const arquivado = r => r.status === "enviado" && !!r.arquivado_em && !r.respondido_em;
+  const venceu = r => r.status === "enviado" && !arquivado(r) && r.valido_ate && String(r.valido_ate).slice(0, 10) < hojeIso();
   const pendente = r => !!(r.respondido_em && !r.resposta_tratada_em);
   function sit(x) {
     if (x.pedido) return "pedido";
     const r = x.r;
     if (pendente(r)) return "resposta";
+    if (arquivado(r)) return "arquivado";
     if (r.status === "rascunho") return "rascunho";
     if (r.status === "enviado") return "enviado";
     if (r.status === "aprovado") return "aprovado";
@@ -71,9 +76,10 @@
     resposta: ["at", "Cliente respondeu"],
     aprovado: ["ok", "Aprovado"],
     recusado: ["cz", "Recusado"],
+    arquivado: ["cz", "Arquivado"],
     outro: ["cz", "—"],
   };
-  const ORDEM_SIT = ["pedido", "resposta", "rascunho", "enviado", "aprovado", "recusado", "outro"];
+  const ORDEM_SIT = ["pedido", "resposta", "rascunho", "enviado", "aprovado", "recusado", "arquivado", "outro"];
   const rotulo = x => (sit(x) === "outro" ? (x.r.status ? x.r.status[0].toUpperCase() + x.r.status.slice(1) : "—") : SIT[sit(x)][1]);
   const pedeAcao = x => ["pedido", "rascunho", "resposta"].includes(sit(x)) || venceu(x.r) || (sit(x) === "aprovado" && x.r.nota_status === "erro");
 
@@ -113,7 +119,11 @@
     const r = x.r, s = sit(x);
     if (s === "pedido") return "ninguém começou ainda";
     if (s === "rascunho") return "falta enviar ao cliente";
-    if (s === "enviado") return venceu(r) ? `<span class="ls-txt-ri">validade venceu em ${dtSemFuso(r.valido_ate)}</span>` : (r.valido_ate ? `válido até ${dtSemFuso(r.valido_ate)}` : (r.enviado_em ? `enviado ${dt(r.enviado_em)}` : "sem prazo de validade"));
+    if (s === "enviado") {
+      const base = venceu(r) ? `<span class="ls-txt-ri">validade venceu em ${dtSemFuso(r.valido_ate)}</span>` : (r.valido_ate ? `válido até ${dtSemFuso(r.valido_ate)}` : (r.enviado_em ? `enviado ${dt(r.enviado_em)}` : "sem prazo de validade"));
+      return r.lembrete_em ? `${base} · lembrete ${dt(r.lembrete_em)}` : base;
+    }
+    if (s === "arquivado") return `venceu em ${dtSemFuso(r.valido_ate)} sem resposta · arquivado ${dt(r.arquivado_em)}`;
     if (s === "resposta") return `${esc(r.respondido_nome || "o cliente")} ${r.status === "rejeitado" ? "recusou" : "aprovou"} · ${rel(r.respondido_em)} · falta dar baixa`;
     if (s === "aprovado") {
       const nota = r.nota_status === "emitida" ? `nota ${esc(r.nota_numero || "emitida")}`
@@ -165,6 +175,11 @@
       etapas.push(["Recusado", r.respondido_em ? `${dt(r.respondido_em, true)} · ${esc(r.respondido_nome || "cliente")}` : "registrado pelo escritório", "erro"]);
       return timeline(etapas);
     }
+    if (r.lembrete_em) etapas.push(["Lembrete ao cliente", `${dt(r.lembrete_em, true)} · validade perto do fim`, "feita"]);
+    if (arquivado(r)) {
+      etapas.push(["Arquivado", `${dt(r.arquivado_em, true)} · venceu em ${dtSemFuso(r.valido_ate)} sem resposta. Para reabrir, dê uma validade nova.`, "erro"]);
+      return timeline(etapas);
+    }
     etapas.push(["Aprovado",
       decidido ? (r.respondido_em ? `${dt(r.respondido_em, true)} · ${esc(r.respondido_nome || "cliente")}` : "registrado pelo escritório")
         : (venceu(r) ? `validade venceu em ${dtSemFuso(r.valido_ate)}` : (enviado ? "esperando o cliente" : "")),
@@ -211,7 +226,7 @@
         g && s === "rascunho" ? `<button type="button" class="ls-bt is-pri is-p viewer-only-hide" data-orc-enviar="${r.id}">${ico("send")}Enviar ao cliente</button>` : "",
         g && s === "resposta" ? `<button type="button" class="ls-bt is-pri is-p viewer-only-hide" data-orc-baixa="${r.id}">${ico("check")}Dar baixa</button>` : "",
         g && s === "aprovado" && (!r.nota_status || r.nota_status === "erro") ? `<button type="button" class="ls-bt is-pri is-p viewer-only-hide" data-orc-nota="${r.id}">${ico("receipt")}${r.nota_status === "erro" ? "Ver a nota com erro" : "Emitir nota"}</button>` : "",
-        g && s === "enviado" ? `<button type="button" class="ls-bt is-p viewer-only-hide" data-orc-enviar="${r.id}">${ico("send")}Reenviar</button>` : "",
+        g && (s === "enviado" || s === "arquivado") ? `<button type="button" class="ls-bt is-p viewer-only-hide" data-orc-enviar="${r.id}">${ico("send")}Reenviar</button>` : "",
         `<button type="button" class="ls-bt is-p" data-orc-pdf="${r.id}">${ico("file-down")}PDF</button>`,
         `<button type="button" class="ls-bt is-p is-ghost" data-orc-abrir="${r.id}">${ico("external-link")}Abrir página</button>`,
       ];
@@ -329,6 +344,7 @@
       ["respondidos", "Respondidos", x => !x.pedido && !!x.r.respondido_em],
       ["aprovado", "Aprovados", x => !x.pedido && x.r.status === "aprovado", "ok"],
       ["recusado", "Recusados", x => !x.pedido && x.r.status === "rejeitado", "cz", d => d.some(x => !x.pedido && x.r.status === "rejeitado")],
+      ["arquivado", "Arquivados", x => sit(x) === "arquivado", "cz", d => d.some(x => sit(x) === "arquivado")],
       ["todos", "Todos", () => true],
     ],
     vazios: {
@@ -339,6 +355,7 @@
       respondidos: "Nenhum cliente respondeu pelo painel ainda.",
       aprovado: "Nenhum orçamento aprovado.",
       recusado: "Nenhum orçamento recusado.",
+      arquivado: "Nenhum orçamento arquivado. O enviado que vence sem resposta vem para cá sozinho.",
       todos: "Nenhum orçamento ainda. Comece pelo \"Novo orçamento\".",
     },
     frase: (d, estado) => {

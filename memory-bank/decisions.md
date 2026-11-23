@@ -1684,3 +1684,24 @@ desenho em camadas original continua válido.
   produção confirma que o Omie aceita `999` com uma parcela.
 - **Falha no boleto não derruba a nota.** São duas coisas no Omie: a nota já
   emitida fica, e o boleto tem estado e "tentar de novo" próprios.
+
+## Orçamento vencido: arquivar é estado da lista, não do documento (23/11/2026)
+
+- **Coluna `arquivado_em`, não um status novo.** Um status `arquivado` ou
+  `expirado` tiraria o orçamento da tela do cliente e travaria a resposta pelo
+  painel (que só aceita `enviado`), e mexeria em relatórios que contam status.
+  O pedido era limpar a fila do escritório; o síndico que resolve aprovar um
+  vencido continua podendo.
+- **Volta com validade nova, não com botão "desarquivar".** Desarquivar sem
+  mudar a validade seria desfeito pelo job na volta seguinte. O reenvio só
+  desarquiva com a validade em dia pelo mesmo motivo.
+- **Apagar segue a lixeira (089), não uma tabela de arquivados.** O DELETE
+  deixa a cópia com o motivo em `contexto`; recuperar é o mesmo
+  `jsonb_populate_record` de sempre. Fica de fora o que tem chamado,
+  movimentação de equipamento, nota ou resposta: aí o orçamento é histórico de
+  atendimento. Prazo: 90 dias depois de arquivar, escolhido pelo Pedro em 23/11/2026 (com
+  validade típica de 30 dias, uns 4 meses desde o envio).
+- **Lembrete sem anexo e com trava de ambiente.** O documento já foi no
+  primeiro e-mail; gerar PDF (Puppeteer) num job em segundo plano é risco sem
+  ganho. A trava `ORCAMENTO_LEMBRETE_EMAIL=1` é a mesma lição do
+  `COBRANCA_EMAIL`: o banco de teste tem e-mail de cliente de verdade.

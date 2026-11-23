@@ -95,6 +95,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 099 | cobranca_atrasados | tabelas **`omie_receber_atrasados`** (cópia dos títulos em atraso no Omie que o sistema emitiu), **`omie_boleto_links`** e **`omie_receber_pagos`** (o "já pagou" só no sistema); `omie_clientes.telefone`, `telefone2`, `contato`. **Aplicada em teste e em produção em 23/11/2026**, antes do push. Ver a entrada de 23/11/2026 abaixo |
 | 100 | guias_tributos | tabelas **`guias_tributos`** (a guia lida do PDF, o PDF, o destino e a situação no Omie; código de barras único entre as vivas) e **`guias_regras`** (fornecedor/categoria/conta por tipo, semeada com o que o Omie usa). **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Ver a entrada de 23/11/2026 abaixo |
 | 101 | nota_boletos | `orcamentos.nota_conta_corrente`, `boleto_status`, `boleto_erro`, `boleto_atualizado_em`; tabela **`orcamento_boletos`** (uma linha por parcela da nota, com o nosso número). **Aplicada em teste e em produção em 23/11/2026**, antes do push. Ver a entrada de 23/11/2026 abaixo |
+| 103 | orcamento_vencido_arquivado | `orcamentos.arquivado_em`/`arquivado_por` (o enviado vencido sem resposta sai da fila; status continua `enviado`) e a tabela **`orcamento_lembretes`** (o lembrete antes de vencer, um por orçamento/validade). ✅ **Aplicada em teste e em produção em 23/11/2026**; os 111 vencidos de produção arquivados no mesmo dia. Ver a entrada de 23/11/2026 abaixo |
 | 102 | cobranca_avisos | `orcamentos.nota_emails`; tabelas **`omie_cliente_emails`** (para quem o Omie manda a nota de cada cliente), **`omie_receber_avencer`** (títulos do sistema a vencer) e **`cobranca_avisos`** (a fila e o histórico dos avisos, um por título/etapa/vencimento). **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Ver a entrada de 23/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
@@ -18579,3 +18580,34 @@ Desfazer que recria a série desde o início. Visita de chamado continua com
 Em produção, compromisso novo: **"Emitir as cobranças das preventivas"**, todo
 dia 1 (financeiro, só admin). O pedido anterior tinha virado só "Pedir a folha
 de pagamento no Onvio", com a cobrança citada na observação.
+
+## 2026-11-23 — Orçamento que vence: arquivado, lembrete e apagar depois
+
+Pedido do Pedro: a tela de Orçamentos tinha 126 "pede ação", 111 deles
+enviados com a validade vencida sem resposta (jul–nov). Agora:
+
+- **Arquivar:** o job novo `orcamento-vencimento` (`setTimeout` recursivo, a
+  cada `orcamento.vencimento_intervalo_min`, padrão 60) marca
+  `arquivado_em` no enviado sem resposta cuja validade passou. O status
+  continua `enviado`. Na tela: selo "Arquivado", fora de "Pede ação" e de
+  "Esperando o cliente", visão **Arquivados**. Validade nova pelos dois
+  `PATCH` de orçamento desarquiva (`_DESARQUIVA`, `::date` em todos os
+  usos do parâmetro); o reenvio desarquiva só com validade em dia.
+- **Lembrete:** `orcamento.lembrete_dias` (5) antes de vencer, e-mail
+  "podemos seguir?" (`sendOrcamentoLembrete`, moldura estruturada, sem valor
+  e sem anexo, botão do painel só para quem tem login) para
+  `orcamentos.enviado_para`. Uma vez por orçamento/validade, só dia útil
+  8h–18h, nunca para o enviado há menos de 2 dias. ⚠️ Exige
+  **`ORCAMENTO_LEMBRETE_EMAIL=1`** no servidor.
+- **Apagar:** o arquivado há mais de `orcamento.apagar_dias` dias é apagado
+  com cópia na lixeira (089, `contexto` com o motivo); fica de fora quem tem
+  chamado, movimentação de equipamento, nota ou resposta; o pedido do técnico
+  sai da fila junto. **Padrão: 90 dias depois de arquivar** (decisão do Pedro); 0 = não apaga.
+- `scripts/orcamentos-vencidos.js`: conta e (com `--gravar`) arquiva agora.
+
+Migration **103** (✅ produção, 23/11/2026; 111 vencidos arquivados na hora). `admin-orc-lista.js?v=4`. Teste
+`orcamento-vencimento.test.js` (44/44, rotas de verdade, e-mails por dublê);
+`excluir-pedido-orcamento` 12/12, `orcamento-vincula-os` 22/22,
+`orc-aprovados-feitos` 23/23, `aviso-orcamento-aprovado` 14/14. Tela
+conferida no banco de teste (porta 3012, `PAINEL_NOVO`). Fluxo em
+[orcamentos-vencimento.md](modulos/orcamentos-vencimento.md).

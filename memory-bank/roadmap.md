@@ -350,6 +350,14 @@ aliases:
     `triagem_risco_imediato`, `triagem_redundancia`, `prioridade_piso`,
     `prioridade_motivo`. Vazias, sem migration e sem código.
 
+- 🟡 **Orçamento que vence: arquivado, lembrete e apagar depois** (23/11/2026,
+  no código, ✅ migration 103 em produção e 111 vencidos arquivados em 23/11). Pedido do Pedro com 126 "pede ação"
+  na tela, 111 deles vencidos sem resposta. Job `orcamento-vencimento` arquiva
+  o vencido, manda o lembrete 5 dias antes para `enviado_para` e apaga o
+  arquivado depois de `orcamento.apagar_dias` (lixeira). Prazo para apagar:
+  90 dias depois de arquivar. Falta: `ORCAMENTO_LEMBRETE_EMAIL=1` no Railway.
+  Ver [orcamentos-vencimento.md](../docs/modulos/orcamentos-vencimento.md).
+
 - ✅ **O orçamento aprovado sabe que o serviço foi feito** (03/09/2026).
   Relato do Pedro: *"um técnico foi ao condomínio fez o serviço, tínhamos a
   O.S. no sistema porém estava lá em aprovados como se o serviço ainda

@@ -759,6 +759,69 @@ async function sendCobrancaCliente(dados) {
   return r && r.id ? r.id : null;
 }
 
+// Lembrete de orçamento perto de vencer (migration 103,
+// docs/modulos/orcamentos-vencimento.md). Vai para os MESMOS e-mails para os
+// quais o orçamento foi enviado (`orcamentos.enviado_para`). Moldura
+// estruturada, sem valor no corpo (regra da moldura) e sem anexo: o documento
+// já foi no primeiro e-mail, ou está no painel (linkPainel).
+//
+// dados: { numero, condominioNome, validoAte (DATE|'AAAA-MM-DD'), enviadoEm
+//          (timestamptz), dias (até vencer), linkPainel (string|null) }
+// Devolve { subject, html, text } — o teste e a prévia usam o mesmo.
+function montarLembreteOrcamento(dados) {
+  const E = _escaparHtml;
+  const P = txt => `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">${txt}</p>`;
+  const numero = dados.numero || "—";
+  const condo = dados.condominioNome || "—";
+  const validade = _fmtDataSemFuso(dados.validoAte) || "—";
+  const enviado = _fmtInstante(dados.enviadoEm);
+  const link = dados.linkPainel && /^https?:\/\//i.test(dados.linkPainel) ? dados.linkPainel : null;
+  const quando = dados.dias === 1 ? "amanhã" : `em ${validade}`;
+
+  const abre = `${enviado ? `Em ${enviado} enviamos` : "Enviamos"} o orçamento <strong>${E(numero)}</strong>, de <strong>${E(condo)}</strong>, válido até <strong>${E(validade)}</strong>.`;
+  const pergunta = `Como a validade termina ${E(quando)}, gostaríamos de saber se podemos seguir com o serviço.`;
+  const comoResponder = link
+    ? `Você pode aprovar ou recusar pelo painel, no botão abaixo, ou simplesmente responder este e-mail.`
+    : `Basta responder este e-mail. Se precisar do documento de novo, ou de algum ajuste, é só avisar.`;
+  const botao = link
+    // O mesmo botão do e-mail de envio (`convite` em sendOrcamentoCliente).
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;"><tr><td style="background:#f0b014;">
+         <a href="${E(link)}" style="color:#030a26;font-size:15px;font-weight:bold;text-decoration:none;display:inline-block;padding:14px 26px;">Ver o orçamento e responder</a>
+       </td></tr></table>`
+    : "";
+
+  const html = _molduraEstruturada({
+    sobrancelha: "Orçamento perto de vencer",
+    corpoHtml: [P("Prezado(a),"), P(abre), P(pergunta), P(comoResponder), botao,
+      P("Se já decidiu e nos avisou por outro canal, por favor desconsidere esta mensagem.")].filter(Boolean).join("\n        "),
+    tituloInfos: "Informações do orçamento",
+    infos: [["Número", numero], ["Cliente", condo], ["Enviado em", enviado], ["Válido até", validade]],
+  });
+  const desmarca = (s) => s.replace(/<[^>]+>/g, "");
+  const text = ["Prezado(a),", "", desmarca(abre), "", desmarca(pergunta), "", comoResponder,
+    link ? `Ver o orçamento e responder: ${link}` : null, "",
+    "Se já decidiu e nos avisou por outro canal, por favor desconsidere esta mensagem.", "",
+    ..._FECHO_TEXTO].filter(l => l !== null).join("\n");
+  return { subject: `Orçamento ${numero} vence ${dados.dias === 1 ? "amanhã" : `em ${validade}`} — podemos seguir? — General Bombas`, html, text };
+}
+
+// dados: os de montarLembreteOrcamento + to (array). Devolve o id do Resend.
+async function sendOrcamentoLembrete(dados) {
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY não configurada — envio de email indisponível");
+  const to = Array.isArray(dados.to) ? dados.to : [dados.to];
+  if (!to.length) throw new Error("Nenhum destinatário informado");
+  const m = montarLembreteOrcamento(dados);
+  const r = await _enviar({
+    from: `General Bombas <${_emailFrom()}>`,
+    to,
+    replyTo: _emailFrom(),
+    subject: m.subject,
+    text: m.text,
+    html: m.html,
+  }, "lembrete de orçamento");
+  return r && r.id ? r.id : null;
+}
+
 // Aviso do escritório ao síndico (redesenho, etapa 8 — 20/11/2026): o lote
 // "Mandar aviso aos síndicos" da lista de Condomínios. Um e-mail por prédio,
 // para o e-mail do cadastro (o mesmo destino da O.S.). Sem anexo.
@@ -979,4 +1042,4 @@ function _escaparHtml(v) {
     .replace(/"/g, "&quot;");
 }
 
-module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrdemServicoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo, sendAvisoCondominio, montarCobranca, sendCobrancaCliente };
+module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrdemServicoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo, sendAvisoCondominio, montarCobranca, sendCobrancaCliente, montarLembreteOrcamento, sendOrcamentoLembrete };

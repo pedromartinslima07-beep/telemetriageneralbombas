@@ -35,6 +35,11 @@ const CHAVES = {
   "cobranca.atraso_1":           { tipo: "int", min: 0, max: 60 },    // primeira cobrança com N dias de atraso (default 3; 0 = não manda)
   "cobranca.atraso_2":           { tipo: "int", min: 0, max: 90 },    // segunda cobrança (default 10; 0 = não manda)
   "cobranca.avisos_intervalo_min": { tipo: "int", min: 10, max: 240 }, // de quanto em quanto tempo o job monta a fila (default 30)
+  // Orçamento que vence (migration 103, docs/modulos/orcamentos-vencimento.md).
+  // O lembrete em si ainda exige ORCAMENTO_LEMBRETE_EMAIL=1 no servidor.
+  "orcamento.lembrete_dias":     { tipo: "int", min: 0, max: 30 },   // lembrete ao cliente N dias antes de vencer (default 5; 0 = não manda)
+  "orcamento.apagar_dias":       { tipo: "int", min: 0, max: 3650 }, // apaga o vencido arquivado há N dias, com cópia na lixeira (default 90; 0 = não apaga)
+  "orcamento.vencimento_intervalo_min": { tipo: "int", min: 10, max: 1440 }, // de quanto em quanto tempo o job roda (default 60)
   "omie.faturamento_dia":        { tipo: "int", min: 1, max: 28 },  // dia do mês em que o lote do faturamento é proposto (default 1; fim de semana/feriado passa ao próximo dia útil)
   "gps.frequencia_segundos":     { tipo: "int", min: 30, max: 300 }, // Fase 7I — app pinga GPS a cada N segundos (default 60)
   "gps.expediente_inicio":       { tipo: "int", min: 0, max: 23 },   // hora em que o GPS liga (default 8)

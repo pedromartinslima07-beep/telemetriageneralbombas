@@ -13,6 +13,17 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Orçamento que vence — no ar em 23/11/2026.** O
+> enviado vencido sem resposta é arquivado pelo job `orcamento-vencimento`
+> (sai da fila, visão "Arquivados"; validade nova desarquiva), lembrete por
+> e-mail 5 dias antes para `enviado_para`, e apagar depois de
+> `orcamento.apagar_dias` com cópia na lixeira. Teste 44/44; tela conferida no
+> banco de teste. Apagar: 90 dias depois de arquivar (decisão do Pedro). ✅ Migration
+> 103 em produção e os 111 vencidos arquivados em 23/11; commit e push na
+> main em 23/11. ⏳ **Falta:** `ORCAMENTO_LEMBRETE_EMAIL=1` no Railway (sem ela
+> o lembrete não sai). Ver
+> [orcamentos-vencimento.md](../docs/modulos/orcamentos-vencimento.md).
+
 > 🟠 **E-mail da nota pelo Omie + avisos de cobrança — no código em 23/11/2026,
 > commitado.** A nota do sistema passa a mandar o bloco de e-mail ao Omie (os
 > destinatários da última nota do cliente lá, conferidos no modal) e o

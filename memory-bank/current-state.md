@@ -165,6 +165,13 @@ dia (antes, no dia, 1ª e 2ª cobrança) dos títulos do sistema e manda por
 e-mail com o boleto, com aprovação até ligar o automático
 (`cobranca-avisos.service.js`, `COBRANCA_EMAIL=1`). Migration 102 (✅
 produção, 23/11/2026). Ver [`../docs/modulos/cobranca-avisos.md`](../docs/modulos/cobranca-avisos.md).
+**Orçamento que vence (23/11):** o enviado que vence sem resposta é arquivado
+pelo job `orcamento-vencimento` (`orcamentos.arquivado_em`; o status continua
+`enviado`), vai para a visão "Arquivados" e volta com validade nova; lembrete
+"podemos seguir?" por e-mail `orcamento.lembrete_dias` (5) antes, para
+`enviado_para` (`ORCAMENTO_LEMBRETE_EMAIL=1`); o arquivado é apagado depois de
+`orcamento.apagar_dias` (90 dias; 0 = não apaga) com cópia na lixeira. Migration 103
+(✅ produção, 23/11/2026; os 111 vencidos já arquivados). Ver [`../docs/modulos/orcamentos-vencimento.md`](../docs/modulos/orcamentos-vencimento.md).
 **Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):
 Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
 lado; as telas antigas seguem alcançáveis por link.

@@ -749,6 +749,37 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 103 — o orçamento que vence: arquivado e lembrete (23/11/2026)
+
+Fluxo em [orcamentos-vencimento.md](modulos/orcamentos-vencimento.md).
+
+- **`orcamentos.arquivado_em`** (TIMESTAMPTZ) — o enviado que venceu sem
+  resposta saiu da fila do escritório. NULL = não arquivado. ⚠️ **O status
+  continua `enviado`**: tela do cliente, resposta pelo painel e relatórios
+  leem status, e o cliente continua podendo aprovar um vencido. Validade nova
+  (hoje ou futura, ou vazia) desarquiva. Índice parcial
+  `idx_orcamentos_arquivado`.
+- **`orcamentos.arquivado_por`** (FK `usuarios`, SET NULL) — NULL = o job.
+- **`orcamento_lembretes`** — o lembrete "faltam N dias" ao cliente.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `id` | SERIAL | PK |
+| `orcamento_id` | INTEGER | FK `orcamentos` **CASCADE** |
+| `valido_ate` | DATE | a validade que o lembrete anunciou; `UNIQUE (orcamento_id, valido_ate)` |
+| `dias` | INTEGER | quantos faltavam quando saiu |
+| `destinatarios` | TEXT | cópia de `orcamentos.enviado_para` na hora |
+| `status` | VARCHAR(12) | `enviando` → `enviado` · `erro` · `sem_email` |
+| `erro`, `tentativas` | TEXT / INTEGER | erro é repetido até 3 tentativas |
+| `email_id` | VARCHAR(80) | id do Resend |
+| `criado_em`, `enviado_em` | TIMESTAMPTZ | |
+
+O apagar do arquivado (`orcamento.apagar_dias`) não tem coluna: é `DELETE`
+pelo job, e a cópia fica em `registros_apagados` (lixeira, 089) com o motivo
+em `contexto`.
+
+✅ **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Os 111 vencidos de produção foram arquivados no mesmo dia por `scripts/orcamentos-vencidos.js --prod --gravar`.
+
 ## 102 — o e-mail da nota e os avisos de cobrança (23/11/2026)
 
 Fluxo em [cobranca-avisos.md](modulos/cobranca-avisos.md).

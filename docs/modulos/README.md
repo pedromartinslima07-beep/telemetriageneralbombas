@@ -24,6 +24,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Landing pública e captação de lead | [`landing-publica.md`](landing-publica.md) |
 | Painel do cliente ("Meu prédio") | [`painel-cliente.md`](painel-cliente.md) |
 | Envio do orçamento por e-mail (duas opções) | [`orcamentos-envio.md`](orcamentos-envio.md) |
+| O orçamento que vence: arquivado, lembrete 5 dias antes, apagado depois | [`orcamentos-vencimento.md`](orcamentos-vencimento.md) |
 | Nota fiscal do orçamento pelo Omie (NFS-e; DANFE a seguir) | [`nota-fiscal.md`](nota-fiscal.md) |
 | O que trazer do Omie (contratos, receber, pagar, caixa) — plano | [`omie-integracao.md`](omie-integracao.md) |
 | Guias de tributos (PDF do Onvio) → contas a pagar do Omie | [`guias-tributos.md`](guias-tributos.md) |

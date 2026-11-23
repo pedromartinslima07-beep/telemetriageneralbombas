@@ -51,6 +51,7 @@ const { startPlanosManutencaoScheduler } = require("./jobs/planos-manutencao.job
 const { startGpsCleanupScheduler } = require("./jobs/gps-cleanup.job");
 const { startOmieFaturamentoScheduler } = require("./jobs/omie-faturamento.job");
 const { startCobrancaAvisosScheduler } = require("./jobs/cobranca-avisos.job");
+const { startOrcamentoVencimentoScheduler } = require("./jobs/orcamento-vencimento.job");
 const agendaRouter = require("./routes/agenda.routes");
 const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job");
 const { startAlertasCleanupScheduler } = require("./jobs/alertas-cleanup.job");
@@ -588,6 +589,7 @@ startOfflineScheduler();
 startGpsCleanupScheduler();
 startOmieFaturamentoScheduler();
 startCobrancaAvisosScheduler(); // avisos de cobrança por e-mail (migration 102)
+startOrcamentoVencimentoScheduler(); // orçamento vencido: arquiva, lembra 5 dias antes, apaga depois (migration 103)
 startLeiturasCleanupScheduler();
 startAlertasCleanupScheduler();
 startConversasCleanupScheduler();

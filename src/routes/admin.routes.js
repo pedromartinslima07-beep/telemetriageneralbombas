@@ -40,6 +40,14 @@ function _linkPainelLigado() {
   return !(v === "0" || v === "false" || v === "nao" || v === "não");
 }
 
+// ⚠️ O VENCIDO ARQUIVADO VOLTA QUANDO A VALIDADE MUDA (migration 103). O job
+// orcamento-vencimento arquiva o enviado sem resposta cuja validade passou;
+// quem dá validade nova (no futuro, ou tira a validade) está reabrindo o
+// orçamento. Validade ainda no passado deixa como está. O parâmetro é o MESMO
+// da coluna valido_ate, por isso o ::date em todos os usos (42P08, CLAUDE.md).
+const _DESARQUIVA = (n) =>
+  `arquivado_em = CASE WHEN $${n}::date IS NULL OR $${n}::date >= (NOW() AT TIME ZONE 'America/Sao_Paulo')::date THEN NULL ELSE arquivado_em END`;
+
 // Origem pública do sistema, para montar link absoluto em e-mail.
 // APP_URL manda (é a que o contrato/D4Sign já usa), PUBLIC_BASE_URL vem
 // depois, e o último recurso é o próprio request — o app roda com
@@ -1397,6 +1405,7 @@ router.patch("/orcamentos/:os_id", authRequired, gestaoOnly, async (req, res) =>
       if (valido_ate !== undefined) {
         vals.push(valido_ate || null);
         sets.push(`valido_ate = $${vals.length}::date`);
+        sets.push(_DESARQUIVA(vals.length));
       }
     }
 
@@ -1740,6 +1749,11 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
               o.nota_tipo, o.nota_status, o.nota_numero, o.nota_url, o.nota_erro,
               -- O boleto que saiu junto com a nota (migration 101).
               o.nota_conta_corrente, o.boleto_status, o.boleto_erro,
+              -- O VENCIDO ARQUIVADO e o lembrete (migration 103). Arquivado
+              -- continua status enviado: quem tira da fila e esta coluna.
+              o.arquivado_em,
+              (SELECT MAX(lb.enviado_em) FROM orcamento_lembretes lb
+                WHERE lb.orcamento_id = o.id AND lb.status = 'enviado') AS lembrete_em,
               ch.id     AS chamado_id,
               ch.status AS chamado_status
        FROM orcamentos o
@@ -1836,7 +1850,11 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
     // implícito do parâmetro, mas string vazia (`""`) estoura `22P02` e
     // derruba o salvamento inteiro em 500.
     if (f === "condominio_id" || f === "os_id") { vals.push(v ? Number(v) : null); sets.push(`${f} = $${vals.length}`); }
-    else if (f === "valido_ate") { vals.push(v || null); sets.push(`valido_ate = $${vals.length}::date`); }
+    else if (f === "valido_ate") {
+      vals.push(v || null); sets.push(`valido_ate = $${vals.length}::date`);
+      // Validade nova no futuro (ou sem validade) desarquiva o vencido (103).
+      sets.push(_DESARQUIVA(vals.length));
+    }
     else if (f === "data_documento") { vals.push(v || null); sets.push(`data_documento = $${vals.length}::date`); }
     else if (f === "status") {
       if (!["rascunho","enviado","aprovado","rejeitado"].includes(v)) return res.status(400).json({ error: "status inválido" });
@@ -2511,7 +2529,11 @@ router.post("/orcamentos/avulsos/:id/enviar-email", authRequired, gestaoOnly, as
     );
     const upd = await pool.query(
       `UPDATE orcamentos
-         SET status = 'enviado', enviado_em = now(), enviado_para = $2
+         SET status = 'enviado', enviado_em = now(), enviado_para = $2,
+             -- Reenviar desarquiva so com validade em dia (ou sem validade):
+             -- reenviar documento vencido nao reabre nada (migration 103).
+             arquivado_em = CASE WHEN valido_ate IS NULL OR valido_ate >= (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+                                 THEN NULL ELSE arquivado_em END
        WHERE id = $1
        RETURNING enviado_em`,
       [id, enviadoPara]
