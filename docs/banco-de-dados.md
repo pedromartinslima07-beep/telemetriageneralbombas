@@ -749,6 +749,45 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 102 — o e-mail da nota e os avisos de cobrança (23/11/2026)
+
+Fluxo em [cobranca-avisos.md](modulos/cobranca-avisos.md).
+
+**`orcamentos.nota_emails`** (TEXT) — os destinatários que foram no bloco de
+e-mail da nota (O.S. `cEnviarPara` / pedido `utilizar_emails`). Os avisos de
+cobrança da nota usam a mesma lista.
+
+**`omie_cliente_emails`** — para quem o Omie manda a nota de cada cliente:
+`omie_cliente` PK, `emails` (separados por vírgula; NULL = nada no Omie),
+`fonte` (`os`｜`pedido`｜`cadastro`), `referencia` (nCodOS/codigo_pedido),
+`referencia_numero`, `referencia_data`, `lido_em`. ⚠️ Não é o e-mail do
+cadastro do cliente: é o da nota mais recente dele (não cancelada). Lido de
+novo depois de 12 h (modal) ou 7 dias (avisos).
+
+**`omie_receber_avencer`** — cópia dos títulos do sistema "A VENCER" e "VENCE
+HOJE" no Omie, as mesmas colunas de `omie_receber_atrasados` + `vence_hoje`
+BOOLEAN. Trocada inteira a cada volta da sincronização.
+
+**`cobranca_avisos`** — a fila e o histórico:
+
+| Coluna | Tipo | O quê |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `omie_titulo` | BIGINT | `codigo_lancamento_omie` |
+| `etapa` | VARCHAR(10) | `antes` · `dia` · `atraso1` · `atraso2` |
+| `vencimento` | DATE | **`UNIQUE (omie_titulo, etapa, vencimento)`**: o mesmo aviso nunca vai duas vezes |
+| `dias` | INTEGER | dias até o vencimento quando entrou (negativo = atraso) |
+| `omie_cliente`, `origem`, `orcamento_id`, `valor`, `numero_nf` | | o título quando entrou |
+| `destinatarios` | TEXT | para quem vai (editável só no aviso) |
+| `status` | VARCHAR(12) | `pendente` → `enviando` → `enviado` · `erro`; `sem_email`; `expirado`; `ignorado` |
+| `erro`, `email_id` | TEXT / VARCHAR(80) | a falha, ou o id do Resend |
+| `criado_em`, `enviado_em` | TIMESTAMPTZ | |
+| `enviado_por` | FK usuarios SET NULL | NULL no envio automático |
+| `automatico` | BOOLEAN | |
+
+✅ Teste (23/11/2026). ⏳ **Produção: falta**, antes do push (a sincronização,
+o modal da nota e o job leem estas tabelas).
+
 ## 101 — o boleto sai junto com a nota do orçamento (23/11/2026)
 
 Fluxo em [nota-fiscal.md](modulos/nota-fiscal.md), seção "Banco e boleto".

@@ -24,6 +24,7 @@
 const { pool } = require("../db");
 const omie = require("./omie.service");
 const catalogo = require("./omie-produtos.service");
+const emailsOmie = require("./omie-emails.service");
 
 // ── Molde (copiado das OS reais) ────────────────────────────────────────────
 const MOLDE_NFSE = Object.freeze({
@@ -312,6 +313,7 @@ function _resumoNota(orc) {
     nota_emitida_por_nome: orc.nota_emitida_por_nome || null, omie_os_codigo: orc.omie_os_codigo,
     omie_pedido_codigo: orc.omie_pedido_codigo || null,
     nota_conta_corrente: orc.nota_conta_corrente || null,
+    nota_emails: orc.nota_emails || null,
     banco: banco ? BANCOS[banco].nome : null,
     remessa: banco ? BANCOS[banco].remessa : null,
     boleto_status: orc.boleto_status || null, boleto_erro: orc.boleto_erro || null,
@@ -447,7 +449,24 @@ async function preparar(orcId, naturezas, escolhas, pagamento) {
     }
   }
   conf.catalogo = cat;
+  conf.emails = await destinatarios(orc);
   return conf;
+}
+
+// Para quem o Omie vai mandar a nota (migration 102, ver
+// src/services/omie-emails.service.js). Nota já emitida: os que foram.
+// Cliente já no Omie: os da nota mais recente dele lá. Sem cliente no Omie
+// (prédio que vai ser criado agora): o e-mail do cadastro do prédio.
+async function destinatarios(orc) {
+  if (orc.nota_emails) return { lista: emailsOmie.separar(orc.nota_emails), fonte: "emitida" };
+  const cod = orc.condominio_id ? orc.omie_cliente_codigo : null;
+  if (cod) {
+    const r = await emailsOmie.doCliente(Number(cod));
+    if (r.emails.length) return { lista: r.emails, fonte: r.fonte, numero: r.numero || null, data: r.data || null, erro: r.erro || null };
+    if (r.erro) return { lista: emailsOmie.separar(orc.condo_email), fonte: orc.condo_email ? "predio" : null, erro: r.erro };
+  }
+  const l = emailsOmie.separar(orc.condominio_id ? orc.condo_email : orc.cliente_email);
+  return { lista: l, fonte: l.length ? "predio" : null };
 }
 
 // ── Cliente no Omie ─────────────────────────────────────────────────────────
@@ -515,9 +534,19 @@ function _hojeBR() {
 // (meio 15), como nas OS parceladas feitas à mão. Sem lista = 000 (o Omie
 // preenche) — só acontece em quem chama sem passar pelo montarPagamento.
 // A conta corrente é a do banco escolhido (BANCOS); sem ela, a do molde.
-function montarOs({ orc, itens, nCodCli, pagamento }) {
+// ⚠️ O BLOCO Email É O QUE FAZ O OMIE MANDAR A NOTA (23/11/2026). Sem ele a
+// O.S. emitida pelo sistema saía sem e-mail nenhum. É o mesmo das O.S. feitas
+// na tela do Omie: link da NFS-e e boleto (cEnvBoleto e cEnvPix são
+// excludentes; aqui só boleto), para a lista conferida no modal.
+function _blocoEmailOs(emails, pagamento) {
+  if (!emails || !emails.length) return {};
+  return { Email: { cEnvLink: "S", cEnvBoleto: pagamento && pagamento.boleto === false ? "N" : "S", cEnvRecibo: "N", cEnviarPara: emails.join(", ") } };
+}
+
+function montarOs({ orc, itens, nCodCli, pagamento, emails }) {
   const parc = pagamento && pagamento.lista?.length && pagamento.lista.every(p => p.vencimento) ? pagamento : null;
   return {
+    ..._blocoEmailOs(emails, pagamento),
     Cabecalho: {
       cCodIntOS: `ORC-${orc.id}`,
       nCodCli,
@@ -556,7 +585,7 @@ function montarOs({ orc, itens, nCodCli, pagamento }) {
 // `itens` = os itens da prévia (já rateados, com o produto e o CFOP).
 // O código de item é `<linha>-<seq>`: a mesma linha pode virar dois itens
 // (ver ratearNfe), e o Omie limita o campo a 30 caracteres.
-function montarPedido({ orc, itens, nCodCli, pagamento }) {
+function montarPedido({ orc, itens, nCodCli, pagamento, emails }) {
   const parc = pagamento && pagamento.lista?.length && pagamento.lista.every(p => p.vencimento) ? pagamento : null;
   return {
     cabecalho: {
@@ -598,6 +627,9 @@ function montarPedido({ orc, itens, nCodCli, pagamento }) {
       codVend: MOLDE_NFE.codVend,
       consumidor_final: "S",
       dados_adicionais_nf: orc.numero ? `Orçamento ${orc.numero}` : "",
+      // O e-mail da DANFE (o mesmo papel do bloco Email da O.S.): DANFE, XML
+      // e o boleto do faturamento, para a lista conferida no modal.
+      ...(emails && emails.length ? { enviar_email: "S", utilizar_emails: emails.join(",") } : {}),
     },
   };
 }
@@ -609,7 +641,16 @@ function montarPedido({ orc, itens, nCodCli, pagamento }) {
 // valem mesmo que a emissão falhe adiante.
 // `pagamento` = { parcelas, vencimentos } do modal; não é gravado (a retomada
 // acha a OS/pedido já criado, com as parcelas que foram).
-async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento = null) {
+async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento = null, emails = null) {
+  // Os destinatários conferidos no modal. Lista digitada com endereço
+  // inválido é recusada antes de tudo (melhor que nota sem e-mail).
+  let lista = null;
+  if (emails != null) {
+    const txt = Array.isArray(emails) ? emails.join(",") : String(emails);
+    const ruins = emailsOmie.invalidos(txt);
+    if (ruins.length) throw new NotaErro(400, `E-mail inválido: ${ruins.join(", ")}`);
+    lista = emailsOmie.separar(txt);
+  }
   for (const [id, nat] of Object.entries(naturezas || {})) {
     if (nat !== "servico" && nat !== "peca") continue;
     await pool.query(`UPDATE orcamento_linhas SET natureza = $3 WHERE id = $1 AND orcamento_id = $2`, [Number(id), orcId, nat]);
@@ -625,6 +666,8 @@ async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento
   const { orc, linhas } = await _carregar(orcId);
   const prodInfo = await catalogo.porCodigos(linhas.map(l => l.omie_produto_codigo).filter(Boolean));
   const conf = _conferir(orc, linhas, null, null, prodInfo, pagamento);
+  // Sem lista vinda do modal (quem chama direto), vale a mesma da prévia.
+  conf.emails = lista != null ? lista : (await destinatarios(orc)).lista;
   // Toda linha cobrável precisa estar CONFIRMADA — sugestão não emite nota.
   const semConfirmar = conf.linhas.filter(l => l.cobravel && !l.natureza);
   if (semConfirmar.length) throw new NotaErro(422, "Confirme se cada linha é serviço ou peça antes de emitir.");
@@ -638,13 +681,14 @@ async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento
     `UPDATE orcamentos
         SET nota_tipo = $3, nota_status = 'processando', nota_erro = NULL,
             nota_solicitada_em = now(), nota_emitida_por = $2,
-            nota_conta_corrente = $4, boleto_status = $5, boleto_erro = NULL
+            nota_conta_corrente = $4, boleto_status = $5, boleto_erro = NULL,
+            nota_emails = $6
       WHERE id = $1
         AND (nota_status IS NULL OR nota_status = 'erro'
              OR (nota_status = 'processando' AND omie_os_codigo IS NULL AND omie_pedido_codigo IS NULL
                  AND nota_solicitada_em < now() - interval '5 minutes'))
       RETURNING id`,
-    [orcId, usuarioId, conf.tipo, conf.pagamento.conta, conf.pagamento.boleto ? "pendente" : null]
+    [orcId, usuarioId, conf.tipo, conf.pagamento.conta, conf.pagamento.boleto ? "pendente" : null, conf.emails.length ? conf.emails.join(", ") : null]
   );
   if (!trava.rowCount) throw new NotaErro(409, "Já existe uma emissão em andamento para este orçamento.");
 
@@ -669,7 +713,7 @@ async function _emitirNfse(orc, conf, nCodCli) {
   if (!nCodOS) {
     // Os itens são OS MESMOS da prévia que quem emitiu viu e confirmou.
     const itens = conf.itens.map(i => ({ descricao: i.descricao, quantidade: i.quantidade, unitCent: Math.round(i.valor_unitario * 100) }));
-    const novo = await omie.incluirOs(montarOs({ orc, itens, nCodCli, pagamento: conf.pagamento }));
+    const novo = await omie.incluirOs(montarOs({ orc, itens, nCodCli, pagamento: conf.pagamento, emails: conf.emails }));
     nCodOS = novo.nCodOS;
     if (!nCodOS) throw new NotaErro(502, "O Omie não devolveu o código da OS criada.");
   }
@@ -693,7 +737,7 @@ async function _emitirDanfe(orc, conf, nCodCli, linhas) {
         throw new NotaErro(409, "Cliente fora de SP: a DANFE muda de CFOP (6.xxx) — por enquanto, emita no Omie.");
       }
     }
-    const novo = await omie.incluirPedido(montarPedido({ orc, itens: conf.itens, nCodCli, pagamento: conf.pagamento }));
+    const novo = await omie.incluirPedido(montarPedido({ orc, itens: conf.itens, nCodCli, pagamento: conf.pagamento, emails: conf.emails }));
     nCodPed = novo.codigo_pedido;
     if (!nCodPed) throw new NotaErro(502, "O Omie não devolveu o código do pedido criado.");
     // O Omie aceitou estes produtos para estas descrições: aprende.
@@ -906,6 +950,7 @@ module.exports = {
   montarPagamento,
   montarOs,
   montarPedido,
+  destinatarios,
   preparar,
   emitir,
   atualizar,

@@ -663,6 +663,102 @@ async function sendOrdemServicoCliente(dados) {
   }, "O.S. ao cliente");
 }
 
+// Aviso de cobrança (migration 102, docs/modulos/cobranca-avisos.md): o
+// lembrete antes do vencimento, o "vence hoje" e a cobrança do atraso, com o
+// boleto em PDF anexado. Mesma moldura da O.S. (pedido do Pedro, 23/11/2026).
+//
+// ⚠️ SEM VALOR NO CORPO, de propósito: é a regra da moldura (o valor é
+// assunto do documento, e o corpo do e-mail se espalha por encaminhamentos).
+// O valor está no boleto anexo.
+//
+// dados: { etapa: 'antes'|'dia'|'atraso1'|'atraso2', clienteNome, numeroNf,
+//          parcela, vencimento (DATE|'AAAA-MM-DD'), diasAtraso, linkNota,
+//          boletoPdf (Buffer|null), boletoNome }
+// Devolve { subject, html, text, attachments } — a prévia da tela usa o mesmo.
+function montarCobranca(dados) {
+  const E = _escaparHtml;
+  const venc = _fmtDataSemFuso(dados.vencimento) || "—";
+  const cliente = dados.clienteNome || "—";
+  const nf = dados.numeroNf ? `nota fiscal ${dados.numeroNf}` : "nota fiscal";
+  const parcela = dados.parcela && dados.parcela !== "001/001" ? dados.parcela : null;
+  const ref = `${nf}${parcela ? `, parcela ${parcela}` : ""}`;
+  const temBoleto = !!dados.boletoPdf;
+  const atraso = dados.etapa === "atraso1" || dados.etapa === "atraso2";
+  const P = txt => `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">${txt}</p>`;
+
+  let sobrancelha, assunto, paragrafos, textos;
+  if (dados.etapa === "antes") {
+    sobrancelha = "Lembrete de vencimento";
+    assunto = `Lembrete: boleto da ${ref} vence em ${venc} — General Bombas`;
+    paragrafos = [
+      `Lembramos que o boleto referente à <strong>${E(ref)}</strong>, de <strong>${E(cliente)}</strong>, vence em <strong>${E(venc)}</strong>.`,
+      temBoleto ? "O boleto está em anexo." : "",
+      "Se o pagamento já foi feito, por favor desconsidere esta mensagem.",
+    ];
+    textos = [`Lembramos que o boleto referente à ${ref}, de ${cliente}, vence em ${venc}.`, temBoleto ? "O boleto está em anexo." : "", "Se o pagamento já foi feito, por favor desconsidere esta mensagem."];
+  } else if (dados.etapa === "dia") {
+    sobrancelha = "Vence hoje";
+    assunto = `O boleto da ${ref} vence hoje — General Bombas`;
+    paragrafos = [
+      `O boleto referente à <strong>${E(ref)}</strong>, de <strong>${E(cliente)}</strong>, vence <strong>hoje</strong>.`,
+      temBoleto ? "O boleto está em anexo." : "",
+      "Se o pagamento já foi feito, por favor desconsidere esta mensagem.",
+    ];
+    textos = [`O boleto referente à ${ref}, de ${cliente}, vence hoje.`, temBoleto ? "O boleto está em anexo." : "", "Se o pagamento já foi feito, por favor desconsidere esta mensagem."];
+  } else {
+    sobrancelha = "Boleto em aberto";
+    assunto = `Boleto em aberto: ${ref}, vencido em ${venc} — General Bombas`;
+    paragrafos = [
+      `Até o momento não identificamos o pagamento do boleto referente à <strong>${E(ref)}</strong>, de <strong>${E(cliente)}</strong>, vencido em <strong>${E(venc)}</strong>.`,
+      temBoleto ? "O boleto está em anexo para o pagamento." : "",
+      "Se o pagamento já foi feito, pedimos que nos envie o comprovante respondendo este e-mail, para darmos a baixa.",
+    ];
+    textos = [`Até o momento não identificamos o pagamento do boleto referente à ${ref}, de ${cliente}, vencido em ${venc}.`, temBoleto ? "O boleto está em anexo para o pagamento." : "", "Se o pagamento já foi feito, pedimos que nos envie o comprovante respondendo este e-mail, para darmos a baixa."];
+  }
+
+  const linkNota = dados.linkNota && /^https?:\/\//i.test(dados.linkNota) ? dados.linkNota : null;
+  const corpoHtml = [P("Prezado(a),"), ...paragrafos.filter(Boolean).map(P),
+    linkNota ? P(`A nota fiscal pode ser consultada <a href="${E(linkNota)}" style="color:#1d4ed8;">neste link</a>.`) : ""].join("\n        ");
+
+  const html = _molduraEstruturada({
+    sobrancelha,
+    corpoHtml,
+    tituloInfos: "Informações do boleto",
+    infos: [
+      ["Cliente", cliente],
+      ["Nota fiscal", dados.numeroNf || null],
+      ["Parcela", parcela],
+      ["Vencimento", venc],
+      atraso && dados.diasAtraso ? ["Em aberto há", `${dados.diasAtraso} dia${dados.diasAtraso === 1 ? "" : "s"}`] : ["", null],
+    ],
+  });
+  const text = ["Prezado(a),", "", ...textos.filter(Boolean), linkNota ? `Nota fiscal: ${linkNota}` : null, "",
+    "Informações do boleto", `Cliente: ${cliente}`, dados.numeroNf ? `Nota fiscal: ${dados.numeroNf}` : null,
+    parcela ? `Parcela: ${parcela}` : null, `Vencimento: ${venc}`, "", ..._FECHO_TEXTO].filter(l => l !== null).join("\n");
+  return {
+    subject: assunto, html, text,
+    attachments: temBoleto ? [{ filename: dados.boletoNome || "boleto.pdf", content: dados.boletoPdf }] : [],
+  };
+}
+
+// dados: os de montarCobranca + to (array). Devolve o id do Resend.
+async function sendCobrancaCliente(dados) {
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY não configurada — envio de email indisponível");
+  const to = Array.isArray(dados.to) ? dados.to : [dados.to];
+  if (!to.length) throw new Error("Nenhum destinatário informado");
+  const m = montarCobranca(dados);
+  const r = await _enviar({
+    from: `General Bombas <${_emailFrom()}>`,
+    to,
+    replyTo: _emailFrom(),
+    subject: m.subject,
+    text: m.text,
+    html: m.html,
+    ...(m.attachments.length ? { attachments: m.attachments } : {}),
+  }, `cobrança ${dados.etapa}`);
+  return r && r.id ? r.id : null;
+}
+
 // Aviso do escritório ao síndico (redesenho, etapa 8 — 20/11/2026): o lote
 // "Mandar aviso aos síndicos" da lista de Condomínios. Um e-mail por prédio,
 // para o e-mail do cadastro (o mesmo destino da O.S.). Sem anexo.
@@ -883,4 +979,4 @@ function _escaparHtml(v) {
     .replace(/"/g, "&quot;");
 }
 
-module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrdemServicoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo, sendAvisoCondominio };
+module.exports = { sendOTP, sendAssinaturaCodigo, sendAlertaEmail, sendOrcamentoCliente, sendOrdemServicoCliente, sendOrcamentoRespondido, sendContratoAssinatura, sendLeadNovo, sendAvisoCondominio, montarCobranca, sendCobrancaCliente };

@@ -192,7 +192,19 @@
           : t.orcamento_id ? `<a class="ls-lk is-forte" href="#/orcamentos/${t.orcamento_id}">${esc(origemTxt(t))}</a>` : "—", true],
       ]))}
       ${outrosDoCliente(t)}
+      ${avisosDoTitulo(t)}
       ${sec("Já pagou?", blocoPago(t))}`;
+  }
+
+  // Os avisos por e-mail deste título (admin-cobranca-avisos.js, migration 102).
+  function avisosDoTitulo(t) {
+    const l = window.GBAvisos?.doTitulo?.(t.omie_codigo) || [];
+    if (!l.length) return "";
+    const txt = a => a.status === "enviado"
+      ? `enviado ${new Date(a.enviado_em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+      : a.status === "pendente" ? "na fila para enviar" : a.status === "sem_email" ? "sem e-mail" : a.status === "erro" ? "falhou" : "não foi";
+    return sec("Avisos por e-mail", `<ul class="cb-outros">${l.map(a =>
+      `<li><span>${esc(a.etapa_nome)}</span><span class="ls-mudo">${esc(txt(a))}</span></li>`).join("")}</ul>`);
   }
 
   // ===== a lista =====

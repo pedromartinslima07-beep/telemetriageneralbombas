@@ -255,6 +255,20 @@ e o retorno `CB191100.RET` traz esse mesmo número. Das 10 parcelas Bradesco
 de 17 a 19/11, 3 estavam sem boleto (`cGerado N`), o que acontece quando
 ninguém gera.
 
+## O e-mail da nota (23/11/2026, migration 102)
+
+⚠️ **Até aqui a nota emitida pelo sistema saía sem e-mail.** As O.S. feitas na
+tela do Omie levam o bloco `Email` (link da NFS-e, boleto e `cEnviarPara`), e
+o molde não levava. Agora a O.S. leva `Email { cEnvLink: "S", cEnvBoleto:
+"S" ("N" sem boleto), cEnvRecibo: "N", cEnviarPara }` e o pedido leva
+`enviar_email: "S"` + `utilizar_emails`. **Quem manda continua sendo o
+Omie**, como nas notas feitas lá.
+
+Os destinatários **não são o e-mail do cadastro do cliente**: são os da nota
+mais recente dele no Omie (não cancelada), mostrados no modal ("E-mail da
+nota") para conferir, e gravados em `orcamentos.nota_emails` — os mesmos
+que os avisos de cobrança usam. Ver [cobranca-avisos.md](cobranca-avisos.md).
+
 ## Rateio: valor manual e serviço embutido
 
 Se o orçamento tem total manual (`orcamentos.valor`, que sobrepõe a soma no

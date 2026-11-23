@@ -12907,3 +12907,14 @@ a.ls-bt { text-decoration: none; }
 .gu-form, .gu-form label { min-width: 0; }
 .gu-form input:not([type="checkbox"]), .gu-form select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 #guLsRoot .ls-sec .ls-sec { padding-left: 0; padding-right: 0; margin-left: 0; margin-right: 0; }
+
+/* ===== Avisos de cobrança por e-mail (admin-cobranca-avisos.js, 23/11/2026) ===== */
+#caLsRoot .ls-cab-acoes { position: relative; }
+.ca-regras { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: min(440px, calc(100vw - 32px)); display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--ls-fio-forte); border-radius: 10px; background: var(--ls-placa); box-shadow: 0 10px 30px rgba(6, 16, 51, .16); text-align: left; }
+.ca-regras-l { display: grid; gap: 8px; }
+.ca-regras-l label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--ls-tinta); }
+.ca-num { display: inline-flex; align-items: center; gap: 6px; color: var(--ls-muted); font-size: 12.5px; white-space: nowrap; }
+.ca-num input { width: 64px; height: 30px; padding: 0 8px; border: 1px solid var(--ls-fio-forte); border-radius: 7px; background: var(--ls-placa); color: var(--ls-tinta); font: inherit; font-size: 13px; text-align: right; }
+.ca-auto { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.4; color: var(--ls-tinta-2); }
+.ca-auto input { margin-top: 2px; }
+#caLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }

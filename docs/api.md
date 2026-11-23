@@ -307,6 +307,24 @@ Omie; [omie-integracao.md](modulos/omie-integracao.md#3-contas-a-receber-quem-pa
   futura; 404 título fora da lista.
 - `DELETE /admin/cobranca/:codigo/pago` → desfaz (404 se não estava marcado).
 
+**Avisos de cobrança** (`/admin/cobranca/avisos`, **só admin** + **só o painel
+novo**, migration 102; [cobranca-avisos.md](modulos/cobranca-avisos.md)):
+- `GET /admin/cobranca/avisos` → refaz a fila do dia e devolve `{ avisos,
+  regras, envio_ligado, hoje, fila }`. Cada aviso: `id`, `omie_titulo`,
+  `etapa` (`antes`｜`dia`｜`atraso1`｜`atraso2`), `etapa_nome`, `vencimento`,
+  `valor`, `numero_nf`, `origem`, `cliente`, `destinatarios`, `status`
+  (`pendente`, `enviando`, `enviado`, `erro`, `sem_email`, `expirado`,
+  `ignorado`), `erro`, `boleto`, `enviado_em`/`enviado_por`.
+- `PUT /admin/cobranca/avisos/regras` `{ dias_antes?, atraso_1?, atraso_2?,
+  automatico? }` → `{ regras }` (as chaves `cobranca.*`; 2ª antes da 1ª = 400).
+- `GET /admin/cobranca/avisos/:id/email` → `{ assunto, html, para, anexo }`: o
+  e-mail como vai sair.
+- `POST /admin/cobranca/avisos/enviar` `{ ids }` → ⚠️ **manda e-mail ao
+  cliente**, com o PDF do boleto → `{ enviados, falhas }`. **503 sem
+  `COBRANCA_EMAIL=1`**. Refaz a fila antes: pago ou fora de etapa não sai.
+- `POST /admin/cobranca/avisos/:id/ignorar` · `PUT /admin/cobranca/avisos/:id/para`
+  `{ destinatarios }` (só neste aviso; inválido = 400).
+
 **Guias de tributos** (`/admin/guias`, **só admin** + **só o painel novo**
 (`masterAdminOnly` + `painelNovoOnly`), migration 100;
 [guias-tributos.md](modulos/guias-tributos.md)):
@@ -395,7 +413,7 @@ ao e-mail cadastrado (2FA equivalente ao do login).
 | POST | `/admin/orcamentos/avulsos/:id/resposta-baixa` | da baixa na resposta do cliente — e **isto** que tira a pendencia da aba. Body `{ desfazer?: true }` reabre. Idempotente: um segundo clique nao reescreve a data nem troca o autor. Devolve `{ resposta_tratada_em, resposta_tratada_por_nome }`. Sem `respondido_em` na linha, nao grava nada; id inexistente → 404 |
 | GET | `/admin/orcamentos/avulsos/:id/nota` | gestaoOnly — **prévia da nota, sem chamar o Omie**: `linhas` (com `natureza` gravada e `natureza_sugerida`; nas peças, `produto` escolhido e `sugestoes` do catálogo, com `lembrado: true` no da última vez), `itens` exatamente como iriam para a nota (rateados; na DANFE com `codigo_produto`, `ncm` e `cfop`), `total`, `tipo` (`nfse`/`nfe`), `servico_embutido`, `bloqueio` (frase ou null), `cliente`, `emissao_ligada`, `catalogo` (`total`, `atualizado_em`, `sincronizando`), `nota` (estado atual). Catálogo com mais de 24 h se atualiza em segundo plano. Ver [modulos/nota-fiscal.md](modulos/nota-fiscal.md) |
 | POST | `/admin/orcamentos/avulsos/:id/nota/previa` | gestaoOnly — a mesma prévia, com o que está marcado no modal e ainda não foi gravado: body `{ naturezas, produtos: { [linha_id]: codigo_produto }, pagamento: { parcelas, vencimentos? } }`. **Não grava nada** (POST só por levar corpo). A prévia devolve `pagamento` (`parcelas`, `do_orcamento` lido do texto, `forma_pagamento`, `lista` com `vencimento` AAAA-MM-DD, `valor`, `percentual`) |
-| POST | `/admin/orcamentos/avulsos/:id/nota/emitir` | gestaoOnly — body `{ naturezas: { [linha_id]: "servico"｜"peca" }, produtos: { [linha_id]: codigo_produto }, pagamento: { parcelas: 1..12, vencimentos?: ["AAAA-MM-DD"] } }`; naturezas e produtos gravados antes de tudo, o pagamento só vai na emissão (2+ parcelas = código `999` com a lista; vencimento no passado ou fora de ordem = 409) (422 se o produto não estiver no catálogo). 422 se alguma linha cobrável ficar sem natureza; 409 com o `bloqueio` (peça sem produto, fora de SP, OS/pedido de tentativa anterior do outro tipo, já emitida, não aprovado, tipo limpeza/dedetização…) ou emissão em andamento; **503 sem `OMIE_EMISSAO=1`** (kill-switch: o Omie não tem ambiente de teste). Cliente (cache → CNPJ → `UpsertCliente`); só serviço: OS `ORC-<id>` + `FaturarOS`; com peça: pedido de venda `ORC-<id>` (acha antes de criar) + `FaturarPedidoVenda`, e a escolha de produto vai para `omie_produto_vinculos`. Devolve o estado da nota |
+| POST | `/admin/orcamentos/avulsos/:id/nota/emitir` | gestaoOnly — body `{ naturezas: { [linha_id]: "servico"｜"peca" }, produtos: { [linha_id]: codigo_produto }, pagamento: { parcelas: 1..12, vencimentos?: ["AAAA-MM-DD"] }, emails?: "a@x, b@y" }` (os destinatários da nota, migration 102: vão no bloco `Email` da O.S. / `utilizar_emails` do pedido e ficam em `orcamentos.nota_emails`; inválido = 400; sem o campo, a lista da prévia, que traz `emails { lista, fonte, numero, data }`); naturezas e produtos gravados antes de tudo, o pagamento só vai na emissão (2+ parcelas = código `999` com a lista; vencimento no passado ou fora de ordem = 409) (422 se o produto não estiver no catálogo). 422 se alguma linha cobrável ficar sem natureza; 409 com o `bloqueio` (peça sem produto, fora de SP, OS/pedido de tentativa anterior do outro tipo, já emitida, não aprovado, tipo limpeza/dedetização…) ou emissão em andamento; **503 sem `OMIE_EMISSAO=1`** (kill-switch: o Omie não tem ambiente de teste). Cliente (cache → CNPJ → `UpsertCliente`); só serviço: OS `ORC-<id>` + `FaturarOS`; com peça: pedido de venda `ORC-<id>` (acha antes de criar) + `FaturarPedidoVenda`, e a escolha de produto vai para `omie_produto_vinculos`. Devolve o estado da nota |
 | POST | `/admin/orcamentos/avulsos/:id/nota/atualizar` | gestaoOnly — relê no Omie e grava número, link e status (`processando`/`emitida`/`erro`/`cancelada`). NFS-e: `StatusOS`. DANFE: `ConsultarNF` por `nIdPedido` + `ObterNfe` (PDF em `cPdf`). ⚠️ Com a nota emitida e `boleto_status = 'pendente'` (e `OMIE_EMISSAO=1`), **gera o boleto das parcelas** (ver a linha abaixo). A resposta traz `banco`, `remessa`, `boleto_status`, `boleto_erro` e `boletos[]` |
 | POST | `/admin/orcamentos/avulsos/:id/nota/boletos` | gestaoOnly + painel novo — ⚠️ **grava no Omie** (`GerarBoleto`). Acha os títulos da nota (`ListarContasReceber`, casados por `nCodOS`/`nCodPedido`) e gera o boleto dos que não têm. 409 se a nota não está emitida ou se houve pedido há menos de 70 s; 503 sem `OMIE_EMISSAO=1`. Recusa numa parcela → `boleto_status: 'erro'` com o motivo (200) |
 | GET | `/admin/orcamentos/avulsos/:id/nota/boletos/:titulo/link` | gestaoOnly — `{ link }` do PDF do boleto da parcela (`ObterBoleto`, só leitura; o link vale 24 h). 404 se a parcela não é do orçamento |

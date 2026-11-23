@@ -223,7 +223,10 @@ como o de 18/11. O script fica pronto (só aceita chamadas `Listar`/`Pesquisar`/
 > vez só; título baixado some e a marca à mão fica). Na tela com títulos de
 > mentira, 1440px e 375px. ✅ **099 em produção (23/11/2026)**, antes do
 > push. **Falta:** "Recebimentos atrasados" no Hoje e o aviso na página do
-> prédio; segunda via por e-mail.
+> prédio. **A segunda via virou os avisos de cobrança por e-mail (23/11/2026,
+> migration 102):** lembrete antes, "vence hoje", 1ª e 2ª cobrança, com o
+> boleto anexado, para os e-mails da nota — ver
+> [cobranca-avisos.md](cobranca-avisos.md).
 
 - Cópia dos títulos a receber (`financas/contareceber/ListarContasReceber`):
   vencimento, valor, situação, pago em, boleto, de qual nota/contrato.

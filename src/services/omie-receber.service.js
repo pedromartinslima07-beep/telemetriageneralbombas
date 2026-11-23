@@ -54,13 +54,13 @@ function telefoneOmie(ddd, numero) {
   return (d ? `(${d}) ` : "") + n;
 }
 
-async function _listarAtrasadosOmie() {
+async function _listarPorStatus(status) {
   const todos = [];
   for (let p = 1; p <= 30; p++) {
     let j;
     try {
       j = await omie.chamar("financas/contareceber/", "ListarContasReceber", {
-        pagina: p, registros_por_pagina: 100, apenas_importado_api: "N", filtrar_por_status: "ATRASADO",
+        pagina: p, registros_por_pagina: 100, apenas_importado_api: "N", filtrar_por_status: status,
       });
     } catch (e) {
       if (e.naoEncontrado) break; // nenhum atrasado
@@ -70,6 +70,18 @@ async function _listarAtrasadosOmie() {
     if (p >= (j.total_de_paginas || 1)) break;
   }
   return todos;
+}
+const _listarAtrasadosOmie = () => _listarPorStatus("ATRASADO");
+
+// Os avisos de cobrança (migration 102) precisam também do que ainda não
+// venceu. ⚠️ O filtro é "AVENCER"/"VENCEHOJE", mas o título volta com o status
+// escrito com espaço: "A VENCER", "VENCE HOJE" (lido em 23/11/2026: 24 e 6
+// títulos). E "VENCE HOJE" inclui o que venceu no fim de semana — o Omie
+// conta o próximo dia útil. Em série: o Omie atende um método por vez.
+async function _listarAVencerOmie() {
+  const aVencer = await _listarPorStatus("AVENCER");
+  const hoje = await _listarPorStatus("VENCEHOJE");
+  return [...aVencer.map(t => ({ ...t, _vence_hoje: false })), ...hoje.map(t => ({ ...t, _vence_hoje: true }))];
 }
 
 // O que o sistema emitiu: de qual OS / pedido / título nasceu cada nota.
@@ -109,9 +121,13 @@ async function ultimaSincronizacao() {
 
 // Troca a cópia inteira pelos atrasados de agora que o sistema emitiu.
 // `listar` existe para o teste trocar o Omie por um simulado.
-async function sincronizar({ listar = _listarAtrasadosOmie } = {}) {
+async function sincronizar({ listar = _listarAtrasadosOmie, listarAVencer = _listarAVencerOmie } = {}) {
   try {
     const atrasados = await listar();
+    // A vencer: se a leitura falhar (ou a 102 não existir), os atrasados
+    // seguem copiados — é deles que a aba "Em atraso" depende.
+    let aVencer = null, erroAVencer = null;
+    try { aVencer = await listarAVencer(); } catch (e) { erroAVencer = e.message; }
     const mapas = await _doSistema();
     const nossos = [];
     for (const t of atrasados) {
@@ -140,7 +156,36 @@ async function sincronizar({ listar = _listarAtrasadosOmie } = {}) {
          unicos.map(x => x.t.id_conta_corrente || null),
          unicos.map(x => (x.t.boleto?.cGerado === "S" || x.t.boleto?.cNumBancario) ? String(x.t.boleto.cNumBancario || x.t.boleto.cNumBoleto || "") || null : null)]
       );
-      const detalhe = { atrasados_no_omie: atrasados.length, do_sistema: unicos.length };
+      let avencerDoSistema = null;
+      if (aVencer) {
+        const av = [...new Map(aVencer.map(t => ({ t, o: origemDo(t, mapas), venc: _data(t.data_vencimento) }))
+          .filter(x => x.o && x.venc && x.t.codigo_lancamento_omie && !/ATRASADO/.test(String(x.t.status_titulo || "")))
+          .map(x => [String(x.t.codigo_lancamento_omie), x])).values()];
+        await client.query("SAVEPOINT avencer");
+        try {
+          await client.query("DELETE FROM omie_receber_avencer");
+          if (av.length) await client.query(
+            `INSERT INTO omie_receber_avencer (omie_codigo, omie_cliente, origem, orcamento_id, omie_contrato, competencia,
+               documento, parcela, numero_nf, valor, emissao, vencimento, vence_hoje, conta_corrente, boleto_numero, atualizado_em)
+             SELECT *, NOW() FROM unnest($1::bigint[], $2::bigint[], $3::text[], $4::int[], $5::bigint[], $6::text[],
+               $7::text[], $8::text[], $9::text[], $10::numeric[], $11::date[], $12::date[], $13::boolean[], $14::bigint[], $15::text[])`,
+            [av.map(x => x.t.codigo_lancamento_omie), av.map(x => x.t.codigo_cliente_fornecedor || null),
+             av.map(x => x.o.origem), av.map(x => x.o.orcamento_id || null), av.map(x => x.o.omie_contrato || null),
+             av.map(x => x.o.competencia || null), av.map(x => x.t.numero_documento || null),
+             av.map(x => x.t.numero_parcela || null), av.map(x => x.t.numero_documento_fiscal || null),
+             av.map(x => Number(x.t.valor_documento || 0)), av.map(x => _data(x.t.data_emissao)), av.map(x => x.venc),
+             av.map(x => !!x.t._vence_hoje || /HOJE/.test(String(x.t.status_titulo || ""))),
+             av.map(x => x.t.id_conta_corrente || null),
+             av.map(x => (x.t.boleto?.cGerado === "S" || x.t.boleto?.cNumBancario) ? String(x.t.boleto.cNumBancario || x.t.boleto.cNumBoleto || "") || null : null)]);
+          await client.query("RELEASE SAVEPOINT avencer");
+          avencerDoSistema = av.length;
+        } catch (e) {
+          await client.query("ROLLBACK TO SAVEPOINT avencer");
+          erroAVencer = e.message;
+        }
+      }
+      const detalhe = { atrasados_no_omie: atrasados.length, do_sistema: unicos.length,
+        a_vencer_no_omie: aVencer ? aVencer.length : null, a_vencer_do_sistema: avencerDoSistema, erro_a_vencer: erroAVencer };
       await client.query(
         `INSERT INTO omie_sincronizacoes (nome, ultima_em, ultimo_erro, detalhe) VALUES ($1, NOW(), NULL, $2)
          ON CONFLICT (nome) DO UPDATE SET ultima_em = NOW(), ultimo_erro = NULL, detalhe = EXCLUDED.detalhe`,

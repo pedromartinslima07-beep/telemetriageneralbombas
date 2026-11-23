@@ -61,6 +61,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`agenda.md`](docs/modulos/agenda.md) — agenda da empresa: compromissos, retornos, contratos, preventivas e o faturamento dos contratos do Omie (só leitura) `#fluxo`
 - [`omie-integracao.md`](docs/modulos/omie-integracao.md) — plano do que trazer do Omie: contratos ligados ao prédio, faturamento do dia 1, contas a receber (marcar à mão e conferir pelo arquivo do banco), a pagar, cadastro e caixa `#fluxo`
 - [`guias-tributos.md`](docs/modulos/guias-tributos.md) — o PDF da guia (DAS, DARF, FGTS…) que o contador publica no Onvio vira conta a pagar no Omie: leitura do código de barras, conferência, travas contra lançamento em dobro `#fluxo`
+- [`cobranca-avisos.md`](docs/modulos/cobranca-avisos.md) — a nota sai do Omie para os mesmos e-mails de sempre (bloco Email da O.S.) e os avisos de cobrança por e-mail (antes, no dia, 1ª e 2ª cobrança), com aprovação `#fluxo`
 - [`relatorios-dashboard.md`](docs/modulos/relatorios-dashboard.md) — o dashboard de Relatórios: o período contra o anterior, as réguas de cada número `#fluxo`
 - [`painel-novo.md`](docs/modulos/painel-novo.md) — o painel novo e a emissão pelo Omie só para os e-mails da `PAINEL_NOVO`; os outros logins veem a cópia congelada do admin de antes `#fluxo`
 - [`painel-operador.md`](docs/modulos/painel-operador.md) — painel do turno: a fila ordenada pelo SLA que estoura primeiro, com a evidência dentro do item `#fluxo`

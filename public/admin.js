@@ -14334,6 +14334,7 @@ async function _avAbrirNota() {
       <ul class="av-nota-itens">${itens}</ul>
       <div class="av-nota-kv av-nota-total"><span>Total da nota</span><b>${_orcFmtValor(p.total)}</b></div>
       ${pagamentoHtml()}
+      ${emailsHtml()}
       ${nfe && p.servico_embutido > 0 ? `<div class="hint">O serviço (${_orcFmtValor(p.servico_embutido)}) não sai como linha: está embutido no preço das peças, na proporção do valor de cada uma.</div>` : ""}
       ${!nfe && p.rateado ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as linhas, na proporção de cada uma.</div>` : ""}
       ${nfe && p.rateado && !(p.servico_embutido > 0) ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as peças, na proporção de cada uma.</div>` : ""}
@@ -14374,11 +14375,33 @@ async function _avAbrirNota() {
       <div class="hint">${dicaBoleto}</div>`;
   }
 
+  // Para quem o Omie manda a nota (migration 102): os destinatários da nota
+  // mais recente do cliente no Omie, que não são o e-mail do cadastro dele.
+  // O que for digitado aqui vale sobre a prévia, e vai na emissão.
+  function emailsHtml() {
+    const em = p.emails || { lista: [] };
+    const valor = emailsTxt != null ? emailsTxt : (em.lista || []).join(", ");
+    const dataBr = d => d ? d.split("-").reverse().join("/") : "";
+    const fonte = em.fonte === "os" ? `os mesmos da O.S.${em.numero ? " " + esc(em.numero) : ""}${em.data ? " de " + dataBr(em.data) : ""} no Omie`
+      : em.fonte === "pedido" ? `os mesmos do pedido${em.numero ? " " + esc(em.numero) : ""}${em.data ? " de " + dataBr(em.data) : ""} no Omie`
+      : em.fonte === "cadastro" ? "o e-mail do cadastro do cliente no Omie (ele não tem nota com destinatário lá)"
+      : em.fonte === "predio" ? "o e-mail do cadastro do prédio aqui (o cliente ainda não tem nota no Omie)"
+      : em.fonte === "emitida" ? "os que foram na emissão"
+      : "nenhum e-mail achado";
+    const velha = em.data && (Date.now() - new Date(em.data + "T12:00:00").getTime()) > 365 * 86400e3;
+    const vazio = !String(valor).trim();
+    return `
+      <div class="av-nota-kv av-nota-pag"><span>E-mail da nota</span>
+        <b><textarea class="select" rows="2" data-nota-emails aria-label="E-mails que recebem a nota" placeholder="sindico@exemplo.com, financeiro@exemplo.com">${esc(valor)}</textarea></b></div>
+      <div class="hint">O próprio Omie manda a nota${p.pagamento && p.pagamento.boleto !== false ? " e o boleto" : ""} para estes e-mails, como nas notas feitas lá. Vieram de ${fonte}${emailsTxt != null ? " (alterados aqui)" : ""}.${velha ? " <b>Essa nota é de mais de um ano atrás: confira.</b>" : ""}${em.erro ? ` <span style="color:var(--danger)">Não consegui ler o Omie agora: ${esc(em.erro)}</span>` : ""}${vazio ? " <b>Sem e-mail, o Omie não manda nada ao cliente.</b>" : ""}</div>`;
+  }
+
   function render() { renderLinhas(); renderPrevia(); }
 
   // A prévia é do servidor (rateio, bloqueios, sugestões): toda mudança de
   // classificação ou de produto pede de novo, com o que está marcado aqui.
   let seq = 0;
+  let emailsTxt = null; // null = a lista da prévia (do Omie)
   async function atualizarPrevia() {
     const meu = ++seq;
     const msg = document.getElementById("avNotaMsg");
@@ -14470,6 +14493,8 @@ async function _avAbrirNota() {
 
   let tBusca = null;
   ov.addEventListener("input", e => {
+    const em = e.target.closest("[data-nota-emails]");
+    if (em) { emailsTxt = em.value; return; }
     const inp = e.target.closest("[data-prod-busca]");
     if (!inp) return;
     const lid = inp.dataset.prodBusca;
@@ -14503,13 +14528,16 @@ async function _avAbrirNota() {
   document.getElementById("avNotaConfirmar").addEventListener("click", async () => {
     const msg = document.getElementById("avNotaMsg");
     const btn = document.getElementById("avNotaConfirmar");
+    const emTxt = emailsTxt != null ? emailsTxt : (p.emails?.lista || []).join(", ");
+    if (!emTxt.trim() && !confirm("Nenhum e-mail para a nota: o Omie não vai mandar nada ao cliente. Emitir assim mesmo?")) return;
     btn.disabled = true;
     if (msg) { msg.style.color = "var(--tinta-2)"; msg.textContent = "Emitindo no Omie… (pode levar alguns segundos)"; }
     try {
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/emitir`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ naturezas: nat, produtos: produtosDoModal(), pagamento: pag }),
+        body: JSON.stringify({ naturezas: nat, produtos: produtosDoModal(), pagamento: pag,
+          emails: emailsTxt != null ? emailsTxt : (p.emails?.lista || []).join(", ") }),
       });
       const j = await lerRespostaJson(r, "Emitir nota");
       if (!r.ok) {

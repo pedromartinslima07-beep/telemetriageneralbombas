@@ -151,6 +151,13 @@ vencimento e tipo do texto), conferido e lançado no contas a pagar do Omie
 com o PDF anexado (`guias.service.js`, travas contra conta em dobro,
 `OMIE_EMISSAO=1`). Migration 100 (teste; ⏳ produção). Ver
 [`../docs/modulos/guias-tributos.md`](../docs/modulos/guias-tributos.md).
+**E-mail da nota e avisos de cobrança (23/11):** a nota emitida pelo sistema
+passa a levar o bloco de e-mail do Omie (os destinatários da nota mais recente
+do cliente lá, conferidos no modal); Financeiro → "Avisos" monta a fila do
+dia (antes, no dia, 1ª e 2ª cobrança) dos títulos do sistema e manda por
+e-mail com o boleto, com aprovação até ligar o automático
+(`cobranca-avisos.service.js`, `COBRANCA_EMAIL=1`). Migration 102 (teste;
+⏳ produção). Ver [`../docs/modulos/cobranca-avisos.md`](../docs/modulos/cobranca-avisos.md).
 **Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):
 Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
 lado; as telas antigas seguem alcançáveis por link.

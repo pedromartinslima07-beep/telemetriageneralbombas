@@ -13,6 +13,16 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **E-mail da nota pelo Omie + avisos de cobrança — no código em 23/11/2026,
+> sem commit.** A nota do sistema passa a mandar o bloco de e-mail ao Omie (os
+> destinatários da última nota do cliente lá, conferidos no modal) e o
+> Financeiro ganhou "Avisos" (lembrete, vence hoje, 1ª e 2ª cobrança por
+> e-mail, com o boleto). Teste 40/40. ⏳ **Falta:** migration 102 em produção
+> ANTES do push; `COBRANCA_EMAIL=1` no Railway; a primeira nota real
+> conferindo que o e-mail do Omie chegou; os primeiros avisos aprovados à mão;
+> o campo do modal da nota não foi visto na tela. Ver
+> [cobranca-avisos.md](../docs/modulos/cobranca-avisos.md).
+
 > 🟠 **Guias de tributos → contas a pagar do Omie — no código em 23/11/2026,
 > sem commit.** Financeiro → "Guias": o PDF do Onvio é lido, conferido e
 > lançado no Omie. Teste 46/46 e tela conferida no banco de teste. ⏳ **Falta:**

@@ -107,7 +107,10 @@
     // Guias de tributos (admin-guias.js): as que ainda não foram ao Omie.
     const gu = ehAdmin() ? window.GBGuias?.resumo?.() : null;
     if (gu && gu.n) acoes.push([`${gu.n} guia${gu.n === 1 ? "" : "s"} a lançar${gu.urgentes ? ` (${gu.urgentes} vencendo)` : ""}`, "guias", ""]);
-    const totalAcao = n.comErro + n.semNota + n.vencidos + n.vencendo + (cob ? cob.n : 0) + (gu ? gu.n : 0);
+    // Avisos de cobrança (admin-cobranca-avisos.js): os da fila de hoje.
+    const avi = ehAdmin() ? window.GBAvisos?.resumo?.() : null;
+    if (avi && avi.n) acoes.push([`${avi.n} aviso${avi.n === 1 ? "" : "s"} de cobrança para enviar`, "avisos", ""]);
+    const totalAcao = n.comErro + n.semNota + n.vencidos + n.vencendo + (cob ? cob.n : 0) + (gu ? gu.n : 0) + (avi ? avi.n : 0);
     return `
       <div class="fn-faixa${ehAdmin() ? "" : " is-3"}">
         <button type="button" class="fn-num is-link" data-fn-contratos="${n.fonte === "no Omie" ? "omie" : "sistema"}">
@@ -137,6 +140,7 @@
         ${ehAdmin() && window.GBCobranca ? `<div class="fn-seg" role="group" aria-label="O que listar">
           <button type="button" data-fn-modo="notas" class="${st.modo === "notas" ? "is-on" : ""}" aria-pressed="${st.modo === "notas"}">${ico("receipt")}Notas fiscais</button>
           <button type="button" data-fn-modo="atraso" class="${st.modo === "atraso" ? "is-on" : ""}" aria-pressed="${st.modo === "atraso"}">${ico("alarm-clock")}Em atraso</button>
+          ${window.GBAvisos ? `<button type="button" data-fn-modo="avisos" class="${st.modo === "avisos" ? "is-on" : ""}" aria-pressed="${st.modo === "avisos"}">${ico("mail")}Avisos</button>` : ""}
           ${window.GBGuias ? `<button type="button" data-fn-modo="guias" class="${st.modo === "guias" ? "is-on" : ""}" aria-pressed="${st.modo === "guias"}">${ico("landmark")}Guias</button>` : ""}
         </div>` : ""}
         <button type="button" class="btn btn-sm" data-fn-contratos>${ico("file-signature")}Contratos</button>
@@ -156,18 +160,28 @@
     if (st.modo === "atraso" && ehAdmin() && window.GBCobranca) {
       devolver(blocoNotas());
       document.getElementById("guLsRoot")?.remove();
+      document.getElementById("caLsRoot")?.remove();
       if (!document.getElementById("cobLsRoot")) palco.innerHTML = `<div id="cobLsRoot" class="ls"></div>`;
       window.GBCobranca.montar();
+    } else if (st.modo === "avisos" && ehAdmin() && window.GBAvisos) {
+      // Avisos de cobrança por e-mail (admin-cobranca-avisos.js, migration 102).
+      devolver(blocoNotas());
+      document.getElementById("cobLsRoot")?.remove();
+      document.getElementById("guLsRoot")?.remove();
+      if (!document.getElementById("caLsRoot")) palco.innerHTML = `<div id="caLsRoot" class="ls"></div>`;
+      window.GBAvisos.montar();
     } else if (st.modo === "guias" && ehAdmin() && window.GBGuias) {
       // Guias (admin-guias.js, só o admin): o mesmo esquema do Em atraso.
       devolver(blocoNotas());
       document.getElementById("cobLsRoot")?.remove();
+      document.getElementById("caLsRoot")?.remove();
       if (!document.getElementById("guLsRoot")) palco.innerHTML = `<div id="guLsRoot" class="ls"></div>`;
       window.GBGuias.montar();
     } else {
       st.modo = "notas";
       document.getElementById("cobLsRoot")?.remove();
       document.getElementById("guLsRoot")?.remove();
+      document.getElementById("caLsRoot")?.remove();
       hospedar(blocoNotas(), palco);
       if (typeof renderNotas === "function") renderNotas();
     }
@@ -211,6 +225,7 @@
     if (ehAdmin() && window.GBCobranca) tarefas.push(Promise.resolve(window.GBCobranca.carregar()).catch(() => {}));
     // Guias: as a lançar vão para o "Pede ação".
     if (ehAdmin() && window.GBGuias) tarefas.push(Promise.resolve(window.GBGuias.carregar()).catch(() => {}));
+    if (ehAdmin() && window.GBAvisos) tarefas.push(Promise.resolve(window.GBAvisos.carregar()).catch(() => {}));
     await Promise.all(tarefas);
     if (ativa()) { redesenharFaixa(); if (st.modo === "notas" && typeof renderNotas === "function") renderNotas(); }
   }
@@ -230,7 +245,7 @@
     if ((el = e.target.closest("[data-fn-ir]"))) {
       const [modo, aba] = el.dataset.fnIr.split(":");
       if (modo === "contratos") { irParaContratos(aba); return; }
-      if (modo === "atraso" || modo === "guias") { st.modo = modo; mostrarModo(); return; }
+      if (modo === "atraso" || modo === "guias" || modo === "avisos") { st.modo = modo; mostrarModo(); return; }
       if (st.modo !== "notas") { st.modo = "notas"; mostrarModo(); }
       // Vai direto ao filtro que mostra o que pede ação.
       setTimeout(() => {
@@ -255,6 +270,7 @@
   document.addEventListener("gb:omie-contratos", () => { if (ativa()) redesenharFaixa(); });
   document.addEventListener("gb:cobranca", () => { if (ativa()) redesenharFaixa(); });
   document.addEventListener("gb:guias", () => { if (ativa()) redesenharFaixa(); });
+  document.addEventListener("gb:avisos", () => { if (ativa()) redesenharFaixa(); });
 
   // ===== ganchos =====
   (function () {
@@ -266,7 +282,7 @@
       if (name === "financeiro") {
         // Endereço antigo (#/financeiro/contratos): a tela agora é Contratos.
         if (alvo === "contratos") { setTimeout(() => irParaContratos(), 0); return r; }
-        if (alvo === "atraso" || alvo === "notas" || alvo === "guias") st.modo = alvo;
+        if (["atraso", "notas", "guias", "avisos"].includes(alvo)) st.modo = alvo;
         render();
         garantirDados();
       } else if (name === "notas") {

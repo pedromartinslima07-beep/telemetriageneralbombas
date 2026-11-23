@@ -72,7 +72,7 @@ router.post("/orcamentos/avulsos/:id/nota/emitir", authRequired, gestaoOnly, pai
   const id = _id(req, res); if (!id) return;
   try {
     const b = req.body || {};
-    const r = await nota.emitir(id, req.user.id, _obj(b.naturezas), _obj(b.produtos), _pagamento(b.pagamento));
+    const r = await nota.emitir(id, req.user.id, _obj(b.naturezas), _obj(b.produtos), _pagamento(b.pagamento), b.emails === undefined ? null : b.emails);
     console.log(`[nota] orcamento=${id} emitir usuario=${req.user.id} -> ${r.nota_status} ${r.nota_numero || ""}`);
     return res.json(r);
   } catch (err) { return _falha(res, "POST nota/emitir", err); }

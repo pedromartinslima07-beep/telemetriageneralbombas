@@ -27,6 +27,7 @@ faz, quais tabelas/serviços/jobs participam e as regras de decisão.
 | Nota fiscal do orçamento pelo Omie (NFS-e; DANFE a seguir) | [`nota-fiscal.md`](nota-fiscal.md) |
 | O que trazer do Omie (contratos, receber, pagar, caixa) — plano | [`omie-integracao.md`](omie-integracao.md) |
 | Guias de tributos (PDF do Onvio) → contas a pagar do Omie | [`guias-tributos.md`](guias-tributos.md) |
+| O e-mail da nota pelo Omie e os avisos de cobrança | [`cobranca-avisos.md`](cobranca-avisos.md) |
 | Peças no orçamento ligadas ao catálogo do Omie (✅ fases A e B; C começada; D 📋) | [`pecas-no-orcamento.md`](pecas-no-orcamento.md) |
 | Painel admin (operação interna) — 15 telas, 3 moldes | [`painel-admin.md`](painel-admin.md) |
 | Painel do operador (a fila do turno) | [`painel-operador.md`](painel-operador.md) |

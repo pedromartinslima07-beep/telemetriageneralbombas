@@ -28,6 +28,13 @@ const CHAVES = {
   "jobs.offline_intervalo_min":  { tipo: "int", min: 1, max: 60 },
   "gps.retencao_horas":          { tipo: "int", min: 1, max: 720 }, // Fase 7F — 1h a 30 dias
   "omie.faturamento_intervalo_min": { tipo: "int", min: 15, max: 1440 }, // agenda: de quanto em quanto tempo copia o faturamento do Omie (default 60)
+  // Avisos de cobrança por e-mail (migration 102, docs/modulos/cobranca-avisos.md).
+  // O envio em si ainda exige COBRANCA_EMAIL=1 no servidor.
+  "cobranca.avisos_automatico":  { tipo: "boolean" },                 // "true" = o job manda sozinho; senão espera aprovação na tela (default false)
+  "cobranca.dias_antes":         { tipo: "int", min: 0, max: 15 },    // lembrete N dias antes do vencimento (default 3; 0 = não manda)
+  "cobranca.atraso_1":           { tipo: "int", min: 0, max: 60 },    // primeira cobrança com N dias de atraso (default 3; 0 = não manda)
+  "cobranca.atraso_2":           { tipo: "int", min: 0, max: 90 },    // segunda cobrança (default 10; 0 = não manda)
+  "cobranca.avisos_intervalo_min": { tipo: "int", min: 10, max: 240 }, // de quanto em quanto tempo o job monta a fila (default 30)
   "omie.faturamento_dia":        { tipo: "int", min: 1, max: 28 },  // dia do mês em que o lote do faturamento é proposto (default 1; fim de semana/feriado passa ao próximo dia útil)
   "gps.frequencia_segundos":     { tipo: "int", min: 30, max: 300 }, // Fase 7I — app pinga GPS a cada N segundos (default 60)
   "gps.expediente_inicio":       { tipo: "int", min: 0, max: 23 },   // hora em que o GPS liga (default 8)
