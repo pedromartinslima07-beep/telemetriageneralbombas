@@ -7,6 +7,9 @@
 //   GET  /admin/orcamentos/avulsos/:id/nota            prévia (não fala com o Omie)
 //   POST /admin/orcamentos/avulsos/:id/nota/previa     prévia com o que está marcado no modal
 //   POST /admin/orcamentos/avulsos/:id/nota/emitir     emite (exige OMIE_EMISSAO=1)
+//   PUT  /admin/orcamentos/avulsos/:id/nota/rascunho   salva cobrança, e-mails e informações adicionais (104)
+//   DELETE /admin/orcamentos/avulsos/:id/nota/rascunho descarta o rascunho
+//   POST /admin/orcamentos/avulsos/:id/nota/impostos   impostos antes de emitir (SimularImpostos, só leitura no Omie)
 //   POST /admin/orcamentos/avulsos/:id/nota/atualizar  relê o status no Omie (e gera o boleto pendente)
 //   POST /admin/orcamentos/avulsos/:id/nota/boletos    gera o boleto das parcelas (exige OMIE_EMISSAO=1)
 //   GET  /admin/orcamentos/avulsos/:id/nota/boletos/:titulo/link  PDF do boleto (só leitura)
@@ -72,10 +75,44 @@ router.post("/orcamentos/avulsos/:id/nota/emitir", authRequired, gestaoOnly, pai
   const id = _id(req, res); if (!id) return;
   try {
     const b = req.body || {};
-    const r = await nota.emitir(id, req.user.id, _obj(b.naturezas), _obj(b.produtos), _pagamento(b.pagamento), b.emails === undefined ? null : b.emails);
+    const info = typeof b.info_adicional === "string" ? b.info_adicional : undefined;
+    // O que foi emitido fica no rascunho: a página da nota mostra depois.
+    await nota.salvarRascunho(id, req.user, {
+      ...(b.pagamento ? { pagamento: _pagamento(b.pagamento) } : {}),
+      ...(b.emails !== undefined ? { emails: b.emails } : {}),
+      ...(info !== undefined ? { info_adicional: info } : {}),
+    });
+    const r = await nota.emitir(id, req.user.id, _obj(b.naturezas), _obj(b.produtos), _pagamento(b.pagamento), b.emails === undefined ? null : b.emails, info);
     console.log(`[nota] orcamento=${id} emitir usuario=${req.user.id} -> ${r.nota_status} ${r.nota_numero || ""}`);
     return res.json(r);
   } catch (err) { return _falha(res, "POST nota/emitir", err); }
+});
+
+// A página da nota (migration 104). O rascunho só existe antes de pedir a
+// nota ao Omie (ou depois de uma tentativa que falhou).
+router.put("/orcamentos/avulsos/:id/nota/rascunho", authRequired, gestaoOnly, async (req, res) => {
+  const id = _id(req, res); if (!id) return;
+  try {
+    const b = req.body || {};
+    const campos = {};
+    if (b.pagamento !== undefined) campos.pagamento = _pagamento(b.pagamento);
+    if (b.emails !== undefined) campos.emails = b.emails == null ? null : String(b.emails);
+    if (b.info_adicional !== undefined) campos.info_adicional = b.info_adicional == null ? null : String(b.info_adicional);
+    return res.json(await nota.salvarRascunho(id, req.user, campos));
+  } catch (err) { return _falha(res, "PUT nota/rascunho", err); }
+});
+
+router.delete("/orcamentos/avulsos/:id/nota/rascunho", authRequired, gestaoOnly, async (req, res) => {
+  const id = _id(req, res); if (!id) return;
+  try { return res.json(await nota.descartarRascunho(id)); }
+  catch (err) { return _falha(res, "DELETE nota/rascunho", err); }
+});
+
+// Só leitura no Omie (SimularImpostos), com cache pelo conteúdo da nota.
+router.post("/orcamentos/avulsos/:id/nota/impostos", authRequired, gestaoOnly, async (req, res) => {
+  const id = _id(req, res); if (!id) return;
+  try { return res.json(await nota.conferirImpostos(id)); }
+  catch (err) { return _falha(res, "POST nota/impostos", err); }
 });
 
 router.post("/orcamentos/avulsos/:id/nota/atualizar", authRequired, gestaoOnly, async (req, res) => {

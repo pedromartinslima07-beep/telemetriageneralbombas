@@ -9235,107 +9235,156 @@ body.role-viewer .viewer-only-hide-inline {
 .av-nota .btn + .btn { margin-top: 6px; }
 .av-nota-erro { color: var(--danger); }
 
-/* ── Modal de emissão (23/11/2026): conferência + faturamento ──────────────
-   PLACA CLARA: família de tinta, nunca --muted/--border cru. Cada bloco é um
-   cartão branco sobre a chapa do modal; o "Antes de emitir" é o mesmo
-   cartão com borda âmbar escura e título em --atencao-t (sem faixa de cor
-   na borda, ver DESIGN.md). O amarelo é só o "Emitir", no rodapé.
-   Raio com dois seletores de classe: o reset de raio do começo do arquivo
-   ganha de um só. Desenho em docs/modulos/nota-fiscal.md. */
-.modalBox.nf-box { width: min(760px, 96vw); }
-.modalBox .nf-corpo { display: flex; flex-direction: column; gap: 12px; background: var(--chapa); }
+/* ── Página da nota fiscal (23/11/2026, migration 104) ──────────────────────
+   #/orcamentos/<id>/nota, desenhada por public/admin-nota.js. Opção B da
+   maquete /dev/_nota-preview.html: no meio o documento (destinatário, itens,
+   informações adicionais, histórico), no trilho da direita o que fecha a nota
+   (resumo, impostos, cobrança, envio). Registro de gestão: cartão branco
+   (.main .card), amarelo só no Emitir, Martian Mono só em código e número.
+   Sem faixa de cor na borda (DESIGN.md): estado vai no selo e na caixa. */
+.main .nfp { padding: 4px 0 40px; max-width: 1280px; }
+.nfp-carregando { padding: 40px 0; color: var(--muted); }
+.nfp-migalha { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.nfp-migalha a { color: var(--muted); }
+.nfp-migalha a:hover { color: var(--text); }
+.nfp-migalha b { color: var(--text); font-weight: 600; }
 
-.modalBox .nf-sec,
-.modalBox .nf-pend { background: #fff; border: 1px solid var(--fio-esc); border-radius: var(--r-cartao, 10px); padding: 14px 16px; }
-.nf-sec-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.nf-sec-t { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--tinta); letter-spacing: -.01em; }
-.nf-sec-cab .nf-sec-t { margin: 0; }
+.nfp-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.nfp-cab-txt { min-width: 0; }
+.nfp-t { margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -.015em; color: var(--text); }
+.nfp-sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); max-width: 80ch; line-height: 1.5; }
+.nfp-acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.main .nfp-selo { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; vertical-align: 3px; margin-left: 6px; letter-spacing: 0; }
+.nfp-selo.is-rasc { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+.nfp-selo.is-proc { background: #fdf1d6; color: var(--atencao-t); }
+.nfp-selo.is-ok { background: #dff1e6; color: var(--ok-t); }
+.nfp-selo.is-erro { background: #f8e1e1; color: var(--risco-t); }
 
-.nf-lk { border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--mar-700, #1b2f6e);
-  text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
-.nf-lk:hover { color: var(--tinta); }
-.nf-cod { font-family: var(--mono); font-size: 11.5px; color: var(--tinta-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.nf-nota { margin: 8px 0 0; font-size: 12px; color: var(--tinta-2); line-height: 1.45; }
-.nf-vazio { margin: 0; font-size: 13px; color: var(--tinta-2); }
-.nf-erro { color: var(--danger-t); }
+.main .nfp-aviso { margin-top: 12px; padding: 9px 14px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.nfp-aviso.is-erro { color: var(--risco-t); border-color: rgba(121, 0, 0, .35); background: #fff; }
 
-/* O que impede e o que falta */
-.modalBox .nf-bloq,
-.modalBox .nf-info { border-radius: var(--r-cartao, 10px); padding: 10px 14px; font-size: 13px; line-height: 1.45; }
-.modalBox .nf-bloq { background: #fff; border: 1px solid rgba(121, 0, 0, .45); color: var(--tinta); display: flex; flex-direction: column; gap: 2px; }
-.nf-bloq b { color: var(--danger-t); }
-.modalBox .nf-info { background: var(--chapa-cl); border: 1px dashed var(--fio-esc); color: var(--tinta-2); }
+.nfp-passos { list-style: none; display: flex; margin: 16px 0; padding: 0; gap: 6px; }
+.nfp-passos li { flex: 1; padding-top: 8px; font-size: 12.5px; color: var(--muted); border-top: 3px solid var(--border); }
+.nfp-passos li.is-feito { border-top-color: var(--mar-700); color: var(--text); font-weight: 600; }
 
-.modalBox .nf-pend { border-color: rgba(136, 97, 22, .55); }
-.nf-pend-cab { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
-.nf-pend-cab b { color: var(--atencao-t); font-size: 13px; }
-.nf-pend-cab span { color: var(--tinta-2); font-size: 12.5px; }
-.nf-pend-lista { list-style: none; margin: 0; padding: 0; }
-.nf-pend-it { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 10px 0; border-top: 1px solid rgba(6, 16, 51, .08); }
-.nf-pend-it:first-child { border-top: 0; }
-.nf-pend-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; color: var(--tinta); }
-.nf-pend-txt > span { color: var(--tinta-2); }
-.nf-pend-sug { font-size: 12.5px; }
-.nf-pend-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: none; }
-.nf-sug { list-style: none; margin: 4px 0 0; padding: 0; }
-.nf-sug li { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 10px; padding: 3px 0; font-size: 12.5px; color: var(--tinta); }
-.nf-sug li b { font-weight: 600; color: var(--tinta-2); }
-.nf-pend .nf-cat { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(6, 16, 51, .08); }
+.nfp-grade { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+.nfp-col, .nfp-trilho { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.nfp-trilho { position: sticky; top: 12px; }
+.main .nfp-card { padding: 16px 18px; }
+.nfp-card-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.nfp-h { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--text); }
+.nfp-card-cab .nfp-h { margin: 0; }
+.nfp-lk { border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--mar-700); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
+.nfp-nota { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.nfp-erro { color: var(--risco-t); }
+.nfp-cod, .nfp-num { font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.nfp-cod { color: var(--muted); white-space: nowrap; }
 
-/* Tipo e tomador */
-.nf-dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
-.nf-dl dt { font-size: 11.5px; color: var(--tinta-2); margin-bottom: 2px; }
-.nf-dl dd { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--tinta); }
-.nf-dl dd small { display: block; font-weight: 400; font-size: 12px; color: var(--tinta-2); margin-top: 2px; }
+.main .nfp-caixa { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-radius: var(--r-cartao, 10px); background: #fff; border: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.nfp-caixa b { font-size: 13.5px; }
+.nfp-caixa.is-erro { border-color: rgba(121, 0, 0, .4); }
+.nfp-caixa.is-erro b { color: var(--risco-t); }
+.nfp-caixa.is-info { background: var(--surface2); border-style: dashed; color: var(--muted); }
+.nfp-caixa .nfp-lk { align-self: flex-start; margin-top: 4px; }
+
+/* Antes de emitir */
+.main .nfp-pend { border-color: rgba(136, 97, 22, .55); }
+.nfp-pend .nfp-h { color: var(--atencao-t); margin-bottom: 2px; }
+.nfp-pend-sub { margin: 0 0 4px; }
+.nfp-pend-lista { list-style: none; margin: 0; padding: 0; }
+.nfp-pend-it { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding: 10px 0; border-top: 1px solid var(--border); }
+.nfp-pend-it:first-child { border-top: 0; }
+.nfp-pend-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; }
+.nfp-pend-txt > span { color: var(--muted); }
+.nfp-pend-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: none; }
+.nfp-sug { list-style: none; margin: 4px 0 0; padding: 0; }
+.nfp-sug li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline; padding: 3px 0; font-size: 12.5px; }
+.nfp-sug li b { font-weight: 600; color: var(--muted); }
+.nfp-cat { padding-top: 10px; border-top: 1px solid var(--border); }
+
+/* Destinatário */
+.nfp-dl { margin: 0; display: grid; grid-template-columns: 2fr 1.4fr 1fr; gap: 12px 20px; }
+.nfp-dl dt { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.nfp-dl dd { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.nfp-dl dd small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.nfp-dl dd.nfp-num { font-size: 12.5px; font-weight: 500; }
+.nfp-dl .is-larga { grid-column: 1 / -1; }
 
 /* Itens */
-.nf-tab-wrap { overflow-x: auto; }
-.nf-itens { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--tinta); }
-.nf-itens th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--tinta-2); padding: 0 8px 6px 0; border-bottom: 1px solid var(--fio-esc); }
-.nf-itens td { padding: 8px 8px 8px 0; border-bottom: 1px solid rgba(6, 16, 51, .08); vertical-align: top; }
-.nf-itens td small { display: block; font-size: 11.5px; color: var(--tinta-2); margin-top: 2px; }
-.nf-itens .nf-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; padding-right: 0; padding-left: 8px; }
-.nf-itens tfoot td { border-bottom: 0; padding-top: 10px; font-weight: 600; }
-.nf-itens tfoot td:first-child { text-align: right; color: var(--tinta-2); font-weight: 400; }
-.nf-itens b { font-weight: 600; }
+.nfp-tab-wrap { overflow-x: auto; }
+.nfp-tab { width: 100%; border-collapse: collapse; font-size: 13px; }
+.main .nfp-tab th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 0 10px 7px 0; border-bottom: 1px solid var(--border-strong, rgba(6,16,51,.24)); background: none; white-space: nowrap; }
+.nfp-tab td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text); }
+.nfp-tab .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nfp-tab td.nfp-num { font-size: 11px; white-space: nowrap; }
+.nfp-tab b { font-weight: 600; }
+.main .nfp-larga { width: 100%; resize: vertical; font-size: 13px; }
+.main .nfp-larga[readonly] { background: var(--surface2); }
 
-/* Cobrança e envio */
-.nf-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
-.nf-campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.nf-campo > span { font-size: 11.5px; color: var(--tinta-2); }
-.nf-campo small { font-size: 12px; color: var(--tinta-2); line-height: 1.4; }
-.nf-campo small.nf-erro { color: var(--danger-t); }
-.nf-campo [hidden] { display: none; }
-.nf-campo .select { width: 100%; padding: 7px 10px; }
-.nf-campo textarea.select { resize: vertical; min-height: 54px; font: inherit; font-size: 13px; }
-.nf-chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--tinta); font-size: 12.5px; }
-.nf-chk input { width: auto; margin: 0; }
-.nf-parcelas { list-style: none; margin: 12px 0 0; padding: 0; }
-.nf-parcelas li { display: grid; grid-template-columns: 1fr auto 110px; align-items: center; gap: 12px; padding: 6px 0;
-  border-top: 1px solid rgba(6, 16, 51, .08); font-size: 13px; color: var(--tinta-2); }
-.nf-parcelas li input { width: auto; padding: 5px 8px; }
-.nf-parcelas li b { color: var(--tinta); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+/* Histórico */
+.nfp-hist { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.nfp-hist li { padding: 7px 0; border-top: 1px solid var(--border); color: var(--text); }
+.nfp-hist li:first-child { border-top: 0; }
+.nfp-hora { display: inline-block; min-width: 168px; margin-right: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
 
-/* Rodapé: o total que vai sair, o aviso e a ação */
-.nf-pe { gap: 16px; }
-.nf-pe-total { display: flex; flex-direction: column; line-height: 1.15; flex: none; }
-.nf-pe-total span { font-size: 11.5px; color: var(--tinta-2); }
-.nf-pe-total b { font-size: 18px; font-weight: 700; color: var(--tinta); font-variant-numeric: tabular-nums; }
-.nf-pe-msg { flex: 1; min-width: 0; line-height: 1.4; }
-.nf-pe-msg.is-erro { color: var(--danger-t); font-weight: 600; }
+/* Trilho */
+.nfp-kv { list-style: none; margin: 0; padding: 0; }
+.nfp-kv li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 13px; color: var(--muted); }
+.nfp-kv li b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.nfp-kv li.is-sep { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
+.nfp-kv li.is-total { border-top: 1px solid var(--border-strong, rgba(6,16,51,.24)); margin-top: 6px; padding-top: 10px; color: var(--text); font-weight: 600; }
+.nfp-kv li.is-total b { font-size: 19px; }
+.nfp-regime { margin: 0 0 6px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.nfp-campo { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.nfp-campo > span { font-size: 12px; color: var(--muted); }
+.nfp-campo small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.nfp-campo small.nfp-erro { color: var(--risco-t); }
+.nfp-campo [hidden] { display: none; }
+.main .nfp-campo .select, .main .nfp-campo textarea { width: 100%; }
+.main .nfp-campo textarea { resize: vertical; font-size: 13px; }
+.nfp-chk { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; margin-bottom: 4px; }
+.nfp-chk input { width: auto; margin: 0; }
+.nfp-parc { list-style: none; margin: 6px 0 0; padding: 0; }
+.nfp-parc li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+.nfp-parc li span:first-child { flex: 1; min-width: 0; }
+.nfp-parc li b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.main .nfp-parc li input { width: auto; padding: 4px 6px; font-size: 12.5px; }
+.nfp-parc li i { font-style: normal; font-size: 12px; }
 
-/* "Corrigir no orçamento": a linha pisca no editor por trás. */
-#avItensWrap tr.nf-alvo > td { background: #e3eaf7; transition: background .4s; }
+/* Espelho da nota: folha branca no desenho de um DANFE, sem valor fiscal. */
+.modalBox.nfp-esp-box { width: min(900px, 96vw); }
+.nfp-esp-box .df { background: #fff; padding: 14px; color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 10px; }
+.df-l { display: flex; border: 1px solid #333; border-top: 0; }
+.df-l.df-cab { border-top: 1px solid #333; }
+.df-c { flex: 1; padding: 4px 6px; border-right: 1px solid #333; display: flex; flex-direction: column; gap: 2px; min-height: 30px; min-width: 0; }
+.df-c:last-child { border-right: 0; }
+.df-c span { font-size: 8px; color: #444; }
+.df-c b { font-size: 10.5px; overflow-wrap: anywhere; }
+.df-2 { flex: 2; }
+.df-emit { font-size: 13px !important; }
+.df-tit { align-items: center; text-align: center; }
+.df-tit b { font-size: 16px; }
+.df-tt { font-size: 8.5px; font-weight: 700; margin: 8px 0 2px; }
+.df-tab { width: 100%; border-collapse: collapse; }
+.modalBox.nfp-esp-box .df .df-tab th, .modalBox.nfp-esp-box .df .df-tab td { border: 1px solid #333; padding: 3px 5px; text-align: left; font-size: 9.5px; font-weight: 400; color: #111; background: #fff; text-transform: none; letter-spacing: 0; }
+.modalBox.nfp-esp-box .df .df-tab th { font-size: 8px; font-weight: 700; }
+.df-adic { min-height: 56px; }
 
-@media (max-width: 600px) {
-  .nf-dl, .nf-campos { grid-template-columns: 1fr; }
-  .nf-pend-it { flex-direction: column; }
-  .nf-pend-acoes { justify-content: flex-start; }
-  .nf-pe { flex-wrap: wrap; }
-  .nf-pe-msg { flex-basis: 100%; order: 3; }
-  .nf-parcelas li { grid-template-columns: 1fr auto; }
-  .nf-parcelas li b { grid-column: 1 / -1; text-align: left; }
+@media (max-width: 980px) {
+  .nfp-grade { grid-template-columns: 1fr; }
+  .nfp-trilho { position: static; }
 }
+@media (max-width: 600px) {
+  .nfp-dl { grid-template-columns: 1fr; }
+  .nfp-pend-it { flex-direction: column; }
+  .nfp-pend-acoes { justify-content: flex-start; }
+  .nfp-passos li { font-size: 11px; }
+  .nfp-t { font-size: 18px; }
+  .nfp-esp-box .df { overflow-x: auto; }
+}
+
+/* "Escolher no orçamento": a linha pisca no editor do orçamento. */
+#avItensWrap tr.nf-alvo > td { background: #e3eaf7; transition: background .4s; }
 
 /* Boleto no trilho do orçamento (migration 101): uma linha por parcela com o
    botão de abrir o PDF. */

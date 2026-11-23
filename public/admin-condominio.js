@@ -36,7 +36,7 @@ function _rotaPermitida(secao) {
   // A ficha e a página da O.S. não têm item próprio: valem as da lista.
   const alvo = secao === "condominio" ? "cadastros"
     : secao === "os-detalhe" ? "ordens-servico"
-    : secao === "orcamento-detalhe" ? "orcamentos"
+    : secao === "orcamento-detalhe" || secao === "nota-detalhe" ? "orcamentos"
     : secao === "contrato-detalhe" ? "contratos"
     : secao === "chamado-detalhe" ? "chamados" : secao;
   const nav = document.querySelector(`.nav-item[data-section="${alvo}"]`);
@@ -46,7 +46,7 @@ function _rotaPermitida(secao) {
 
 function _rotaAoMostrar(nome) {
   if (_rotaAplicando) return;
-  if (nome === "condominio" || nome === "os-detalhe" || nome === "orcamento-detalhe"
+  if (nome === "condominio" || nome === "os-detalhe" || nome === "orcamento-detalhe" || nome === "nota-detalhe"
       || nome === "contrato-detalhe" || nome === "chamado-detalhe") return; // escrevem o próprio endereço
   const novo = `#/${nome}`;
   if (location.hash !== novo) history.pushState(null, "", novo);
@@ -57,6 +57,10 @@ function _rotaLer() {
   if (!partes.length) return null;
   if (partes[0] === "os" && partes[1]) {
     return { secao: "os-detalhe", osId: Number(partes[1]) };
+  }
+  // #/orcamentos/58/nota → página da nota fiscal (23/11/2026).
+  if (partes[0] === "orcamentos" && partes[1] && partes[2] === "nota") {
+    return { secao: "nota-detalhe", orcId: Number(partes[1]) };
   }
   // #/orcamentos/58 → página do orçamento. "novo" não tem o que reabrir.
   if (partes[0] === "orcamentos" && partes[1]) {
@@ -89,6 +93,11 @@ function _rotaAplicar() {
     if (!Number.isInteger(r.osId) || r.osId <= 0) return;
     const naPagina = document.querySelector('.section[data-section="os-detalhe"].is-active');
     if (!naPagina || _osSelecionadaId !== r.osId) abrirOSDetalhe(r.osId, { daRota: true });
+    return;
+  }
+  if (r.secao === "nota-detalhe") {
+    if (!Number.isInteger(r.orcId) || r.orcId <= 0) return;
+    if (typeof _nfAbrirPagina === "function") _nfAbrirPagina(r.orcId, { daRota: true });
     return;
   }
   if (r.secao === "orcamento-detalhe") {

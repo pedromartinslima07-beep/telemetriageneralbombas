@@ -24,43 +24,98 @@ SEFAZ.
 Mesmo com serviço junto, orçamento com peça **não** gera NFS-e. Foi decisão do
 Pedro, não limitação técnica.
 
-## O modal de emissão: conferir e faturar (23/11/2026)
+## A página da nota (23/11/2026, migration 104)
 
-Pedido do Pedro: "o modal da nota é o mesmo do orçamento, é a melhor forma?".
-Não era: desde as peças no orçamento ([pecas-no-orcamento.md](pecas-no-orcamento.md)),
-Peça/Serviço e o produto do Omie são decididos **no editor do orçamento**, e o
-modal perguntava tudo de novo. Os ERPs (Omie, Bling, Tiny, Conta Azul) fazem
-assim: o que é do documento comercial se decide nele; a tela de emissão
-**confere** o que vai sair e cuida só do que é do **faturamento**.
+A nota é um **documento com endereço próprio**: `#/orcamentos/<id>/nota`
+(`public/admin-nota.js`, estilos `.nfp-*` em `public/admin.css`). Foi a
+opção B da maquete `/dev/_nota-preview.html`, escolhida pelo Pedro depois da
+pesquisa de como os ERPs fazem (o porquê em
+[decisions.md](../../memory-bank/decisions.md)). Até 23/11/2026 era um modal
+por cima do orçamento.
 
-O modal (`_avAbrirNota` em `public/admin.js`, estilos `.nf-*` em
-`public/admin.css`), de cima para baixo:
+Entra-se por: **Preparar a nota** / **Abrir a nota** no trilho do orçamento,
+**Emitir nota** na lista de orçamentos e na carteira (Hoje), e a linha da
+lista de **Notas fiscais** no Financeiro. `_avAbrirNota` virou só o
+redirecionamento.
 
+**Cabeçalho:** caminho (Orçamentos › OR-… › Nota fiscal), tipo (DANFE ou
+NFS-e), selo de situação (Rascunho · Processando · Autorizada · Falhou ·
+Cancelada no Omie), quem e quando, e as ações: antes de emitir
+**Descartar rascunho**, **Espelho da nota** e **Emitir DANFE/NFS-e**
+(confirmação com valor e cliente); depois, **DANFE (PDF)** / **Ver a NFS-e**,
+**Espelho** e **Atualizar**. Embaixo, os passos: Rascunho → Impostos
+conferidos → Autorizada → Boletos gerados.
+
+**No meio (o documento):**
 1. **Não dá para emitir** — o bloqueio que o orçamento não resolve (status,
-   CNPJ, UF fora de SP, tentativa anterior no Omie…).
-2. **Antes de emitir** — o que falta **no orçamento**, cada item com o atalho:
-   - linha sem Peça/Serviço → mostra a sugestão pelo texto; **Confirmar as
+   CNPJ — com link para o cadastro —, UF fora de SP, tentativa anterior…).
+   Se a última tentativa falhou, o erro do Omie aparece aqui.
+2. **Antes de emitir** — o que falta **no orçamento**, com o atalho:
+   - linha sem Peça/Serviço → a sugestão pelo texto; **Confirmar as
      sugestões** grava todas, ou **corrigir** leva à linha;
-   - peça sem produto do Omie (DANFE) → **Usar este** (o "da última vez", se
-     houver) ou **Escolher no orçamento**, que fecha o modal, destaca a linha
-     no editor e já abre a busca do Omie dela;
-   - produto inativo → **Trocar no orçamento**;
-   - **Atualizar catálogo**, para a peça recém-cadastrada no Omie.
-   Os atalhos gravam pela mesma rota do editor
-   (`PATCH /admin/orcamentos/avulsos/linhas/:id`), e o editor por trás fica
-   igual ao banco. O preview manda `bloqueio_pendencia: true` quando o
-   bloqueio é um desses (o modal mostra a pendência, não o erro).
-3. **Nota** — tipo (DANFE ou NFS-e, e por quê) e tomador.
-4. **Itens como vão sair** — só leitura: código, NCM e CFOP, quantidade,
-   unitário, total, e as notas de rateio/serviço embutido. "Editar no
-   orçamento" leva aos itens.
-5. **Cobrança** — condição (à vista ou 2–12x), banco do boleto, "gerar o
-   boleto junto" e o vencimento de cada parcela.
-6. **Envio** — os e-mails para onde o Omie manda nota e boleto.
+   - peça sem produto do Omie (DANFE) → **Usar este** (o "da última vez") ou
+     **Escolher no orçamento**, que abre o orçamento, destaca a linha e já abre
+     a busca do Omie dela;
+   - produto inativo → **Trocar no orçamento**; **Atualizar catálogo** para a
+     peça recém-cadastrada no Omie.
+   Os atalhos gravam pela rota do editor (`PATCH /admin/orcamentos/avulsos/linhas/:id`).
+   A prévia manda `bloqueio_pendencia: true` quando o bloqueio é um desses.
+3. **Destinatário** — razão social, CPF/CNPJ, endereço, se já está no Omie.
+4. **Itens** — código, descrição, NCM, CFOP, quantidade, unitário, total e o
+   CSOSN/CST de cada item (quando simulado). Só leitura: "Editar no orçamento".
+5. **Informações adicionais** — editável; vai em `cDadosAdicNF` (O.S.) ou
+   `dados_adicionais_nf` (pedido). Padrão: "Orçamento OR-…".
+6. **Histórico** — rascunho salvo, impostos simulados, nota pedida,
+   autorizada (com os e-mails), boletos.
 
-Rodapé fixo: **total da nota**, o aviso ("gera uma nota real…") e o botão
-com o tipo no nome (**Emitir DANFE** / **Emitir NFS-e**), travado enquanto
-houver bloqueio, pendência ou emissão desligada. Esc fecha.
+**No trilho:** Resumo (total), **Impostos**, **Cobrança** (antes: condição,
+banco, boleto, vencimentos; depois: os boletos com Abrir/Gerar), **Envio**
+(os e-mails) e, emitida, "Corrigir ou cancelar" (no Omie).
+
+### O rascunho
+
+`orcamentos.nota_rascunho` (jsonb, migration 104) guarda cobrança, e-mails,
+informações adicionais e a última simulação de impostos. Salva **sozinho**
+(`PUT …/nota/rascunho`), 0,7 s depois da última digitação; mudar a cobrança
+salva e recalcula as parcelas. A prévia (`GET …/nota`) usa a cobrança do
+rascunho. **Descartar** (`DELETE …/nota/rascunho`) volta tudo ao padrão do
+orçamento. Só existe antes de pedir a nota ao Omie (ou depois de uma
+tentativa que falhou); depois de emitida fica guardado para a página
+mostrar. A emissão grava no rascunho o que foi emitido.
+
+### Os impostos antes de emitir
+
+- **DANFE:** `SimularImpostos` do Omie (`produtos/pedido/`, **só leitura**,
+  não cria nada lá), com o cliente do Omie (ou, sem ele, São Paulo pelo código
+  IBGE 3550308) e o **mesmo cenário fiscal** do pedido. Roda **sozinha** ao
+  abrir a página quando toda peça tem produto. O resultado fica em
+  `nota_rascunho.impostos` com uma **assinatura** (cliente, tipo, itens,
+  quantidades, valores): a mesma nota não consulta o Omie de novo, e itens
+  mudados pedem nova simulação. Duas consultas em menos de 65 s são
+  recusadas (429), porque o Omie bloqueia consulta repetida.
+  ⚠️ **Testado em 23/11/2026: a General é do Simples Nacional.** O Omie
+  devolve CSOSN 102 e PIS/COFINS CST 08, tudo zerado — a DANFE não destaca
+  imposto. A página mostra exatamente isso ("Simples Nacional · CSOSN 102",
+  "Destacado na nota R$ 0,00"), e não um valor inventado.
+- **NFS-e:** o Omie **não simula a O.S.** (os valores de ISS só aparecem no
+  `ConsultarOS` depois de incluída). A página mostra o que o molde define
+  (serviço 14.01 · 140101, ISS não retido) e avisa que o valor sai com a nota.
+  Criar a O.S. no Omie sem faturar, só para ler o ISS, deixaria um rascunho de
+  verdade lá a cada desistência — ficou de fora.
+
+### O espelho
+
+"Espelho da nota" desenha, no navegador, uma folha no desenho de um DANFE (ou
+de uma NFS-e) com o que está na tela: emitente, destinatário, fatura,
+cálculo do imposto, itens e informações adicionais. Diz **"sem valor
+fiscal"**: o documento oficial é o PDF do Omie, que só existe depois de
+emitida (a API não dá prévia do DANFE).
+
+### O que a página ainda não faz
+
+XML, reenviar e-mail e carta de correção: a integração não chama esses
+métodos do Omie; ficam no Omie ("Corrigir ou cancelar").
+
 
 ## Peça ou serviço: quem decide é quem emite
 
@@ -70,9 +125,9 @@ ela era. Hoje existe `orcamento_linhas.natureza` (`servico`|`peca`|NULL).
 
 - Quem marca é o **editor do orçamento** (Peça | Serviço em cada linha, ver
   [pecas-no-orcamento.md](pecas-no-orcamento.md)). Linha sem marcação chega
-  ao modal da nota como pendência, com a **sugestão** pelo texto
+  à página da nota como pendência, com a **sugestão** pelo texto
   (`sugerirNatureza`) e o botão "Confirmar as sugestões", que grava na linha
-  do orçamento. Ver "O modal de emissão" abaixo. Quem decide a sugestão é o
+  do orçamento. Ver "A página da nota" acima. Quem decide a sugestão é o
   **começo da linha**: "Conserto
   de…", "Mão de obra…", "Limpeza e regulagem…", "Emissão de ART…" é serviço;
   o resto, peça. Prefixo como "Opção 01:" ou "01" é pulado, e o serviço
@@ -101,7 +156,7 @@ A NF-e exige que **cada item seja um produto cadastrado no Omie** (NCM,
 unidade, tributação). O Omie não aceita "Luva de união 60mm" digitado: aceita
 o produto PRD00268. A linha do orçamento é texto livre, então alguém tem que
 dizer "esta linha é aquele produto". Isso é feito **no editor do orçamento**,
-na busca de produto de cada linha (desde 23/11/2026 o modal da nota não tem
+na busca de produto de cada linha (desde 23/11/2026 a nota não tem
 mais seletor: lista a peça sem produto como pendência e leva de volta à
 linha, com a busca já aberta). As regras da sugestão:
 
@@ -124,12 +179,12 @@ linha, com a busca já aberta). As regras da sugestão:
   pontuação.
 - **Busca** por nome ou código, no catálogo local.
 - **Bitola (20/11/2026):** fração vira decimal (`1.1/2"`, `1 1/2`, `11/2` → 1.5), número sozinho até 12 é bitola, e mm ↔ polegada pela tabela de PVC (60 mm = 2"). Ver [pecas-no-orcamento.md](pecas-no-orcamento.md).
-- **A linha pode chegar já ligada** ao produto, escolhido ao montar o orçamento (peças no orçamento, fase A). O modal só confere.
+- **A linha pode chegar já ligada** ao produto, escolhido ao montar o orçamento (peças no orçamento, fase A). A página da nota só confere.
 - **Lembrado da última vez**: quando o Omie aceita o pedido, a escolha fica
   em `omie_produto_vinculos` pela descrição normalizada. Na busca do editor
-  ele vem em cima, marcado "usado da última vez"; no modal da nota, a peça
+  ele vem em cima, marcado "usado da última vez"; na página da nota, a peça
   sem produto mostra "Da última vez foi PRD…" com o botão **Usar este**, que
-  grava na linha. (Até 23/11/2026 o modal o escolhia sozinho, sem clique.)
+  grava na linha. (Até 23/11/2026 o modal da nota o escolhia sozinho, sem clique.)
 - A sugestão comum **não** é escolhida sozinha. No levantamento de 18/11/2026,
   "Adaptador com rosca" bateu 100% com três adaptadores de NCM diferente, e o
   NCM vai para a nota.
@@ -146,11 +201,11 @@ cada tecla. Vem de `ListarProdutos` (o Omie corta em 100 por página) e de
 `ListarPedidos` dos **faturados** (`etapa: "60"`, 50 por página), que dão
 `vezes_faturado` e `ultimo_cfop` de cada produto.
 
-- Atualiza **sozinho em segundo plano** quando o modal abre ou quando alguém
+- Atualiza **sozinho em segundo plano** quando a página da nota abre ou quando alguém
   busca peça no orçamento, se a cópia está vazia ou passou de 24 h, e pelo
-  botão **Atualizar catálogo** no modal. Depois de uma falha, a busca espera
+  botão **Atualizar catálogo** na página da nota. Depois de uma falha, a busca espera
   10 min para tentar de novo (o Omie bloqueia consulta repetida).
-  ⚠️ Até 23/11/2026 só o modal disparava, e produção ficou com o catálogo
+  ⚠️ Até 23/11/2026 só o modal da nota disparava, e produção ficou com o catálogo
   vazio: a busca de peça do orçamento mostrava "ainda não foi copiado".
 - Leva **cerca de 1 minuto e 10 s** (14 + 16 páginas, em série).
 - Produto que sumiu do Omie fica `inativo`, não é apagado. Escolher um
@@ -177,7 +232,7 @@ produtos do Omie:
   terminais + cabo) como PRD00239, PRD00199 e 1111.
 - Há NCM estranho no cadastro (ex.: "ADAPTADOR COM ROSCA AMANCO 60MM" com
   NCM 8536.69.90, que é de tomada elétrica). Isso é assunto do contador, e o
-  modal mostra o NCM de cada sugestão justamente para aparecer.
+  sugestão do catálogo mostra o NCM justamente para aparecer.
 
 ## DANFE: o pedido de venda no molde
 
@@ -229,12 +284,12 @@ Aqui não se calcula imposto nenhum. A empresa é Simples Nacional.
 ## Parcelas (NFS-e e DANFE)
 
 Metade das OS e dos pedidos recentes feitos à mão é parcelada em 2 ou 3
-boletos. O modal mostra **Pagamento** abaixo do total:
+boletos. A página da nota mostra **Cobrança** no trilho:
 
 - A **quantidade** vem do texto livre do orçamento (`forma_pagamento`):
   "parcelado em 2x", "em 02 vezes", "em duas vezes", "até 03 vezes" (os que
   existem em produção). Sem número no texto, à vista. Pode ser mudada no
-  modal (1 a 12), e a prévia diz "alterado aqui".
+  página (1 a 12), e ela diz "alterado aqui".
 - O **calendário padrão** é o das notas feitas à mão (OS 3198–3207, pedidos
   854–864): **1ª parcela 5 dias depois** da emissão, as seguintes **uma por
   mês no dia da emissão** (dia que não existe no mês cai no último). Cada
@@ -263,9 +318,9 @@ as datas e os valores saíram como na prévia.
 ## Banco e boleto (23/11/2026, migration 101)
 
 Pedido do Pedro: o boleto sai junto com a nota, com o banco, as parcelas e os
-vencimentos escolhidos no modal, como no Omie.
+vencimentos escolhidos na página da nota, como no Omie.
 
-- **Banco** no modal: Bradesco (padrão, a conta das notas avulsas feitas à
+- **Banco** na página da nota: Bradesco (padrão, a conta das notas avulsas feitas à
   mão, `6109178168`) ou Sicredi (`5960922842`, a dos contratos). A conta vai
   na OS (`InformacoesAdicionais.nCodCC`) ou no pedido
   (`informacoes_adicionais.codigo_conta_corrente`) e fica em
@@ -316,7 +371,7 @@ o molde não levava. Agora a O.S. leva `Email { cEnvLink: "S", cEnvBoleto:
 Omie**, como nas notas feitas lá.
 
 Os destinatários **não são o e-mail do cadastro do cliente**: são os da nota
-mais recente dele no Omie (não cancelada), mostrados no modal ("E-mail da
+mais recente dele no Omie (não cancelada), mostrados na página da nota ("Envio"; antes "E-mail da
 nota") para conferir, e gravados em `orcamentos.nota_emails` — os mesmos
 que os avisos de cobrança usam. Ver [cobranca-avisos.md](cobranca-avisos.md).
 
@@ -404,7 +459,7 @@ O Omie não tem sandbox de nota. Com as chaves no `.env`, um servidor local
 apontando para o banco de **teste** emitiria nota **real** para um orçamento
 de mentira. Por isso **emitir exige `OMIE_EMISSAO=1`**. Sem a variável, a
 prévia e o Atualizar funcionam e o Emitir responde 503 "Emissão de nota
-desligada neste ambiente". O modal mostra o motivo.
+desligada neste ambiente". A página mostra o motivo.
 
 - **Local:** nunca ligar.
 - **Produção:** ligar no Railway quando for emitir a primeira nota

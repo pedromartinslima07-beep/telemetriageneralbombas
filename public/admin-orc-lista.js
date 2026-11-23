@@ -301,9 +301,9 @@
     await abrirDoc(id);
     if (typeof _avSelecionado !== "undefined" && _avSelecionado?.id === Number(id) && typeof _avAbrirEnvioEmail === "function") _avAbrirEnvioEmail();
   }
+  // A nota tem página própria (23/11/2026): vai direto, sem abrir o orçamento.
   async function nota(id) {
-    await abrirDoc(id);
-    if (typeof _avSelecionado !== "undefined" && _avSelecionado?.id === Number(id) && typeof _avAbrirNota === "function") _avAbrirNota();
+    if (typeof _nfAbrirPagina === "function") _nfAbrirPagina(Number(id));
   }
   async function pdf(id) {
     try {

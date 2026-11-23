@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GENERAL • Nota fiscal (maquete)</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="stylesheet" href="/static/_nota-preview.css?v=2">
+<script src="/static/_nota-preview.js?v=2" defer></script>
+</head>
+<body>
+<!-- ⚠️ MAQUETE ESTÁTICA (23/11/2026), sem sessão e sem API: dados de exemplo.
+     Duas opções para a tela de emissão de nota, para o Pedro escolher ANTES
+     de mexer no admin.js. Aberta em /dev/_nota-preview.html (só fora de
+     prod). Ver docs/modulos/nota-fiscal.md, seção "O modal de emissão". -->
+
+<div class="mq-barra">
+  <b>Maquete · dados de exemplo</b>
+  <div class="mq-seg" role="tablist" aria-label="Opção">
+    <button type="button" role="tab" data-op="a" aria-selected="true">A · Modal de conferência</button>
+    <button type="button" role="tab" data-op="b" aria-selected="false">B · Página da nota</button>
+  </div>
+  <div class="mq-seg mq-estado" role="tablist" aria-label="Estado da nota">
+    <button type="button" role="tab" data-estado="rascunho" aria-selected="true">Antes de emitir</button>
+    <button type="button" role="tab" data-estado="emitida" aria-selected="false">Depois de emitida</button>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sb" aria-hidden="true">
+    <div class="sb-logo">GENERAL</div>
+    <div class="sb-i">Hoje</div><div class="sb-i">Monitoramento</div><div class="sb-i">Atendimento</div><div class="sb-i">Agenda</div>
+    <div class="sb-g">Documentos</div>
+    <div class="sb-i">Ordens de serviço</div><div class="sb-i is-on">Orçamentos</div><div class="sb-i">Financeiro</div>
+    <div class="sb-g">Carteira</div>
+    <div class="sb-i">Condomínios</div><div class="sb-i">Contratos</div><div class="sb-i">Preventivas</div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ═══════════ OPÇÃO A: o orçamento com o modal por cima ═══════════ -->
+    <section class="op" data-op-tela="a">
+      <div class="topo"><span class="topo-t">Orçamento</span></div>
+      <div class="fundo-orc" aria-hidden="true">
+        <div class="cartao fo-cab"><b>OR-000201</b> <span class="selo is-ok">Aprovado</span> · Cond. Edifício Solar das Flores</div>
+        <div class="cartao fo-corpo"><div class="fo-l"></div><div class="fo-l"></div><div class="fo-l is-curta"></div><div class="fo-l"></div></div>
+      </div>
+
+      <div class="veu">
+        <div class="modal" role="dialog" aria-labelledby="aTit">
+          <div class="modal-cab">
+            <div><div class="modal-t" id="aTit">Emitir nota fiscal</div><div class="modal-sub">OR-000201 · Cond. Edifício Solar das Flores</div></div>
+            <button class="bt" type="button">Fechar</button>
+          </div>
+
+          <div class="modal-corpo" data-estado-tela="rascunho">
+            <div class="bloco is-ok-box">
+              <b>Conferido pelo Omie</b>
+              <span>Cliente, produtos, NCM e cenário de impostos sem divergência. Pode emitir.</span>
+            </div>
+
+            <div class="bloco">
+              <h3>Nota</h3>
+              <dl class="dl2">
+                <div><dt>Tipo</dt><dd>DANFE · NF-e de produto<small>O orçamento tem peça: o serviço vai embutido no preço das peças.</small></dd></div>
+                <div><dt>Destinatário</dt><dd>Cond. Edifício Solar das Flores<small>12.345.678/0001-90 · já cadastrado no Omie</small></dd></div>
+              </dl>
+            </div>
+
+            <div class="bloco">
+              <div class="bloco-cab"><h3>Itens como vão sair</h3><a class="lk" href="#">Editar no orçamento</a></div>
+              <table class="tab">
+                <thead><tr><th>Descrição</th><th class="n">Qtd</th><th class="n">Total</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="cod">PRD00268</span> SELO MECÂNICO 1" BOMBA CENTRÍFUGA<small>NCM 8484.20.00 · CFOP 5.102</small></td><td class="n">2</td><td class="n">R$ 1.180,00</td></tr>
+                  <tr><td><span class="cod">PRD00112</span> ROLAMENTO 6203 2RS<small>NCM 8482.10.10 · CFOP 5.102</small></td><td class="n">4</td><td class="n">R$ 740,00</td></tr>
+                </tbody>
+              </table>
+              <p class="nota">O serviço (R$ 650,00) entra no preço das peças, na proporção de cada uma.</p>
+            </div>
+
+            <div class="bloco is-novo">
+              <div class="bloco-cab"><h3>Impostos <span class="tag-novo">novo</span></h3><span class="fraco">simulação do Omie, pelo cenário de impostos</span></div>
+              <ul class="kv">
+                <li><span>ICMS</span><b>R$ 0,00</b></li>
+                <li><span>PIS</span><b>R$ 12,48</b></li>
+                <li><span>COFINS</span><b>R$ 57,60</b></li>
+                <li class="is-sep"><span>Tributos aproximados (Lei 12.741)</span><b>R$ 268,80</b></li>
+              </ul>
+            </div>
+
+            <div class="bloco">
+              <h3>Cobrança</h3>
+              <div class="campos2">
+                <label class="campo"><span>Condição</span><select><option>2x no boleto</option></select><small>No orçamento: "parcelado em 2x"</small></label>
+                <label class="campo"><span>Banco do boleto</span><select><option>Sicredi</option></select><small><input type="checkbox" checked> gerar o boleto junto com a nota</small></label>
+              </div>
+              <ul class="parc">
+                <li><span>1ª parcela</span><span class="data">28/11/2026</span><b>R$ 960,00</b></li>
+                <li><span>2ª parcela</span><span class="data">28/12/2026</span><b>R$ 960,00</b></li>
+              </ul>
+            </div>
+
+            <div class="bloco">
+              <h3>Envio e observações</h3>
+              <label class="campo"><span>O Omie manda a nota e o boleto para</span><textarea rows="2">sindico@solardasflores.com.br, adm@administradoraexemplo.com.br</textarea><small>Os mesmos da O.S. 3204 de 14/10/2026 no Omie.</small></label>
+              <label class="campo is-novo-campo"><span>Informações adicionais da nota <span class="tag-novo">novo</span></span><textarea rows="2">Orçamento OR-000201. Troca do selo e rolamentos da bomba de recalque 2.</textarea></label>
+            </div>
+          </div>
+
+          <div class="modal-corpo" data-estado-tela="emitida" hidden>
+            <div class="bloco is-ok-box">
+              <b>DANFE nº 1.284 autorizada pela SEFAZ</b>
+              <span>23/11/2026 16:42 · série 1 · enviada para 2 e-mails</span>
+            </div>
+            <div class="bloco">
+              <h3>Boletos</h3>
+              <ul class="parc">
+                <li><span>1ª parcela · Sicredi</span><span class="data">28/11/2026</span><b>R$ 960,00</b><button class="bt sm" type="button">Abrir</button></li>
+                <li><span>2ª parcela · Sicredi</span><span class="data">28/12/2026</span><b>R$ 960,00</b><button class="bt sm" type="button">Abrir</button></li>
+              </ul>
+            </div>
+            <p class="nota">No A, depois de emitida a nota continua morando no trilho do orçamento (como hoje): "Ver nota", "Atualizar" e os boletos. Cancelar e carta de correção, no Omie.</p>
+          </div>
+
+          <div class="modal-pe">
+            <div class="pe-total"><span>Total da nota</span><b>R$ 1.920,00</b></div>
+            <span class="pe-msg" data-estado-tela="rascunho">Gera uma nota real na SEFAZ. Depois de emitida, cancelar é no Omie.</span>
+            <span class="pe-msg" data-estado-tela="emitida" hidden>Emitida. A nota também aparece em Financeiro › Notas.</span>
+            <div class="pe-acoes">
+              <button class="bt" type="button" data-danfe>Prévia do DANFE</button>
+              <button class="bt is-pri" type="button" data-estado-tela="rascunho">Emitir DANFE</button>
+              <button class="bt" type="button" data-estado-tela="emitida" hidden>Ver DANFE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ OPÇÃO B: a nota como documento próprio ═══════════ -->
+    <section class="op" data-op-tela="b" hidden>
+      <div class="topo">
+        <nav class="migalha" aria-label="Caminho"><a href="#">Orçamentos</a> › <a href="#">OR-000201</a> › <b>Nota fiscal</b></nav>
+      </div>
+
+      <div class="pg">
+        <header class="pg-cab">
+          <div>
+            <div class="pg-t">DANFE · NF-e de produto
+              <span class="selo is-rasc" data-estado-tela="rascunho">Rascunho</span>
+              <span class="selo is-ok" data-estado-tela="emitida" hidden>Autorizada</span>
+            </div>
+            <div class="pg-sub" data-estado-tela="rascunho">Criada do OR-000201 · Cond. Edifício Solar das Flores · rascunho salvo às 16:31</div>
+            <div class="pg-sub" data-estado-tela="emitida" hidden>Nº 1.284 · série 1 · autorizada em 23/11/2026 16:42 · chave <span class="cod">3526 1112 3456 7800 0190 5500 1000 0012 8410 0001 2840</span></div>
+          </div>
+          <div class="pg-acoes" data-estado-tela="rascunho">
+            <button class="bt" type="button">Descartar rascunho</button>
+            <button class="bt" type="button" data-danfe>Prévia do DANFE</button>
+            <button class="bt is-pri" type="button">Emitir DANFE</button>
+          </div>
+          <div class="pg-acoes" data-estado-tela="emitida" hidden>
+            <button class="bt" type="button" data-danfe>DANFE (PDF)</button>
+            <button class="bt" type="button">XML</button>
+            <button class="bt" type="button">Reenviar e-mail</button>
+            <button class="bt" type="button">Mais ▾</button>
+          </div>
+        </header>
+
+        <ol class="passos" aria-label="Situação da nota">
+          <li class="is-feito">Rascunho</li>
+          <li class="is-feito">Conferida pelo Omie</li>
+          <li class="is-estado-emitida">Autorizada pela SEFAZ</li>
+          <li class="is-estado-emitida">Boletos gerados</li>
+        </ol>
+
+        <div class="pg-grade">
+          <div class="pg-col">
+            <div class="bloco is-ok-box" data-estado-tela="rascunho">
+              <b>Conferido pelo Omie</b>
+              <span>Cliente, produtos, NCM e cenário de impostos sem divergência. Pode emitir.</span>
+            </div>
+
+            <div class="cartao">
+              <div class="bloco-cab"><h3>Destinatário</h3><a class="lk" href="#">Editar no cadastro</a></div>
+              <dl class="dl3">
+                <div><dt>Razão social</dt><dd>Cond. Edifício Solar das Flores</dd></div>
+                <div><dt>CNPJ</dt><dd class="mono">12.345.678/0001-90</dd></div>
+                <div><dt>Inscrição estadual</dt><dd>Isento</dd></div>
+                <div class="is-larga"><dt>Endereço</dt><dd>Rua das Acácias, 120 · Jardim Paulista · São Paulo/SP · 01415-000</dd></div>
+              </dl>
+            </div>
+
+            <div class="cartao">
+              <div class="bloco-cab"><h3>Itens</h3><a class="lk" href="#" data-estado-tela="rascunho">Editar no orçamento</a></div>
+              <div class="tab-wrap">
+                <table class="tab tab-larga">
+                  <thead><tr><th>Código</th><th>Descrição</th><th>NCM</th><th>CFOP</th><th class="n">Qtd</th><th class="n">Unitário</th><th class="n">Total</th><th class="n">PIS/COFINS</th></tr></thead>
+                  <tbody>
+                    <tr><td class="cod">PRD00268</td><td>SELO MECÂNICO 1" BOMBA CENTRÍFUGA</td><td class="mono">8484.20.00</td><td class="mono">5.102</td><td class="n">2</td><td class="n">R$ 590,00</td><td class="n">R$ 1.180,00</td><td class="n">R$ 43,07</td></tr>
+                    <tr><td class="cod">PRD00112</td><td>ROLAMENTO 6203 2RS</td><td class="mono">8482.10.10</td><td class="mono">5.102</td><td class="n">4</td><td class="n">R$ 185,00</td><td class="n">R$ 740,00</td><td class="n">R$ 27,01</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="nota">O serviço (R$ 650,00) entra no preço das peças, na proporção de cada uma. Natureza da operação: Venda de mercadoria (cenário padrão do Omie).</p>
+            </div>
+
+            <div class="cartao">
+              <h3>Informações adicionais</h3>
+              <textarea rows="3" class="larga">Orçamento OR-000201. Troca do selo e rolamentos da bomba de recalque 2.</textarea>
+              <p class="nota">Vai no campo de informações complementares do DANFE.</p>
+            </div>
+
+            <div class="cartao" data-estado-tela="emitida" hidden>
+              <h3>Histórico</h3>
+              <ul class="hist">
+                <li><span class="hora">16:31</span> Rascunho criado do OR-000201 por Pedro</li>
+                <li><span class="hora">16:40</span> Conferido pelo Omie, sem divergência</li>
+                <li><span class="hora">16:42</span> Autorizada pela SEFAZ · nº 1.284</li>
+                <li><span class="hora">16:42</span> Enviada para sindico@solardasflores.com.br, adm@administradoraexemplo.com.br</li>
+                <li><span class="hora">16:43</span> 2 boletos gerados no Sicredi</li>
+              </ul>
+            </div>
+          </div>
+
+          <aside class="pg-trilho">
+            <div class="cartao">
+              <h3>Resumo</h3>
+              <ul class="kv">
+                <li><span>Produtos</span><b>R$ 1.920,00</b></li>
+                <li><span>Frete</span><b>R$ 0,00</b></li>
+                <li><span>Desconto</span><b>R$ 0,00</b></li>
+                <li class="is-total"><span>Total da nota</span><b>R$ 1.920,00</b></li>
+              </ul>
+            </div>
+            <div class="cartao">
+              <div class="bloco-cab"><h3>Impostos</h3><span class="fraco">do Omie</span></div>
+              <ul class="kv">
+                <li><span>ICMS</span><b>R$ 0,00</b></li>
+                <li><span>IPI</span><b>R$ 0,00</b></li>
+                <li><span>PIS</span><b>R$ 12,48</b></li>
+                <li><span>COFINS</span><b>R$ 57,60</b></li>
+                <li class="is-sep"><span>Tributos aprox. (Lei 12.741)</span><b>R$ 268,80</b></li>
+              </ul>
+            </div>
+            <div class="cartao">
+              <h3>Cobrança</h3>
+              <label class="campo" data-estado-tela="rascunho"><span>Condição</span><select><option>2x no boleto</option></select></label>
+              <label class="campo" data-estado-tela="rascunho"><span>Banco</span><select><option>Sicredi</option></select><small><input type="checkbox" checked> gerar o boleto junto</small></label>
+              <ul class="parc">
+                <li><span>1ª · 28/11</span><b>R$ 960,00</b><button class="bt sm" type="button" data-estado-tela="emitida" hidden>Boleto</button></li>
+                <li><span>2ª · 28/12</span><b>R$ 960,00</b><button class="bt sm" type="button" data-estado-tela="emitida" hidden>Boleto</button></li>
+              </ul>
+            </div>
+            <div class="cartao">
+              <h3>Envio</h3>
+              <label class="campo" data-estado-tela="rascunho"><span>O Omie manda nota e boleto para</span><textarea rows="3">sindico@solardasflores.com.br, adm@administradoraexemplo.com.br</textarea><small>Os mesmos da O.S. 3204 no Omie.</small></label>
+              <p class="nota" data-estado-tela="emitida" hidden>Enviada em 23/11 16:42 para 2 e-mails.</p>
+            </div>
+            <div class="cartao is-perigo" data-estado-tela="emitida" hidden>
+              <h3>Corrigir ou cancelar</h3>
+              <p class="nota">Carta de correção e cancelamento são feitos no Omie (até 24 h para cancelar). O sistema lê o status de volta.</p>
+              <button class="bt" type="button">Abrir no Omie</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Prévia do DANFE (as duas opções usam a mesma) -->
+<div class="danfe-veu" id="danfe" hidden>
+  <div class="danfe-caixa">
+    <div class="danfe-bar"><b>Prévia do DANFE</b><span class="fraco">gerada pelo Omie antes de transmitir · sem valor fiscal</span><button class="bt" type="button" data-danfe-fechar>Fechar</button></div>
+    <div class="danfe">
+      <div class="df-l df-cab"><div class="df-c df-emit"><b>GENERAL BOMBAS LTDA</b><span>Rua Exemplo, 45 · São Paulo/SP</span></div><div class="df-c df-tit"><b>DANFE</b><span>Documento auxiliar da NF-e</span><span>0 - entrada · <b>1 - saída</b></span><span>Nº 000.001.284 · Série 1</span></div><div class="df-c df-chave"><span>CHAVE DE ACESSO</span><b class="mono">3526 1112 3456 7800 0190 5500 1000 0012 8410 0001 2840</b><span class="df-marca">PRÉVIA · SEM VALOR FISCAL</span></div></div>
+      <div class="df-l"><div class="df-c"><span>NATUREZA DA OPERAÇÃO</span><b>VENDA DE MERCADORIA</b></div><div class="df-c"><span>PROTOCOLO</span><b>—</b></div></div>
+      <div class="df-tt">DESTINATÁRIO</div>
+      <div class="df-l"><div class="df-c df-2"><span>NOME / RAZÃO SOCIAL</span><b>COND. EDIFÍCIO SOLAR DAS FLORES</b></div><div class="df-c"><span>CNPJ</span><b>12.345.678/0001-90</b></div><div class="df-c"><span>EMISSÃO</span><b>23/11/2026</b></div></div>
+      <div class="df-tt">FATURA</div>
+      <div class="df-l"><div class="df-c"><span>001 · 28/11/2026</span><b>R$ 960,00</b></div><div class="df-c"><span>002 · 28/12/2026</span><b>R$ 960,00</b></div><div class="df-c df-2"></div></div>
+      <div class="df-tt">CÁLCULO DO IMPOSTO</div>
+      <div class="df-l"><div class="df-c"><span>BASE ICMS</span><b>0,00</b></div><div class="df-c"><span>VALOR ICMS</span><b>0,00</b></div><div class="df-c"><span>VALOR IPI</span><b>0,00</b></div><div class="df-c"><span>TOTAL PRODUTOS</span><b>1.920,00</b></div><div class="df-c"><span>TOTAL DA NOTA</span><b>1.920,00</b></div></div>
+      <div class="df-tt">DADOS DOS PRODUTOS</div>
+      <table class="df-tab"><thead><tr><th>CÓDIGO</th><th>DESCRIÇÃO</th><th>NCM</th><th>CFOP</th><th>UN</th><th>QTD</th><th>V. UNIT</th><th>V. TOTAL</th></tr></thead>
+        <tbody><tr><td>PRD00268</td><td>SELO MECÂNICO 1" BOMBA CENTRÍFUGA</td><td>84842000</td><td>5102</td><td>UN</td><td>2</td><td>590,00</td><td>1.180,00</td></tr>
+        <tr><td>PRD00112</td><td>ROLAMENTO 6203 2RS</td><td>84821010</td><td>5102</td><td>UN</td><td>4</td><td>185,00</td><td>740,00</td></tr></tbody></table>
+      <div class="df-tt">DADOS ADICIONAIS</div>
+      <div class="df-l"><div class="df-c df-adic"><span>INFORMAÇÕES COMPLEMENTARES</span><b>Orçamento OR-000201. Troca do selo e rolamentos da bomba de recalque 2. Val. aprox. tributos R$ 268,80 (14,0%) Fonte: IBPT.</b></div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

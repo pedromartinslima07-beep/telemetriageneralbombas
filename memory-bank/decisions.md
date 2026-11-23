@@ -1705,3 +1705,30 @@ desenho em camadas original continua válido.
   primeiro e-mail; gerar PDF (Puppeteer) num job em segundo plano é risco sem
   ganho. A trava `ORCAMENTO_LEMBRETE_EMAIL=1` é a mesma lição do
   `COBRANCA_EMAIL`: o banco de teste tem e-mail de cliente de verdade.
+
+## A nota fiscal é uma página, não um modal (23/11/2026)
+
+Pedro perguntou se o modal da nota ("o mesmo do orçamento") era a melhor forma
+e pediu para ver como os sistemas profissionais fazem. A primeira resposta
+(o modal virou conferência + faturamento) não era o que ele esperava. Com a
+pesquisa (ajuda do Omie, Bling, Conta Azul, Tiny; API do Omie) e a maquete de
+duas opções (`/dev/_nota-preview.html`), ele escolheu a **B**: a nota como
+documento com endereço, rascunho, impostos antes de emitir, espelho e, depois,
+número, situação, PDF, boletos e histórico na mesma página.
+
+- **Por quê:** é o modelo dos ERPs que ele usa e conhece (o Omie tem
+  "Conferir" com prévia antes de "Faturar Agora"; o Bling salva a nota antes
+  de emitir). O modal escondia a nota depois de emitida no trilho do orçamento.
+- **Uma coluna jsonb, não uma tabela de notas:** a regra continua "uma nota
+  por orçamento" e o estado já mora em `orcamentos.nota_*`. Tabela própria só
+  faz sentido no dia em que houver nota avulsa ou mais de uma por orçamento.
+- **Impostos que não existem não aparecem.** A General é do Simples: o Omie
+  simula tudo zerado (CSOSN 102). A página mostra isso em vez de copiar a
+  maquete, que tinha PIS/COFINS de exemplo.
+- **Descartado:** criar a O.S. no Omie sem faturar só para ler o ISS da NFS-e
+  antes de emitir. Cada desistência deixaria um rascunho de verdade no Omie.
+- **Descartado:** prévia oficial do DANFE. A API do Omie não dá; o "espelho" é
+  desenhado aqui e diz "sem valor fiscal".
+- **Lição:** a pergunta "veja como os sistemas profissionais fazem" pede
+  pesquisa de verdade e maquete antes do código. Responder de memória e já
+  implementar custou uma volta.

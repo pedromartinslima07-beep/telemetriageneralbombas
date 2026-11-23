@@ -749,6 +749,19 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 104 — a página da nota: rascunho (23/11/2026)
+
+Fluxo em [nota-fiscal.md](modulos/nota-fiscal.md), seção "A página da nota".
+
+- **`orcamentos.nota_rascunho`** (JSONB, NULL = sem rascunho) — o rascunho da
+  nota antes de emitir: `pagamento` ({ parcelas, vencimentos, banco, boleto }),
+  `emails`, `info_adicional`, `impostos` (a última simulação do Omie, com a
+  `assinatura` dos itens para a qual vale), `salvo_em`, `salvo_por`,
+  `salvo_por_nome`. Gravado por merge (`||`), então salvar a cobrança não
+  apaga a simulação. Não é apagado depois de emitida.
+
+✅ **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`).
+
 ## 103 — o orçamento que vence: arquivado e lembrete (23/11/2026)
 
 Fluxo em [orcamentos-vencimento.md](modulos/orcamentos-vencimento.md).

@@ -18635,3 +18635,32 @@ não manda mais `naturezas`/`produtos` (lê o gravado). Preview ganhou
 pede um clique. `admin.js?v=425`, `admin.css?v=383`, `admin-orc-pecas.js?v=6`.
 Sem migration. Desenho em [nota-fiscal.md](modulos/nota-fiscal.md), seção
 "O modal de emissão".
+
+### Nota fiscal: página própria com rascunho, impostos e espelho (23/11/2026)
+
+Opção B da maquete `/dev/_nota-preview.html`, escolhida pelo Pedro. A nota
+virou um documento com endereço (`#/orcamentos/<id>/nota`,
+`public/admin-nota.js`) no lugar do modal: cabeçalho com tipo e situação,
+passos (Rascunho → Impostos conferidos → Autorizada → Boletos), destinatário,
+itens com NCM/CFOP/CSOSN, informações adicionais editáveis, histórico; no
+trilho, resumo, impostos, cobrança e envio. Depois de emitida, a mesma página
+mostra número, PDF, boletos e histórico.
+
+- Migration **104** (✅ produção, 23/11/2026): `orcamentos.nota_rascunho` (jsonb). Rascunho salvo
+  sozinho (`PUT/DELETE …/nota/rascunho`).
+- `POST …/nota/impostos`: `SimularImpostos` do Omie (só leitura) para a
+  DANFE, com cache pela assinatura dos itens. A General é do Simples: o Omie
+  devolve CSOSN 102, tudo zerado, e a página mostra isso. NFS-e: o Omie não
+  simula a O.S.; a página diz o que o molde define.
+- Informações adicionais editáveis vão para `cDadosAdicNF`/`dados_adicionais_nf`.
+- "Espelho da nota": folha no desenho do DANFE/NFS-e, sem valor fiscal.
+- Entradas: trilho do orçamento (Preparar/Abrir a nota), lista de orçamentos,
+  carteira e lista de Notas fiscais. `_avAbrirNota` só redireciona; o CSS do
+  modal (`.nf-*`) saiu.
+- `admin.js?v=426`, `admin.css?v=386`, `admin-nota.js?v=2` (novo),
+  `admin-condominio.js?v=15`, `admin-nav.js?v=17`, `admin-carteira.js?v=13`,
+  `admin-orc-lista.js?v=5`.
+- Conferido no banco de teste (porta 3001, `PAINEL_NOVO`): rascunho,
+  parcelas, espelho, simulação real no Omie, estado emitido (simulado no
+  banco e desfeito), entradas e celular. **Não exercitado:** a rota de emitir
+  (o envio ao Omie é real e não tem sandbox).

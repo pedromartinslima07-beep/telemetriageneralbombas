@@ -21,6 +21,7 @@
 // O Omie calcula CBS/IBS sozinho na OS (0,9% / 0,1% em 2026); aqui não se
 // calcula imposto nenhum.
 
+const crypto = require("crypto");
 const { pool } = require("../db");
 const omie = require("./omie.service");
 const catalogo = require("./omie-produtos.service");
@@ -430,6 +431,9 @@ function _conferir(orc, linhas, naturezas, escolhas, prodInfo = new Map(), pagam
 // catálogo é a cópia local; se passou de 24 h, ela se atualiza por trás.
 async function preparar(orcId, naturezas, escolhas, pagamento) {
   const { orc, linhas } = await _carregar(orcId);
+  // Sem cobrança na chamada, vale a do rascunho salvo (migration 104).
+  const rasc = orc.nota_rascunho || null;
+  if (!pagamento && rasc && rasc.pagamento) pagamento = rasc.pagamento;
   const cods = linhas.map(l => (escolhas && escolhas[l.id]) || l.omie_produto_codigo).filter(Boolean);
   let prodInfo = new Map();
   let cat = null;
@@ -454,7 +458,167 @@ async function preparar(orcId, naturezas, escolhas, pagamento) {
   }
   conf.catalogo = cat;
   conf.emails = await destinatarios(orc);
+  // A página da nota (23/11/2026): cabeçalho do orçamento, destinatário
+  // completo, o rascunho salvo e a simulação de impostos ainda válida.
+  conf.orcamento = { id: orc.id, numero: orc.numero || null, status: orc.status, condominio_id: orc.condominio_id || null };
+  conf.destinatario = _destinatario(orc);
+  conf.rascunho = rasc ? {
+    emails: rasc.emails ?? null,
+    info_adicional: rasc.info_adicional ?? null,
+    salvo_em: rasc.salvo_em || null,
+    salvo_por_nome: rasc.salvo_por_nome || null,
+    tem_pagamento: Boolean(rasc.pagamento),
+  } : null;
+  conf.info_adicional_padrao = _infoPadrao(orc);
+  const imp = rasc && rasc.impostos;
+  conf.impostos = imp && imp.assinatura === _assinaturaImpostos(orc, conf) ? imp : null;
+  conf.impostos_vencidos = Boolean(imp && !conf.impostos);
   return conf;
+}
+
+// ── Página da nota: rascunho e impostos (23/11/2026, migration 104) ─────────
+function _infoPadrao(orc) {
+  return orc.numero ? `Orçamento ${orc.numero}` : "";
+}
+
+function _destinatario(orc) {
+  if (orc.condominio_id) {
+    return {
+      nome: orc.condo_nome || null, fantasia: orc.condo_fantasia || null, documento: orc.condo_cnpj || null,
+      endereco: orc.condo_endereco || null, bairro: orc.condo_bairro || null, cidade: orc.condo_cidade || null,
+      uf: orc.condo_uf || null, cep: orc.condo_cep || null, omie_codigo: orc.omie_cliente_codigo || null,
+      condominio_id: orc.condominio_id,
+    };
+  }
+  return {
+    nome: orc.cliente_nome || null, documento: orc.cliente_documento || null,
+    endereco: orc.cliente_endereco || null, omie_codigo: null, condominio_id: null,
+  };
+}
+
+// O que muda o imposto: o cliente, o tipo e cada item (produto, quantidade,
+// valor). A simulação guardada só vale para a mesma assinatura.
+function _assinaturaImpostos(orc, conf) {
+  const base = JSON.stringify({
+    c: orc.omie_cliente_codigo || null, uf: orc.condo_uf || null, t: conf.tipo,
+    i: (conf.itens || []).map(i => [i.codigo_produto || null, Number(i.quantidade), Number(i.valor_unitario)]),
+  });
+  return crypto.createHash("sha1").update(base).digest("hex").slice(0, 16);
+}
+
+const _RASC_EDITAVEL = (orc) => !orc.nota_status || orc.nota_status === "erro";
+
+// Salva o que a página tem (cobrança, e-mails, informações adicionais) por
+// cima do rascunho, sem apagar a simulação de impostos.
+async function salvarRascunho(orcId, usuario, { pagamento, emails, info_adicional } = {}) {
+  const { orc } = await _carregar(orcId);
+  if (!_RASC_EDITAVEL(orc)) throw new NotaErro(409, "A nota deste orçamento já foi pedida ao Omie: o rascunho não muda mais.");
+  let nome = usuario?.nome || null;
+  if (!nome && usuario?.id) nome = (await pool.query("SELECT nome FROM usuarios WHERE id = $1", [usuario.id])).rows[0]?.nome || null;
+  const patch = { salvo_em: new Date().toISOString(), salvo_por: usuario?.id || null, salvo_por_nome: nome };
+  if (pagamento !== undefined) patch.pagamento = pagamento;
+  if (emails !== undefined) patch.emails = emails == null ? null : String(emails).slice(0, 1000);
+  if (info_adicional !== undefined) patch.info_adicional = info_adicional == null ? null : String(info_adicional).slice(0, 1500);
+  await pool.query(
+    `UPDATE orcamentos SET nota_rascunho = COALESCE(nota_rascunho, '{}'::jsonb) || $2::jsonb WHERE id = $1`,
+    [orcId, JSON.stringify(patch)]
+  );
+  return { salvo_em: patch.salvo_em, salvo_por_nome: patch.salvo_por_nome };
+}
+
+async function descartarRascunho(orcId) {
+  const { orc } = await _carregar(orcId);
+  if (!_RASC_EDITAVEL(orc)) throw new NotaErro(409, "A nota deste orçamento já foi pedida ao Omie: não há rascunho para descartar.");
+  await pool.query(`UPDATE orcamentos SET nota_rascunho = NULL WHERE id = $1`, [orcId]);
+  return preparar(orcId);
+}
+
+// Os impostos antes de emitir.
+// DANFE: SimularImpostos do Omie (só leitura, não cria nada lá), com o
+// cliente do Omie e o MESMO cenário fiscal do pedido. Testado em 23/11/2026:
+// a General é do Simples Nacional, o Omie devolve CSOSN 102 e PIS/COFINS
+// CST 08, tudo zerado — a nota não destaca imposto. A tela mostra isso.
+// NFS-e: o Omie não tem simulação da OS (o ISS sai no ConsultarOS, depois
+// de incluída). A tela diz o que é sabido pelo molde (serviço 14.01, ISS não
+// retido) e que o valor vem com a nota.
+async function conferirImpostos(orcId) {
+  const conf = await preparar(orcId);
+  const { orc } = await _carregar(orcId);
+  const assinatura = _assinaturaImpostos(orc, conf);
+  const antes = orc.nota_rascunho && orc.nota_rascunho.impostos;
+  if (antes && antes.assinatura === assinatura) return antes;
+
+  let imp;
+  if (conf.tipo === "nfse") {
+    imp = {
+      tipo: "nfse", assinatura, em: new Date().toISOString(),
+      servico: `${MOLDE_NFSE.cCodServLC116} · código municipal ${MOLDE_NFSE.cCodServMun}`,
+      iss_retido: MOLDE_NFSE.cRetemISS === "S",
+    };
+  } else {
+    if (conf.itens.some(i => !i.codigo_produto)) throw new NotaErro(409, "Escolha o produto do Omie de cada peça antes de conferir os impostos.");
+    if (!conf.itens.length) throw new NotaErro(409, "Nenhum item para conferir.");
+    if (antes && antes.em && Date.now() - new Date(antes.em).getTime() < 65e3) {
+      throw new NotaErro(429, "O Omie recusa a mesma consulta em menos de um minuto. Tente de novo em instantes.");
+    }
+    const param = {
+      consumidor_final: "S",
+      frete_simul: { valor_frete: 0, valor_seguro: 0, outras_despesas: 0 },
+      det_simul: conf.itens.map((i, k) => ({
+        codigo_cenario_impostos_item: MOLDE_NFE.cenario,
+        produto_simul: { codigo_produto: Number(i.codigo_produto), codigo_item_integracao: `${i.linha_id}-${k + 1}`, quantidade: i.quantidade, valor_unitario: i.valor_unitario },
+      })),
+    };
+    if (orc.omie_cliente_codigo) param.codigo_cliente = Number(orc.omie_cliente_codigo);
+    else {
+      // Sem o cliente no Omie (ele é cadastrado na emissão), a simulação
+      // precisa do município pelo código IBGE. Só São Paulo é conhecido aqui.
+      const cid = String(orc.condo_cidade || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim();
+      if (String(orc.condo_uf || "").toUpperCase() !== "SP" || cid !== "SAO PAULO") {
+        throw new NotaErro(409, "O cliente ainda não está no Omie (é cadastrado na emissão): a simulação de impostos fica para depois.");
+      }
+      param.cliente_simul = { clientes_contribuinte: "N", clientes_estado: "SP", cidades_codmunibge: "3550308", optante_simples_nacional: "N" };
+    }
+    const r = await omie.chamar("produtos/pedido/", "SimularImpostos", param);
+    imp = { tipo: "nfe", assinatura, em: new Date().toISOString(), ..._lerSimulacao(r) };
+  }
+  await pool.query(
+    `UPDATE orcamentos SET nota_rascunho = COALESCE(nota_rascunho, '{}'::jsonb) || jsonb_build_object('impostos', $2::jsonb) WHERE id = $1`,
+    [orcId, JSON.stringify(imp)]
+  );
+  return imp;
+}
+
+// O que interessa da resposta do SimularImpostos, por item e somado.
+function _lerSimulacao(r) {
+  const n = (v) => Math.round((Number(v) || 0) * 100) / 100;
+  const itens = (r.det_simul_resp || []).map(d => {
+    const im = d.imposto || {};
+    const p = d.produto_simul_resp || {};
+    const sn = im.icms_sn && im.icms_sn.cod_sit_trib_icms_sn ? im.icms_sn : null;
+    const icms = im.icms && Object.keys(im.icms).length ? im.icms : null;
+    return {
+      item: p.codigo_item_integracao || null,
+      codigo_produto: p.codigo_produto || null,
+      cfop: String(p.cfop || "").trim() || null,
+      valor_total: n(p.valor_total),
+      icms_cst: sn ? `CSOSN ${sn.cod_sit_trib_icms_sn}` : icms && icms.cod_sit_trib_icms ? `CST ${icms.cod_sit_trib_icms}` : null,
+      icms: n(sn ? sn.valor_icms_sn : icms ? icms.valor_icms : 0),
+      icms_st: n(im.icms_st && im.icms_st.valor_icms_st),
+      ipi: n(im.ipi && im.ipi.valor_ipi),
+      pis: n(im.pis_padrao && im.pis_padrao.valor_pis),
+      pis_cst: (im.pis_padrao && im.pis_padrao.cod_sit_trib_pis) || null,
+      cofins: n(im.cofins_padrao && im.cofins_padrao.valor_cofins),
+      cofins_cst: (im.cofins_padrao && im.cofins_padrao.cod_sit_trib_cofins) || null,
+      ibs: n(im.ibs && im.ibs.valor_ibs),
+      cbs: n(im.cbs && im.cbs.valor_cbs),
+    };
+  });
+  const soma = (k) => n(itens.reduce((a, i) => a + i[k], 0));
+  const totais = { icms: soma("icms"), icms_st: soma("icms_st"), ipi: soma("ipi"), pis: soma("pis"), cofins: soma("cofins"), ibs: soma("ibs"), cbs: soma("cbs") };
+  totais.destacado = n(totais.icms + totais.icms_st + totais.ipi);
+  const simples = itens.length && itens.every(i => /^CSOSN/.test(i.icms_cst || ""));
+  return { itens, totais, simples_nacional: Boolean(simples) };
 }
 
 // Para quem o Omie vai mandar a nota (migration 102, ver
@@ -569,7 +733,7 @@ function montarOs({ orc, itens, nCodCli, pagamento, emails }) {
       cCodCateg: MOLDE_NFSE.cCodCateg,
       nCodCC: pagamento?.conta || MOLDE_NFSE.nCodCC,
       cCidPrestServ: orc.condo_cidade && orc.condo_uf ? `${String(orc.condo_cidade).toUpperCase()} (${orc.condo_uf})` : "SAO PAULO (SP)",
-      cDadosAdicNF: orc.numero ? `Orçamento ${orc.numero}` : "",
+      cDadosAdicNF: orc._info_adicional != null ? orc._info_adicional : _infoPadrao(orc),
     },
     ServicosPrestados: itens.map((i, k) => ({
       nSeqItem: k + 1,
@@ -630,7 +794,7 @@ function montarPedido({ orc, itens, nCodCli, pagamento, emails }) {
       codigo_conta_corrente: pagamento?.conta || MOLDE_NFE.nCodCC,
       codVend: MOLDE_NFE.codVend,
       consumidor_final: "S",
-      dados_adicionais_nf: orc.numero ? `Orçamento ${orc.numero}` : "",
+      dados_adicionais_nf: orc._info_adicional != null ? orc._info_adicional : _infoPadrao(orc),
       // O e-mail da DANFE (o mesmo papel do bloco Email da O.S.): DANFE, XML
       // e o boleto do faturamento, para a lista conferida no modal.
       ...(emails && emails.length ? { enviar_email: "S", utilizar_emails: emails.join(",") } : {}),
@@ -645,7 +809,9 @@ function montarPedido({ orc, itens, nCodCli, pagamento, emails }) {
 // valem mesmo que a emissão falhe adiante.
 // `pagamento` = { parcelas, vencimentos } do modal; não é gravado (a retomada
 // acha a OS/pedido já criado, com as parcelas que foram).
-async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento = null, emails = null) {
+// `info` = as informações adicionais da página da nota (migration 104);
+// sem ela, a do rascunho; sem rascunho, "Orçamento OR-…".
+async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento = null, emails = null, info = undefined) {
   // Os destinatários conferidos no modal. Lista digitada com endereço
   // inválido é recusada antes de tudo (melhor que nota sem e-mail).
   let lista = null;
@@ -672,6 +838,9 @@ async function emitir(orcId, usuarioId, naturezas = {}, escolhas = {}, pagamento
   const conf = _conferir(orc, linhas, null, null, prodInfo, pagamento);
   // Sem lista vinda do modal (quem chama direto), vale a mesma da prévia.
   conf.emails = lista != null ? lista : (await destinatarios(orc)).lista;
+  const rascInfo = orc.nota_rascunho && orc.nota_rascunho.info_adicional;
+  orc._info_adicional = info !== undefined && info !== null ? String(info).slice(0, 1500)
+    : rascInfo != null ? String(rascInfo) : null;
   // Toda linha cobrável precisa estar CONFIRMADA — sugestão não emite nota.
   const semConfirmar = conf.linhas.filter(l => l.cobravel && !l.natureza);
   if (semConfirmar.length) throw new NotaErro(422, "Confirme se cada linha é serviço ou peça antes de emitir.");
@@ -941,6 +1110,9 @@ async function _lerDanfe(orc) {
 }
 
 module.exports = {
+  salvarRascunho,
+  descartarRascunho,
+  conferirImpostos,
   NotaErro,
   MOLDE_NFSE,
   MOLDE_NFE,

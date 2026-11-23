@@ -13,14 +13,15 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-> 🟠 **Modal da nota redesenhado — no ar em 23/11/2026 (`270de06`).** Deixou
-> de repetir o editor do orçamento: confere o que vai sair, lista o que falta
-> ("Antes de emitir", com atalhos que gravam na linha do orçamento ou levam a
-> ela) e cuida da cobrança e do envio. Conferido no banco de teste (porta
-> 3001, `PAINEL_NOVO`), desktop e celular; a emissão em si não foi exercitada
-> (Omie sem sandbox). Sem migration. ⏳ **Falta:** ver na
-> primeira nota real. Ver a seção "O modal de emissão" em
-> [nota-fiscal.md](../docs/modulos/nota-fiscal.md).
+> 🟠 **A nota virou página própria — no ar em 23/11/2026.**
+> `#/orcamentos/<id>/nota` (opção B da maquete `/dev/_nota-preview.html`),
+> no lugar do modal (que tinha ido ao ar em `270de06` como conferência):
+> rascunho salvo sozinho, impostos pelo `SimularImpostos` do Omie (DANFE),
+> espelho da nota, histórico, boletos. Migration **104** em teste e em produção.
+> Conferido no banco de teste (porta 3001, `PAINEL_NOVO`), desktop e celular;
+> a rota de emitir não foi exercitada (Omie sem sandbox). ⏳ **Falta:** ver na
+> primeira nota real. Ver a
+> seção "A página da nota" em [nota-fiscal.md](../docs/modulos/nota-fiscal.md).
 
 > 🟠 **Orçamento que vence — no ar em 23/11/2026.** O
 > enviado vencido sem resposta é arquivado pelo job `orcamento-vencimento`

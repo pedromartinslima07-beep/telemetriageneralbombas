@@ -1,0 +1,28 @@
+-- 104 — A nota fiscal tem página própria e rascunho (23/11/2026).
+-- docs/modulos/nota-fiscal.md, seção "A página da nota".
+--
+-- Pedido do Pedro: a tela de nota "como os sistemas profissionais" (opção B
+-- da maquete /dev/_nota-preview.html). A nota vira um documento com endereço
+-- (#/orcamentos/<id>/nota) e, antes de emitir, um RASCUNHO que fica salvo:
+-- quem sai da página e volta encontra o que tinha escolhido.
+--
+-- `orcamentos.nota_rascunho` (jsonb, NULL = sem rascunho):
+--   { pagamento: { parcelas, vencimentos, banco, boleto },
+--     emails: "a@x, b@y",
+--     info_adicional: "Orçamento OR-000201. ...",
+--     impostos: { assinatura, em, tipo, itens: [...], totais: {...} },
+--     salvo_em, salvo_por, salvo_por_nome }
+--
+-- Fica uma coluna jsonb, e não uma tabela de notas, porque a regra continua
+-- "uma nota por orçamento" e todo o estado da nota já mora em `orcamentos`
+-- (colunas nota_*, 090). `impostos` é o cache da simulação do Omie
+-- (SimularImpostos), valendo só para a mesma `assinatura` (itens, valores e
+-- cliente): o Omie recusa consulta repetida em menos de 60 s.
+--
+-- Depois de emitida o rascunho NÃO é apagado: as informações adicionais e a
+-- simulação continuam aparecendo na página da nota.
+--
+-- Aditiva e idempotente. ⚠️ O código lê esta coluna: rodar em PRODUÇÃO
+-- antes do push (o push na main é o deploy).
+
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS nota_rascunho jsonb;

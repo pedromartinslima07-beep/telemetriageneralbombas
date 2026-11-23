@@ -33,7 +33,7 @@ const _NAV_ITENS = [
   { id: "agenda", rotulo: "Agenda", icone: "calendar-days", membros: [["agenda", "Agenda"]] },
   { grupo: "Documentos" },
   { id: "os", rotulo: "Ordens de serviço", icone: "clipboard-check", membros: [["ordens-servico", "O.S."]], tambem: ["os-detalhe"] },
-  { id: "orcamentos", rotulo: "Orçamentos", icone: "file-text", membros: [["orcamentos", "Orçamentos"]], tambem: ["orcamento-detalhe"] },
+  { id: "orcamentos", rotulo: "Orçamentos", icone: "file-text", membros: [["orcamentos", "Orçamentos"]], tambem: ["orcamento-detalhe", "nota-detalhe"] },
   // Etapa 5 (19/11/2026): tela única. Notas segue alcançável por endereço e
   // acende este item.
   { id: "financeiro", rotulo: "Financeiro", icone: "landmark",

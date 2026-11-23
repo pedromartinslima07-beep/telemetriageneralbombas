@@ -244,12 +244,13 @@ sempre desligado. ⏳ A 090 e a 091 ainda não estão em produção e nenhuma no
 real foi emitida. Ver
 [`../docs/modulos/nota-fiscal.md`](../docs/modulos/nota-fiscal.md).
 
-**Modal de emissão = conferência + faturamento (23/11/2026, sem migration):**
-Peça/Serviço e o produto do Omie são do **editor do orçamento**; o modal não
-os edita mais. Mostra "Antes de emitir" com o que falta e atalhos que gravam
-na linha do orçamento ou levam a ela, os itens como vão sair (só leitura),
-cobrança, envio e o rodapé com total e "Emitir DANFE/NFS-e". Ver a seção "O
-modal de emissão" em [`../docs/modulos/nota-fiscal.md`](../docs/modulos/nota-fiscal.md).
+**A nota tem página própria (23/11/2026, migration 104):** `#/orcamentos/<id>/nota`,
+no lugar do modal. Rascunho salvo sozinho (`orcamentos.nota_rascunho`),
+impostos simulados no Omie antes de emitir (DANFE; a General é do Simples e
+o Omie devolve tudo zerado), espelho da nota, e depois número, PDF, boletos e
+histórico. Peça/Serviço e o produto do Omie continuam sendo do orçamento: a
+página lista o que falta com atalhos. ✅ 104 em produção (23/11/2026). Ver a
+seção "A página da nota" em [`../docs/modulos/nota-fiscal.md`](../docs/modulos/nota-fiscal.md).
 
 **Desde 23/11/2026 (migration 101, em produção):** o modal escolhe o banco
 (Bradesco ou Sicredi) e o vencimento também da parcela única, e o boleto de

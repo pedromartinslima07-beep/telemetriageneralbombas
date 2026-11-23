@@ -185,7 +185,7 @@ function _icFila() {
       condo: o.condominio_id, condoNome: _icNomeCondo(o.condominio_id, o.condominio_nome || o.cliente_nome),
       t: `${o.numero || "Orçamento"} aprovado, sem nota fiscal`,
       m: `${_icValor(o).replace(/^ · /, "") || "sem valor"}${o.respondido_em ? " · aprovado " + _icHa(o.respondido_em) : ""}`,
-      quando: o.respondido_em || o.criado_em, acao: "Emitir nota", attr: `data-ic-orc="${o.id}"` });
+      quando: o.respondido_em || o.criado_em, acao: "Emitir nota", attr: `data-nf-orc="${o.id}"` });
   }
 
   // Peça usada na visita que não entrou em orçamento (fase C das peças): a
@@ -484,7 +484,7 @@ function renderNotas() {
     const sub = o.nota_status === "erro" && o.nota_erro
       ? `<span class="os-sub os-sub-atencao">${_cfEsc(o.nota_erro)}</span>`
       : !o.nota_status && o.respondido_em ? `<span class="os-sub">aprovado em ${_cfData(o.respondido_em)}</span>` : "";
-    return `<tr class="pro-row" data-ic-orc="${o.id}" tabindex="0">
+    return `<tr class="pro-row" data-nf-orc="${o.id}" tabindex="0">
       <td class="pro-id"><span class="mono">${_cfEsc(o.nota_numero || "—")}</span>
         <span class="os-sub">${o.nota_status ? [tipo, quando ? _cfData(quando) : ""].filter(Boolean).join(" · ") : ""}</span></td>
       <td class="pro-cli"><span class="pro-cli-nome">${predio}</span>
@@ -513,7 +513,7 @@ function renderNotas() {
             </tr></thead>
             <tbody>${linhas.join("")}</tbody></table></div>`
         : `<div class="cf-vazio"><p>${q ? "Nada encontrado com essa busca." : _nfAba === "sem" ? "Todo orçamento aprovado já tem nota." : "Nenhuma nota nesta situação."}</p></div>`}
-      <p class="cf-nota nf-rodape">A nota é emitida e acompanhada na página do orçamento. Clique na linha para abrir.</p>
+      <p class="cf-nota nf-rodape">Clique na linha para abrir a página da nota (rascunho, impostos, boletos).</p>
     </section>`;
 }
 
@@ -521,7 +521,7 @@ function renderNotas() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const agir = (e) => {
-    const alvo = e.target.closest("[data-ic-chamado],[data-ic-orc],[data-ic-os],[data-ic-contrato],[data-ic-condo],[data-ic-secao],[data-nf-aba],[data-ic-f],[data-ic-mais],[data-ic-novo],[data-ic-novo-tipo],[data-ic-tentar]");
+    const alvo = e.target.closest("[data-nf-orc],[data-ic-chamado],[data-ic-orc],[data-ic-os],[data-ic-contrato],[data-ic-condo],[data-ic-secao],[data-nf-aba],[data-ic-f],[data-ic-mais],[data-ic-novo],[data-ic-novo-tipo],[data-ic-tentar]");
     if (!alvo) return;
     const ds = alvo.dataset;
     if (ds.icF)        { _icFiltro = ds.icF; _icMostrarTudo = false; renderInicio(); return; }
@@ -542,6 +542,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ds.nfAba)      { _nfAba = ds.nfAba; renderNotas(); return; }
     if (ds.icSecao)    { showSection(ds.icSecao); return; }
     if (ds.icChamado)  { if (typeof gbAtEscolher === "function") gbAtEscolher(Number(ds.icChamado)); else _cfAbrirChamado(Number(ds.icChamado)); return; }
+    if (ds.nfOrc)      { _nfAbrirPagina(Number(ds.nfOrc)); return; }
     if (ds.icOrc)      { _cfAbrirOrcamento(Number(ds.icOrc)); return; }
     if (ds.icOs)       { abrirOSDetalhe(Number(ds.icOs)); return; }
     if (ds.icContrato) { _ctrAbrirModal({ condoId: Number(ds.icContratoCondo), contratoId: Number(ds.icContrato) }); return; }
