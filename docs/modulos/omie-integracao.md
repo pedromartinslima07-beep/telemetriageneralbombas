@@ -286,6 +286,12 @@ conta de cobrança ou registrado no banco por fora).
 
 ### 4. Contas a pagar na Agenda
 
+> **Primeiro pedaço, no sentido contrário (23/11/2026, migration 100):** as
+> guias de tributos que o contador publica no Onvio entram em PDF e viram
+> conta a pagar no Omie (o sistema grava, com `OMIE_EMISSAO`). Ver
+> [guias-tributos.md](guias-tributos.md). A leitura dos vencimentos a pagar
+> para a Agenda continua por fazer.
+
 Era a fase C da [agenda.md](agenda.md): os vencimentos a pagar
 (`financas/contapagar/ListarContasPagar`) entram no dia deles, com aviso do
 que vence na semana.

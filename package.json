@@ -25,6 +25,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "openai": "^6.37.0",
+    "pdfjs-dist": "^4.10.38",
     "pg": "^8.12.0",
     "pngjs": "^5.0.0",
     "puppeteer": "^24.39.0",

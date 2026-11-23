@@ -199,6 +199,82 @@ async function listarContasReceber({ de, ate }) {
   return todos;
 }
 
+// ── Contas a pagar (guias de tributos, docs/modulos/guias-tributos.md) ──────
+// Lido na doc em 23/11/2026 (financas/contapagar/). Datas em "dd/mm/aaaa".
+// ⚠️ `filtrar_por_data_de/ate` do ListarContasPagar filtra pela data de
+// INCLUSÃO/alteração, não pelo vencimento (conferido em 23/11/2026: o filtro
+// 20/10 devolveu títulos que vencem de março a outubro). Para achar "a mesma
+// guia já lançada à mão" o filtro certo é o fornecedor (`filtrar_cliente`).
+
+async function consultarContaPagarPorIntegracao(codigo_lancamento_integracao) {
+  try {
+    const j = await chamar("financas/contapagar/", "ConsultarContaPagar", { codigo_lancamento_integracao });
+    return j && j.codigo_lancamento_omie ? j : null;
+  } catch (e) {
+    if (e.naoEncontrado) return null;
+    throw e;
+  }
+}
+
+// Os títulos de um fornecedor (50 por página, o máximo do método), em série.
+async function listarContasPagarDoFornecedor(codigo_cliente_fornecedor, { maxPaginas = 10 } = {}) {
+  const todos = [];
+  for (let p = 1; p <= maxPaginas; p++) {
+    let j;
+    try {
+      j = await chamar("financas/contapagar/", "ListarContasPagar", {
+        pagina: p, registros_por_pagina: 50, apenas_importado_api: "N",
+        filtrar_cliente: Number(codigo_cliente_fornecedor), ordenar_por: "CODIGO", ordem_descrescente: "S",
+      });
+    } catch (e) {
+      if (e.naoEncontrado) break;
+      throw e;
+    }
+    todos.push(...(j.conta_pagar_cadastro || []));
+    if (p >= (j.total_de_paginas || 1)) break;
+  }
+  return todos;
+}
+
+// ⚠️ GRAVA NO OMIE. Responde `{ codigo_lancamento_omie, codigo_status,
+// descricao_status }`; status diferente de "0" é recusa.
+async function incluirContaPagar(payload) {
+  const j = await chamar("financas/contapagar/", "IncluirContaPagar", payload);
+  if (j && j.codigo_status != null && String(j.codigo_status) !== "0") {
+    throw new OmieErro(String(j.descricao_status || `IncluirContaPagar recusou (status ${j.codigo_status}).`).trim(), { call: "IncluirContaPagar" });
+  }
+  return j;
+}
+
+// ⚠️ GRAVA NO OMIE: anexa um arquivo a um registro (geral/anexo/). A doc pede
+// o arquivo "compactado (zip) e convertido em base 64" e o MD5 "do arquivo
+// enviado na tag cArquivo" — quem chama manda o zip e o MD5 do zip.
+// `cTabela` da conta a pagar é "conta-pagar" (com hífen).
+async function incluirAnexo({ cCodIntAnexo, cTabela, nId, cNomeArquivo, cTipoArquivo, cArquivo, cMd5 }) {
+  const j = await chamar("geral/anexo/", "IncluirAnexo", { cCodIntAnexo, cTabela, nId, cNomeArquivo, cTipoArquivo, cArquivo, cMd5 });
+  if (j && j.cCodStatus != null && String(j.cCodStatus) !== "0") {
+    throw new OmieErro(String(j.cDesStatus || `IncluirAnexo recusou (status ${j.cCodStatus}).`).trim(), { call: "IncluirAnexo" });
+  }
+  return j;
+}
+
+// Só leitura: o plano de categorias (100 por página).
+async function listarCategorias() {
+  const todos = [];
+  for (let p = 1; p <= 10; p++) {
+    const j = await chamar("geral/categorias/", "ListarCategorias", { pagina: p, registros_por_pagina: 100 });
+    todos.push(...(j.categoria_cadastro || []));
+    if (p >= (j.total_de_paginas || 1)) break;
+  }
+  return todos;
+}
+
+// Só leitura: as contas correntes (14 em 23/11/2026).
+async function listarContasCorrentes() {
+  const j = await chamar("geral/contacorrente/", "ListarContasCorrentes", { pagina: 1, registros_por_pagina: 100, apenas_importado_api: "N" });
+  return j.ListarContasCorrentes || [];
+}
+
 // ── Produtos (catálogo para a DANFE) ────────────────────────────────────────
 
 // O Omie corta em 100 por página mesmo pedindo mais: ~1.300 itens
@@ -280,6 +356,12 @@ module.exports = {
   listarContasReceber,
   obterBoleto,
   gerarBoleto,
+  consultarContaPagarPorIntegracao,
+  listarContasPagarDoFornecedor,
+  incluirContaPagar,
+  incluirAnexo,
+  listarCategorias,
+  listarContasCorrentes,
   listarProdutos,
   listarPedidos,
   consultarPedidoPorIntegracao,

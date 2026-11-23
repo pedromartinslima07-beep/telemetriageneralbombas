@@ -307,6 +307,36 @@ Omie; [omie-integracao.md](modulos/omie-integracao.md#3-contas-a-receber-quem-pa
   futura; 404 título fora da lista.
 - `DELETE /admin/cobranca/:codigo/pago` → desfaz (404 se não estava marcado).
 
+**Guias de tributos** (`/admin/guias`, **só admin** + **só o painel novo**
+(`masterAdminOnly` + `painelNovoOnly`), migration 100;
+[guias-tributos.md](modulos/guias-tributos.md)):
+- `GET /admin/guias` → `{ guias, regras, envio_ligado, hoje }`. Cada guia:
+  `id`, `tipo`, `descricao`, `competencia`, `vencimento`, `valor`,
+  `linha_digitavel`, `linha_formatada`, `codigo_barras`, `numero_documento`,
+  `cnpj`, `avisos`, `arquivo_nome`, `tem_pdf`, `status`, `omie` `{ fornecedor,
+  fornecedor_nome, categoria, conta, codigo, erro, anexo_ok, anexo_erro }`,
+  `enviado_em`/`enviado_por`, `criado_em`/`criado_por`.
+- `GET /admin/guias/opcoes` → `{ categorias, contas, erro }` do Omie (só
+  leitura, guardadas 6 h; só categorias de despesa ativas e não totalizadoras).
+- `GET /admin/guias/fornecedores?q=` → `{ fornecedores }` da cópia
+  `omie_clientes` (não chama o Omie).
+- `POST /admin/guias` `{ nome, pdf_base64 }` → 201 `{ guias, repetidas,
+  sem_codigo }`. 400 se não é PDF; 413 acima de 4 MB.
+- `GET /admin/guias/:id/pdf` → o PDF.
+- `PATCH /admin/guias/:id` `{ tipo?, competencia?, vencimento?, valor?,
+  linha_digitavel?, numero_documento?, omie_fornecedor?, omie_categoria?,
+  omie_conta?, lembrar? }` → `{ guia }`. 400 linha com DV errado ou valor
+  diferente do código de barras; 409 guia já lançada. Trocar o tipo sem
+  mandar o destino traz a regra do tipo novo; `lembrar` grava a regra.
+- `POST /admin/guias/:id/lancar` `{ forcar? }` → ⚠️ **grava no Omie**
+  (`IncluirContaPagar` + `IncluirAnexo`) → `{ guia, anexo, ja_existia? }`.
+  503 sem `OMIE_EMISSAO=1`; 400 falta campo; **409 `{ error, parecidas }`** se
+  o Omie já tem a guia (mesmo código de barras ou mesmo valor e vencimento no
+  fornecedor) — `forcar: true` passa; 409 já lançada; 504 queda sem resposta
+  (a guia fica `incerto`).
+- `POST /admin/guias/:id/anexo` → ⚠️ grava no Omie: tenta anexar o PDF de novo.
+- `POST /admin/guias/:id/descartar` · `POST /admin/guias/:id/restaurar`.
+
 ---
 
 ## Agenda (`/agenda`) — gestão

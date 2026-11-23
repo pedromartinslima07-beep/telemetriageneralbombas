@@ -749,6 +749,49 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 100 — guias de tributos → contas a pagar no Omie (23/11/2026)
+
+Fluxo em [guias-tributos.md](modulos/guias-tributos.md). O PDF que o contador
+publica no Onvio entra, o sistema lê a guia, alguém confere e "Lançar no
+Omie" cria a conta a pagar.
+
+**`guias_tributos`** — uma linha por guia lida (um PDF com duas guias = duas
+linhas com o mesmo `arquivo_md5`).
+
+| Coluna | Tipo | O quê |
+|---|---|---|
+| `id` | SERIAL PK | também compõe o código de integração no Omie: `GB-GUIA-<id>` |
+| `tipo` | VARCHAR(14) | `das` · `darf` · `fgts` · `dae` · `gps` · `parcelamento` · `municipal` · `outro` |
+| `descricao` | VARCHAR(120) | nome do tipo ("DAS · Simples Nacional") |
+| `competencia` | VARCHAR(7) | 'AAAA-MM' (período de apuração) |
+| `vencimento` | DATE | do texto do PDF (o código de arrecadação não traz) |
+| `valor` | NUMERIC(12,2) | **do código de barras**; o servidor recusa valor diferente dele |
+| `linha_digitavel` | VARCHAR(60) | só dígitos (48 arrecadação, 47 boleto) |
+| `codigo_barras` | VARCHAR(44) | **único entre as guias não descartadas** (`guias_tributos_barras_uq`) |
+| `numero_documento`, `cnpj` | VARCHAR | o que o PDF diz (CNPJ só dígitos) |
+| `leitura` | JSONB | o que o leitor achou + `avisos` (zerados na conferência) |
+| `arquivo_nome`, `arquivo`, `arquivo_md5` | VARCHAR / BYTEA / VARCHAR(32) | o PDF (dezenas de KB; limite de 4 MB na rota) |
+| `omie_fornecedor`, `omie_categoria`, `omie_conta` | BIGINT / VARCHAR(20) / BIGINT | o destino no Omie |
+| `status` | VARCHAR(12) | `conferir` → `enviando` → `lancada` · `erro` · `incerto`; `descartada` |
+| `omie_codigo` | BIGINT | `codigo_lancamento_omie` da conta a pagar |
+| `omie_erro` | TEXT | a recusa do Omie (ou a queda) |
+| `anexo_ok`, `anexo_erro` | BOOLEAN / TEXT | o PDF anexado à conta a pagar |
+| `enviado_em`, `enviado_por`, `criado_por`, `criado_em`, `atualizado_em` | | FKs de autoria `ON DELETE SET NULL` |
+
+`incerto` = o Omie não respondeu à inclusão: a próxima tentativa consulta o
+Omie pelo código de integração antes de incluir, e nunca cria duas.
+
+**`guias_regras`** (`tipo` PK, `omie_fornecedor`, `omie_categoria`,
+`omie_conta`, `atualizado_por`, `atualizado_em`) — o destino no Omie de cada
+tipo. Semeada com o que o Omie mostrou em 23/11/2026: Receita Federal
+`5993951792` e conta BRADESCO * `6109178168` em todas; DAS `2.06.99`, FGTS
+`2.03.07`, parcelamento `2.06.98`, DAE/GPS `2.03.06`, municipal `2.06.97`
+(fornecedor Prefeitura `5993972859`); DARF e "outro" sem categoria. Muda na
+tela ("Usar sempre para...").
+
+✅ Teste (23/11/2026). ⏳ **Produção: falta**, e tem de rodar **antes do
+push** (o código lê as duas tabelas).
+
 ## 099 — cobrança: os títulos em atraso do que o sistema emitiu (23/11/2026)
 
 Integração com o Omie, fase 3 ([omie-integracao.md](modulos/omie-integracao.md#3-contas-a-receber-quem-pagou-quem-atrasou)).

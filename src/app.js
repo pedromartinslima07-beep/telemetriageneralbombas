@@ -536,6 +536,7 @@ app.use("/relatorios", relatoriosRouter);
 // Nota fiscal pelo Omie (migration 090) — antes do adminRouter, mesmas regras de acesso.
 app.use("/admin", notaFiscalRouter);
 app.use("/admin", require("./routes/cobranca.routes")); // cobrança: títulos em atraso do que o sistema emitiu (Omie, fase 3)
+app.use("/admin", require("./routes/guias.routes")); // guias de tributos (PDF do Onvio) → contas a pagar no Omie
 app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
 app.use("/status", statusRouter);

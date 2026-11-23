@@ -12868,3 +12868,32 @@ a.ls-bt { text-decoration: none; }
 .cb-outros li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13px; }
 .cb-outros li .ls-mono { margin-left: auto; }
 #cobLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }
+
+/* ===== Guias de tributos (admin-guias.js, 23/11/2026) ===== */
+.gu-form select, .gu-form input[type="month"], .gu-form input[type="search"] { height: 32px; padding: 0 10px; border: 1px solid var(--ls-fio-forte); border-radius: 7px; background: var(--ls-placa); color: var(--ls-tinta); font: inherit; font-size: 13px; }
+.gu-form select:focus, .gu-form input:focus { outline: 2px solid var(--ls-in-m); outline-offset: 1px; }
+.gu-form .ls-mono { font-family: var(--ls-mono); letter-spacing: .02em; }
+.gu-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 420px) { .gu-duas { grid-template-columns: 1fr; } }
+.gu-forn-atual { font-size: 13px; font-weight: 600; color: var(--ls-tinta); }
+.gu-forn-res { display: grid; gap: 2px; max-height: 220px; overflow-y: auto; }
+.gu-forn-res:empty { display: none; }
+.gu-forn-op { display: grid; text-align: left; padding: 6px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ls-tinta); font: inherit; font-size: 13px; cursor: pointer; }
+.gu-forn-op:hover, .gu-forn-op:focus-visible { background: var(--ls-hover); }
+.gu-lembrar { display: flex !important; grid-template-columns: none; align-items: flex-start; gap: 8px; color: var(--ls-tinta-2) !important; font-size: 12.5px !important; line-height: 1.4; }
+.gu-lembrar input { margin-top: 2px; }
+.gu-alerta { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.45; }
+.gu-alerta > svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 2px; }
+.gu-alerta > div { display: grid; gap: 4px; min-width: 0; }
+.gu-alerta ul { margin: 2px 0; padding-left: 18px; }
+.gu-alerta .oc-bts { margin-top: 4px; }
+.gu-alerta.is-at { background: var(--ls-at-f); color: var(--ls-at-t); }
+.gu-alerta.is-ri { background: var(--ls-ri-f); color: var(--ls-ri-t); }
+.gu-linha { word-break: break-all; }
+.gu-subir { cursor: pointer; }
+#guLsRoot { position: relative; }
+#guLsRoot.gu-arrastando::after { content: "Solte os PDFs das guias aqui"; position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; border: 2px dashed var(--ls-am); border-radius: 12px; background: rgba(240, 176, 20, .10); color: var(--ls-tinta); font-size: 16px; font-weight: 600; pointer-events: none; }
+#guLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }
+.gu-form, .gu-form label { min-width: 0; }
+.gu-form input:not([type="checkbox"]), .gu-form select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+#guLsRoot .ls-sec .ls-sec { padding-left: 0; padding-right: 0; margin-left: 0; margin-right: 0; }

@@ -13,6 +13,15 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Guias de tributos → contas a pagar do Omie — no código em 23/11/2026,
+> sem commit.** Financeiro → "Guias": o PDF do Onvio é lido, conferido e
+> lançado no Omie. Teste 46/46 e tela conferida no banco de teste. ⏳ **Falta:**
+> migration 100 em produção ANTES do push; `OMIE_EMISSAO=1` no Railway; a
+> primeira guia real com o Omie aberto ao lado (`IncluirContaPagar` e
+> `IncluirAnexo` nunca foram chamados de verdade); o Pedro decidir o
+> fornecedor do DAS/FGTS (o Omie tem Receita e Prefeitura misturados).
+> Ver [guias-tributos.md](../docs/modulos/guias-tributos.md).
+
 > 🟢 **Cobrança dos atrasados (Omie, fase 3) — na main e em produção em
 > 23/11/2026.** Aba "Em atraso" no Financeiro, só com os títulos das notas
 > emitidas pelo sistema. ✅ Migration 099 em produção antes do push. Falta:

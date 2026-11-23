@@ -144,6 +144,13 @@ migration 097.
 sincronização do Omie, com telefone do cliente, boleto e "Marcar como pago"
 só no sistema; o total entra no "Pede ação". Migration 099 (✅ produção,
 23/11/2026).
+**Guias de tributos (23/11):** Financeiro → "Guias" (só o admin, só o painel
+novo, `admin-guias.js`): o PDF da guia que o contador publica no Onvio é lido
+(`guia-leitura.service.js`: código de barras com DV, valor do código,
+vencimento e tipo do texto), conferido e lançado no contas a pagar do Omie
+com o PDF anexado (`guias.service.js`, travas contra conta em dobro,
+`OMIE_EMISSAO=1`). Migration 100 (teste; ⏳ produção). Ver
+[`../docs/modulos/guias-tributos.md`](../docs/modulos/guias-tributos.md).
 **Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):
 Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
 lado; as telas antigas seguem alcançáveis por link.

@@ -93,6 +93,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
 | 099 | cobranca_atrasados | tabelas **`omie_receber_atrasados`** (cópia dos títulos em atraso no Omie que o sistema emitiu), **`omie_boleto_links`** e **`omie_receber_pagos`** (o "já pagou" só no sistema); `omie_clientes.telefone`, `telefone2`, `contato`. **Aplicada em teste e em produção em 23/11/2026**, antes do push. Ver a entrada de 23/11/2026 abaixo |
+| 100 | guias_tributos | tabelas **`guias_tributos`** (a guia lida do PDF, o PDF, o destino e a situação no Omie; código de barras único entre as vivas) e **`guias_regras`** (fornecedor/categoria/conta por tipo, semeada com o que o Omie usa). **Aplicada em teste em 23/11/2026; falta produção, antes do push.** Ver a entrada de 23/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
 | 092 | agenda | tabelas **`compromissos`** (agenda da empresa, com repetição semanal/mensal e `so_admin`), **`omie_contratos`** e **`omie_contrato_notas`** (cópia dos contratos de serviço do Omie e das NFS-e de cada um) e **`omie_sincronizacoes`**. **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push que levar a agenda** (a rota e o job leem as tabelas). Ver [agenda.md](modulos/agenda.md) |
@@ -18466,3 +18467,40 @@ teste, títulos de mentira, 1440px e 375px): lista, painel, marcar como pago,
 troca de aba e o atalho do "Pede ação". **Hoje a lista nasce quase vazia:**
 o lote dos contratos ainda não rodou de verdade, e só os orçamentos com nota
 emitida pelo sistema entram. Ver [omie-integracao.md](modulos/omie-integracao.md).
+
+## Guias de tributos: do PDF do Onvio ao contas a pagar do Omie (2026-11-23)
+
+Pedido do Pedro: hoje as guias (DAS, DARF, FGTS…) são baixadas do Onvio do
+contador e digitadas no contas a pagar do Omie. O Financeiro ganhou a terceira
+troca, **"Guias"** (só o admin, só o painel novo, `#/financeiro/guias`), no
+molde de lista: "Enviar PDF" ou arrastar os PDFs; chips A lançar · Vencendo
+(até 5 dias) · No Omie · Descartadas · Todas. O leitor
+(`guia-leitura.service.js`, com `pdfjs-dist`) tira do PDF o código de barras
+(com os dígitos verificadores conferidos), o valor (do código, não do texto),
+o vencimento, o tipo, a competência, o número do documento e o CNPJ; a regra
+do tipo põe fornecedor, categoria e conta. No painel: conferir, salvar,
+"Lançar no Omie" (`IncluirContaPagar` + o PDF anexado com `IncluirAnexo`),
+"Ver PDF", "Descartar". As guias a lançar entram no "Pede ação".
+
+**Travas contra conta a pagar em dobro:** código de barras único; código de
+integração fixo (`GB-GUIA-<id>`) consultado antes de incluir (a queda sem
+resposta vira `incerto` e não inclui de novo); comparação com os títulos do
+fornecedor no Omie (409 com a lista, e só "Lançar mesmo assim" passa); uma
+guia por vez; `OMIE_EMISSAO=1`.
+
+**Levantamento no Omie (só leitura):** os contas a pagar de set–nov/2026
+mostraram as categorias usadas (DAS `2.06.99`, FGTS `2.03.07`, parcelamento
+`2.06.98`, TFE/TFA `2.06.97`) e a conta BRADESCO * em todas; os fornecedores
+estão misturados (Receita e Prefeitura no mesmo tipo). As 18 linhas
+digitáveis reais de lá foram lidas pelo leitor: os 18 valores batem, e isso
+pegou o erro do identificador 8 (DAS/DARF usam módulo 11). E o
+`ListarContasPagar` filtra a data pela inclusão, não pelo vencimento.
+
+Migration **100**. Rotas `/admin/guias` (`guias.routes.js`, montado em
+`/admin`, já network first no SW; `masterAdminOnly` + `painelNovoOnly`).
+`omie.service.js` ganha contas a pagar, anexo, categorias e contas
+correntes. `admin-guias.js?v=2` (novo), `admin-financeiro.js?v=5`,
+`admin.css?v=380` (bloco `gu-`). Dependência nova `pdfjs-dist` 4.10.38.
+Teste `guias-tributos.test.js` (46/46). Na tela (banco de teste, 1440px e
+375px). **`IncluirContaPagar` e `IncluirAnexo` nunca foram chamados de
+verdade.** Ver [guias-tributos.md](modulos/guias-tributos.md).
