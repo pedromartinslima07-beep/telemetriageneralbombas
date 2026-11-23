@@ -138,6 +138,12 @@ Condomínios e na página do prédio. Plano das outras fases em
 (`admin-faturamento-lote.js`): o sistema prepara, o Pedro confere e confirma,
 e só então o Omie fatura (`FaturarContrato`). Nenhuma nota real emitida ainda;
 migration 097.
+**Omie, fase 3 — cobrança (23/11):** Financeiro → "Em atraso" (só o admin,
+`admin-cobranca.js`): os títulos vencidos **das notas que o sistema emitiu**
+(orçamento por OS/pedido, contrato pelo lote), copiados de hora em hora com a
+sincronização do Omie, com telefone do cliente, boleto e "Marcar como pago"
+só no sistema; o total entra no "Pede ação". Migration 099 (✅ produção,
+23/11/2026).
 **Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):
 Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
 lado; as telas antigas seguem alcançáveis por link.

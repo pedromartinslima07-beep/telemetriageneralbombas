@@ -13,6 +13,13 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟢 **Cobrança dos atrasados (Omie, fase 3) — na main e em produção em
+> 23/11/2026.** Aba "Em atraso" no Financeiro, só com os títulos das notas
+> emitidas pelo sistema. ✅ Migration 099 em produção antes do push. Falta:
+> conferir a primeira cópia real (a sincronização roda 3 min depois do boot),
+> atrasados no Hoje e na página do prédio, segunda via por e-mail. Ver
+> [omie-integracao.md](../docs/modulos/omie-integracao.md#3-contas-a-receber-quem-pagou-quem-atrasou).
+
 > 🟠 **Redesenho ESTRUTURAL do admin — onde paramos (19/11/2026).** Branch
 > `feature/admin-condominio`, commitada e com push na branch (sem merge, sem
 > deploy). **Prontas no código:** casca + Ctrl+K + Hoje, Monitoramento,

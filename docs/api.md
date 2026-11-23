@@ -284,6 +284,29 @@ cópia do banco, nada chama nem grava no Omie;
   não existir).
 - `DELETE /contratos/omie/clientes/:codigo/condominio` → desfaz o elo à mão.
 
+**Cobrança** (`/admin/cobranca`, **só admin** (`masterAdminOnly`), migration
+099 — os títulos em atraso **das notas que o sistema emitiu**; nada grava no
+Omie; [omie-integracao.md](modulos/omie-integracao.md#3-contas-a-receber-quem-pagou-quem-atrasou)):
+- `GET /admin/cobranca` → `{ titulos, sincronizacao, hoje }`. Cada título:
+  `omie_codigo`, `origem` (`orcamento`｜`contrato`), `orcamento_id`, `contrato`
+  `{ omie_codigo, numero, competencia }`, `documento`, `parcela`,
+  `numero_nf`, `valor`, `emissao`, `vencimento`, `dias` (de atraso, no relógio
+  de SP), `banco` (`Sicredi`/`Bradesco`), `boleto_numero` (null = sem boleto),
+  `cliente` `{ omie_codigo, nome, razao_social, documento, email, telefone,
+  telefone2, contato }`, `condominio` `{ id, nome, telefone, responsavel }`
+  (o do orçamento; no contrato, elo à mão ou CNPJ único) e `pago` (a marca à
+  mão, ou null). Só lê o banco.
+- `POST /admin/cobranca/atualizar` → refaz a sincronização inteira do Omie
+  (a mesma do "Atualizar do Omie" dos contratos, só leitura lá; intervalo
+  mínimo de 2 min → `{ pulado: true }`); 502 se o Omie não responder.
+- `GET /admin/cobranca/:codigo/boleto` → `{ link }` do PDF (`ObterBoleto` na
+  primeira vez, depois do banco). 404 se o título não está na lista ou não tem
+  boleto.
+- `PUT /admin/cobranca/:codigo/pago` `{ pago_em?: "AAAA-MM-DD", observacao? }`
+  → "já pagou", **só no sistema** (some de "A cobrar"). 400 data inválida ou
+  futura; 404 título fora da lista.
+- `DELETE /admin/cobranca/:codigo/pago` → desfaz (404 se não estava marcado).
+
 ---
 
 ## Agenda (`/agenda`) — gestão

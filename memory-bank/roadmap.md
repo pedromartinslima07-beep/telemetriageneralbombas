@@ -1058,7 +1058,7 @@ sozinho). Estoque fora. Ver [omie-integracao.md](../docs/modulos/omie-integracao
 |---|---|---|
 | 1 | Contratos do Omie ligados ao prédio pelo CNPJ, fila dos sem prédio, aviso de vigência vencida | ✅ 20/11 no código (migration 096: rodar em produção antes do push) |
 | 2 | Faturamento do dia 1: o lote do mês, conferido e confirmado pelo Pedro (nunca sozinho), dia configurável, travas contra nota em dobro | ✅ 20/11 no código (migration 097; `OMIE_EMISSAO=1` no Railway; primeira emissão real com um contrato só) |
-| 3 | Contas a receber: atrasados no Hoje e no prédio, marcar pago à mão, conferir pelo arquivo do banco, segunda via | 📋 baixa só no sistema (decidido 20/11); só os títulos que o sistema emitir; Sicredi `5960922842` (contratos) e Bradesco `6109178168` (OS); falta um arquivo de exemplo |
+| 3 | Contas a receber: atrasados no Hoje e no prédio, marcar pago à mão, conferir pelo arquivo do banco, segunda via | 🟡 **Cobrança no Financeiro ✅ 23/11 no código** (aba "Em atraso": só os títulos das notas do sistema, contato, boleto, marcar pago só no sistema; ✅ migration 099 em produção 23/11). Falta: atrasados no Hoje e na página do prédio, segunda via por e-mail. Conferência pelo arquivo do banco deixada de lado: o Bradesco tem o retorno importado no Omie (23/11) |
 | 4 | Contas a pagar na Agenda | 📋 |
 | 5 | Cadastro conferido com o Omie | 📋 |
 | 6 | Caixa e extrato (para o dashboard de Relatórios) | 📋 |

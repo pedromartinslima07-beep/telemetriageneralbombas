@@ -24,6 +24,11 @@
 // O faturamento do Omie (GET /agenda/faturamento) é só do admin; para os
 // outros perfis o cartão some. O painel do mês é o da Agenda
 // (_agAbrirFaturamento).
+//
+// EM ATRASO (23/11/2026, só o admin): a troca "Notas fiscais | Em atraso"
+// mostra no palco a lista de cobrança de admin-cobranca.js (os títulos
+// vencidos das notas que o sistema emitiu), em #/financeiro/atraso. O total
+// entra no "Pede ação".
 
 (function () {
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -91,7 +96,10 @@
     if (n.semNota) acoes.push([`${n.semNota} aprovado${n.semNota === 1 ? "" : "s"} sem nota`, "notas", "sem"]);
     if (n.vencidos) acoes.push([`${n.vencidos} contrato${n.vencidos === 1 ? "" : "s"} vencido${n.vencidos === 1 ? "" : "s"}`, "contratos", "vencido"]);
     if (n.vencendo) acoes.push([`${n.vencendo} vencendo em 30 dias`, "contratos", "vencendo"]);
-    const totalAcao = n.comErro + n.semNota + n.vencidos + n.vencendo;
+    // Cobrança (admin-cobranca.js): os títulos do sistema em atraso.
+    const cob = ehAdmin() ? window.GBCobranca?.resumo?.() : null;
+    if (cob && cob.n) acoes.push([`${cob.n} título${cob.n === 1 ? "" : "s"} em atraso (${moeda(cob.valor)})`, "atraso", ""]);
+    const totalAcao = n.comErro + n.semNota + n.vencidos + n.vencendo + (cob ? cob.n : 0);
     return `
       <div class="fn-faixa${ehAdmin() ? "" : " is-3"}">
         <button type="button" class="fn-num is-link" data-fn-contratos="${n.fonte === "no Omie" ? "omie" : "sistema"}">
@@ -118,6 +126,10 @@
       <header class="fn-cab">
         <p class="fn-mes">${MESES[m - 1][0].toUpperCase() + MESES[m - 1].slice(1)} de ${ano}</p>
         <span class="fn-esp"></span>
+        ${ehAdmin() && window.GBCobranca ? `<div class="fn-seg" role="group" aria-label="O que listar">
+          <button type="button" data-fn-modo="notas" class="${st.modo === "notas" ? "is-on" : ""}" aria-pressed="${st.modo === "notas"}">${ico("receipt")}Notas fiscais</button>
+          <button type="button" data-fn-modo="atraso" class="${st.modo === "atraso" ? "is-on" : ""}" aria-pressed="${st.modo === "atraso"}">${ico("alarm-clock")}Em atraso</button>
+        </div>` : ""}
         <button type="button" class="btn btn-sm" data-fn-contratos>${ico("file-signature")}Contratos</button>
       </header>
       <div id="finFaixa">${faixaHtml()}</div>
@@ -130,9 +142,24 @@
     const palco = document.getElementById("finPalco");
     if (!palco) return;
     devolver(blocoContratos());
-    hospedar(blocoNotas(), palco);
-    if (typeof renderNotas === "function") renderNotas();
-    history.replaceState(null, "", "#/financeiro/notas");
+    // Em atraso (admin-cobranca.js, só o admin): a lista mora no palco
+    // enquanto a aba está aberta; as notas voltam para a seção delas.
+    if (st.modo === "atraso" && ehAdmin() && window.GBCobranca) {
+      devolver(blocoNotas());
+      if (!document.getElementById("cobLsRoot")) palco.innerHTML = `<div id="cobLsRoot" class="ls"></div>`;
+      window.GBCobranca.montar();
+    } else {
+      st.modo = "notas";
+      document.getElementById("cobLsRoot")?.remove();
+      hospedar(blocoNotas(), palco);
+      if (typeof renderNotas === "function") renderNotas();
+    }
+    document.querySelectorAll("[data-fn-modo]").forEach(b => {
+      const on = b.dataset.fnModo === st.modo;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    history.replaceState(null, "", `#/financeiro/${st.modo}`);
   }
 
   function redesenharFaixa() {
@@ -163,6 +190,8 @@
         finally { st.omieBuscando = false; }
       })());
     }
+    // Cobrança: o total vai para o "Pede ação" (a cópia do banco, só o admin).
+    if (ehAdmin() && window.GBCobranca) tarefas.push(Promise.resolve(window.GBCobranca.carregar()).catch(() => {}));
     await Promise.all(tarefas);
     if (ativa()) { redesenharFaixa(); if (st.modo === "notas" && typeof renderNotas === "function") renderNotas(); }
   }
@@ -173,11 +202,17 @@
   document.addEventListener("click", (e) => {
     if (!e.target.closest('.section[data-section="financeiro"]')) return;
     let el;
+    if ((el = e.target.closest("[data-fn-modo]"))) {
+      if (st.modo !== el.dataset.fnModo) { st.modo = el.dataset.fnModo; mostrarModo(); }
+      return;
+    }
     if ((el = e.target.closest("[data-fn-contratos]"))) { irParaContratos(null, el.dataset.fnContratos || null); return; }
     if (e.target.closest("[data-fn-omie]")) { if (typeof _agAbrirFaturamento === "function") _agAbrirFaturamento(comp()); return; }
     if ((el = e.target.closest("[data-fn-ir]"))) {
       const [modo, aba] = el.dataset.fnIr.split(":");
       if (modo === "contratos") { irParaContratos(aba); return; }
+      if (modo === "atraso") { st.modo = "atraso"; mostrarModo(); return; }
+      if (st.modo !== "notas") { st.modo = "notas"; mostrarModo(); }
       // Vai direto ao filtro que mostra o que pede ação.
       setTimeout(() => {
         if (typeof _nfAba !== "undefined") { _nfAba = aba; renderNotas(); }
@@ -199,6 +234,7 @@
 
   // A cópia do Omie chegou depois da tela: o total dos contratos acompanha.
   document.addEventListener("gb:omie-contratos", () => { if (ativa()) redesenharFaixa(); });
+  document.addEventListener("gb:cobranca", () => { if (ativa()) redesenharFaixa(); });
 
   // ===== ganchos =====
   (function () {
@@ -210,6 +246,7 @@
       if (name === "financeiro") {
         // Endereço antigo (#/financeiro/contratos): a tela agora é Contratos.
         if (alvo === "contratos") { setTimeout(() => irParaContratos(), 0); return r; }
+        if (alvo === "atraso" || alvo === "notas") st.modo = alvo;
         render();
         garantirDados();
       } else if (name === "notas") {

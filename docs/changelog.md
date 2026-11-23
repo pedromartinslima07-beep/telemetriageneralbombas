@@ -92,6 +92,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 071 | orcamento_bancada | `orcamentos.origem` aceita `'bancada'`; `orcamentos.equipamento_id (SET NULL)` — liga a bomba na bancada ao orçamento, sem tabela de peças própria |
 | 070 | equipamentos | `equipamentos` (identidade permanente + `codigo` do QR), `equipamento_movimentacoes` (linha do tempo, com snapshot do autor), `equipamento_fotos` (`dados_base64` no banco); `chamados.equipamento_id`. Ver [equipamentos.md](modulos/equipamentos.md) |
 | 083 | chamado_cancelado | `chamados.status` aceita `cancelado` + `cancelado_em`, `cancelado_motivo` — fechar afirmava que o serviço foi feito, e era a única saída do chamado aberto por engano. Ver [chamados-sla.md](modulos/chamados-sla.md) |
+| 099 | cobranca_atrasados | tabelas **`omie_receber_atrasados`** (cópia dos títulos em atraso no Omie que o sistema emitiu), **`omie_boleto_links`** e **`omie_receber_pagos`** (o "já pagou" só no sistema); `omie_clientes.telefone`, `telefone2`, `contato`. **Aplicada em teste e em produção em 23/11/2026**, antes do push. Ver a entrada de 23/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
 | 092 | agenda | tabelas **`compromissos`** (agenda da empresa, com repetição semanal/mensal e `so_admin`), **`omie_contratos`** e **`omie_contrato_notas`** (cópia dos contratos de serviço do Omie e das NFS-e de cada um) e **`omie_sincronizacoes`**. **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push que levar a agenda** (a rota e o job leem as tabelas). Ver [agenda.md](modulos/agenda.md) |
@@ -18430,3 +18431,38 @@ seção Notas, mas o `admin-financeiro.js` **move** o `#nfRoot` para dentro do
 Financeiro — e fora da seção o evento não chegava ao listener. Agora o
 `admin-carteira.js` escuta no próprio `#nfRoot`, que vai junto para onde
 estiver; a tela antiga `#/notas` segue funcionando. `admin-carteira.js` v=12.
+
+## Omie, fase 3: a cobrança dos títulos em atraso (2026-11-23)
+
+Pedido do Pedro: um lugar com os boletos em atraso, para cobrar. O Financeiro
+ganhou a troca **"Notas fiscais | Em atraso"** (só o admin), em
+`#/financeiro/atraso`, no molde de lista: chips A cobrar · Até 30 dias · 31 a
+90 · Mais de 90 · Marcados como pagos · Todos; cada título com cliente, prédio,
+vencimento e dias de atraso, valor, banco e origem (orçamento ou contrato do
+lote). O painel ao lado traz o telefone do cliente no Omie (com WhatsApp
+quando é celular), o e-mail, o prédio e o telefone dele, os outros títulos em
+atraso do mesmo cliente, **"Abrir boleto"** (link do Omie, `ObterBoleto` no
+primeiro clique) e **"Marcar como pago"**, que vale só no sistema. O total em
+atraso entra no "Pede ação" da faixa.
+
+⚠️ **Só os títulos das notas que o sistema emitiu** (decisão do Pedro, 20/11 e
+23/11/2026): o Omie lista 190 atrasados (R$ 268,7 mil), muitos já pagos e
+nunca baixados; mostrar tudo seria cobrar quem já pagou. Quem tira o título
+da lista é a baixa no Omie (Sicredi sozinho pela API; Bradesco quando o
+retorno é importado lá) ou a marca à mão.
+
+A cópia é feita pela sincronização de hora em hora do Omie, depois da
+conciliação do lote (`omie-receber.service.js`, chamado pelo
+`omie-faturamento.service.js`), com `ListarContasReceber` filtrado por
+`ATRASADO` (2 páginas hoje). A cópia dos clientes passa a guardar telefone e
+contato. Migration **099**. Rotas `GET /admin/cobranca`, `POST
+/admin/cobranca/atualizar`, `GET /admin/cobranca/:codigo/boleto`,
+`PUT`/`DELETE /admin/cobranca/:codigo/pago` (`cobranca.routes.js`, montado em
+`/admin`, já network first no SW). `admin-cobranca.js?v=2` (novo),
+`admin-financeiro.js?v=4`, `admin.css?v=378` (bloco `cb-`). Teste
+`omie-cobranca.test.js` (27/27); `omie-contratos` 22/22, `omie-lote` 48/48,
+`agenda` 21/21 e `nota-fiscal-danfe` 81/81 seguem verdes. Na tela (banco de
+teste, títulos de mentira, 1440px e 375px): lista, painel, marcar como pago,
+troca de aba e o atalho do "Pede ação". **Hoje a lista nasce quase vazia:**
+o lote dos contratos ainda não rodou de verdade, e só os orçamentos com nota
+emitida pelo sistema entram. Ver [omie-integracao.md](modulos/omie-integracao.md).

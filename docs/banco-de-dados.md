@@ -749,6 +749,48 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 099 — cobrança: os títulos em atraso do que o sistema emitiu (23/11/2026)
+
+Integração com o Omie, fase 3 ([omie-integracao.md](modulos/omie-integracao.md#3-contas-a-receber-quem-pagou-quem-atrasou)).
+⚠️ **Só os títulos de notas emitidas pelo sistema** (decisão do Pedro): o
+título cuja `nCodOS` é a `orcamentos.omie_os_codigo` ou a
+`omie_faturamento_itens.omie_os`, cuja `nCodPedido` é a
+`orcamentos.omie_pedido_codigo`, ou o `titulo_omie` do lote. A herança sem
+baixa no Omie (190 atrasados, R$ 268,7 mil em 23/11/2026) não entra.
+
+**`omie_receber_atrasados`** — cópia dos títulos `ATRASADO` no Omie que o
+sistema emitiu, **trocada inteira** a cada volta da sincronização de hora em
+hora (título baixado no Omie some sozinho).
+
+| Coluna | Tipo | O quê |
+|---|---|---|
+| `omie_codigo` | BIGINT PK | `codigo_lancamento_omie` |
+| `omie_cliente` | BIGINT | `codigo_cliente_fornecedor` (→ `omie_clientes`) |
+| `origem` | VARCHAR(10) | `orcamento` · `contrato` |
+| `orcamento_id` / `omie_contrato` / `competencia` | INTEGER / BIGINT / VARCHAR(7) | de onde veio (sem FK: a cópia é refeita) |
+| `documento`, `parcela`, `numero_nf` | VARCHAR | `numero_documento`, `numero_parcela`, `numero_documento_fiscal` |
+| `valor` | NUMERIC(12,2) | `valor_documento` |
+| `emissao` / `vencimento` | DATE | |
+| `conta_corrente` | BIGINT | `id_conta_corrente` (Sicredi `5960922842`, Bradesco `6109178168`) |
+| `boleto_numero` | VARCHAR(40) | o nosso número; NULL = sem boleto gerado |
+
+**`omie_boleto_links`** (`omie_titulo` PK, `link`, `lido_em`) — o link do PDF
+do boleto, lido no `ObterBoleto` só quando alguém pede. À parte porque a cópia
+acima é trocada inteira.
+
+**`omie_receber_pagos`** (`omie_titulo` PK, `pago_em` DATE, `observacao`,
+`marcado_por` FK usuarios SET NULL, `marcado_em`) — o "já pagou" marcado à
+mão. **Vale só no sistema** (a baixa não vai ao Omie, decisão de 20/11/2026);
+a sincronização nunca mexe nesta tabela.
+
+**`omie_clientes`** ganha `telefone`, `telefone2` (montados de ddd + número
+do Omie: "(11) 9999-0000") e `contato`.
+
+✅ Teste e ✅ **produção (23/11/2026)**, antes do push (conferida no
+`information_schema` antes e depois). Ela precisa vir antes do código: a
+sincronização de hora em hora grava `omie_clientes.telefone`, e sem a coluna
+a cópia inteira (contratos junto) falha.
+
 ## 098 — o escritório e o turno pelo chamado (20/11/2026)
 
 Duas marcas em `chamados`, uma em cada direção

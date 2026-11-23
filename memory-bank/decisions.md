@@ -1650,3 +1650,21 @@ desenho em camadas original continua válido.
 - **Compromissos ficam numa tabela; o resto é lido de onde já mora.** Retorno
   de O.S., contrato e preventiva não são copiados para `compromissos`: copiar
   criaria duas verdades para manter em dia.
+
+## Cobrança dos atrasados (23/11/2026)
+
+- **Só os títulos das notas que o sistema emitiu, de novo.** Eu tinha proposto
+  listar todos os vencidos do Omie (Sicredi e Bradesco juntos); o levantamento
+  mostrou 190 "atrasados" (R$ 268,7 mil), 67 com mais de um ano — a herança sem
+  baixa. Perguntado entre "antigos separados por data de corte" e "só do
+  sistema", o Pedro manteve a decisão de 20/11: só do sistema. Hoje a lista
+  nasce quase vazia, e é o esperado.
+- **A baixa vem do Omie; a conferência pelo arquivo do banco ficou de lado.**
+  O Sicredi baixa sozinho pela API, e o Pedro confirmou que o retorno do
+  Bradesco é importado no Omie. Ler o `.RET` no sistema faria a mesma baixa
+  por dois caminhos. "Marcar como pago" existe para o que o banco não vê
+  (PIX direto, acerto) e só vale no sistema.
+- **Integração do Bradesco por API: deixada para depois.** Existe pelo Net
+  Empresa (Serviços Operacionais → API → Integração com parceiros →
+  Contratação, parceiro OMIE), mas pede um "documento de apoio ao negócio"
+  que ninguém soube dizer qual é. O Pedro preferiu seguir sem ela.

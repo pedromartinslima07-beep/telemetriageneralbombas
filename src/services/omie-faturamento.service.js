@@ -17,6 +17,7 @@
 
 const { pool } = require("../db");
 const omie = require("./omie.service");
+const { telefoneOmie } = require("./omie-receber.service");
 
 const NOME = "faturamento_contratos";
 const INTERVALO_MINIMO_MS = 2 * 60 * 1000;
@@ -147,14 +148,20 @@ async function sincronizar({ forcar = false } = {}) {
       );
       const cs = unicos((clientes || []).filter(c => c.codigo_cliente_omie), c => c.codigo_cliente_omie);
       if (cs.length) await client.query(
-        `INSERT INTO omie_clientes (omie_codigo, documento, razao_social, nome_fantasia, email, cidade, inativo, atualizado_em)
-         SELECT *, NOW() FROM unnest($1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::boolean[])
+        // Telefone e contato (migration 099): é com eles que a cobrança liga.
+        `INSERT INTO omie_clientes (omie_codigo, documento, razao_social, nome_fantasia, email, cidade, inativo,
+                                    telefone, telefone2, contato, atualizado_em)
+         SELECT *, NOW() FROM unnest($1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::boolean[],
+                                     $8::text[], $9::text[], $10::text[])
          ON CONFLICT (omie_codigo) DO UPDATE SET documento = EXCLUDED.documento, razao_social = EXCLUDED.razao_social,
            nome_fantasia = EXCLUDED.nome_fantasia, email = EXCLUDED.email, cidade = EXCLUDED.cidade,
-           inativo = EXCLUDED.inativo, atualizado_em = NOW()`,
+           inativo = EXCLUDED.inativo, telefone = EXCLUDED.telefone, telefone2 = EXCLUDED.telefone2,
+           contato = EXCLUDED.contato, atualizado_em = NOW()`,
         [cs.map(c => c.codigo_cliente_omie), cs.map(c => String(c.cnpj_cpf || "").replace(/\D/g, "").slice(0, 14) || null),
          cs.map(c => _texto(c.razao_social)), cs.map(c => _texto(c.nome_fantasia)), cs.map(c => c.email || null),
-         cs.map(c => _texto(c.cidade)), cs.map(c => c.inativo === "S")]
+         cs.map(c => _texto(c.cidade)), cs.map(c => c.inativo === "S"),
+         cs.map(c => telefoneOmie(c.telefone1_ddd, c.telefone1_numero)), cs.map(c => telefoneOmie(c.telefone2_ddd, c.telefone2_numero)),
+         cs.map(c => _texto(c.contato) || null)]
       );
       const detalhe = { contratos: contratos.length, notas_de_contrato: nNotas, notas_lidas: notas.length,
                         clientes: clientes ? clientes.length : null, erro_clientes: erroClientes };
@@ -168,6 +175,12 @@ async function sincronizar({ forcar = false } = {}) {
       // o sistema faturou voltam ao item. Falha aqui não desfaz a cópia.
       try { detalhe.lote = await require("./omie-lote.service").conciliar(); }
       catch (e) { detalhe.erro_lote = String(e.message).slice(0, 300); }
+      // A cobrança (fase 3): os títulos em atraso do que o sistema emitiu.
+      // Depois da conciliação, que é quem liga o título do lote ao contrato.
+      // Falha aqui também não desfaz a cópia (o erro fica na linha
+      // `receber_atrasados` de omie_sincronizacoes).
+      try { detalhe.cobranca = await require("./omie-receber.service").sincronizar(); }
+      catch (e) { detalhe.erro_cobranca = String(e.message).slice(0, 300); }
       return { ok: true, ...detalhe };
     } catch (e) {
       await client.query("ROLLBACK").catch(() => {});

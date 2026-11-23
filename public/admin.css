@@ -12850,3 +12850,21 @@ a.ls-bt { text-decoration: none; }
   .rd-tb td, .rd-tb th { padding: 7px 5px; }
   .rd-med { width: 40px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Cobrança — aba "Em atraso" do Financeiro (admin-cobranca.js, 23/11/2026).
+   Só o que o molde de lista não tem: o telefone com WhatsApp, o formulário
+   de "já pagou" e a lista dos outros títulos do cliente.
+   ════════════════════════════════════════════════════════════════════════ */
+.cb-tel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cb-tel + .cb-tel { margin-top: 6px; }
+.cb-form { display: grid; gap: 8px; }
+.cb-form label { display: grid; gap: 4px; font-size: 12px; color: var(--ls-muted); }
+.cb-form input { height: 32px; padding: 0 10px; border: 1px solid var(--ls-fio-forte); border-radius: 7px; background: var(--ls-placa); color: var(--ls-tinta); font: inherit; font-size: 13px; }
+.cb-form input:focus { outline: 2px solid var(--ls-in-m); outline-offset: 1px; }
+.cb-pago-ok { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 6px; padding: 8px 10px; border-radius: 8px; background: var(--ls-ok-f); color: var(--ls-ok-t); font-size: 13px; line-height: 1.4; }
+.cb-pago-ok svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 1px; }
+.cb-outros { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cb-outros li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13px; }
+.cb-outros li .ls-mono { margin-left: auto; }
+#cobLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }

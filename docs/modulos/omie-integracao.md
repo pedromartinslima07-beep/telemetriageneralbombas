@@ -184,6 +184,47 @@ como o de 18/11. O script fica pronto (só aceita chamadas `Listar`/`Pesquisar`/
 
 ### 3. Contas a receber: quem pagou, quem atrasou
 
+> **A cobrança dos atrasados ✅ no código (23/11/2026, migration 099).**
+> Financeiro → **"Em atraso"** (só o admin, `#/financeiro/atraso`,
+> `admin-cobranca.js` no molde de lista): os títulos vencidos **das notas que
+> o sistema emitiu**, com cliente, prédio, dias de atraso, valor, banco e
+> origem; no painel, telefone do Omie (WhatsApp quando é celular), e-mail,
+> prédio, os outros atrasados do mesmo cliente, **"Abrir boleto"** e
+> **"Marcar como pago"** (só no sistema). O total entra no "Pede ação".
+>
+> **Como sabe o que é do sistema:** o título do Omie traz `nCodOS` e
+> `nCodPedido`. Entra se a OS é a de um orçamento (`omie_os_codigo`, NFS-e) ou
+> a de um contrato do lote (`omie_faturamento_itens.omie_os`), se o pedido é o
+> de um orçamento (`omie_pedido_codigo`, DANFE), ou se é o `titulo_omie` que a
+> conciliação do lote já guardou.
+>
+> **Quem tira da lista:** a baixa no Omie (o Sicredi baixa sozinho pela API;
+> o Bradesco quando o arquivo de retorno é importado lá — o Pedro confirmou em
+> 23/11/2026 que importa) ou a marca à mão. A cópia (`omie_receber_atrasados`)
+> é trocada inteira a cada volta da sincronização de hora em hora
+> (`ListarContasReceber` com `filtrar_por_status: ATRASADO`, 100 por página),
+> depois da conciliação do lote; a marca à mão mora em `omie_receber_pagos` e
+> a sincronização não mexe nela. A cópia dos clientes passa a trazer telefone
+> e contato.
+>
+> **Levantamento de 23/11/2026 (leitura pela API):** 190 títulos
+> `ATRASADO` no Omie, R$ 268,7 mil — 18 até 30 dias, 36 de 31 a 90, 69 de 91
+> dias a 1 ano (Sicredi e Bradesco) e 67 com mais de 1 ano (só Sicredi).
+> Quase tudo é a herança sem baixa, que a decisão de 20/11 deixa de fora; por
+> isso a lista nasce quase vazia e cresce com o lote e as notas de orçamento.
+> O retorno CNAB 400 do Bradesco (exemplo `CB191100.RET`, 18/11/2026) foi
+> lido: entradas confirmadas (02, com motivo 76 = pagador DDA), baixa sem
+> pagamento (10) e nenhuma liquidação (06). A conferência pelo arquivo **não
+> foi feita**: com o retorno importado no Omie, a baixa chega por lá.
+>
+> **Testado:** `scripts/testes/omie-cobranca.test.js` 27/27 (Omie simulado:
+> só os três títulos do sistema entram, o de fora não; telefone copiado;
+> 403 para gerente e operador; marcar e desmarcar pago; link do boleto uma
+> vez só; título baixado some e a marca à mão fica). Na tela com títulos de
+> mentira, 1440px e 375px. ✅ **099 em produção (23/11/2026)**, antes do
+> push. **Falta:** "Recebimentos atrasados" no Hoje e o aviso na página do
+> prédio; segunda via por e-mail.
+
 - Cópia dos títulos a receber (`financas/contareceber/ListarContasReceber`):
   vencimento, valor, situação, pago em, boleto, de qual nota/contrato.
 - **No Hoje:** "Recebimentos atrasados" (prédio, valor, dias de atraso).
