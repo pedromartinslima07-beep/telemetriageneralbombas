@@ -231,7 +231,18 @@ function _agFecharForm() {
 
 async function _agAbrirForm(dia, item) {
   _agFecharForm();
-  const equipe = await _agGarantirEquipe();
+  // ⚠️ NÃO ESPERAR a equipe para abrir (23/11/2026). Com `await` aqui o
+  // formulário só aparecia depois do GET /admin/usuarios: o menu do quadro
+  // fechava, nada surgia por um ou dois segundos, e parecia que "Editar" não
+  // fazia nada. Abre com o que já tem; o select do responsável chega depois.
+  const equipe = _agEquipe || [];
+  if (!_agEquipe) {
+    _agGarantirEquipe().then(lista => {
+      const sel = document.querySelector('#agOverlay select[name="responsavel_id"]');
+      if (!sel || !lista.length) return;
+      sel.insertAdjacentHTML("beforeend", lista.map(u => `<option value="${u.id}" ${Number(c.responsavel_id) === u.id ? "selected" : ""}>${_agEsc(u.nome || u.email)}</option>`).join(""));
+    });
+  }
   const admin = typeof _myRole !== "undefined" && _myRole === "admin";
   const c = item || {};
   const ini = c.inicio ? new Date(c.inicio) : null;
@@ -454,7 +465,7 @@ function _agBindEventos() {
   if (typeof orig !== "function") return;
   window.showSection = function (name, ...resto) {
     const r = orig.call(this, name, ...resto);
-    if (name === "agenda") { _agBindEventos(); _agCarregar(); }
+    if (name === "agenda") { _agBindEventos(); _agCarregar(); _agGarantirEquipe(); }
     return r;
   };
 })();

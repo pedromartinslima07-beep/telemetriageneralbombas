@@ -18563,3 +18563,19 @@ Teste `cobranca-avisos.test.js` (40/40); `omie-cobranca` 27/27,
 mentira (o campo do modal da nota não foi visto). **Nenhum e-mail de cobrança
 e nenhuma nota com o bloco Email saíram de verdade.** Ver
 [cobranca-avisos.md](modulos/cobranca-avisos.md).
+
+## Agenda: editar e apagar pelo quadro (2026-11-23)
+
+No **Quadro** da Agenda, o menu de um compromisso que repete só tinha
+"Editar a série", e o de um lembrete da linha Empresa não tinha apagar. O
+"Editar" ainda esperava o `GET /admin/usuarios` antes de abrir o formulário:
+o menu fechava e nada aparecia por um ou dois segundos, o que parecia defeito.
+Agora o formulário abre na hora (a equipe é buscada ao entrar na Agenda e o
+select do responsável completa depois) e o menu tem **"Apagar"** /
+**"Apagar a série"** para todo compromisso (série pede confirmação), com
+Desfazer que recria a série desde o início. Visita de chamado continua com
+"Desmarcar". `admin-agenda.js?v=8`, `admin-despacho.js?v=3`. Sem migration.
+
+Em produção, compromisso novo: **"Emitir as cobranças das preventivas"**, todo
+dia 1 (financeiro, só admin). O pedido anterior tinha virado só "Pedir a folha
+de pagamento no Onvio", com a cobrança citada na observação.

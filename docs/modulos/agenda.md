@@ -95,6 +95,13 @@ acabaram e continuam "ativos" no Omie, ou foram renovados sem registro.
   início da série se o dia não mudou (`serie_inicio`). Sem isso a série inteira
   mudava de mês.
 - **Dia 31 em mês curto** cai no último dia (28/02, 30/04).
+- **O formulário não espera a equipe** (23/11/2026). Com `await` no
+  `GET /admin/usuarios` antes de abrir, o menu do quadro fechava e nada surgia
+  por um ou dois segundos: parecia que "Editar" não funcionava. A equipe é
+  buscada ao entrar na Agenda; o select do responsável completa depois.
+- **No Quadro, todo compromisso tem Apagar** (23/11/2026). Série: "Apagar a
+  série", com confirmação, e o Desfazer recria desde o `serie_inicio`. Visita
+  de chamado avulsa continua com "Desmarcar" (o chamado volta para "a agendar").
 - **Só vale a resposta do último pedido** na tela (`_agSeq`): trocar Semana →
   Mês rápido deixava a resposta da semana sobrescrever o mês.
 - **As consultas da rota saem em paralelo.** Em sequência um mês levava 5 s no

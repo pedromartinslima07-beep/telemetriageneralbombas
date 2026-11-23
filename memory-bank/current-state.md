@@ -81,6 +81,13 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Agenda: editar e apagar pelo quadro (23/11/2026)
+
+O menu do Quadro agora tem "Apagar"/"Apagar a série" para todo compromisso, e
+o formulário de edição abre na hora (não espera a lista da equipe). Em
+produção há o compromisso mensal "Emitir as cobranças das preventivas" no dia
+1. Ver [agenda.md](../docs/modulos/agenda.md).
+
 ### ⚠️ O escritório e o turno conversam pelo chamado (20/11/2026, migration 098)
 
 Duas marcas em `chamados`: "Pedido do escritório" (admin → turno, selo; não

@@ -297,18 +297,31 @@
     });
   }
 
+  // Desmarca a visita de um chamado ou apaga um compromisso (23/11/2026: antes
+  // o menu do quadro só apagava visita avulsa; série e lembrete da Empresa
+  // ficavam sem jeito de sair dali). Compromisso que repete é uma linha só:
+  // apagar leva a série inteira, e o Desfazer recria a série desde o início.
   async function desmarcar(compId, itemId) {
     const it = _agItens.find(x => x.id === itemId);
     if (!it) return;
+    const rep = it.repeticao && it.repeticao !== "nenhuma";
+    const visita = it.chamado_id && !rep;
+    if (rep && !confirm(`Apagar "${it.titulo}" e todas as repetições?`)) return;
     try { await req(`/agenda/compromissos/${compId}`, "DELETE"); }
-    catch (e) { toast(`Não consegui desmarcar: ${e.message}`); return; }
+    catch (e) { toast(`Não consegui apagar: ${e.message}`); return; }
     await recarregar();
-    toast(`Visita desmarcada${it.chamado_id ? `; o #${it.chamado_id} voltou para "a agendar"` : ""}`, async () => {
+    const msg = visita
+      ? `Visita desmarcada; o #${it.chamado_id} voltou para "a agendar"`
+      : `"${it.titulo}" apagado${rep ? " (a série toda)" : ""}`;
+    toast(msg, async () => {
       try {
+        const inicio = rep && it.serie_inicio ? it.serie_inicio : it.inicio;
+        const dur = it.fim ? new Date(it.fim) - new Date(it.inicio) : 0;
         await req("/agenda/compromissos", "POST", {
-          titulo: it.titulo, tipo: it.tipo, inicio: it.inicio, fim: it.fim || null, dia_inteiro: !!it.dia_inteiro,
+          titulo: it.titulo, tipo: it.tipo, inicio, fim: it.fim ? new Date(new Date(inicio).getTime() + dur).toISOString() : null,
+          dia_inteiro: !!it.dia_inteiro, repeticao: it.repeticao || "nenhuma", repete_ate: it.repete_ate || null,
           condominio_id: it.condominio_id || null, responsavel_id: it.responsavel_id || null, chamado_id: it.chamado_id || null,
-          descricao: it.descricao || null,
+          descricao: it.descricao || null, so_admin: !!it.so_admin,
         });
       } catch (e) { toast(`Não consegui desfazer: ${e.message}`); }
       await recarregar();
@@ -416,7 +429,8 @@
       ${comp && !rep ? `<button type="button" role="menuitem" data-dq-acao="remarcar">${ico("calendar-clock")}Remarcar</button>` : ""}
       ${comp ? `<button type="button" role="menuitem" data-dq-acao="editar">${ico("pencil")}${rep ? "Editar a série" : "Editar"}</button>` : ""}
       ${!comp ? `<button type="button" role="menuitem" data-dq-acao="abrir">${ico("external-link")}Abrir</button>` : ""}
-      ${comp && !rep ? `<hr><button type="button" role="menuitem" data-dq-acao="desmarcar" class="is-perigo">${ico("calendar-x")}Desmarcar</button>` : ""}`;
+      ${comp && it.chamado_id && !rep ? `<hr><button type="button" role="menuitem" data-dq-acao="desmarcar" class="is-perigo">${ico("calendar-x")}Desmarcar</button>` : ""}
+      ${comp && !(it.chamado_id && !rep) ? `<hr><button type="button" role="menuitem" data-dq-acao="desmarcar" class="is-perigo">${ico("trash-2")}${rep ? "Apagar a série" : "Apagar"}</button>` : ""}`;
     document.body.appendChild(m);
     const r = ancora.getBoundingClientRect();
     m.style.position = "fixed";
