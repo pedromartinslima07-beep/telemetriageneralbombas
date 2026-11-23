@@ -785,8 +785,7 @@ BOOLEAN. Trocada inteira a cada volta da sincronização.
 | `enviado_por` | FK usuarios SET NULL | NULL no envio automático |
 | `automatico` | BOOLEAN | |
 
-✅ Teste (23/11/2026). ⏳ **Produção: falta**, antes do push (a sincronização,
-o modal da nota e o job leem estas tabelas).
+✅ Teste e ✅ **produção** (conferida no `information_schema` em 23/11/2026, antes do push).
 
 ## 101 — o boleto sai junto com a nota do orçamento (23/11/2026)
 
@@ -847,8 +846,7 @@ tipo. Semeada com o que o Omie mostrou em 23/11/2026: Receita Federal
 (fornecedor Prefeitura `5993972859`); DARF e "outro" sem categoria. Muda na
 tela ("Usar sempre para...").
 
-✅ Teste (23/11/2026). ⏳ **Produção: falta**, e tem de rodar **antes do
-push** (o código lê as duas tabelas).
+✅ Teste e ✅ **produção** (conferida no `information_schema` em 23/11/2026, antes do push).
 
 ## 099 — cobrança: os títulos em atraso do que o sistema emitiu (23/11/2026)
 
@@ -998,7 +996,7 @@ dito ao cliente). Aparecem no histórico da página do prédio. Fluxo em
   visita". Copiada da peça ao trazer, editável.
 
 Fluxo em [pecas-no-orcamento.md](modulos/pecas-no-orcamento.md). ✅ Teste
-(20/11/2026). ⏳ **Falta produção** (antes do push, depois de 090–093).
+(20/11/2026). ✅ **Produção** (conferida no `information_schema` em 23/11/2026: `peca_usada`, `os_peca_id`, `os_pecas.situacao`).
 
 ## 093 — `compromissos.chamado_id` (19/11/2026)
 
@@ -1006,5 +1004,4 @@ Fluxo em [pecas-no-orcamento.md](modulos/pecas-no-orcamento.md). ✅ Teste
 chamados(id) ON DELETE SET NULL` + índice parcial. A visita marcada no quadro
 de despacho da Agenda sabe de que chamado é (ver
 [redesenho-admin.md](modulos/redesenho-admin.md), etapa 4). Nula nos
-compromissos antigos. ✅ Teste (19/11/2026). ⏳ **Falta produção** (antes do
-push, junto com 090–092).
+compromissos antigos. ✅ Teste (19/11/2026). ✅ **Produção** (conferida no `information_schema` em 23/11/2026).

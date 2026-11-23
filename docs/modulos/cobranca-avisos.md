@@ -138,7 +138,7 @@ cliente de verdade. No `.env` local ela não existe.
 
 ## O que falta
 
-- Migration **102** em produção **antes do push**.
+- ✅ Migration **102** em produção (conferida em 23/11/2026).
 - `COBRANCA_EMAIL=1` no Railway quando for começar a mandar.
 - A primeira nota real pelo sistema, conferindo que o e-mail do Omie chegou
   ao síndico (e com o boleto).

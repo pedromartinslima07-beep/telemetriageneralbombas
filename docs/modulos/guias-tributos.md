@@ -136,7 +136,7 @@ módulo 11 e valor em reais**, não módulo 10.
 
 ## O que falta
 
-- Migration **100** em produção **antes do push** (push na main = deploy).
+- ✅ Migration **100** em produção (conferida em 23/11/2026).
 - `OMIE_EMISSAO=1` no Railway (é a mesma chave das notas e do lote).
 - A primeira guia real acompanhada.
 - Pedir acesso à API do Onvio (e-mail ao time da Onvio BR API) e perguntar
