@@ -24,22 +24,65 @@ SEFAZ.
 Mesmo com serviço junto, orçamento com peça **não** gera NFS-e. Foi decisão do
 Pedro, não limitação técnica.
 
+## O modal de emissão: conferir e faturar (23/11/2026)
+
+Pedido do Pedro: "o modal da nota é o mesmo do orçamento, é a melhor forma?".
+Não era: desde as peças no orçamento ([pecas-no-orcamento.md](pecas-no-orcamento.md)),
+Peça/Serviço e o produto do Omie são decididos **no editor do orçamento**, e o
+modal perguntava tudo de novo. Os ERPs (Omie, Bling, Tiny, Conta Azul) fazem
+assim: o que é do documento comercial se decide nele; a tela de emissão
+**confere** o que vai sair e cuida só do que é do **faturamento**.
+
+O modal (`_avAbrirNota` em `public/admin.js`, estilos `.nf-*` em
+`public/admin.css`), de cima para baixo:
+
+1. **Não dá para emitir** — o bloqueio que o orçamento não resolve (status,
+   CNPJ, UF fora de SP, tentativa anterior no Omie…).
+2. **Antes de emitir** — o que falta **no orçamento**, cada item com o atalho:
+   - linha sem Peça/Serviço → mostra a sugestão pelo texto; **Confirmar as
+     sugestões** grava todas, ou **corrigir** leva à linha;
+   - peça sem produto do Omie (DANFE) → **Usar este** (o "da última vez", se
+     houver) ou **Escolher no orçamento**, que fecha o modal, destaca a linha
+     no editor e já abre a busca do Omie dela;
+   - produto inativo → **Trocar no orçamento**;
+   - **Atualizar catálogo**, para a peça recém-cadastrada no Omie.
+   Os atalhos gravam pela mesma rota do editor
+   (`PATCH /admin/orcamentos/avulsos/linhas/:id`), e o editor por trás fica
+   igual ao banco. O preview manda `bloqueio_pendencia: true` quando o
+   bloqueio é um desses (o modal mostra a pendência, não o erro).
+3. **Nota** — tipo (DANFE ou NFS-e, e por quê) e tomador.
+4. **Itens como vão sair** — só leitura: código, NCM e CFOP, quantidade,
+   unitário, total, e as notas de rateio/serviço embutido. "Editar no
+   orçamento" leva aos itens.
+5. **Cobrança** — condição (à vista ou 2–12x), banco do boleto, "gerar o
+   boleto junto" e o vencimento de cada parcela.
+6. **Envio** — os e-mails para onde o Omie manda nota e boleto.
+
+Rodapé fixo: **total da nota**, o aviso ("gera uma nota real…") e o botão
+com o tipo no nome (**Emitir DANFE** / **Emitir NFS-e**), travado enquanto
+houver bloqueio, pendência ou emissão desligada. Esc fecha.
+
 ## Peça ou serviço: quem decide é quem emite
 
 A linha do orçamento é texto livre ("Bomba Thebe 2cv", "MÃO DE OBRA
 ESPECIALIZADA", "CONSERTO Mod: ..."), e até a migration 090 nada dizia o que
 ela era. Hoje existe `orcamento_linhas.natureza` (`servico`|`peca`|NULL).
 
-- O modal **sugere** pelo texto (`sugerirNatureza`) e a linha aparece
-  marcada como "sugerido". Quem decide é o **começo da linha**: "Conserto
+- Quem marca é o **editor do orçamento** (Peça | Serviço em cada linha, ver
+  [pecas-no-orcamento.md](pecas-no-orcamento.md)). Linha sem marcação chega
+  ao modal da nota como pendência, com a **sugestão** pelo texto
+  (`sugerirNatureza`) e o botão "Confirmar as sugestões", que grava na linha
+  do orçamento. Ver "O modal de emissão" abaixo. Quem decide a sugestão é o
+  **começo da linha**: "Conserto
   de…", "Mão de obra…", "Limpeza e regulagem…", "Emissão de ART…" é serviço;
   o resto, peça. Prefixo como "Opção 01:" ou "01" é pulado, e o serviço
   também vale depois de um travessão ("Pressostato — reparo"). "Fornecimento
   de…" é peça (é o material).
 - **Sugestão não emite.** O backend recusa (422) se alguma linha cobrável
-  chegar sem natureza confirmada. O clique em Emitir manda a classificação
-  inteira, e ela é gravada **antes** de qualquer chamada ao Omie, para valer
-  mesmo que a emissão falhe adiante.
+  chegar sem natureza confirmada. Desde 23/11/2026 o Emitir **não manda**
+  classificação nem produto: a emissão lê o que está gravado no orçamento.
+  (A rota ainda aceita `naturezas`/`produtos` no corpo, gravados antes de
+  qualquer chamada ao Omie, para quem chama direto.)
 - Linha sem preço (`valor_unitario` NULL, migration 062) não entra na nota.
 
 ⚠️ **Até 18/11/2026 bastava a palavra aparecer em qualquer lugar.** "Zeolita
@@ -57,8 +100,10 @@ a zeolita, a fita).
 A NF-e exige que **cada item seja um produto cadastrado no Omie** (NCM,
 unidade, tributação). O Omie não aceita "Luva de união 60mm" digitado: aceita
 o produto PRD00268. A linha do orçamento é texto livre, então alguém tem que
-dizer "esta linha é aquele produto". No modal, cada linha marcada como **Peça**
-ganha um seletor:
+dizer "esta linha é aquele produto". Isso é feito **no editor do orçamento**,
+na busca de produto de cada linha (desde 23/11/2026 o modal da nota não tem
+mais seletor: lista a peça sem produto como pendência e leva de volta à
+linha, com a busca já aberta). As regras da sugestão:
 
 - **Até 3 sugestões**, pela descrição da linha. A pontuação é a fração das
   palavras da linha que aparecem no produto, com peso maior para palavra
@@ -81,8 +126,10 @@ ganha um seletor:
 - **Bitola (20/11/2026):** fração vira decimal (`1.1/2"`, `1 1/2`, `11/2` → 1.5), número sozinho até 12 é bitola, e mm ↔ polegada pela tabela de PVC (60 mm = 2"). Ver [pecas-no-orcamento.md](pecas-no-orcamento.md).
 - **A linha pode chegar já ligada** ao produto, escolhido ao montar o orçamento (peças no orçamento, fase A). O modal só confere.
 - **Lembrado da última vez**: quando o Omie aceita o pedido, a escolha fica
-  em `omie_produto_vinculos` pela descrição normalizada. Na próxima linha com
-  o mesmo texto, o produto **já vem escolhido**, marcado "usado da última vez".
+  em `omie_produto_vinculos` pela descrição normalizada. Na busca do editor
+  ele vem em cima, marcado "usado da última vez"; no modal da nota, a peça
+  sem produto mostra "Da última vez foi PRD…" com o botão **Usar este**, que
+  grava na linha. (Até 23/11/2026 o modal o escolhia sozinho, sem clique.)
 - A sugestão comum **não** é escolhida sozinha. No levantamento de 18/11/2026,
   "Adaptador com rosca" bateu 100% com três adaptadores de NCM diferente, e o
   NCM vai para a nota.
@@ -99,8 +146,12 @@ cada tecla. Vem de `ListarProdutos` (o Omie corta em 100 por página) e de
 `ListarPedidos` dos **faturados** (`etapa: "60"`, 50 por página), que dão
 `vezes_faturado` e `ultimo_cfop` de cada produto.
 
-- Atualiza **sozinho em segundo plano** quando o modal abre e a cópia passou
-  de 24 h, e pelo botão **Atualizar catálogo** no modal.
+- Atualiza **sozinho em segundo plano** quando o modal abre ou quando alguém
+  busca peça no orçamento, se a cópia está vazia ou passou de 24 h, e pelo
+  botão **Atualizar catálogo** no modal. Depois de uma falha, a busca espera
+  10 min para tentar de novo (o Omie bloqueia consulta repetida).
+  ⚠️ Até 23/11/2026 só o modal disparava, e produção ficou com o catálogo
+  vazio: a busca de peça do orçamento mostrava "ainda não foi copiado".
 - Leva **cerca de 1 minuto e 10 s** (14 + 16 páginas, em série).
 - Produto que sumiu do Omie fica `inativo`, não é apagado. Escolher um
   produto inativo bloqueia.

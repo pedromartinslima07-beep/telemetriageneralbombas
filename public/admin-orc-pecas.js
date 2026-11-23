@@ -22,8 +22,9 @@
 //
 // ⚠️ O EDITOR NÃO FOI REESCRITO. _avRenderLinhas (admin.js) desenha a tabela
 // como sempre; o embrulho no fim deste arquivo decora o que ela desenhou.
-// Linha sem produto continua valendo: a nota pede o produto depois, como
-// antes. Nada aqui bloqueia o envio ao cliente.
+// Linha sem produto continua valendo para o cliente: nada aqui bloqueia o
+// envio. Só a NOTA (DANFE) exige o produto: o modal de emissão lista a peça
+// sem produto em "Antes de emitir" e traz de volta para cá.
 // ⚠️ NADA DE CRASE DENTRO DOS TEMPLATES (ver CLAUDE.md).
 
 (function () {
@@ -89,10 +90,12 @@
     let html;
     if (carregando && !drop.itens.length) {
       html = `<div class="av-pc-msg">Procurando no catálogo do Omie…</div>`;
+    } else if (drop.estado && !drop.estado.total && drop.estado.sincronizando) {
+      html = `<div class="av-pc-msg">Copiando o catálogo do Omie para cá (cerca de 1 minuto). Enquanto isso o item fica como texto; depois é só digitar de novo.</div>`;
     } else if (drop.estado && !drop.estado.total) {
-      html = `<div class="av-pc-msg">O catálogo do Omie ainda não foi copiado para cá. O item fica como texto; o produto se escolhe na nota.</div>`;
+      html = `<div class="av-pc-msg">O catálogo do Omie ainda não foi copiado para cá. O item fica como texto; escolha o produto antes de emitir a nota.</div>`;
     } else if (!drop.itens.length) {
-      html = `<div class="av-pc-msg">Nada parecido com "${esc(q)}" no catálogo do Omie. Fica como texto, e a nota pede o produto depois.</div>`;
+      html = `<div class="av-pc-msg">Nada parecido com "${esc(q)}" no catálogo do Omie. Fica como texto; para a nota (DANFE), cadastre a peça no Omie.</div>`;
     } else {
       html = drop.itens.map((p, i) => {
         const uv = p.ultima_vez;
@@ -227,7 +230,7 @@
     let txt;
     if (pecas) {
       txt = `Tem peça: a nota sai em <b>DANFE</b>, com o serviço embutido no preço das peças.`;
-      if (semProduto) txt += ` ${semProduto} ${semProduto === 1 ? "peça ainda sem produto do Omie" : "peças ainda sem produto do Omie"}: a nota pede na hora de emitir.`;
+      if (semProduto) txt += ` ${semProduto} ${semProduto === 1 ? "peça ainda sem produto do Omie" : "peças ainda sem produto do Omie"}: escolha antes de emitir a nota.`;
     } else if (!semMarca) {
       txt = `Só serviço: a nota sai em <b>NFS-e</b>.`;
     } else {

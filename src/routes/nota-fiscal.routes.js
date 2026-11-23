@@ -115,9 +115,14 @@ router.get("/orcamentos/avulsos/:id/nota/boletos/:titulo/link", authRequired, ge
 router.get("/omie/produtos", authRequired, gestaoOnly, async (req, res) => {
   try {
     const q = String(req.query.q || "").slice(0, 120);
-    const estado = await catalogo.estado();
-    if (req.query.historico !== "1") return res.json({ produtos: await catalogo.buscar(q, 15), catalogo: estado });
+    if (req.query.historico !== "1") {
+      return res.json({ produtos: await catalogo.buscar(q, 15), catalogo: await catalogo.estado() });
+    }
 
+    // A busca do orçamento também mantém o catálogo vivo: vazio ou com mais
+    // de 24 h, dispara a cópia em segundo plano SEM esperar (era só o modal da
+    // nota que disparava — e produção ficou com o catálogo vazio, 23/11/2026).
+    const estado = await catalogo.sincronizarSeVelho();
     if (!estado.total) return res.json({ produtos: [], catalogo: estado });
     const limite = Math.min(Math.max(parseInt(req.query.limite, 10) || 6, 1), 15);
     const orcId = Number(req.query.orcamento_id) || null;

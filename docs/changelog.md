@@ -18611,3 +18611,27 @@ Migration **103** (✅ produção, 23/11/2026; 111 vencidos arquivados na hora).
 `orc-aprovados-feitos` 23/23, `aviso-orcamento-aprovado` 14/14. Tela
 conferida no banco de teste (porta 3012, `PAINEL_NOVO`). Fluxo em
 [orcamentos-vencimento.md](modulos/orcamentos-vencimento.md).
+
+### Catálogo do Omie: a busca de peça também copia (23/11/2026)
+
+Produção estava com `omie_produtos` vazio (só o modal da nota disparava a
+cópia), e a busca de peça do orçamento dizia "O catálogo do Omie ainda não foi
+copiado". Agora `GET /admin/omie/produtos?historico=1` chama
+`sincronizarSeVelho()` (não espera; vazio ou mais de 24 h dispara a cópia em
+segundo plano) e a tela mostra "Copiando o catálogo…" enquanto roda. Falha
+segura novas tentativas por 10 min. `admin-orc-pecas.js?v=5`. Sem migration.
+
+### Nota fiscal: o modal de emissão só confere e fatura (23/11/2026)
+
+O modal da nota deixou de repetir o editor do orçamento. Peça/Serviço e o
+produto do Omie de cada peça são decididos **no orçamento**; o modal mostra o
+que vai sair e lista o que falta em "Antes de emitir", com atalhos que gravam
+na linha do orçamento (confirmar as sugestões, usar o produto da última vez)
+ou levam a ela ("Escolher no orçamento" destaca a linha e abre a busca do
+Omie). O resto é faturamento: cobrança (parcelas, banco, boleto) e envio
+(e-mails). Rodapé fixo com o total e "Emitir DANFE"/"Emitir NFS-e". O Emitir
+não manda mais `naturezas`/`produtos` (lê o gravado). Preview ganhou
+`bloqueio_pendencia`. O produto "da última vez" não é mais escolhido sozinho:
+pede um clique. `admin.js?v=425`, `admin.css?v=383`, `admin-orc-pecas.js?v=6`.
+Sem migration. Desenho em [nota-fiscal.md](modulos/nota-fiscal.md), seção
+"O modal de emissão".

@@ -963,6 +963,7 @@ por rateio proporcional, com prévia antes.
 | 1 | `omie.service.js` + migration 090 (natureza da linha, colunas `nota_*`, cache do cliente) | ✅ código · ✅ 090 em prod (20/11/2026) |
 | 2 | NFS-e do orçamento só de serviço: modal com confirmação peça/serviço, prévia, OS no molde, `FaturarOS`, Atualizar | ✅ código · ⏳ primeira nota real |
 | 3 | DANFE: seletor de produto do Omie por peça (catálogo local de 1.318, sugestão + busca + memória), rateio do serviço nas peças, pedido no molde, `IncluirPedido` + `FaturarPedidoVenda`, leitura da NF-e. Migration 091 | ✅ código (18/11/2026) · ✅ 091 em prod (20/11/2026) · ⏳ primeira DANFE real |
+| 3b | Modal de emissão vira conferência + faturamento: peça/serviço e produto saem do modal (são do editor do orçamento), "Antes de emitir" com atalhos, rodapé com total e "Emitir DANFE/NFS-e" | ✅ código (23/11/2026) · ⏳ commit e primeira nota real |
 
 **Para a etapa 2 ir ao ar, nesta ordem:**
 1. Rodar a 090 em produção **antes** do push, porque a lista de orçamentos

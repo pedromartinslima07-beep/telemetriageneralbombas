@@ -353,6 +353,9 @@ function _conferir(orc, linhas, naturezas, escolhas, prodInfo = new Map(), pagam
   const tipo = temPeca ? "nfe" : "nfse";
 
   let bloqueio = null;
+  // O produto da peça é do ORÇAMENTO: o modal mostra esses dois como
+  // pendência, com o atalho para resolver, e não como bloqueio (23/11/2026).
+  let bloqueioPendencia = false;
   if (orc.status !== "aprovado") bloqueio = "Só orçamento aprovado vira nota.";
   else if (orc.nota_status === "emitida") bloqueio = "Este orçamento já tem nota emitida.";
   // O código de integração ORC-<id> já pertence à OS/pedido cancelado no
@@ -371,8 +374,8 @@ function _conferir(orc, linhas, naturezas, escolhas, prodInfo = new Map(), pagam
   // CFOP 5.xxx é venda dentro do estado. Fora de SP seria 6.xxx, com outra
   // tributação — não está no molde, e errar isso é nota errada.
   else if (tipo === "nfe" && orc.condominio_id && orc.condo_uf && String(orc.condo_uf).toUpperCase() !== "SP") bloqueio = "Cliente fora de SP: a DANFE muda de CFOP (6.xxx) — por enquanto, emita no Omie.";
-  else if (tipo === "nfe" && pecas.some(l => !l.omie_produto_codigo)) bloqueio = "Escolha o produto do Omie de cada peça.";
-  else if (tipo === "nfe" && pecas.some(l => l.produto?.inativo)) bloqueio = "Um dos produtos escolhidos está inativo no Omie — escolha outro.";
+  else if (tipo === "nfe" && pecas.some(l => !l.omie_produto_codigo)) { bloqueio = "Escolha o produto do Omie de cada peça."; bloqueioPendencia = true; }
+  else if (tipo === "nfe" && pecas.some(l => l.produto?.inativo)) { bloqueio = "Um dos produtos escolhidos está inativo no Omie — escolha outro."; bloqueioPendencia = true; }
 
   const pag = montarPagamento(orc, totalCent, pagamento);
   if (!bloqueio && pag.erro) bloqueio = pag.erro;
@@ -389,6 +392,7 @@ function _conferir(orc, linhas, naturezas, escolhas, prodInfo = new Map(), pagam
   return {
     tipo,
     bloqueio,
+    bloqueio_pendencia: bloqueioPendencia,
     linhas: comNatureza.map(l => ({
       id: l.id, descricao: l.descricao, quantidade: l.quantidade, valor_unitario: l.valor_unitario,
       natureza: l.natureza, natureza_sugerida: l.natureza_sugerida,

@@ -9235,71 +9235,115 @@ body.role-viewer .viewer-only-hide-inline {
 .av-nota .btn + .btn { margin-top: 6px; }
 .av-nota-erro { color: var(--danger); }
 
-/* Modal de emissão — PLACA CLARA: família de tinta, nunca --muted/--border. */
-.av-nota-tab { width: 100%; border-collapse: collapse; margin: 4px 0 8px; }
-.av-nota-tab td { padding: 8px 4px; border-bottom: 1px solid var(--fio-esc); vertical-align: middle; }
-.av-nota-desc { color: var(--tinta); font-size: .9rem; }
-.av-nota-desc i { display: block; font-style: normal; color: var(--tinta-2); font-size: .8rem; margin-top: 2px; }
-.av-nota-nat { width: 1%; white-space: nowrap; text-align: right; }
-.av-nota-nat .avModos { flex-wrap: nowrap; justify-content: flex-end; gap: 4px; }
-.av-nota-nat .avModo { padding: 5px 10px; font-size: .82rem; }
-.av-nota-sug { display: block; color: var(--tinta-2); font-size: .72rem; margin-top: 3px; }
-.av-nota-previa { border-top: 1px solid var(--fio-esc); margin-top: 6px; padding-top: 10px; }
-.av-nota-kv { display: flex; justify-content: space-between; gap: 12px; color: var(--tinta-2); font-size: .85rem; padding: 3px 0; }
-.av-nota-kv b { color: var(--tinta); font-weight: 600; text-align: right; }
-.av-nota-kv b i { display: block; font-style: normal; font-weight: 400; color: var(--tinta-2); font-size: .78rem; }
-.av-nota-total b { font-size: 1.05rem; }
-.av-nota-itens { list-style: none; margin: 6px 0; padding: 0; }
-.av-nota-itens li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; color: var(--tinta); font-size: .85rem; border-bottom: 1px dashed var(--fio-esc); }
-.av-nota-itens li b { white-space: nowrap; font-weight: 600; }
-.av-nota-bloq { background: rgba(200, 60, 40, .08); border: 1px solid rgba(200, 60, 40, .3); color: var(--tinta); border-radius: 7px; padding: 8px 10px; font-size: .85rem; margin-bottom: 8px; }
-.av-nota-aviso { margin-top: 8px; }
-.av-nota-itens li span i { display: block; font-style: normal; color: var(--tinta-2); font-size: .75rem; }
+/* ── Modal de emissão (23/11/2026): conferência + faturamento ──────────────
+   PLACA CLARA: família de tinta, nunca --muted/--border cru. Cada bloco é um
+   cartão branco sobre a chapa do modal; o "Antes de emitir" é o mesmo
+   cartão com borda âmbar escura e título em --atencao-t (sem faixa de cor
+   na borda, ver DESIGN.md). O amarelo é só o "Emitir", no rodapé.
+   Raio com dois seletores de classe: o reset de raio do começo do arquivo
+   ganha de um só. Desenho em docs/modulos/nota-fiscal.md. */
+.modalBox.nf-box { width: min(760px, 96vw); }
+.modalBox .nf-corpo { display: flex; flex-direction: column; gap: 12px; background: var(--chapa); }
 
-/* DANFE: o produto do Omie de cada peça. A linha da peça fica em cima; o
-   seletor mora na linha de baixo, sem borda entre as duas. */
-.av-nota-tab tr:has(+ .av-nota-prod-row) td { border-bottom: 0; padding-bottom: 2px; }
-.av-nota-prod-row td { padding-top: 0; }
-.av-nota-prod { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-left: 2px solid var(--fio-esc); }
-.av-nota-prod.is-on { flex-direction: row; align-items: center; gap: 10px; border-left-color: var(--accent); }
-.av-nota-prod.is-on .btn { margin-left: auto; flex: none; }
-.av-nota-prod-t { color: var(--tinta-2); font-size: .78rem; }
-.av-nota-cod { font-family: var(--mono, ui-monospace, monospace); font-size: .78rem; color: var(--tinta-2); white-space: nowrap; }
-.av-nota-pdesc { color: var(--tinta); font-size: .85rem; min-width: 0; }
-.av-nota-pdesc i { display: block; font-style: normal; color: var(--tinta-2); font-size: .74rem; margin-top: 1px; }
-.av-nota-opc { display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left; background: transparent;
-  border: 1px solid var(--fio-esc); border-radius: 6px; padding: 6px 8px; cursor: pointer; font: inherit; }
-.av-nota-opc:hover, .av-nota-opc:focus-visible { border-color: var(--accent); }
-.av-nota-busca { width: 100%; margin-top: 2px; }
-.av-nota-res { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
-.av-nota-res:empty { display: none; }
-.av-nota-cat { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.modalBox .nf-sec,
+.modalBox .nf-pend { background: #fff; border: 1px solid var(--fio-esc); border-radius: var(--r-cartao, 10px); padding: 14px 16px; }
+.nf-sec-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.nf-sec-t { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--tinta); letter-spacing: -.01em; }
+.nf-sec-cab .nf-sec-t { margin: 0; }
 
-/* Parcelas: quantidade no seletor; com 2 ou mais, um vencimento editável por
-   parcela (o padrão é o calendário das notas feitas à mão). */
-.av-nota-pag { align-items: center; margin-top: 6px; }
-.av-nota-pag .select { width: auto; min-width: 140px; padding: 4px 8px; }
-.av-nota-parcelas { list-style: none; margin: 4px 0 6px; padding: 0; }
-.av-nota-parcelas li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
-  padding: 4px 0; font-size: .85rem; color: var(--tinta-2); border-bottom: 1px dashed var(--fio-esc); }
-.av-nota-parcelas li input { width: auto; padding: 4px 6px; }
-.av-nota-parcelas li b { color: var(--tinta); font-weight: 600; min-width: 90px; text-align: right; }
-/* Boleto junto com a nota (migration 101): banco + "gerar o boleto junto";
-   no trilho, uma linha por parcela com o botão de abrir o PDF. */
-.av-nota-banco b { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
-.av-nota-chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; font-size: .85rem; color: var(--tinta-2); cursor: pointer; }
-.av-nota-chk input { width: auto; margin: 0; }
+.nf-lk { border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--mar-700, #1b2f6e);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
+.nf-lk:hover { color: var(--tinta); }
+.nf-cod { font-family: var(--mono); font-size: 11.5px; color: var(--tinta-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nf-nota { margin: 8px 0 0; font-size: 12px; color: var(--tinta-2); line-height: 1.45; }
+.nf-vazio { margin: 0; font-size: 13px; color: var(--tinta-2); }
+.nf-erro { color: var(--danger-t); }
+
+/* O que impede e o que falta */
+.modalBox .nf-bloq,
+.modalBox .nf-info { border-radius: var(--r-cartao, 10px); padding: 10px 14px; font-size: 13px; line-height: 1.45; }
+.modalBox .nf-bloq { background: #fff; border: 1px solid rgba(121, 0, 0, .45); color: var(--tinta); display: flex; flex-direction: column; gap: 2px; }
+.nf-bloq b { color: var(--danger-t); }
+.modalBox .nf-info { background: var(--chapa-cl); border: 1px dashed var(--fio-esc); color: var(--tinta-2); }
+
+.modalBox .nf-pend { border-color: rgba(136, 97, 22, .55); }
+.nf-pend-cab { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.nf-pend-cab b { color: var(--atencao-t); font-size: 13px; }
+.nf-pend-cab span { color: var(--tinta-2); font-size: 12.5px; }
+.nf-pend-lista { list-style: none; margin: 0; padding: 0; }
+.nf-pend-it { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 10px 0; border-top: 1px solid rgba(6, 16, 51, .08); }
+.nf-pend-it:first-child { border-top: 0; }
+.nf-pend-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; color: var(--tinta); }
+.nf-pend-txt > span { color: var(--tinta-2); }
+.nf-pend-sug { font-size: 12.5px; }
+.nf-pend-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: none; }
+.nf-sug { list-style: none; margin: 4px 0 0; padding: 0; }
+.nf-sug li { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 10px; padding: 3px 0; font-size: 12.5px; color: var(--tinta); }
+.nf-sug li b { font-weight: 600; color: var(--tinta-2); }
+.nf-pend .nf-cat { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(6, 16, 51, .08); }
+
+/* Tipo e tomador */
+.nf-dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+.nf-dl dt { font-size: 11.5px; color: var(--tinta-2); margin-bottom: 2px; }
+.nf-dl dd { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--tinta); }
+.nf-dl dd small { display: block; font-weight: 400; font-size: 12px; color: var(--tinta-2); margin-top: 2px; }
+
+/* Itens */
+.nf-tab-wrap { overflow-x: auto; }
+.nf-itens { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--tinta); }
+.nf-itens th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--tinta-2); padding: 0 8px 6px 0; border-bottom: 1px solid var(--fio-esc); }
+.nf-itens td { padding: 8px 8px 8px 0; border-bottom: 1px solid rgba(6, 16, 51, .08); vertical-align: top; }
+.nf-itens td small { display: block; font-size: 11.5px; color: var(--tinta-2); margin-top: 2px; }
+.nf-itens .nf-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; padding-right: 0; padding-left: 8px; }
+.nf-itens tfoot td { border-bottom: 0; padding-top: 10px; font-weight: 600; }
+.nf-itens tfoot td:first-child { text-align: right; color: var(--tinta-2); font-weight: 400; }
+.nf-itens b { font-weight: 600; }
+
+/* Cobrança e envio */
+.nf-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+.nf-campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.nf-campo > span { font-size: 11.5px; color: var(--tinta-2); }
+.nf-campo small { font-size: 12px; color: var(--tinta-2); line-height: 1.4; }
+.nf-campo small.nf-erro { color: var(--danger-t); }
+.nf-campo [hidden] { display: none; }
+.nf-campo .select { width: 100%; padding: 7px 10px; }
+.nf-campo textarea.select { resize: vertical; min-height: 54px; font: inherit; font-size: 13px; }
+.nf-chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--tinta); font-size: 12.5px; }
+.nf-chk input { width: auto; margin: 0; }
+.nf-parcelas { list-style: none; margin: 12px 0 0; padding: 0; }
+.nf-parcelas li { display: grid; grid-template-columns: 1fr auto 110px; align-items: center; gap: 12px; padding: 6px 0;
+  border-top: 1px solid rgba(6, 16, 51, .08); font-size: 13px; color: var(--tinta-2); }
+.nf-parcelas li input { width: auto; padding: 5px 8px; }
+.nf-parcelas li b { color: var(--tinta); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Rodapé: o total que vai sair, o aviso e a ação */
+.nf-pe { gap: 16px; }
+.nf-pe-total { display: flex; flex-direction: column; line-height: 1.15; flex: none; }
+.nf-pe-total span { font-size: 11.5px; color: var(--tinta-2); }
+.nf-pe-total b { font-size: 18px; font-weight: 700; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.nf-pe-msg { flex: 1; min-width: 0; line-height: 1.4; }
+.nf-pe-msg.is-erro { color: var(--danger-t); font-weight: 600; }
+
+/* "Corrigir no orçamento": a linha pisca no editor por trás. */
+#avItensWrap tr.nf-alvo > td { background: #e3eaf7; transition: background .4s; }
+
+@media (max-width: 600px) {
+  .nf-dl, .nf-campos { grid-template-columns: 1fr; }
+  .nf-pend-it { flex-direction: column; }
+  .nf-pend-acoes { justify-content: flex-start; }
+  .nf-pe { flex-wrap: wrap; }
+  .nf-pe-msg { flex-basis: 100%; order: 3; }
+  .nf-parcelas li { grid-template-columns: 1fr auto; }
+  .nf-parcelas li b { grid-column: 1 / -1; text-align: left; }
+}
+
+/* Boleto no trilho do orçamento (migration 101): uma linha por parcela com o
+   botão de abrir o PDF. */
 .av-nota-boletos { list-style: none; margin: 6px 0; padding: 0; }
 .av-nota-boletos li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px;
   padding: 4px 0; font-size: .8rem; color: var(--tinta-2); border-bottom: 1px dashed var(--fio-esc); }
 .av-nota-boletos li b { color: var(--tinta); font-weight: 600; }
 .av-nota-boletos li i { grid-column: 1 / -1; font-style: normal; }
-@media (max-width: 560px) {
-  .av-nota-tab tr { display: block; padding: 6px 0; }
-  .av-nota-tab td { display: block; border: 0; padding: 2px 0; }
-  .av-nota-nat { text-align: left; }
-  .av-nota-prod.is-on { flex-wrap: wrap; }
-}
 
 /* Excluir sai do caminho, mas SEM `margin-top: auto`: empurrar pro pé abria um
    vão de ~280px no meio do trilho (visto no harness). Fica logo abaixo do

@@ -14164,6 +14164,20 @@ async function _avAtualizarNota() {
   }
 }
 
+// O modal de emissão é CONFERÊNCIA + FATURAMENTO (23/11/2026). Desenho e
+// porquê em docs/modulos/nota-fiscal.md, seção "O modal de emissão".
+//
+// O que é decisão do ORÇAMENTO (peça ou serviço, produto do Omie de cada
+// peça) não se edita aqui: o modal mostra o resultado e, se faltar algo,
+// lista o que falta com o atalho para resolver. Os dois atalhos que resolvem
+// sem sair ("confirmar as sugestões", "usar o produto da última vez") gravam
+// na LINHA DO ORÇAMENTO, pela mesma rota do editor, então a regra continua
+// morando num lugar só. "Corrigir no orçamento" fecha o modal e leva à linha.
+//
+// O que é decisão do FATURAMENTO fica aqui: parcelas, vencimentos, banco,
+// boleto e para quem o Omie manda a nota.
+//
+// ⚠️ NADA DE CRASE DENTRO DOS TEMPLATES (ver CLAUDE.md).
 async function _avAbrirNota() {
   const orc = _avSelecionado;
   if (!orc?.id) return;
@@ -14186,14 +14200,10 @@ async function _avAbrirNota() {
     return;
   }
 
-  // Estado local. `nat`: a classificação de cada linha — começa no que está
-  // gravado ou, sem nada gravado, na sugestão. `prod`: o produto do Omie de
-  // cada peça (DANFE) — começa no gravado ou no lembrado da última vez; a
-  // sugestão comum NÃO é escolhida sozinha (nome genérico casa com vários
-  // produtos de NCM diferente; ver omie-produtos.service.js).
-  const nat = {};
-  const prod = {};
-  const naoConfirmada = new Set();
+  const esc = _waEscaparHtml;
+  const moeda = _orcFmtValor;
+  const dataBr = d => d ? String(d).slice(0, 10).split("-").reverse().join("/") : "";
+
   // Parcelas: o servidor sugere pelo texto do orçamento e pelo calendário das
   // notas feitas à mão; aqui fica o que está na tela, mandado a cada prévia.
   let pag = null;
@@ -14204,153 +14214,187 @@ async function _avAbrirNota() {
     };
   };
   sincPag();
-  const iniciar = () => {
-    for (const l of p.linhas) {
-      if (!l.cobravel) continue;
-      if (!(l.id in nat)) {
-        nat[l.id] = l.natureza || l.natureza_sugerida;
-        if (!l.natureza) naoConfirmada.add(String(l.id));
-      }
-      if (!(l.id in prod)) {
-        const lemb = (l.sugestoes || []).find(s => s.lembrado);
-        if (l.produto?.descricao) prod[l.id] = l.produto;
-        else if (lemb) prod[l.id] = lemb;
-      }
-    }
-  };
-  iniciar();
+  let emailsTxt = null;   // null = a lista da prévia (do Omie)
+  let ocupado = false;    // gravando no orçamento ou emitindo
+  let aviso = null;       // { txt, erro } no rodapé; null = o aviso padrão
 
   const ov = document.createElement("div");
-  ov.className = "modalOverlay";
+  ov.className = "modalOverlay is-sobreposto";
   ov.style.display = "flex";
   ov.innerHTML = `
-    <div class="modalBox" style="max-width:720px;">
+    <div class="modalBox nf-box" role="dialog" aria-modal="true" aria-labelledby="nfTitulo">
       <div class="modalHead">
         <div>
-          <div class="modalTitle">Emitir nota fiscal</div>
-          <div class="modalSub">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(p.cliente?.nome || "—")}</div>
+          <div class="modalTitle" id="nfTitulo">Emitir nota fiscal</div>
+          <div class="modalSub">${esc(orc.numero || "")} · ${esc(p.cliente?.nome || "—")}</div>
         </div>
-        <button class="btn btn-sm" id="avNotaFechar">Fechar</button>
+        <button class="btn btn-sm" type="button" data-nf-fechar>Fechar</button>
       </div>
-      <div class="modalBody">
-        <div class="modalTools"><div class="modalCount" id="avNotaMsg"></div></div>
-
-        <div class="f"><span>O que é cada linha</span></div>
-        <table class="av-nota-tab"><tbody id="avNotaLinhas"></tbody></table>
-        ${p.linhas.some(l => !l.cobravel) ? `<div class="hint">Linhas sem valor não entram na nota.</div>` : ""}
-
-        <div class="av-nota-previa" id="avNotaPrevia"></div>
-
-        <div class="formActions">
-          <button class="btn" type="button" id="avNotaCancelar">Cancelar</button>
-          <button class="btn btnAccent" type="button" id="avNotaConfirmar">Emitir nota</button>
+      <div class="modalBody nf-corpo" id="nfCorpo"></div>
+      <div class="modalFoot nf-pe">
+        <div class="nf-pe-total"><span>Total da nota</span><b id="nfPeValor"></b></div>
+        <span class="modalFoot-msg nf-pe-msg" id="nfMsg" role="status" aria-live="polite"></span>
+        <div class="modalFoot-actions">
+          <button class="btn" type="button" data-nf-fechar>Cancelar</button>
+          <button class="btn btnAccent" type="button" id="nfEmitir">Emitir nota</button>
         </div>
       </div>
     </div>`;
   document.body.appendChild(ov);
 
-  const fechar = () => ov.remove();
-  ov.addEventListener("click", e => { if (e.target === ov) fechar(); });
-  document.getElementById("avNotaFechar").addEventListener("click", fechar);
-  document.getElementById("avNotaCancelar").addEventListener("click", fechar);
+  const corpo = ov.querySelector("#nfCorpo");
+  const onKey = e => { if (e.key === "Escape" && !ocupado) { e.stopPropagation(); fechar(); } };
+  document.addEventListener("keydown", onKey, true);
+  function fechar() { document.removeEventListener("keydown", onKey, true); ov.remove(); }
+  ov.addEventListener("click", e => { if (e.target === ov && !ocupado) fechar(); });
 
-  const esc = _waEscaparHtml;
-  const produtosDoModal = () => {
-    const out = {};
-    for (const l of p.linhas) if (l.cobravel && nat[l.id] === "peca") out[l.id] = prod[l.id]?.codigo_produto || null;
-    return out;
-  };
-
-  function prodHtml(x, extra = "") {
-    const meta = [
-      x.ncm ? `NCM ${esc(x.ncm)}` : "",
-      x.unidade ? esc(x.unidade) : "",
-      x.vezes_faturado ? `faturado ${x.vezes_faturado}×` : "nunca faturado",
-    ].filter(Boolean).join(" · ");
-    return `<span class="av-nota-cod">${esc(x.codigo || x.codigo_produto)}</span>
-      <span class="av-nota-pdesc">${esc(x.descricao || "")}<i>${meta}${extra}</i></span>`;
-  }
-
-  function slotProduto(l) {
-    const x = prod[l.id];
-    if (x) {
-      return `
-        <div class="av-nota-prod is-on">
-          ${prodHtml(x, x.lembrado ? " · usado da última vez" : "")}
-          <button type="button" class="btn btn-sm" data-prod-trocar="${l.id}">Trocar</button>
-        </div>`;
+  // ── O que falta (tudo é do orçamento) ────────────────────────────────────
+  const efetiva = l => l.natureza || l.natureza_sugerida;
+  const ROT_NAT = { peca: "peça", servico: "serviço" };
+  function pendencias() {
+    const out = [];
+    const cob = p.linhas.filter(l => l.cobravel);
+    const semMarca = cob.filter(l => !l.natureza);
+    if (semMarca.length) out.push({ tipo: "marca", linhas: semMarca });
+    if (p.tipo === "nfe") {
+      for (const l of cob) {
+        if (efetiva(l) !== "peca") continue;
+        if (!l.omie_produto_codigo) out.push({ tipo: "produto", linha: l, lembrado: (l.sugestoes || []).find(s => s.lembrado) || null });
+        else if (l.produto?.inativo) out.push({ tipo: "inativo", linha: l });
+      }
     }
-    const sug = (l.sugestoes || []).filter(s => !s.lembrado);
-    return `
-      <div class="av-nota-prod">
-        <div class="av-nota-prod-t">Qual produto do Omie é esta peça?</div>
-        ${sug.map(s => `
-          <button type="button" class="av-nota-opc" data-prod-usar="${l.id}" data-cod="${s.codigo_produto}">
-            ${prodHtml(s)}
-          </button>`).join("")}
-        <input class="av-nota-busca" type="text" data-prod-busca="${l.id}" placeholder="Buscar outro produto — nome ou código" autocomplete="off">
-        <div class="av-nota-res" data-prod-res="${l.id}"></div>
-      </div>`;
+    return out;
   }
 
-  function renderLinhas() {
-    document.getElementById("avNotaLinhas").innerHTML = p.linhas.filter(l => l.cobravel).map(l => {
-      const ePeca = nat[l.id] === "peca";
-      return `
-        <tr>
-          <td class="av-nota-desc">${esc(l.descricao)}
-            <i>${l.quantidade} × ${_orcFmtValor(l.valor_unitario)}</i></td>
-          <td class="av-nota-nat">
-            <div class="avModos" data-nota-linha="${l.id}">
-              <button type="button" class="avModo${nat[l.id] === "servico" ? " is-on" : ""}" data-nat="servico" aria-pressed="${nat[l.id] === "servico"}">Serviço</button>
-              <button type="button" class="avModo${ePeca ? " is-on" : ""}" data-nat="peca" aria-pressed="${ePeca}">Peça</button>
+  function pendHtml(pend) {
+    if (!pend.length) return "";
+    const itens = pend.map(x => {
+      if (x.tipo === "marca") {
+        const n = x.linhas.length;
+        return `
+          <li class="nf-pend-it">
+            <div class="nf-pend-txt">
+              <b>Peça ou serviço?</b>
+              <span>${n === 1 ? "Uma linha do orçamento está" : n + " linhas do orçamento estão"} sem marcação. Pelo texto, o sistema sugere:</span>
+              <ul class="nf-sug">${x.linhas.map(l => `
+                <li><span>${esc(l.descricao)}</span><b>${ROT_NAT[l.natureza_sugerida] || "—"}</b>
+                  <button type="button" class="nf-lk" data-nf-ir="${l.id}">corrigir</button></li>`).join("")}
+              </ul>
             </div>
-            ${naoConfirmada.has(String(l.id)) ? `<small class="av-nota-sug">sugerido</small>` : ""}
-          </td>
-        </tr>
-        ${ePeca && p.tipo === "nfe" ? `<tr class="av-nota-prod-row"><td colspan="2">${slotProduto(l)}</td></tr>` : ""}`;
+            <div class="nf-pend-acoes">
+              <button type="button" class="btn btn-sm" data-nf-confirmar>${n === 1 ? "Confirmar a sugestão" : "Confirmar as " + n + " sugestões"}</button>
+            </div>
+          </li>`;
+      }
+      const l = x.linha;
+      if (x.tipo === "produto") {
+        const s = x.lembrado;
+        return `
+          <li class="nf-pend-it">
+            <div class="nf-pend-txt">
+              <b>Qual produto do Omie é esta peça?</b>
+              <span>${esc(l.descricao)}</span>
+              ${s ? `<span class="nf-pend-sug">Da última vez foi <span class="nf-cod">${esc(s.codigo || s.codigo_produto)}</span> ${esc(s.descricao || "")}${s.ncm ? " · NCM " + esc(s.ncm) : ""}</span>` : ""}
+            </div>
+            <div class="nf-pend-acoes">
+              ${s ? `<button type="button" class="btn btn-sm" data-nf-usar="${l.id}" data-cod="${esc(s.codigo_produto)}">Usar este</button>` : ""}
+              <button type="button" class="btn btn-sm" data-nf-ir="${l.id}" data-nf-buscar>${s ? "Escolher outro" : "Escolher no orçamento"}</button>
+            </div>
+          </li>`;
+      }
+      return `
+        <li class="nf-pend-it">
+          <div class="nf-pend-txt">
+            <b>Produto inativo no Omie</b>
+            <span>${esc(l.descricao)} · <span class="nf-cod">${esc(l.produto?.codigo || l.omie_produto_codigo)}</span></span>
+          </div>
+          <div class="nf-pend-acoes">
+            <button type="button" class="btn btn-sm" data-nf-ir="${l.id}" data-nf-buscar>Trocar no orçamento</button>
+          </div>
+        </li>`;
     }).join("");
+    return `
+      <section class="nf-pend" aria-labelledby="nfPendT">
+        <div class="nf-pend-cab">
+          <b id="nfPendT">Antes de emitir</b>
+          <span>${pend.length === 1 ? "Falta 1 coisa" : "Faltam " + pend.length + " coisas"} no orçamento. O que for resolvido aqui fica gravado nele.</span>
+        </div>
+        <ul class="nf-pend-lista">${itens}</ul>
+        ${pend.some(x => x.tipo !== "marca") ? catalogoHtml() : ""}
+      </section>`;
   }
 
-  function renderPrevia() {
-    const nfe = p.tipo === "nfe";
-    let bloqueio = p.bloqueio;
-    if (!bloqueio && !p.emissao_ligada) bloqueio = "Emissão desligada neste ambiente (OMIE_EMISSAO). A prévia abaixo é o que sairia.";
-
-    const itens = p.itens.map(i => `
-      <li><span>${nfe && i.codigo ? `<span class="av-nota-cod">${esc(i.codigo)}</span> ` : ""}${esc(i.descricao)}
-            ${nfe ? `<i>${i.ncm ? `NCM ${esc(i.ncm)} · ` : ""}CFOP ${esc(i.cfop)}</i>` : ""}</span>
-          <b>${i.quantidade > 1 ? `${i.quantidade} × ${_orcFmtValor(i.valor_unitario)} = ` : ""}${_orcFmtValor(i.total)}</b></li>`).join("");
+  // Peça nova cadastrada no Omie só aparece na busca depois da cópia do
+  // catálogo (sozinha a cada 24 h). O botão força a cópia agora.
+  function catalogoHtml() {
     const cat = p.catalogo;
-    const catTxt = !nfe || !cat ? "" : cat.total === 0
-      ? `Carregando o catálogo do Omie — leva cerca de 1 minuto. Enquanto isso, use a busca pelo nome.`
-      : `Catálogo do Omie: ${cat.total} produtos${cat.atualizado_em ? `, de ${new Date(cat.atualizado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : ""}${cat.sincronizando ? " (atualizando…)" : ""}.`;
-
-    document.getElementById("avNotaPrevia").innerHTML = `
-      ${bloqueio ? `<div class="av-nota-bloq">${esc(bloqueio)}</div>` : ""}
-      <div class="av-nota-kv"><span>Nota</span><b>${nfe ? "DANFE — NF-e de produto" : "NFS-e — serviço 140101 (14.01)"}</b></div>
-      <div class="av-nota-kv"><span>Cliente</span><b>${esc(p.cliente?.nome || "—")}
-        <i>${p.cliente?.omie_codigo ? "já vinculado no Omie" : "procurado no Omie pelo CNPJ (cadastrado se não existir)"}</i></b></div>
-      <ul class="av-nota-itens">${itens}</ul>
-      <div class="av-nota-kv av-nota-total"><span>Total da nota</span><b>${_orcFmtValor(p.total)}</b></div>
-      ${pagamentoHtml()}
-      ${emailsHtml()}
-      ${nfe && p.servico_embutido > 0 ? `<div class="hint">O serviço (${_orcFmtValor(p.servico_embutido)}) não sai como linha: está embutido no preço das peças, na proporção do valor de cada uma.</div>` : ""}
-      ${!nfe && p.rateado ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as linhas, na proporção de cada uma.</div>` : ""}
-      ${nfe && p.rateado && !(p.servico_embutido > 0) ? `<div class="hint">O orçamento tem valor total manual: ele foi distribuído entre as peças, na proporção de cada uma.</div>` : ""}
-      ${catTxt ? `<div class="hint av-nota-cat">${catTxt} <button type="button" class="btn btn-sm" data-cat-sync>Atualizar catálogo</button></div>` : ""}
-      <div class="hint av-nota-aviso">Isto gera uma <b>nota real</b> ${nfe ? "na SEFAZ" : "na prefeitura"}. Depois de emitida, cancelar é no Omie.</div>`;
-    document.getElementById("avNotaConfirmar").disabled = Boolean(bloqueio);
+    if (!cat) return "";
+    const quando = cat.atualizado_em ? new Date(cat.atualizado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
+    const txt = cat.sincronizando ? "Atualizando o catálogo do Omie (cerca de 1 min)…"
+      : !cat.total ? "O catálogo do Omie ainda não foi copiado para cá."
+      : `Peça nova no Omie? Cadastre lá e atualize a cópia do catálogo${quando ? " (de " + quando + ")" : ""}.`;
+    return `
+      <p class="nf-nota nf-cat">${txt}
+        ${cat.sincronizando ? "" : `<button type="button" class="nf-lk" data-cat-sync>Atualizar catálogo</button>`}</p>`;
   }
 
-  function pagamentoHtml() {
+  // ── Os blocos de conferência ─────────────────────────────────────────────
+  function notaHtml() {
+    const nfe = p.tipo === "nfe";
+    const c = p.cliente || {};
+    return `
+      <section class="nf-sec">
+        <h3 class="nf-sec-t">Nota</h3>
+        <dl class="nf-dl">
+          <div><dt>Tipo</dt>
+            <dd>${nfe ? "DANFE · NF-e de produto" : "NFS-e · serviço 14.01"}
+              <small>${nfe ? "O orçamento tem peça: o serviço vai embutido no preço das peças." : "O orçamento é só de serviço."}</small></dd></div>
+          <div><dt>Tomador</dt>
+            <dd>${esc(c.nome || "—")}
+              <small>${c.documento ? esc(c.documento) + " · " : ""}${c.omie_codigo ? "já cadastrado no Omie" : "procurado no Omie pelo CPF/CNPJ (cadastrado se não existir)"}</small></dd></div>
+        </dl>
+      </section>`;
+  }
+
+  function itensHtml() {
+    const nfe = p.tipo === "nfe";
+    const linhas = (p.itens || []).map(i => `
+      <tr>
+        <td>${nfe && i.codigo ? `<span class="nf-cod">${esc(i.codigo)}</span> ` : ""}${esc(i.descricao)}
+          ${nfe ? `<small>${i.ncm ? "NCM " + esc(i.ncm) + " · " : ""}CFOP ${esc(i.cfop)}</small>` : ""}</td>
+        <td class="nf-num">${esc(i.quantidade)}</td>
+        <td class="nf-num">${moeda(i.valor_unitario)}</td>
+        <td class="nf-num"><b>${moeda(i.total)}</b></td>
+      </tr>`).join("");
+    const notas = [];
+    if (nfe && p.servico_embutido > 0) notas.push(`O serviço (${moeda(p.servico_embutido)}) não sai como linha: entra no preço das peças, na proporção de cada uma.`);
+    if (p.rateado && !(nfe && p.servico_embutido > 0)) notas.push(`O orçamento tem valor total manual: ele foi distribuído entre ${nfe ? "as peças" : "as linhas"}, na proporção de cada uma.`);
+    if (p.linhas.some(l => !l.cobravel)) notas.push("Linhas sem valor não entram na nota.");
+    return `
+      <section class="nf-sec">
+        <div class="nf-sec-cab">
+          <h3 class="nf-sec-t">Itens como vão sair</h3>
+          <button type="button" class="nf-lk" data-nf-ir="">Editar no orçamento</button>
+        </div>
+        ${linhas ? `
+          <div class="nf-tab-wrap"><table class="nf-itens">
+            <thead><tr><th>Descrição</th><th class="nf-num">Qtd</th><th class="nf-num">Unitário</th><th class="nf-num">Total</th></tr></thead>
+            <tbody>${linhas}</tbody>
+            <tfoot><tr><td colspan="3">Total</td><td class="nf-num"><b>${moeda(p.total)}</b></td></tr></tfoot>
+          </table></div>`
+          : `<p class="nf-vazio">Os itens aparecem aqui quando o que falta no orçamento for resolvido.</p>`}
+        ${notas.map(t => `<p class="nf-nota">${t}</p>`).join("")}
+      </section>`;
+  }
+
+  function cobrancaHtml() {
     const pg = p.pagamento;
     if (!pg) return "";
     const opcoes = Array.from({ length: 12 }, (_, k) => k + 1)
       .map(n => `<option value="${n}"${n === pg.parcelas ? " selected" : ""}>${n === 1 ? "À vista" : n + "x no boleto"}</option>`).join("");
     const doOrc = pg.forma_pagamento
-      ? `no orçamento: ${esc(pg.forma_pagamento)}${pg.parcelas !== pg.do_orcamento ? " — alterado aqui" : ""}`
-      : "o orçamento não diz a forma de pagamento";
+      ? `No orçamento: "${esc(pg.forma_pagamento)}"${pg.parcelas !== pg.do_orcamento ? " (alterado aqui)" : ""}`
+      : "O orçamento não diz a forma de pagamento.";
     // Banco do boleto (migration 101): Sicredi registra sozinho; Bradesco
     // precisa da remessa, que continua sendo tirada no Omie.
     const bancos = (pg.bancos || []).map(b => `<option value="${esc(b.id)}"${b.id === pg.banco ? " selected" : ""}>${esc(b.nome)}</option>`).join("");
@@ -14358,119 +14402,188 @@ async function _avAbrirNota() {
     const dicaBoleto = !pg.boleto
       ? "Sem boleto: a nota sai com as parcelas, e o boleto fica para gerar depois."
       : pg.remessa
-        ? `O sistema pede ao Omie o boleto de cada parcela logo depois da nota. No ${esc(nomeBanco)} ele só vale depois da remessa: gere a remessa no Omie e suba no Net Empresa.`
-        : `O sistema pede ao Omie o boleto de cada parcela logo depois da nota. O ${esc(nomeBanco)} registra sozinho.`;
+        ? `O boleto de cada parcela é pedido ao Omie logo depois da nota. No ${esc(nomeBanco)} ele só vale depois da remessa: gere a remessa no Omie e suba no Net Empresa.`
+        : `O boleto de cada parcela é pedido ao Omie logo depois da nota. O ${esc(nomeBanco)} registra sozinho.`;
     return `
-      <div class="av-nota-kv av-nota-pag"><span>Pagamento</span>
-        <b><select class="select" data-pag-qtd aria-label="Quantidade de parcelas">${opcoes}</select><i>${doOrc}</i></b></div>
-      <ul class="av-nota-parcelas">
-        ${pg.lista.map(x => `
-          <li><span>${pg.parcelas === 1 ? "Vencimento" : `${x.numero}ª parcela`}</span>
-            <input type="date" data-pag-venc="${x.numero - 1}" value="${esc(x.vencimento || "")}" aria-label="Vencimento${pg.parcelas === 1 ? "" : " da parcela " + x.numero}">
-            <b>${_orcFmtValor(x.valor)}</b></li>`).join("")}
-      </ul>
-      <div class="av-nota-kv av-nota-pag av-nota-banco"><span>Boleto</span>
-        <b><select class="select" data-pag-banco aria-label="Banco do boleto">${bancos}</select>
-          <label class="av-nota-chk"><input type="checkbox" data-pag-boleto${pg.boleto ? " checked" : ""}> gerar o boleto junto</label></b></div>
-      <div class="hint">${dicaBoleto}</div>`;
+      <section class="nf-sec">
+        <h3 class="nf-sec-t">Cobrança</h3>
+        <div class="nf-campos">
+          <label class="nf-campo"><span>Condição</span>
+            <select class="select" data-pag-qtd>${opcoes}</select>
+            <small>${doOrc}</small></label>
+          <label class="nf-campo"><span>Banco do boleto</span>
+            <select class="select" data-pag-banco>${bancos}</select>
+            <small><span class="nf-chk"><input type="checkbox" data-pag-boleto${pg.boleto ? " checked" : ""}> gerar o boleto junto com a nota</span></small></label>
+        </div>
+        <ul class="nf-parcelas">
+          ${pg.lista.map(x => `
+            <li><span>${pg.parcelas === 1 ? "Vencimento" : x.numero + "ª parcela"}</span>
+              <input type="date" data-pag-venc="${x.numero - 1}" value="${esc(x.vencimento || "")}" aria-label="Vencimento${pg.parcelas === 1 ? "" : " da parcela " + x.numero}">
+              <b>${moeda(x.valor)}</b></li>`).join("")}
+        </ul>
+        <p class="nf-nota">${dicaBoleto}</p>
+      </section>`;
   }
 
   // Para quem o Omie manda a nota (migration 102): os destinatários da nota
   // mais recente do cliente no Omie, que não são o e-mail do cadastro dele.
-  // O que for digitado aqui vale sobre a prévia, e vai na emissão.
-  function emailsHtml() {
+  function envioHtml() {
     const em = p.emails || { lista: [] };
     const valor = emailsTxt != null ? emailsTxt : (em.lista || []).join(", ");
-    const dataBr = d => d ? d.split("-").reverse().join("/") : "";
-    const fonte = em.fonte === "os" ? `os mesmos da O.S.${em.numero ? " " + esc(em.numero) : ""}${em.data ? " de " + dataBr(em.data) : ""} no Omie`
-      : em.fonte === "pedido" ? `os mesmos do pedido${em.numero ? " " + esc(em.numero) : ""}${em.data ? " de " + dataBr(em.data) : ""} no Omie`
-      : em.fonte === "cadastro" ? "o e-mail do cadastro do cliente no Omie (ele não tem nota com destinatário lá)"
-      : em.fonte === "predio" ? "o e-mail do cadastro do prédio aqui (o cliente ainda não tem nota no Omie)"
-      : em.fonte === "emitida" ? "os que foram na emissão"
-      : "nenhum e-mail achado";
+    const fonte = em.fonte === "os" ? `Os mesmos da O.S.${em.numero ? " " + esc(em.numero) : ""}${em.data ? " de " + dataBr(em.data) : ""} no Omie`
+      : em.fonte === "pedido" ? `Os mesmos do pedido${em.numero ? " " + esc(em.numero) : ""}${em.data ? " de " + dataBr(em.data) : ""} no Omie`
+      : em.fonte === "cadastro" ? "Do cadastro do cliente no Omie (ele não tem nota com destinatário lá)"
+      : em.fonte === "predio" ? "Do cadastro do prédio aqui (o cliente ainda não tem nota no Omie)"
+      : em.fonte === "emitida" ? "Os que foram na emissão"
+      : "";
     const velha = em.data && (Date.now() - new Date(em.data + "T12:00:00").getTime()) > 365 * 86400e3;
     const vazio = !String(valor).trim();
+    const boleto = p.pagamento && p.pagamento.boleto !== false;
     return `
-      <div class="av-nota-kv av-nota-pag"><span>E-mail da nota</span>
-        <b><textarea class="select" rows="2" data-nota-emails aria-label="E-mails que recebem a nota" placeholder="sindico@exemplo.com, financeiro@exemplo.com">${esc(valor)}</textarea></b></div>
-      <div class="hint">O próprio Omie manda a nota${p.pagamento && p.pagamento.boleto !== false ? " e o boleto" : ""} para estes e-mails, como nas notas feitas lá. Vieram de ${fonte}${emailsTxt != null ? " (alterados aqui)" : ""}.${velha ? " <b>Essa nota é de mais de um ano atrás: confira.</b>" : ""}${em.erro ? ` <span style="color:var(--danger)">Não consegui ler o Omie agora: ${esc(em.erro)}</span>` : ""}${vazio ? " <b>Sem e-mail, o Omie não manda nada ao cliente.</b>" : ""}</div>`;
+      <section class="nf-sec">
+        <h3 class="nf-sec-t">Envio</h3>
+        <label class="nf-campo nf-campo-larga"><span>O Omie manda a nota${boleto ? " e o boleto" : ""} para</span>
+          <textarea class="select" rows="2" data-nota-emails placeholder="sindico@exemplo.com, financeiro@exemplo.com">${esc(valor)}</textarea>
+          <small>${fonte ? fonte + (emailsTxt != null ? " (alterados aqui)" : "") + "." : "Nenhum e-mail achado no Omie nem no cadastro."}${velha ? " <b>Essa nota é de mais de um ano atrás: confira.</b>" : ""}</small>
+          ${em.erro ? `<small class="nf-erro">Não consegui ler o Omie agora: ${esc(em.erro)}</small>` : ""}
+          <small class="nf-erro" data-nf-sem-email${vazio ? "" : " hidden"}>Sem e-mail, o Omie não manda nada ao cliente.</small>
+        </label>
+      </section>`;
   }
 
-  function render() { renderLinhas(); renderPrevia(); }
+  function render() {
+    const nfe = p.tipo === "nfe";
+    const pend = pendencias();
+    // Bloqueio que é pendência (produto da peça) já aparece no "Antes de
+    // emitir", com o atalho; aqui só o que o orçamento não resolve.
+    const bloq = p.bloqueio && !(pend.length && p.bloqueio_pendencia) ? p.bloqueio : null;
+    const desligada = !p.emissao_ligada;
+    const rolagem = corpo.scrollTop;
+    corpo.innerHTML = `
+      ${bloq ? `<div class="nf-bloq" role="alert"><b>Não dá para emitir</b><span>${esc(bloq)}</span></div>` : ""}
+      ${desligada && !bloq ? `<div class="nf-info">Emissão desligada neste ambiente (OMIE_EMISSAO). Dá para conferir tudo; o botão não emite.</div>` : ""}
+      ${pendHtml(pend)}
+      ${notaHtml()}
+      ${itensHtml()}
+      ${cobrancaHtml()}
+      ${envioHtml()}`;
+    corpo.scrollTop = rolagem;
 
-  // A prévia é do servidor (rateio, bloqueios, sugestões): toda mudança de
-  // classificação ou de produto pede de novo, com o que está marcado aqui.
+    ov.querySelector("#nfPeValor").textContent = moeda(p.total);
+    const btn = ov.querySelector("#nfEmitir");
+    btn.textContent = ocupado === "emitindo" ? "Emitindo…" : `Emitir ${nfe ? "DANFE" : "NFS-e"}`;
+    btn.disabled = Boolean(ocupado || bloq || pend.length || desligada);
+
+    const msg = ov.querySelector("#nfMsg");
+    if (aviso) { msg.textContent = aviso.txt; msg.classList.toggle("is-erro", Boolean(aviso.erro)); }
+    else {
+      msg.classList.remove("is-erro");
+      msg.textContent = pend.length
+        ? "Resolva o que falta acima para liberar a emissão."
+        : `Gera uma nota real ${nfe ? "na SEFAZ" : "na prefeitura"}. Depois de emitida, cancelar é no Omie.`;
+    }
+  }
+
+  // A prévia é do servidor (rateio, bloqueios, sugestões). Lê o que está
+  // GRAVADO no orçamento; daqui vai só a cobrança, que é do faturamento.
   let seq = 0;
-  let emailsTxt = null; // null = a lista da prévia (do Omie)
   async function atualizarPrevia() {
     const meu = ++seq;
-    const msg = document.getElementById("avNotaMsg");
-    if (msg) { msg.style.color = "var(--tinta-2)"; msg.textContent = "Atualizando a prévia…"; }
     try {
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/previa`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ naturezas: nat, produtos: produtosDoModal(), pagamento: pag }),
+        body: JSON.stringify({ pagamento: pag }),
       });
       const j = await lerRespostaJson(r, "Prévia da nota");
       if (!r.ok) throw new Error(j.error || "Erro ao atualizar a prévia");
       if (meu !== seq) return;
       p = j;
       sincPag();
-      iniciar();
-      render();
-      if (msg) msg.textContent = "";
+      aviso = null;
     } catch (e) {
-      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = e.message; }
+      aviso = { txt: e.message, erro: true };
+    }
+    render();
+  }
+
+  // Grava na linha do orçamento pela mesma rota do editor, e o editor por
+  // trás do modal fica igual ao banco.
+  async function gravarLinhas(mudancas) {
+    ocupado = "gravando";
+    aviso = { txt: "Gravando no orçamento…" };
+    render();
+    try {
+      for (const [id, corpoReq] of mudancas) {
+        const r = await fetch(`/admin/orcamentos/avulsos/linhas/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify(corpoReq),
+        });
+        const j = await lerRespostaJson(r, "Atualizar item");
+        if (!r.ok) throw new Error(j.error || "Não foi possível atualizar o item.");
+        if (typeof _avLinhas !== "undefined") {
+          const idx = _avLinhas.findIndex(x => x.id === Number(id));
+          if (idx !== -1) _avLinhas[idx] = j;
+        }
+      }
+      if (typeof _avRenderLinhas === "function") _avRenderLinhas();
+      ocupado = false;
+      await atualizarPrevia();
+    } catch (e) {
+      ocupado = false;
+      aviso = { txt: e.message, erro: true };
+      render();
     }
   }
 
-  // Resultados da busca ficam guardados pelo código, para o clique em
-  // "usar" achar o produto sem nova consulta.
-  const vistos = new Map();
-  for (const l of p.linhas) for (const s of l.sugestoes || []) vistos.set(String(s.codigo_produto), s);
+  // Fecha e leva à linha no editor do orçamento. Com buscar, já abre a
+  // busca de produto do Omie daquela linha (o "trocar"/"escolher" dela).
+  function irParaLinha(id, buscar) {
+    fechar();
+    const wrap = document.getElementById("avItensWrap");
+    const tr = id ? wrap?.querySelector(`tr[data-av-linha-id="${id}"]`) : null;
+    const alvo = tr || document.getElementById("avItensZone");
+    if (!alvo) return;
+    alvo.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (!tr) return;
+    tr.classList.add("nf-alvo");
+    setTimeout(() => tr.classList.remove("nf-alvo"), 2600);
+    const bt = buscar ? tr.querySelector("[data-pc-trocar]") : null;
+    if (bt) bt.click();
+    else tr.querySelector('input[data-av-linha-field="descricao"]')?.focus({ preventScroll: true });
+  }
 
-  ov.addEventListener("click", async e => {
-    const bNat = e.target.closest("[data-nota-linha] [data-nat]");
-    if (bNat) {
-      const id = bNat.closest("[data-nota-linha]").dataset.notaLinha;
-      nat[id] = bNat.dataset.nat;
-      naoConfirmada.delete(String(id));
-      render();
-      atualizarPrevia();
+  ov.addEventListener("click", e => {
+    if (ocupado) return;
+    let el;
+    if (e.target.closest("[data-nf-fechar]")) { fechar(); return; }
+    if ((el = e.target.closest("[data-nf-ir]"))) { irParaLinha(el.dataset.nfIr, el.hasAttribute("data-nf-buscar")); return; }
+    if (e.target.closest("[data-nf-confirmar]")) {
+      const sem = p.linhas.filter(l => l.cobravel && !l.natureza && l.natureza_sugerida);
+      gravarLinhas(sem.map(l => [l.id, { natureza: l.natureza_sugerida }]));
       return;
     }
-    const bUsar = e.target.closest("[data-prod-usar]");
-    if (bUsar) {
-      const x = vistos.get(String(bUsar.dataset.cod)) ||
-        (p.linhas.flatMap(l => l.sugestoes || [])).find(s => String(s.codigo_produto) === bUsar.dataset.cod);
-      if (x) { prod[bUsar.dataset.prodUsar] = x; render(); atualizarPrevia(); }
+    if ((el = e.target.closest("[data-nf-usar]"))) {
+      gravarLinhas([[el.dataset.nfUsar, { natureza: "peca", omie_produto_codigo: Number(el.dataset.cod) }]]);
       return;
     }
-    const bTrocar = e.target.closest("[data-prod-trocar]");
-    if (bTrocar) {
-      prod[bTrocar.dataset.prodTrocar] = null;
-      render();
-      atualizarPrevia();
-      return;
-    }
-    const bSync = e.target.closest("[data-cat-sync]");
-    if (bSync) {
-      bSync.disabled = true;
-      bSync.textContent = "Atualizando… (cerca de 1 min)";
-      try {
-        const r = await fetch(`/admin/omie/produtos/sincronizar`, { method: "POST", headers: authHeaders() });
-        const j = await lerRespostaJson(r, "Atualizar catálogo");
-        if (!r.ok) throw new Error(j.error || "Erro ao atualizar o catálogo");
-        atualizarPrevia();
-      } catch (err) {
-        const msg = document.getElementById("avNotaMsg");
-        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = err.message; }
-        bSync.disabled = false;
-        bSync.textContent = "Atualizar catálogo";
-      }
-    }
+    if ((el = e.target.closest("[data-cat-sync]"))) { sincronizarCatalogo(el); return; }
   });
+
+  async function sincronizarCatalogo(bt) {
+    bt.disabled = true;
+    bt.textContent = "Atualizando… (cerca de 1 min)";
+    try {
+      const r = await fetch(`/admin/omie/produtos/sincronizar`, { method: "POST", headers: authHeaders() });
+      const j = await lerRespostaJson(r, "Atualizar catálogo");
+      if (!r.ok) throw new Error(j.error || "Erro ao atualizar o catálogo");
+      await atualizarPrevia();
+    } catch (err) {
+      aviso = { txt: err.message, erro: true };
+      render();
+    }
+  }
 
   ov.addEventListener("change", e => {
     const qtd = e.target.closest("[data-pag-qtd]");
@@ -14491,64 +14604,43 @@ async function _avAbrirNota() {
     }
   });
 
-  let tBusca = null;
   ov.addEventListener("input", e => {
     const em = e.target.closest("[data-nota-emails]");
-    if (em) { emailsTxt = em.value; return; }
-    const inp = e.target.closest("[data-prod-busca]");
-    if (!inp) return;
-    const lid = inp.dataset.prodBusca;
-    const res = ov.querySelector(`[data-prod-res="${lid}"]`);
-    clearTimeout(tBusca);
-    const q = inp.value.trim();
-    if (q.length < 2) { if (res) res.innerHTML = ""; return; }
-    tBusca = setTimeout(async () => {
-      if (res) res.innerHTML = `<div class="hint">Buscando…</div>`;
-      try {
-        const r = await fetch(`/admin/omie/produtos?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
-        const j = await lerRespostaJson(r, "Buscar produto");
-        if (!r.ok) throw new Error(j.error || "Erro na busca");
-        if (inp.value.trim() !== q || !res) return;
-        for (const x of j.produtos) vistos.set(String(x.codigo_produto), x);
-        res.innerHTML = j.produtos.length
-          ? j.produtos.map(x => `
-              <button type="button" class="av-nota-opc" data-prod-usar="${lid}" data-cod="${x.codigo_produto}">${prodHtml(x)}</button>`).join("")
-          : `<div class="hint">Nenhum produto com esse nome no catálogo. Se a peça é nova, cadastre-a no Omie (o NCM é com o contador) e use Atualizar catálogo.</div>`;
-      } catch (err) {
-        if (res) res.innerHTML = `<div class="hint" style="color:var(--danger)">${esc(err.message)}</div>`;
-      }
-    }, 250);
+    if (!em) return;
+    emailsTxt = em.value;
+    // Sem redesenhar (o cursor sairia do campo): só o aviso de vazio.
+    const av = em.closest(".nf-campo")?.querySelector("[data-nf-sem-email]");
+    if (av) av.hidden = Boolean(em.value.trim());
   });
 
   render();
-  // O lembrado da última vez entra já escolhido; a prévia do servidor
-  // precisa saber disso para tirar o bloqueio "escolha o produto".
-  if (Object.values(prod).some(Boolean)) atualizarPrevia();
+  ov.querySelector("#nfEmitir").focus();
 
-  document.getElementById("avNotaConfirmar").addEventListener("click", async () => {
-    const msg = document.getElementById("avNotaMsg");
-    const btn = document.getElementById("avNotaConfirmar");
+  ov.querySelector("#nfEmitir").addEventListener("click", async () => {
+    if (ocupado) return;
     const emTxt = emailsTxt != null ? emailsTxt : (p.emails?.lista || []).join(", ");
     if (!emTxt.trim() && !confirm("Nenhum e-mail para a nota: o Omie não vai mandar nada ao cliente. Emitir assim mesmo?")) return;
-    btn.disabled = true;
-    if (msg) { msg.style.color = "var(--tinta-2)"; msg.textContent = "Emitindo no Omie… (pode levar alguns segundos)"; }
+    ocupado = "emitindo";
+    aviso = { txt: "Emitindo no Omie… pode levar alguns segundos." };
+    render();
     try {
       const r = await fetch(`/admin/orcamentos/avulsos/${orc.id}/nota/emitir`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ naturezas: nat, produtos: produtosDoModal(), pagamento: pag,
-          emails: emailsTxt != null ? emailsTxt : (p.emails?.lista || []).join(", ") }),
+        body: JSON.stringify({ pagamento: pag, emails: emTxt }),
       });
       const j = await lerRespostaJson(r, "Emitir nota");
       if (!r.ok) {
-        // Mesmo motivo do envio de e-mail: o modal some, o console fica.
+        // Mesmo motivo do envio de e-mail: o modal fica, o console também.
         console.error(`[nota] FALHA orcamento=${orc.id} call=${j.call || "-"}\n${j.error || "sem detalhe"}`);
-        if (msg) { msg.style.color = "var(--danger)"; msg.textContent = j.error || "Erro ao emitir"; }
-        btn.disabled = false;
+        ocupado = false;
+        aviso = { txt: j.error || "Erro ao emitir", erro: true };
+        render();
         // A falha pode ter deixado estado gravado (OS/pedido criado, status erro).
         _avAtualizarNota();
         return;
       }
+      ocupado = false;
       _avAplicarNota(orc, j);
       fechar();
       _avRenderTudo();
@@ -14562,8 +14654,9 @@ async function _avAbrirNota() {
         setTimeout(() => { if (fmsg) fmsg.textContent = ""; }, 6000);
       }
     } catch (e) {
-      if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro: " + e.message; }
-      btn.disabled = false;
+      ocupado = false;
+      aviso = { txt: "Erro: " + e.message, erro: true };
+      render();
     }
   });
 }

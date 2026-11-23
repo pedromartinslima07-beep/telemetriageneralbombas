@@ -13,6 +13,15 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Modal da nota redesenhado — no código em 23/11/2026, sem commit.** Deixou
+> de repetir o editor do orçamento: confere o que vai sair, lista o que falta
+> ("Antes de emitir", com atalhos que gravam na linha do orçamento ou levam a
+> ela) e cuida da cobrança e do envio. Conferido no banco de teste (porta
+> 3001, `PAINEL_NOVO`), desktop e celular; a emissão em si não foi exercitada
+> (Omie sem sandbox). Sem migration. ⏳ **Falta:** commit/push e ver na
+> primeira nota real. Ver a seção "O modal de emissão" em
+> [nota-fiscal.md](../docs/modulos/nota-fiscal.md).
+
 > 🟠 **Orçamento que vence — no ar em 23/11/2026.** O
 > enviado vencido sem resposta é arquivado pelo job `orcamento-vencimento`
 > (sai da fila, visão "Arquivados"; validade nova desarquiva), lembrete por

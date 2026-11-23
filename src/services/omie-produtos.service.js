@@ -222,11 +222,19 @@ function sincronizar() {
 
 // Dispara a sincronização em segundo plano se o catálogo passou de 24 h.
 // Não espera: o modal abre com o que tem.
+// Quem chama a cada tecla (busca de peça no orçamento) não pode transformar
+// uma falha do Omie em uma tentativa por tecla — o Omie bloqueia consulta
+// repetida. Depois de falhar, espera ESPERA_FALHA_MS antes de tentar de novo.
+const ESPERA_FALHA_MS = 10 * 60 * 1000;
+let _falhouEm = 0;
 async function sincronizarSeVelho() {
   const e = await estado();
   const velho = !e.atualizado_em || Date.now() - new Date(e.atualizado_em).getTime() > VALIDADE_MS;
-  if (velho && !_sincronizando) {
-    sincronizar().catch(err => console.error("[omie-produtos] sincronização falhou:", err.message));
+  if (velho && !_sincronizando && Date.now() - _falhouEm > ESPERA_FALHA_MS) {
+    sincronizar().catch(err => {
+      _falhouEm = Date.now();
+      console.error("[omie-produtos] sincronização falhou:", err.message);
+    });
   }
   return { ...e, sincronizando: Boolean(_sincronizando) };
 }
