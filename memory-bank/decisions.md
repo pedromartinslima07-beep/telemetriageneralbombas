@@ -1797,3 +1797,13 @@ número, situação, PDF, boletos e histórico na mesma página.
 - **A categoria é sugestão, não regra:** a mais usada no histórico do
   fornecedor no Omie, só leitura, e a pessoa confirma. Só vira regra no "usar
   sempre".
+
+## Roteiro do técnico: a antecedência não atravessa o mês (24/11/2026)
+
+- **Preventiva de dezembro só aparece em dezembro.** Pedido do Pedro ao ver o
+  roteiro do José Glebson com 19 prédios de dezembro em 24/11. `proxima_em`
+  marca quando o job abre o próximo ciclo (dia 1), não um vencimento; mostrar
+  isso com 7 dias de antecedência punha no app serviço que ainda não existe.
+- ❌ Baixar `planos.roteiro_antecedencia_dias` para 0: resolve a virada do mês
+  mas tira a antecedência de preventiva que vence mais para o fim do mesmo mês.
+- A antecedência continua valendo **dentro** do mês.

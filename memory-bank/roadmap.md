@@ -1056,6 +1056,12 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 | 1 | Ladrão por reservatório + regra de tempo + bomba ligada no ladrão + alerta e chamado | ✅ no ar (106 em prod) · ⏳ cadastrar o ladrão nos reservatórios |
 | 2 | Sensor no cano do ladrão (entrada nova no ESP32), para cisterna sem bomba | 📋 |
 
+## Roteiro do técnico só com o mês atual (24/11/2026)
+
+- [x] A antecedência do `/meu-roteiro` não passa do mês atual ✅ (código e teste)
+- [ ] Escala de dezembro: o José Glebson não responde por nenhuma zona; sem
+  escala, o roteiro dele fica vazio em 01/12
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para

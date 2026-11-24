@@ -1110,3 +1110,10 @@ compromissos antigos. ✅ Teste (19/11/2026). ✅ **Produção** (conferida no `
 ## Preparação Meta Tech Provider (24/11/2026)
 
 Páginas legais e roteiro de análise: sem alterações de schema, migration ou dados. A exclusão continua sendo uma solicitação ao atendimento, não um DELETE público. A retenção padrão de conversas fechadas é 365 dias, configurável no serviço existente. Ver [Meta Tech Provider](modulos/meta-tech-provider.md).
+
+## Roteiro do técnico (24/11/2026)
+
+Sem alterações de schema, migration ou dados: só a query do
+`GET /planos-manutencao/meu-roteiro` mudou (a janela de
+`planos.roteiro_antecedencia_dias` para no fim do mês). Ver
+[app-mobile.md](modulos/app-mobile.md#o-roteiro-não-mostra-o-mês-que-vem-24112026).

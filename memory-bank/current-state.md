@@ -1595,3 +1595,10 @@ App `1164344609652756`, portfólio `2878574109191669`; adesão independente e em
 ### Meta — páginas no ar em 24/11/2026
 
 Commit `8f212a8` publicado, páginas de privacidade/exclusão HTTP 200 e links salvos na Meta. Destinatário de teste confirmado. Consentimento final restrito à Test Messaging Account aguarda autorização; sem token ou mensagem enviados até este registro. [Estado e próximos passos](../docs/modulos/meta-tech-provider.md).
+
+### Roteiro do técnico só com o mês atual (24/11/2026)
+
+`GET /planos-manutencao/meu-roteiro` não traz mais o ciclo do mês seguinte: a
+janela de 7 dias para no fim do mês. Sem migration. Em produção, o roteiro do
+José Glebson cai de 22 para 3 prédios (os de novembro com chamado aberto).
+[Detalhe](../docs/modulos/app-mobile.md#o-roteiro-não-mostra-o-mês-que-vem-24112026).

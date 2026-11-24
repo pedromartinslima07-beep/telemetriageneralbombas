@@ -666,6 +666,20 @@ A régua de "de quem é" e "em que estágio" é a mesma do painel do operador �
 
 ⚠️ **Exige APK novo.**
 
+## O roteiro não mostra o mês que vem (24/11/2026)
+
+A janela de antecedência do `GET /planos-manutencao/meu-roteiro`
+(`planos.roteiro_antecedencia_dias`, 7) **para no fim do mês atual**. Antes,
+do dia 24 em diante, entrava o ciclo seguinte inteiro: o job deixa
+`proxima_em` no dia 1 do próximo mês, que não é prazo e sim o dia em que o
+chamado desse ciclo é aberto. Em 24/11 o José Glebson tinha 22 prédios no app,
+19 de dezembro — serviço que ainda nem existia, e que só aparecia "escalado
+para você" porque a escala de novembro também casa com a competência de hoje.
+
+No dia 1 o job abre o chamado e o prédio entra pela segunda porta (já rodou
+neste mês e o chamado está aberto). O que sobrou de meses anteriores continua
+entrando. Teste: `scripts/testes/roteiro-competencia.test.js`, caso 1b.
+
 ## Um atendimento por vez (14/09/2026)
 
 `configurarCTA()` decidia o botão olhando só **aquele** chamado, e a lista não

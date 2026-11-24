@@ -18865,3 +18865,16 @@ feitas à mão no Omie (conferido em 41 itens recentes, só leitura). A página 
 nota mostra a ficha sob o item. DANFE sem mudança. Sem migration.
 `admin.css?v=390`, `admin-nota.js?v=3`. Ver
 [modulos/nota-fiscal.md](modulos/nota-fiscal.md).
+
+## 2026-11-24 — Roteiro do técnico não mostra o ciclo do mês que vem
+
+`GET /planos-manutencao/meu-roteiro` trazia, do dia 24 em diante, as
+preventivas do mês seguinte: `proxima_em` não é vencimento, é o dia 1 em que o
+job abre o chamado do próximo ciclo, e a janela de 7 dias
+(`planos.roteiro_antecedencia_dias`) alcançava esse dia. Medido em produção:
+19 dos 22 prédios do José Glebson eram de dezembro. A antecedência agora não
+passa do mês atual; no dia 1 o job abre o chamado e o prédio entra pela
+segunda porta, como antes. Pedido do Pedro. Sem migration, sem mudança no app.
+Teste `roteiro-competencia.test.js` **7/7** (caso novo: o ciclo do mês que vem
+não entra) e `preventivas-mes.test.js` 66/66. Ver
+[modulos/app-mobile.md](modulos/app-mobile.md#o-roteiro-não-mostra-o-mês-que-vem-24112026).

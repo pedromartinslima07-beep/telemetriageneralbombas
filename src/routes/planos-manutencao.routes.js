@@ -256,7 +256,8 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
 
 // GET /planos-manutencao/meu-roteiro
 // Preventivas das zonas em que o técnico logado é o responsável, vencendo em
-// até `planos.roteiro_antecedencia_dias` (default 7).
+// até `planos.roteiro_antecedencia_dias` (default 7) — sem passar do mês atual
+// (24/11/2026: o ciclo do mês que vem só aparece quando o mês começa).
 //
 // Devolve PLANOS, não chamados: o chamado P4 só nasce quando o técnico chega no
 // prédio e toca "Iniciar" (POST /:id/executar-agora). Assim o que não foi feito
@@ -382,8 +383,20 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
          -- — ele veria de novo o predio de onde acabou de sair. O chamado
          -- aberto e o que diz "isto ainda pede alguem"; fechado ou cancelado,
          -- some.
+         --
+         -- ⚠️ E A JANELA NAO PASSA DO MES (24/11/2026). proxima_em nao e
+         -- vencimento: e o dia em que o job ABRE o chamado do ciclo seguinte —
+         -- quase sempre o dia 1. Com 7 dias de antecedencia, do dia 24 em
+         -- diante o roteiro trazia o ciclo do mes que vem inteiro (medido em
+         -- producao: 19 dos 22 predios do Jose Glebson eram de dezembro), um
+         -- servico que ainda nem existe. Relato do Pedro: "as preventivas de
+         -- dezembro tem que aparecer pra ele so em dezembro". No dia 1 o job
+         -- abre o chamado e a segunda porta traz o predio.
          AND (
-           pm.proxima_em <= CURRENT_DATE + $2::int
+           (
+             pm.proxima_em <= CURRENT_DATE + $2::int
+             AND pm.proxima_em < (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date
+           )
            OR (
              pm.ultima_em >= date_trunc('month', CURRENT_DATE)::date
              AND pm.ultima_em <  (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date

@@ -97,10 +97,24 @@ async function main() {
     const daquiA = (n) => { const d = new Date(hoje); d.setDate(d.getDate() + n); return iso(d); };
 
     // ── 1. O caso normal: vence dentro da janela ────────────────────────────
-    const pDentro = await novoPlano(await novoPredio("Rot Dentro " + suf), daquiA(3));
+    // ⚠️ HOJE, e não "daqui a 3 dias": do dia 28 em diante isso já cairia no
+    // mês seguinte, que desde 24/11/2026 não entra (caso 1b).
+    const pDentro = await novoPlano(await novoPredio("Rot Dentro " + suf), iso(hoje));
     let rt = await roteiro();
     ok("responde 200", rt.status === 200, "status " + rt.status);
-    ok("plano que vence em 3 dias entra", rt.ids.includes(pDentro));
+    ok("plano que vence hoje entra", rt.ids.includes(pDentro));
+
+    // ── 1b. O ciclo do mês que vem NÃO entra antes do mês começar ───────────
+    // Caso do José Glebson em 24/11/2026: o job deixa `proxima_em` no dia 1 do
+    // mês seguinte, e com 7 dias de antecedência o ciclo de dezembro inteiro
+    // aparecia em novembro. A antecedência não atravessa a virada do mês.
+    const pProxMes = await novoPlano(await novoPredio("Rot ProxMes " + suf), daquiA(3));
+    await pool.query(
+      `UPDATE planos_manutencao
+          SET proxima_em = (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')::date
+        WHERE id = $1`, [pProxMes]);
+    rt = await roteiro();
+    ok("ciclo do mês que vem (dia 1º, sem chamado aberto) NÃO entra", !rt.ids.includes(pProxMes));
 
     // ── 2. O caso do defeito: rolado para o mês que vem, chamado ABERTO ─────
     // É o estado em que o job deixa TODO plano do mês assim que roda.
