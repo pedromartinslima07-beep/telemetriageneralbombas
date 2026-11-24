@@ -249,6 +249,7 @@ function tipoBadge(tipo) {
   if (tipo === "nivel_muito_baixo") return badge("NÍVEL MUITO BAIXO", "bad");
   if (tipo === "nivel_baixo") return badge("NÍVEL BAIXO", "warn");
   if (tipo === "dispositivo_offline") return badge("OFFLINE", "bad");
+  if (tipo === "extravasamento") return badge("EXTRAVASAMENTO", "warn");
   return badge(String(tipo || "").replaceAll("_", " "), "warn");
 }
 
@@ -914,6 +915,7 @@ const _MC_TIPO_NOME = {
   dispositivo_offline: "Dispositivo sem sinal",
   nivel_muito_baixo:   "Nível muito baixo",
   nivel_baixo:         "Nível baixo",
+  extravasamento:      "Extravasamento",
 };
 
 // A mensagem do servidor é escrita para log ("Cisterna (caixa) (DEMO-CIST) está
@@ -2034,6 +2036,7 @@ const _AL_ACOES_FIXAS = {
     dispositivo_offline: ["Verificar alimentação e sinal do device", "Acionar técnico de campo", "Avisar síndico do condomínio"],
     nivel_muito_baixo:   ["Verificar funcionamento da bomba", "Conferir nível físico no reservatório", "Acionar manutenção urgente"],
     nivel_baixo:         ["Monitorar consumo nas próximas horas", "Programar reabastecimento", "Conferir histórico de uso"],
+    extravasamento:      ["Conferir a boia (mecânica ou elétrica)", "Ver se a bomba de recalque desliga sozinha", "Confirmar com o zelador se sai água pelo ladrão"],
   },
   chamado: {
     p1: ["Acionar plantão técnico imediatamente", "Notificar gerência", "Confirmar problema com cliente"],
@@ -2066,6 +2069,7 @@ const _AL_TIPO_PARA_CATEGORIA = {
   nivel_baixo:         "nivel_baixo",
   nivel_muito_baixo:   "nivel_baixo",
   dispositivo_offline: "bomba_falha",
+  extravasamento:      "vazamento",
 };
 
 // Chamado ainda aberto do mesmo condomínio+categoria que o alerta teria gerado.
@@ -7731,6 +7735,7 @@ function abrirModalEditarReservatorio(id) {
       document.getElementById("editResAdcZero").value = res.adc_zero ?? "";
       document.getElementById("editResAdcPorMetro").value = res.adc_por_metro ?? "";
       document.getElementById("editResFaixaSondaM").value = res.faixa_sonda_m ?? "";
+      document.getElementById("editResAlturaExtravasorM").value = res.altura_extravasor_m ?? "";
       document.getElementById("editResLimiarBomba").value = res.limiar_bomba ?? "";
       msg.textContent = "";
       sub.textContent = `${res.nome || "Reservatório"} • ${res.device_id || ""} • ID: ${res.id}`;
@@ -7763,6 +7768,7 @@ async function salvarEdicaoReservatorio(event) {
     adc_por_metro: _editNumOrNull("editResAdcPorMetro"),
     faixa_sonda_m: _editNumOrNull("editResFaixaSondaM"),
     limiar_bomba: _editNumOrNull("editResLimiarBomba"),
+    altura_extravasor_m: _editNumOrNull("editResAlturaExtravasorM"),
   };
 
   if (!payload.nome) { msg.textContent = "Nome é obrigatório."; return; }

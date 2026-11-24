@@ -132,6 +132,58 @@ alertas. A resposta do `POST /telemetria` expõe os dois: `nivel` (cru) e
   físico: some quando o nível normaliza (ou reabre em ~10s se ainda estiver
   baixo). Fechado o chamado, o alerta volta a aparecer como card próprio.
 
+## Extravasamento
+
+Etapa 1, só software (24/11/2026, migration 106). A regra fica em
+`src/services/extravasor.service.js`, sem banco; o `POST /telemetria` só lê e
+grava o estado. O porquê está em
+[decisions.md](../../memory-bank/decisions.md).
+
+⚠️ **Extravasamento não é "nível acima de 100%".** Quando a água extravasa, o
+nível para na altura do ladrão e o excesso sai pelo cano. Um reservatório
+cheio com a boia fechada também fica parado no alto, poucos centímetros abaixo
+dele. O ruído da sonda (±1,7%, uns 3 cm numa caixa de 2 m) é do tamanho dessa
+folga. Por isso:
+
+1. **O ladrão é cadastrado por reservatório**: `altura_extravasor_m`, em
+   metros, na mesma referência de `altura_total_m` (o zero da sonda). Vazio =
+   detecção desligada. Fica no modal "Editar reservatório" do admin novo.
+   A altura da água é calculada **sem o teto de 100%** do `calcularNivelPct`:
+   com o ladrão na altura total, o teto esconderia justamente o que se procura.
+2. **Entrar e sair**: conta como "no ladrão" a partir de
+   `telemetria.extravasor_tolerancia_cm` (padrão 2) abaixo dele; para sair,
+   precisa descer mais `telemetria.extravasor_histerese_cm` (padrão 3). Entre
+   as duas alturas, mantém o estado anterior.
+3. **Tempo**: o alerta só sai depois de `telemetria.extravasor_minutos`
+   (padrão 10) seguidos no ladrão, **ou** de
+   `telemetria.extravasor_bomba_minutos` (padrão 3) no ladrão **com a bomba
+   ligada**. Esse segundo é o sinal forte: na caixa superior a boia elétrica
+   já deveria ter desligado o recalque.
+4. **Relógio no banco**: `extravasor_desde` e `extravasor_bomba_desde` em
+   `reservatorios`, gravados só quando mudam. Não fica na memória porque o
+   deploy reinicia o processo; não fica em `leituras` porque o write-threshold
+   descarta a maioria das amostras. Leitura que chega mais de **5 min** depois
+   da anterior (`last_seen`) recomeça o relógio, porque não se sabe o que
+   houve no meio. Mudar a altura do ladrão no PATCH também zera o relógio.
+
+O alerta tem o tipo `extravasamento`. Quando ele é **novo**, sai o e-mail de
+alerta e o chamado `[AUTO]` na categoria **`vazamento`**: P3 pela regra do
+nível, P2 pela regra da bomba. Se a bomba ligar com o alerta já aberto, o
+chamado sobe para P2 (só no primeiro minuto depois de a regra vencer, para não
+consultar chamado a cada 10 s). Não foi criada categoria nova porque a lista
+de categorias é a régua contratual de prioridade (`prioridade.service.js`).
+Na tela de Alertas o agrupamento liga `extravasamento` → `vazamento`
+(`_AL_TIPO_PARA_CATEGORIA`). O alerta fecha quando o nível **sai** do ladrão;
+ainda no ladrão, fica aberto.
+
+**Limite conhecido:** a cisterna enchida pela rua (boia mecânica, sem bomba) só
+tem a regra do nível, que é a parte menos precisa. A certeza ali vem da etapa
+2, que exige hardware: um sensor no próprio cano do ladrão, uma entrada nova
+no ESP32 e um campo a mais no `POST /telemetria`.
+
+Teste: `scripts/testes/extravasamento.test.js` (regra pura + rotas contra o
+banco de teste).
+
 ## Consumo
 
 - **Admin:** `GET /admin/status` (agregado por condomínio + lat/lng/endereço),

@@ -481,6 +481,7 @@
                 <option value="dispositivo_offline">Dispositivo offline</option>
                 <option value="nivel_baixo">Nível baixo</option>
                 <option value="nivel_muito_baixo">Nível muito baixo</option>
+                <option value="extravasamento">Extravasamento</option>
                 <option value="chamado">Chamados</option>
               </select>
               <input id="alBusca" class="input" placeholder="Buscar por condomínio, tipo…">
@@ -2044,6 +2045,11 @@
         <label class="f"><span>ADC por metro</span><input id="editResAdcPorMetro" type="number" step="1" min="1" /></label>
         <label class="f"><span>Faixa sonda (m)</span><input id="editResFaixaSondaM" type="number" step="0.01" min="0" /></label>
 
+        <!-- Extravasamento (migration 106): altura do ladrão medida do zero da
+             sonda, como a altura total. Vazio = detecção desligada. -->
+        <div class="modal-sec-title" style="grid-column:1/-1;">Extravasamento</div>
+        <label class="f" style="grid-column:1/-1;"><span>Altura do ladrão (m) — vazio desliga a detecção</span><input id="editResAlturaExtravasorM" type="number" step="0.01" min="0" placeholder="Ex: 1.95" /></label>
+
         <div class="modal-sec-title" style="grid-column:1/-1;">Detecção da bomba</div>
         <label class="f" style="grid-column:1/-1;"><span>Limiar do sensor (RMS)</span><input id="editResLimiarBomba" type="number" step="1" min="0" placeholder="Ex: 50" /></label>
 
@@ -2401,12 +2407,12 @@
 </div>
 
 
-<script src="/static/admin.js?v=426" defer></script>
+<script src="/static/admin.js?v=427" defer></script>
 <script src="/static/admin-condominio.js?v=15" defer></script>
 <script src="/static/lucide.min.js" defer></script>
 <script src="/static/admin-nav.js?v=17" defer></script>
 <script src="/static/admin-busca.js?v=5" defer></script>
-<script src="/static/admin-monitoramento.js?v=3" defer></script>
+<script src="/static/admin-monitoramento.js?v=4" defer></script>
 <script src="/static/admin-atendimento.js?v=5" defer></script>
 <script src="/static/admin-carteira.js?v=13" defer></script>
 <script src="/static/admin-agenda.js?v=8" defer></script>
@@ -2427,7 +2433,7 @@
 <script src="/static/admin-guias.js?v=2" defer></script>
 <script src="/static/admin-faturamento-lote.js?v=3" defer></script>
 <script src="/static/admin-config.js?v=1" defer></script>
-<script src="/static/admin-relatorios.js?v=2" defer></script>
+<script src="/static/admin-relatorios.js?v=3" defer></script>
 <script src="/static/mob-sidebar.js" defer></script>
 <script src="/static/register-sw.js?v=52" defer></script>
 </body>

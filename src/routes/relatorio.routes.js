@@ -61,6 +61,7 @@ function alertaLabel(tipo) {
     nivel_critico: "Nível Crítico",
     nivel_baixo: "Nível Baixo",
     nivel_muito_baixo: "Nível Muito Baixo",
+    extravasamento: "Extravasamento",
   };
   return map[tipo] || tipo.replace(/_/g, " ");
 }

@@ -13,6 +13,14 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Extravasamento pelo nível (etapa 1) — no ar em 24/11/2026.** Alerta `extravasamento` + chamado `[AUTO]` de `vazamento`, regra em
+> `extravasor.service.js`. ✅ Migration **106** em teste e em produção (antes do push); teste
+> `extravasamento.test.js` 28/28; campo conferido no modal do admin novo.
+> ⏳ **Falta:** o técnico
+> medir e cadastrar a altura do ladrão em cada reservatório (sem ela a
+> detecção fica desligada). Etapa 2 (sensor no ladrão) no roadmap. Ver
+> [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
+
 > 🟠 **A nota virou página própria — no ar em 23/11/2026.**
 > `#/orcamentos/<id>/nota` (opção B da maquete `/dev/_nota-preview.html`),
 > no lugar do modal (que tinha ido ao ar em `270de06` como conferência):

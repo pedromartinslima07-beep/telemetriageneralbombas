@@ -25,7 +25,7 @@
   const MES_C = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   const MES_L = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
   const PERIODOS = [["mes", "Este mês"], ["ant", "Mês passado"], ["tri", "Trimestre"], ["ano", "12 meses"]];
-  const TIPO_ALERTA = { nivel_muito_baixo: "nível muito baixo", nivel_baixo: "nível baixo", dispositivo_offline: "sem sinal" };
+  const TIPO_ALERTA = { nivel_muito_baixo: "nível muito baixo", nivel_baixo: "nível baixo", dispositivo_offline: "sem sinal", extravasamento: "extravasamento" };
 
   const st = { periodo: "mes", dados: null, carregando: false, erro: false, pedido: 0 };
 

@@ -1031,6 +1031,15 @@ o "porquê" em [`decisions.md`](decisions.md).
 
 ---
 
+## Extravasamento (24/11/2026)
+
+Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
+
+| Etapa | O quê | Estado |
+|---|---|---|
+| 1 | Ladrão por reservatório + regra de tempo + bomba ligada no ladrão + alerta e chamado | ✅ no ar (106 em prod) · ⏳ cadastrar o ladrão nos reservatórios |
+| 2 | Sensor no cano do ladrão (entrada nova no ESP32), para cisterna sem bomba | 📋 |
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para

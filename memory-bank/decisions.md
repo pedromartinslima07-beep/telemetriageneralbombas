@@ -1732,3 +1732,23 @@ número, situação, PDF, boletos e histórico na mesma página.
 - **Lição:** a pergunta "veja como os sistemas profissionais fazem" pede
   pesquisa de verdade e maquete antes do código. Responder de memória e já
   implementar custou uma volta.
+
+## Extravasamento: o ladrão de cada reservatório, não uma porcentagem (24/11/2026)
+
+- **A altura do ladrão é cadastrada por reservatório.** Quando extravasa, o
+  nível para no ladrão; com a boia fechada, para poucos centímetros abaixo. O
+  ruído da sonda é do tamanho dessa folga, então "acima de 95%" daria alerta à
+  toa ou nenhum alerta.
+- **Tempo + histerese, e o relógio no banco.** Os 10 min seguidos (3 com a
+  bomba ligada) seguram o ruído; a histerese impede que uma amostra para baixo
+  zere o relógio no meio de um extravasamento real. O relógio fica em colunas
+  porque o deploy reinicia o processo e o write-threshold descarta leituras.
+- **Bomba ligada no ladrão é a regra forte**, e tem prazo menor: não depende
+  da precisão da sonda, só de a boia elétrica não ter desligado o recalque.
+- **Categoria do chamado = `vazamento`.** Criar `extravasamento` mexeria na
+  régua contratual de prioridade (`prioridade.service.js`), que é compromisso
+  de SLA, não preferência de tela.
+- **Só no painel novo.** O legado é cópia congelada; trabalho novo não entra
+  lá.
+- **Descartado (por ora):** sensor no ladrão. Dá certeza, mas é hardware,
+  firmware e instalação: é a etapa 2, opcional para cisterna sem bomba.

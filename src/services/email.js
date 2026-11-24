@@ -119,11 +119,13 @@ const _TIPO_LABEL = {
   dispositivo_offline: "Dispositivo OFFLINE",
   nivel_muito_baixo:   "Nível MUITO BAIXO",
   nivel_baixo:         "Nível baixo",
+  extravasamento:      "Extravasamento",
 };
 const _TIPO_COR = {
   dispositivo_offline: "#ef4444",
   nivel_muito_baixo:   "#ef4444",
   nivel_baixo:         "#f0b014",
+  extravasamento:      "#f0b014",
 };
 
 // Envia email de alerta crítico para os destinatários configurados em

@@ -26,6 +26,12 @@ const CHAVES = {
   "ia.system_prompt":            { tipo: "string", maxLen: 16000 },
   "alertas.email_destinatario":  { tipo: "string", maxLen: 500 }, // múltiplos emails separados por vírgula
   "jobs.offline_intervalo_min":  { tipo: "int", min: 1, max: 60 },
+  // Extravasamento (migration 106, docs/modulos/telemetria.md). Só vale para
+  // reservatório com `altura_extravasor_m` cadastrada.
+  "telemetria.extravasor_minutos":       { tipo: "int", min: 1, max: 120 }, // nível no ladrão por N min seguidos → alerta (default 10)
+  "telemetria.extravasor_bomba_minutos": { tipo: "int", min: 1, max: 60 },  // no ladrão COM a bomba ligada por N min → alerta (default 3)
+  "telemetria.extravasor_tolerancia_cm": { tipo: "int", min: 0, max: 20 },  // conta como "no ladrão" a partir de N cm abaixo dele (default 2)
+  "telemetria.extravasor_histerese_cm":  { tipo: "int", min: 1, max: 30 },  // para sair, precisa descer mais N cm (default 3)
   "gps.retencao_horas":          { tipo: "int", min: 1, max: 720 }, // Fase 7F — 1h a 30 dias
   "omie.faturamento_intervalo_min": { tipo: "int", min: 15, max: 1440 }, // agenda: de quanto em quanto tempo copia o faturamento do Omie (default 60)
   // Avisos de cobrança por e-mail (migration 102, docs/modulos/cobranca-avisos.md).

@@ -97,6 +97,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 101 | nota_boletos | `orcamentos.nota_conta_corrente`, `boleto_status`, `boleto_erro`, `boleto_atualizado_em`; tabela **`orcamento_boletos`** (uma linha por parcela da nota, com o nosso número). **Aplicada em teste e em produção em 23/11/2026**, antes do push. Ver a entrada de 23/11/2026 abaixo |
 | 103 | orcamento_vencido_arquivado | `orcamentos.arquivado_em`/`arquivado_por` (o enviado vencido sem resposta sai da fila; status continua `enviado`) e a tabela **`orcamento_lembretes`** (o lembrete antes de vencer, um por orçamento/validade). ✅ **Aplicada em teste e em produção em 23/11/2026**; os 111 vencidos de produção arquivados no mesmo dia. Ver a entrada de 23/11/2026 abaixo |
 | 102 | cobranca_avisos | `orcamentos.nota_emails`; tabelas **`omie_cliente_emails`** (para quem o Omie manda a nota de cada cliente), **`omie_receber_avencer`** (títulos do sistema a vencer) e **`cobranca_avisos`** (a fila e o histórico dos avisos, um por título/etapa/vencimento). **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Ver a entrada de 23/11/2026 abaixo |
+| 106 | reservatorio_extravasor | `reservatorios.altura_extravasor_m` (altura do ladrão, liga a detecção de extravasamento), `extravasor_desde` e `extravasor_bomba_desde` (o relógio da regra de tempo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
 | 092 | agenda | tabelas **`compromissos`** (agenda da empresa, com repetição semanal/mensal e `so_admin`), **`omie_contratos`** e **`omie_contrato_notas`** (cópia dos contratos de serviço do Omie e das NFS-e de cada um) e **`omie_sincronizacoes`**. **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push que levar a agenda** (a rota e o job leem as tabelas). Ver [agenda.md](modulos/agenda.md) |
@@ -18664,3 +18665,40 @@ mostra número, PDF, boletos e histórico.
   parcelas, espelho, simulação real no Omie, estado emitido (simulado no
   banco e desfeito), entradas e celular. **Não exercitado:** a rota de emitir
   (o envio ao Omie é real e não tem sandbox).
+
+## 2026-11-24 — Extravasamento detectado pelo nível (etapa 1, só software)
+
+Pedido do Pedro, para a proposta comercial de telemetria: o sistema passa a
+identificar reservatório extravasando. Fluxo e regra em
+[telemetria.md](modulos/telemetria.md#extravasamento); o porquê em
+[decisions.md](../memory-bank/decisions.md).
+
+- **Migration 106** — `reservatorios.altura_extravasor_m`, `extravasor_desde`,
+  `extravasor_bomba_desde`. ✅ Aplicada em teste e em produção (24/11/2026), antes do push.
+- **`src/services/extravasor.service.js`** (novo) — a regra pura: nível no
+  ladrão por N minutos (padrão 10), ou no ladrão **com a bomba ligada** por N
+  minutos (padrão 3); entra a 2 cm do ladrão, sai 3 cm abaixo disso; buraco de
+  mais de 5 min nas leituras reinicia o relógio.
+- **`POST /telemetria`** — novo tipo de alerta `extravasamento`, que abre
+  chamado `[AUTO]` na categoria `vazamento` (P3 pelo nível, P2 com a bomba
+  ligada; se a bomba ligar com o alerta já aberto, o chamado sobe para P2) e
+  manda o e-mail de alerta. Fecha quando o nível sai do ladrão.
+- **`PATCH /reservatorios/:id`** aceita `altura_extravasor_m` (null desliga);
+  mudar a altura zera o relógio. GET e listagem devolvem o campo.
+- **Configurações** novas na whitelist: `telemetria.extravasor_minutos`,
+  `telemetria.extravasor_bomba_minutos`, `telemetria.extravasor_tolerancia_cm`,
+  `telemetria.extravasor_histerese_cm` (sem tela; via `PATCH /admin/configuracoes`).
+- **Admin novo** — campo "Altura do ladrão" no modal de editar reservatório;
+  rótulo, filtro e ações sugeridas do tipo `extravasamento` em Alertas,
+  Monitoramento e Relatórios. O painel legado (`public/legado/`) **não** ganhou
+  o campo: trabalho novo entra só no painel novo
+  ([painel-novo.md](modulos/painel-novo.md)).
+- **Painel do cliente** — o evento "está no nível do ladrão — pode estar
+  extravasando". E-mail e PDF com o rótulo novo.
+- Cache: `admin.js?v=429`, `admin-monitoramento.js?v=4`,
+  `admin-relatorios.js?v=3`, `cliente.js?v=43`. Nenhum endpoint novo, então o
+  `sw.js` não muda.
+- Teste novo `scripts/testes/extravasamento.test.js`: 28/28 (regra pura + as
+  duas rotas contra o banco de teste, num condomínio temporário apagado no
+  fim). ⚠️ `alertas-so-o-que-e-alerta.test.js` já falhava antes desta mudança
+  (`_chEmAberto` fora do contexto do teste), igual no `admin.js` do último commit.

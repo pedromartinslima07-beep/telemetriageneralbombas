@@ -64,7 +64,7 @@ router.post("/", authRequired, masterAdminOnly, async (req, res) => {
     const result = await pool.query(
       `INSERT INTO reservatorios (condominio_id, nome, tipo, device_id, device_key, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING id, condominio_id, nome, tipo, device_id, device_key, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em`,
+       RETURNING id, condominio_id, nome, tipo, device_id, device_key, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, altura_extravasor_m, criado_em`,
       [condId, String(nome).trim(), String(tipo), String(device_id).trim(), device_key, alturaTotalM, adcZero, adcPorMetro, faixaSondaM, limiarBomba]
     );
 
@@ -88,14 +88,14 @@ router.get("/", authRequired, adminOnly, async (req, res) => {
   try {
     const result = condominio_id
       ? await pool.query(
-          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em
+          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, altura_extravasor_m, criado_em
            FROM reservatorios
            WHERE condominio_id = $1
            ORDER BY id DESC`,
           [condominio_id]
         )
       : await pool.query(
-          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em
+          `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, altura_extravasor_m, criado_em
            FROM reservatorios
            ORDER BY id DESC`
         );
@@ -154,7 +154,7 @@ router.get("/:id", authRequired, adminOnly, async (req, res) => {
 
   try {
     const r = await pool.query(
-      `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em
+      `SELECT id, condominio_id, nome, tipo, device_id, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, altura_extravasor_m, criado_em
        FROM reservatorios
        WHERE id = $1
        LIMIT 1`,
@@ -234,6 +234,23 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
     add("limiar_bomba", v);
   }
 
+  // Altura do ladrão (migration 106) — liga a detecção de extravasamento.
+  // Mesma referência de altura_total_m (o zero da sonda). null desliga.
+  if (b.altura_extravasor_m !== undefined) {
+    const v = b.altura_extravasor_m === null ? null : Number(b.altura_extravasor_m);
+    if (v != null && !(v > 0 && v <= 999)) return res.status(400).json({ error: "altura_extravasor_m deve ser > 0 e <= 999" });
+    // Ladrão MUDOU: o relógio de antes media contra outra altura e é zerado.
+    // Comparado no SQL (o modal manda o campo em todo salvar, mudando ou não).
+    // No SET o lado direito lê o valor ANTIGO da linha, então a ordem não importa.
+    const p = `$${i}::numeric`;
+    sets.push(`extravasor_desde = CASE WHEN altura_extravasor_m IS DISTINCT FROM ${p} THEN NULL ELSE extravasor_desde END`);
+    sets.push(`extravasor_bomba_desde = CASE WHEN altura_extravasor_m IS DISTINCT FROM ${p} THEN NULL ELSE extravasor_bomba_desde END`);
+    // $n repetido → cast explícito em TODOS os usos (42P08, ver CLAUDE.md).
+    sets.push(`altura_extravasor_m = ${p}`);
+    values.push(v);
+    i++;
+  }
+
   if (sets.length === 0) {
     return res.status(400).json({ error: "Nenhum campo para atualizar" });
   }
@@ -241,7 +258,7 @@ router.patch("/:id", authRequired, masterAdminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE reservatorios SET ${sets.join(", ")} WHERE id = $1
-       RETURNING id, condominio_id, nome, tipo, device_id, ativo, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, criado_em`,
+       RETURNING id, condominio_id, nome, tipo, device_id, ativo, altura_total_m, adc_zero, adc_por_metro, faixa_sonda_m, limiar_bomba, altura_extravasor_m, criado_em`,
       values
     );
 

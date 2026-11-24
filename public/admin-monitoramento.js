@@ -92,6 +92,7 @@
   }
   const TIPO_ALERTA = {
     dispositivo_offline: "Sem sinal", nivel_baixo: "Nível baixo", nivel_muito_baixo: "Nível muito baixo",
+    extravasamento: "Extravasamento",
     bomba_desligada: "Bomba parada", bomba_ligada_continuo: "Bomba ligada sem parar",
   };
   const tipoAlerta = t => TIPO_ALERTA[t] || String(t || "Alerta").replaceAll("_", " ");

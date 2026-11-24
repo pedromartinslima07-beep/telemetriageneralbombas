@@ -563,6 +563,9 @@ function eventoDeAlerta(a) {
   if (a.tipo === "dispositivo_offline") {
     return { tom: "alerta", oque: `${nome} parou de enviar leitura`, sub: "Alerta ainda aberto" };
   }
+  if (a.tipo === "extravasamento") {
+    return { tom: "alerta", oque: `${nome} está no nível do ladrão — pode estar extravasando`, sub: "Alerta ainda aberto" };
+  }
   return { tom: "alerta", oque: `${nome}: ${esc(String(a.tipo || "").replaceAll("_", " "))}`, sub: "Alerta ainda aberto" };
 }
 

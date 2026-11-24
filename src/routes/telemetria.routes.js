@@ -4,6 +4,8 @@ const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
 const { sendAlertaEmail } = require("../services/email");
 const { abrirChamadoAuto } = require("../services/chamados.service");
+const { avaliarExtravasor, alturaAguaM } = require("../services/extravasor.service");
+const { getConfigInt } = require("../services/config.service");
 
 const router = express.Router();
 
@@ -100,6 +102,13 @@ router.post("/", telemetriaLimiter, async (req, res) => {
               r.nome AS reservatorio_nome,
               r.altura_total_m, r.adc_zero, r.adc_por_metro,
               r.limiar_bomba,
+              -- Extravasamento (migration 106). last_seen é lido ANTES do
+              -- UPDATE abaixo: é ele que diz se houve buraco nas leituras.
+              r.altura_extravasor_m, r.extravasor_desde, r.extravasor_bomba_desde,
+              r.last_seen,
+              EXISTS (SELECT 1 FROM alertas ax
+                       WHERE ax.device_id = r.device_id AND ax.status = 'aberto'
+                         AND ax.tipo = 'extravasamento') AS extravasamento_aberto,
               COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
               -- last_nivel_pct/bomba_ligada/criado_em alimentam só o
               -- write-threshold. O nível da última leitura NÃO serve pra
@@ -243,7 +252,7 @@ router.post("/", telemetriaLimiter, async (req, res) => {
     // atualizou mensagem do existente. abrirChamadoAuto já cuida da dedup por
     // condomínio+categoria e escalona a prioridade se baixo virar muito_baixo
     // com o chamado ainda aberto.
-    const _notificarSeNovo = (resultado, tipo, mensagem, prioridade) => {
+    const _notificarSeNovo = (resultado, tipo, mensagem, prioridade, categoria = "nivel_baixo") => {
       if (resultado?.action !== "inserted") return;
       sendAlertaEmail({
         tipo,
@@ -259,7 +268,7 @@ router.post("/", telemetriaLimiter, async (req, res) => {
         titulo: `[AUTO] ${mensagem}`,
         descricao: `Alerta automático de telemetria — ${mensagem} (reservatório ${reservatorio.reservatorio_nome}, ${nivelPct}%).`,
         prioridade,
-        categoria: "nivel_baixo",
+        categoria,
       }).catch((e) => console.error("[telemetria] erro ao abrir chamado automático:", e.message));
     };
 
@@ -271,6 +280,72 @@ router.post("/", telemetriaLimiter, async (req, res) => {
       const msg = `NÍVEL MUITO BAIXO detectado no dispositivo ${device_id}`;
       const r = await upsertAlertaAberto(device_id, "nivel_muito_baixo", msg);
       _notificarSeNovo(r, "nivel_muito_baixo", msg, "p2");
+    }
+
+    // ── Extravasamento (migration 106) ──
+    // A regra mora em extravasor.service.js; aqui só o banco. Reservatório sem
+    // `altura_extravasor_m` sai com tudo null e fecha um alerta que tenha
+    // ficado aberto (ladrão apagado do cadastro).
+    const extCfg = {
+      minutos:      await getConfigInt("telemetria.extravasor_minutos", 10),
+      bombaMinutos: await getConfigInt("telemetria.extravasor_bomba_minutos", 3),
+      toleranciaCm: await getConfigInt("telemetria.extravasor_tolerancia_cm", 2),
+      histereseCm:  await getConfigInt("telemetria.extravasor_histerese_cm", 3),
+    };
+    const ext = avaliarExtravasor({
+      alturaAgua:  alturaAguaM(adcRaw, reservatorio),
+      ladrao:      reservatorio.altura_extravasor_m,
+      bombaLigada,
+      desde:       reservatorio.extravasor_desde,
+      bombaDesde:  reservatorio.extravasor_bomba_desde,
+      lastSeen:    reservatorio.last_seen,
+      agora:       new Date(),
+      cfg:         extCfg,
+    });
+
+    // Só escreve quando o relógio muda de estado (liga/desliga), não a cada 10s.
+    const _ts = (x) => (x ? new Date(x).getTime() : null);
+    if (_ts(ext.desde) !== _ts(reservatorio.extravasor_desde)
+        || _ts(ext.bombaDesde) !== _ts(reservatorio.extravasor_bomba_desde)) {
+      await pool.query(
+        `UPDATE reservatorios
+            SET extravasor_desde = $2::timestamptz, extravasor_bomba_desde = $3::timestamptz
+          WHERE device_id = $1`,
+        [device_id, ext.desde, ext.bombaDesde]
+      );
+    }
+
+    if (ext.disparo) {
+      const comBomba = ext.disparo === "bomba";
+      const msg = comBomba
+        ? `EXTRAVASAMENTO: nível no ladrão com a bomba ligada no dispositivo ${device_id}`
+        : `Extravasamento: nível no ladrão no dispositivo ${device_id}`;
+      const r = await upsertAlertaAberto(device_id, "extravasamento", msg);
+      // Categoria "vazamento" (água saindo do sistema) — não cria categoria nova
+      // porque ela é a régua contratual de prioridade (prioridade.service.js).
+      // Com a bomba ligada é P2 (a régua de vazamento); só pelo nível, P3,
+      // porque a sonda pode estar enganada. Se a bomba ligar depois do alerta
+      // aberto, abrirChamadoAuto só sobe a prioridade de um chamado em aberto.
+      if (r.action === "inserted") _notificarSeNovo(r, "extravasamento", msg, comBomba ? "p2" : "p3", "vazamento");
+      else if (comBomba && (Date.now() - ext.bombaDesde) / 60000 < extCfg.bombaMinutos + 1) {
+        // Só no primeiro minuto depois de a regra da bomba vencer — senão seria
+        // uma consulta de chamado a cada leitura (10s) enquanto extravasa.
+        abrirChamadoAuto({
+          condominio_id: reservatorio.condominio_id,
+          titulo: `[AUTO] ${msg}`,
+          descricao: `Alerta automático de telemetria — ${msg} (reservatório ${reservatorio.reservatorio_nome}).`,
+          prioridade: "p2",
+          categoria: "vazamento",
+        }).catch((e) => console.error("[telemetria] erro ao escalar chamado de extravasamento:", e.message));
+      }
+    } else if (!ext.noLadrao && reservatorio.extravasamento_aberto) {
+      // Fecha só quando o nível SAIU do ladrão. Ainda no ladrão mas antes do
+      // prazo (relógio reiniciado por lacuna) o alerta aberto fica como está.
+      await pool.query(
+        `UPDATE alertas SET status = 'resolvido'
+          WHERE device_id = $1 AND tipo = 'extravasamento' AND status = 'aberto'`,
+        [device_id]
+      );
     }
 
     return res.json({

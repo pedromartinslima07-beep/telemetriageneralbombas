@@ -87,7 +87,12 @@ vírgula, usados como destinatário no envio de orçamentos.
 **`reservatorios`** — 1:N com condomínio. Calibração da sonda fica aqui.
 `id`, `condominio_id (FK CASCADE)`, `nome`, `tipo`, `device_id UNIQUE`,
 `device_key`, `ativo`, `last_seen`, `altura_total_m`, `adc_zero`,
-`adc_por_metro`, `faixa_sonda_m`, `limiar_bomba`.
+`adc_por_metro`, `faixa_sonda_m`, `limiar_bomba`,
+`altura_extravasor_m` (106 — altura do ladrão na referência de
+`altura_total_m`; NULL = detecção de extravasamento desligada),
+`extravasor_desde` / `extravasor_bomba_desde` (106 — desde quando o nível está
+no ladrão, e no ladrão com a bomba ligada; o relógio da regra de tempo, ver
+[telemetria.md](modulos/telemetria.md#extravasamento)).
 Índice: `idx_reservatorios_condominio_id`.
 
 **`leituras`** — série temporal das medições do ESP32.

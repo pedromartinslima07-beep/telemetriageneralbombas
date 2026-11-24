@@ -81,6 +81,13 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Extravasamento pelo nível (24/11/2026, migration 106, no ar)
+
+Novo alerta `extravasamento`: nível no ladrão por 10 min, ou no ladrão com a
+bomba ligada por 3 min. Abre chamado `[AUTO]` de `vazamento`. Só funciona no
+reservatório com "Altura do ladrão" cadastrada (modal do admin novo). Ver
+[telemetria.md](../docs/modulos/telemetria.md#extravasamento).
+
 ### ⚠️ Agenda: editar e apagar pelo quadro (23/11/2026)
 
 O menu do Quadro agora tem "Apagar"/"Apagar a série" para todo compromisso, e

@@ -109,7 +109,7 @@ segue no comportamento padrão do Express.
 
 **Reservatórios** (`/reservatorios`)
 | GET | `/reservatorios` · `/reservatorios/:id` | adminOnly |
-| POST · PATCH · DELETE | `/reservatorios[/:id]` | masterAdmin (calibração + limiar) |
+| POST · PATCH · DELETE | `/reservatorios[/:id]` | masterAdmin (calibração + limiar; o PATCH aceita `altura_extravasor_m`, migration 106) |
 | POST | `/reservatorios/:id/regenerar-device-key` | masterAdmin |
 
 **Leituras / status / jobs**
