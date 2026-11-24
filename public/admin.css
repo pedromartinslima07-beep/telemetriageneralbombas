@@ -11206,6 +11206,131 @@ a.os-link { color: var(--text); }
   .av-tempo li:nth-child(2n)::before { right: auto; width: 12px; }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   ORÇAMENTO COMO DOCUMENTO + FOTOS + DESCONTO (23/11/2026, migration 105)
+   public/admin-orc-doc.js. Enviado/aprovado/recusado abre como DOCUMENTO
+   (.av-layout.is-doc): a folha no desenho do que o cliente recebe, e o
+   trilho de sempre ao lado, só leitura. "Editar" volta ao formulário.
+   Registro de gestão: cartão branco, fio de 1px, amarelo só na ação
+   principal, Martian Mono só em número e código.
+   ════════════════════════════════════════════════════════════════════════ */
+.av-col-doc { display: none; }
+.av-layout.is-doc .av-col-form { display: none; }
+.av-layout.is-doc .av-col-doc { display: block; min-width: 0; padding: 22px 24px 28px; background: var(--surface2, #f1f4f8); }
+.av-layout.is-doc [data-av-action="salvar"],
+.av-layout.is-doc .av-total-sub .av-sub-acao,
+.av-layout.is-doc #avDescWrap { display: none; }
+.av-layout.is-doc .av-rail select:disabled {
+  appearance: none; -webkit-appearance: none; border: 0; box-shadow: none; background: none;
+  padding: 0; color: var(--text); font-weight: 600; opacity: 1; cursor: default; text-align: right;
+}
+
+/* Cabeçalho: Editar / Ver documento ao lado do Voltar. */
+.av-head-acoes { display: flex; align-items: center; gap: 8px; margin-left: auto; margin-right: 8px; }
+.av-head-acoes:empty { display: none; }
+.av-head-modo { font-size: 12px; font-weight: 600; color: var(--atencao-t, #886116); padding: 3px 10px; border-radius: 999px; background: #fdf1d6; }
+
+/* A folha */
+.main .od-folha {
+  max-width: 860px; margin: 0 auto; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--r-cartao, 10px);
+  padding: 30px 36px 26px; color: var(--text);
+}
+.od-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding-bottom: 18px; border-bottom: 2px solid var(--text); }
+.od-rot { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.od-num-doc { font-family: var(--mono); font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin-top: 2px; }
+.od-cab-det { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.od-logo { height: 38px; width: auto; display: block; }
+.od-sec { padding-top: 20px; }
+.od-h { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.od-cli-nome { font-size: 16px; font-weight: 700; }
+.od-cli-det { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.od-num { font-family: var(--mono); font-size: 12px; color: var(--text); }
+.od-texto { margin: 0; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.od-vazio { margin: 0; font-size: 13px; color: var(--muted); }
+
+.od-tab { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.main .od-tab th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); background: none; padding: 0 10px 8px 0; border-bottom: 1px solid var(--border-strong, rgba(6,16,51,.24)); white-space: nowrap; }
+/* O th do admin gruda ao rolar (cabeçalho de lista); na folha ele passaria
+   por cima do cabeçalho da página. */
+.main .od-tab th, .main .nfp-tab th { position: static; }
+.main .od-tab th.n { text-align: right; padding-right: 0; padding-left: 12px; }
+.od-tab td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.od-tab .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; padding-right: 0; padding-left: 12px; }
+.od-tab .od-idx { width: 26px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.od-desc-t { font-weight: 600; }
+.od-ficha { font-size: 12.5px; color: var(--muted); margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.od-totais { margin: 12px 0 0 auto; width: min(320px, 100%); }
+.od-tot-l { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-size: 13.5px; color: var(--muted); }
+.od-tot-l b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.od-tot-desc b { color: var(--risco-t, #790000); }
+.od-tot-final { border-top: 1px solid var(--border-strong, rgba(6,16,51,.24)); margin-top: 6px; padding-top: 10px; color: var(--text); font-weight: 700; }
+.od-tot-final b { font-size: 20px; font-weight: 800; }
+
+.od-fotos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.od-foto { margin: 0; }
+.od-foto a { display: block; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--surface2); }
+.od-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.od-foto figcaption { font-size: 12.5px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+.od-cond { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; }
+.od-cond dt { font-size: 12px; color: var(--muted); }
+.od-cond dd { margin: 2px 0 0; font-size: 13.5px; font-weight: 600; }
+.od-pe { max-width: 860px; margin: 10px auto 0; font-size: 12px; color: var(--muted); text-align: center; }
+
+/* Fotos no formulário */
+.av-fotos { border-top: 1px solid var(--border2); padding-top: 14px; }
+.av-fotos-cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.av-fotos-cab .ap-section-title { border: 0; padding: 0; margin: 0; }
+.av-fotos-dica { font-size: 12px; color: var(--muted); flex: 1; }
+.av-fotos-add { cursor: pointer; }
+.av-fotos-add.is-off { opacity: .5; pointer-events: none; }
+.av-fotos-vazio { margin: 0; font-size: 12.5px; color: var(--muted); }
+.av-fotos-erro { color: var(--risco-t, #790000); }
+.av-fotos-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.av-foto { margin: 0; display: flex; flex-direction: column; gap: 5px; }
+.av-foto-img { display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--surface2); }
+.av-foto-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.av-foto.is-subindo .av-foto-img span { font-size: 12px; color: var(--muted); padding: 8px; text-align: center; }
+.main .av-foto-leg { padding: 5px 8px; font-size: 12.5px; }
+.av-foto-tirar { align-self: flex-start; border: 0; background: none; padding: 0; font: inherit; font-size: 12px; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.av-foto-tirar:hover { color: var(--risco-t, #790000); }
+.av-fotos-os { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.av-fotos-os-t { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.av-fotos-os-lista { display: flex; gap: 8px; flex-wrap: wrap; }
+.av-foto-os { display: flex; flex-direction: column; gap: 3px; width: 96px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; font: inherit; }
+.av-foto-os img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.av-foto-os span { font-size: 11.5px; padding: 0 6px 5px; color: var(--mar-700, #071b5c); }
+.av-foto-os.is-on { border-color: var(--ok-t, #105c31); cursor: default; }
+.av-foto-os.is-on span { color: var(--ok-t, #105c31); }
+.av-foto-os:disabled:not(.is-on) { opacity: .5; cursor: not-allowed; }
+
+/* Desconto no trilho, embaixo do total */
+.av-desc { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.av-desc[hidden] { display: none; }
+.av-desc label { font-size: 12px; color: var(--muted); }
+.av-desc-ctl { display: flex; gap: 6px; }
+.main .av-desc-ctl .input { width: 86px; padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+.main .av-desc-ctl .select { width: auto; padding: 5px 6px; }
+
+/* Polimento do formulário: mais ar entre as zonas, títulos alinhados. */
+#avModal.is-pagina .av-col-form { gap: 18px; padding: 18px 22px 22px; }
+#avModal.is-pagina .av-itens-zone,
+#avModal.is-pagina .av-fotos,
+#avModal.is-pagina .av-cond { padding-top: 16px; }
+
+@media (max-width: 1080px) {
+  .av-layout.is-doc .av-col-doc { padding: 16px; }
+  .main .od-folha { padding: 22px 20px; }
+}
+@media (max-width: 640px) {
+  .od-cab { flex-direction: column-reverse; gap: 10px; }
+  .od-fotos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .od-cond { grid-template-columns: 1fr; }
+  .od-tab { font-size: 13px; }
+  .av-head-acoes { margin-left: 0; }
+}
+
 /* ── Cabeçalho que ordena (18/11/2026, ver _ordenar em admin.js) ──────────
    O rótulo vira botão sem cara de botão. A seta aparece ao passar o mouse
    (cinza) e fica na coluna ativa (escura, ▲ ou ▼). Sem seta = ordem de

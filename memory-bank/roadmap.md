@@ -1031,6 +1031,22 @@ o "porquê" em [`decisions.md`](decisions.md).
 
 ---
 
+## Orçamento no padrão dos sistemas profissionais (23/11/2026)
+
+Comparação com Omie, Bling, Conta Azul, Jobber, ServiceTitan e Housecall Pro.
+Fluxo em [orcamento-documento.md](../docs/modulos/orcamento-documento.md).
+
+| # | Item | Estado |
+|---|---|---|
+| 6 | Fotos no orçamento (PDF e painel do cliente) | ✅ código · ⏳ 105 em prod e push |
+| 7 | Desconto em % ou R$ visível ao cliente | ✅ código · ⏳ 105 em prod e push |
+| 8 | Orçamento enviado como documento; Editar abre o formulário | ✅ código · ⏳ push |
+| 1 | Editar o aprovado exige nova aprovação do cliente | 📋 |
+| 2 | Situação por ação (registrar aprovação por telefone) em vez de seletor | 📋 |
+| 3 | Link de aprovação sem login (administradora, zelador) | 📋 |
+| 4 | Saber quando o cliente abriu o orçamento | 📋 |
+| 5 | Opções conserto × troca (bom / melhor / ótimo) | 📋 |
+
 ## Extravasamento (24/11/2026)
 
 Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
@@ -1099,3 +1115,14 @@ Pedido do Pedro em 18/11/2026. Ver [agenda.md](../docs/modulos/agenda.md).
 | B | Dia e técnico marcados na preventiva e no chamado; técnico vê a semana no app | 📋 falta decidir se o técnico vê |
 | C | Contas a pagar e a receber do Omie | 📋 |
 | D | Emitir as notas das preventivas | ❌ descartada: o Omie já fatura os contratos (seria nota em dobro) |
+
+## Meta Tech Provider — pendências de 24/11/2026
+
+- [ ] Revisar contato de privacidade, retenção efetiva e textos preparados.
+- [ ] Publicar páginas legais revisadas e cadastrar URLs válidas na Meta.
+- [ ] Cadastrar destinatário autorizado e validar envio/recebimento com conta de teste.
+- [ ] Gravar os dois fluxos reais de mensagens e modelos, em arquivos separados.
+- [ ] Aguardar verificação empresarial e enviar análise das permissões.
+- [ ] Validar assinatura do webhook, versão da Graph API e credenciais antes de produção; implementar cadastro de clientes/contas de WhatsApp antes de oferecer a integração a terceiros.
+
+Detalhes: [Meta Tech Provider](../docs/modulos/meta-tech-provider.md).

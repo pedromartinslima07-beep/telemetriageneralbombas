@@ -282,6 +282,13 @@ sempre desligado. ⏳ A 090 e a 091 ainda não estão em produção e nenhuma no
 real foi emitida. Ver
 [`../docs/modulos/nota-fiscal.md`](../docs/modulos/nota-fiscal.md).
 
+**Orçamento como documento, com desconto e fotos (23/11/2026, migration 105):**
+enviado/aprovado/recusado abre como a folha que o cliente recebe; Editar
+abre o formulário. Desconto em % ou R$ (total = soma − desconto, mantido no
+banco por gatilho) e fotos (próprias ou da O.S.) no PDF e no painel do
+cliente. ⏳ 105 em produção antes do push. Ver
+[`../docs/modulos/orcamento-documento.md`](../docs/modulos/orcamento-documento.md).
+
 **A nota tem página própria (23/11/2026, migration 104):** `#/orcamentos/<id>/nota`,
 no lugar do modal. Rascunho salvo sozinho (`orcamentos.nota_rascunho`),
 impostos simulados no Omie antes de emitir (DANFE; a General é do Simples e
@@ -1572,3 +1579,11 @@ Na mesma branch do redesenho. `#/agenda` junta compromissos lançados à mão
 faturamento dos contratos do Omie, que é só acompanhado (o Omie já emite as
 notas). Migration 092 aplicada só em teste. Ver
 [agenda.md](../docs/modulos/agenda.md).
+
+## Meta Tech Provider — preparação em 24/11/2026
+
+App `1164344609652756`, portfólio `2878574109191669`; adesão independente e empresa em análise. Páginas de privacidade/exclusão e roteiro de dois vídeos preparados localmente; publicação e gravações pendentes. Sem mudança de banco. [Fluxo e critérios](../docs/modulos/meta-tech-provider.md).
+
+### Meta — páginas no ar em 24/11/2026
+
+Commit `8f212a8` publicado, páginas de privacidade/exclusão HTTP 200 e links salvos na Meta. Destinatário de teste confirmado. Consentimento final restrito à Test Messaging Account aguarda autorização; sem token ou mensagem enviados até este registro. [Estado e próximos passos](../docs/modulos/meta-tech-provider.md).

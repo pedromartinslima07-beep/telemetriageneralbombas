@@ -1731,7 +1731,7 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
               -- e o proximo "Salvar" manda valor: null e APAGA o total manual
               -- - o PDF continuava certo ate alguem salvar, e foi assim que
               -- OR-000170, OR-000169 e OR-000105 chegaram a R$ 0,00 em producao.
-              o.valor,
+              o.valor, o.desconto_tipo, o.desconto_valor,
               COALESCE(
                 o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)
@@ -1846,8 +1846,29 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
   const fields = ["numero","condominio_id","os_id","status","tipo","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento","valor","cliente_nome","cliente_documento","cliente_endereco","cliente_email"];
   const sets = []; const vals = [id];
 
+  // DESCONTO (migration 105). Com desconto, o total (`valor`) é calculado no
+  // banco (soma − desconto, fn_orcamento_aplicar_desconto) e o `valor` que
+  // vier no corpo é ignorado. Tirar o desconto devolve o `valor` ao corpo:
+  // null = somar os itens, número = total manual.
+  const b0 = req.body || {};
+  let comDesconto = false;
+  if ("desconto_tipo" in b0) {
+    const t = b0.desconto_tipo;
+    if (t === "valor" || t === "percentual") {
+      const n = Number(b0.desconto_valor);
+      if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: "desconto inválido" });
+      if (t === "percentual" && n > 100) return res.status(400).json({ error: "desconto acima de 100%" });
+      vals.push(t); sets.push(`desconto_tipo = $${vals.length}::varchar`);
+      vals.push(Math.round(n * 100) / 100); sets.push(`desconto_valor = $${vals.length}::numeric`);
+      comDesconto = true;
+    } else {
+      sets.push("desconto_tipo = NULL", "desconto_valor = NULL");
+    }
+  }
+
   for (const f of fields) {
     if (!(f in (req.body || {}))) continue;
+    if (f === "valor" && comDesconto) continue;
     const v = req.body[f];
     // ⚠️ `os_id` ANDA COM `condominio_id`, E NÃO NO `else` GENÉRICO. Lá embaixo
     // o ramo padrão faz `String(v).slice(0, 255)` — o vínculo chegava como a
@@ -1894,10 +1915,16 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
       `UPDATE orcamentos SET ${sets.join(",")} WHERE id = $1
        RETURNING id, numero, status, condominio_id, os_id, tipo, constatacao,
                  forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento, valor,
-                 cliente_nome, cliente_documento, cliente_endereco, cliente_email`,
+                 cliente_nome, cliente_documento, cliente_endereco, cliente_email, desconto_tipo, desconto_valor`,
       vals
     );
     if (!r.rows.length) return res.status(404).json({ error: "Orçamento não encontrado" });
+    // Com desconto, o total sai do banco (soma − desconto) já recalculado.
+    if (r.rows[0].desconto_tipo) {
+      await pool.query("SELECT fn_orcamento_aplicar_desconto($1)", [id]);
+      const v2 = await pool.query("SELECT valor FROM orcamentos WHERE id = $1", [id]);
+      r.rows[0].valor = v2.rows[0].valor;
+    }
 
     // Recalcula valor_total (soma dos itens) para retornar junto; se houver
     // override manual (`valor`), ele prevalece sobre a soma.
@@ -2801,7 +2828,9 @@ router.get("/condominios/:id/orcamentos-pendentes", authRequired, adminOnly, asy
 router.get("/condominios/lista", authRequired, adminOnly, async (req, res) => {
   try {
     const r = await pool.query(
-      `SELECT id, COALESCE(NULLIF(nome_fantasia,''), nome) AS nome, email
+      `SELECT id, COALESCE(NULLIF(nome_fantasia,''), nome) AS nome, email,
+              -- o documento do orçamento (admin-orc-doc.js) mostra estes
+              nome AS razao_social, cnpj, endereco, bairro, cidade, uf
          FROM condominios WHERE ativo = true ORDER BY nome ASC`
     );
     return res.json(r.rows);

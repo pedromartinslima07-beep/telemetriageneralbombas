@@ -13019,16 +13019,32 @@ function _avRenderPainel() {
                dúvida de qual dos dois ia pro PDF. Só um dos dois filhos fica
                visível — quem manda é #avToggleValorManual e a troca acontece
                em _avAtualizarTotalRail. -->
-          <div class="av-total" id="avRailTotal" style="${o.valor != null ? "display:none;" : ""}">—</div>
-          <div class="av-total-edit" id="avValorManualWrap" style="${o.valor != null ? "" : "display:none;"}">
+          <div class="av-total" id="avRailTotal" style="${_avTotalManual(o) ? "display:none;" : ""}">—</div>
+          <div class="av-total-edit" id="avValorManualWrap" style="${_avTotalManual(o) ? "" : "display:none;"}">
             <span class="av-total-cifrao" aria-hidden="true">R$</span>
             <input id="avInputValorManual" class="av-total-input" type="text"
               inputmode="decimal" placeholder="0,00" aria-label="Valor total do orçamento"
-              autocomplete="off" value="${_avFmtMoedaInput(o.valor)}">
+              autocomplete="off" value="${_avFmtMoedaInput(_avTotalManual(o) ? o.valor : null)}">
           </div>
           <div class="av-total-sub" id="avRailTotalSub"></div>
+          <!-- DESCONTO (migration 105): o cliente vê subtotal, desconto e total
+               no PDF e no painel. Exclusivo com o total manual: ligar um
+               desliga o outro. Com desconto o total é calculado no banco
+               (soma menos desconto) e acompanha os itens sozinho. -->
+          <div class="av-desc" id="avDescWrap"${o.desconto_tipo ? "" : " hidden"}>
+            <label for="avDescValor">Desconto</label>
+            <div class="av-desc-ctl">
+              <input id="avDescValor" class="input" type="text" inputmode="decimal" autocomplete="off"
+                placeholder="0" value="${o.desconto_valor != null ? _avFmtMoedaInput(o.desconto_valor).replace(/,00$/, "") : ""}">
+              <select id="avDescTipo" class="select" aria-label="Desconto em porcentagem ou em reais">
+                <option value="percentual" ${o.desconto_tipo !== "valor" ? "selected" : ""}>%</option>
+                <option value="valor" ${o.desconto_tipo === "valor" ? "selected" : ""}>R$</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <input type="checkbox" id="avToggleValorManual" class="av-hidden-ctl" tabindex="-1" aria-hidden="true" ${o.valor != null ? "checked" : ""}>
+        <input type="checkbox" id="avToggleValorManual" class="av-hidden-ctl" tabindex="-1" aria-hidden="true" ${_avTotalManual(o) ? "checked" : ""}>
+        <input type="checkbox" id="avToggleDesconto" class="av-hidden-ctl" tabindex="-1" aria-hidden="true" ${o.desconto_tipo ? "checked" : ""}>
 
         <div class="av-rail-hr"></div>
 
@@ -13305,12 +13321,22 @@ function _avRenderPainel() {
   // O link "definir manualmente" do trilho é injetado por _avAtualizarTotalRail,
   // então a delegação fica no wrap em vez de no botão.
   wrap.addEventListener("click", e => {
+    if (e.target.closest("[data-av-desconto]")) { _avAlternarDesconto(); return; }
     if (!e.target.closest("[data-av-total-manual]")) return;
     const chk = document.getElementById("avToggleValorManual");
     if (!chk) return;
+    // Total manual e desconto não andam juntos (105).
+    if (!chk.checked && document.getElementById("avToggleDesconto")?.checked) _avAlternarDesconto(false);
     chk.checked = !chk.checked;
     chk.dispatchEvent(new Event("change"));
   });
+
+  const inpDesc = document.getElementById("avDescValor");
+  inpDesc?.addEventListener("input", () => {
+    inpDesc.value = inpDesc.value.replace(/[^\d,]/g, "").replace(/,(?=.*,)/g, "");
+    _avAtualizarTotalRail();
+  });
+  document.getElementById("avDescTipo")?.addEventListener("change", _avAtualizarTotalRail);
 
   const selStatus = document.getElementById("avInputStatus");
   selStatus?.addEventListener("change", () => {
@@ -13498,7 +13524,12 @@ function _avAtualizarTotalRail() {
   el.style.display = editando ? "none" : "";
   if (edit) edit.style.display = editando ? "" : "none";
 
-  el.textContent = _orcFmtValor(usaManual ? _avParseMoeda(manualVal) : soma);
+  // Desconto (105): o total é a soma menos o desconto, o mesmo cálculo do banco.
+  const comDesc = !editando && !!document.getElementById("avToggleDesconto")?.checked;
+  const desc = comDesc ? _avDescontoCalc(soma, document.getElementById("avDescTipo")?.value,
+    _avParseMoeda(document.getElementById("avDescValor")?.value)) : 0;
+
+  el.textContent = _orcFmtValor(usaManual ? _avParseMoeda(manualVal) : Math.max(0, soma - desc));
   el.classList.toggle("is-manual", usaManual);
 
   if (!sub) return;
@@ -13508,7 +13539,45 @@ function _avAtualizarTotalRail() {
   // número que está sendo sobreposto, e é por ele que se decide o que digitar.
   sub.innerHTML = editando
     ? `soma dos itens: ${_orcFmtValor(soma)} · <button type="button" data-av-total-manual>voltar a somar</button>`
-    : `${itens} · <button type="button" data-av-total-manual>definir manualmente</button>`;
+    : comDesc
+      ? `subtotal ${_orcFmtValor(soma)} · desconto − ${_orcFmtValor(desc)}<span class="av-sub-acao"> · <button type="button" data-av-desconto>tirar</button></span>`
+      : `${itens}<span class="av-sub-acao"> · <button type="button" data-av-total-manual>definir manualmente</button> · <button type="button" data-av-desconto>dar desconto</button></span>`;
+}
+
+// Total manual de verdade: `valor` preenchido SEM desconto. Com desconto,
+// `valor` é a soma menos o desconto, calculada no banco (migration 105).
+function _avTotalManual(o) {
+  return !!o && o.valor != null && !o.desconto_tipo;
+}
+
+function _avDescontoCalc(soma, tipo, v) {
+  if (!(v > 0)) return 0;
+  const d = tipo === "valor" ? v : soma * Math.min(v, 100) / 100;
+  return Math.min(Math.round(d * 100) / 100, soma);
+}
+
+// Liga/desliga o desconto no trilho. Ligar desliga o total manual.
+function _avAlternarDesconto(ligar) {
+  const chk = document.getElementById("avToggleDesconto");
+  const box = document.getElementById("avDescWrap");
+  if (!chk || !box) return;
+  const novo = ligar === undefined ? !chk.checked : ligar;
+  if (novo) {
+    const man = document.getElementById("avToggleValorManual");
+    if (man?.checked) {
+      man.checked = false;
+      const vm = document.getElementById("avInputValorManual");
+      if (vm) vm.value = "";
+    }
+  } else {
+    const inp = document.getElementById("avDescValor");
+    if (inp) inp.value = "";
+  }
+  chk.checked = novo;
+  box.hidden = !novo;
+  _avSujo = true;
+  _avAtualizarTotalRail();
+  if (novo) document.getElementById("avDescValor")?.focus();
 }
 
 async function _avCarregarOsDoModal(condoId, osIdSelecionado) {
@@ -13566,8 +13635,12 @@ async function _avCarregarLinhas(orcId) {
 // Total exibido para um orçamento avulso: `valor` manual (se preenchido)
 // sobrepõe a soma dos itens — mesma regra usada no PDF (orcamento-pdf.service.js).
 function _avComputeTotal(o, linhas) {
-  if (o && o.valor != null) return Number(o.valor);
-  return linhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0);
+  if (_avTotalManual(o)) return Number(o.valor);
+  const soma = linhas.reduce((s, l) => s + Number(l.valor_unitario || 0) * Number(l.quantidade), 0);
+  // Com desconto (105) o banco já refez `valor`; aqui o mesmo cálculo, para a
+  // lista acompanhar a edição de itens sem esperar o próximo GET.
+  if (o && o.desconto_tipo) return Math.max(0, soma - _avDescontoCalc(soma, o.desconto_tipo, Number(o.desconto_valor)));
+  return soma;
 }
 
 function _avRenderLinhas() {
@@ -14419,6 +14492,8 @@ async function _avAcao(acao) {
       // aqui ela precisa existir valendo "sem total manual". Sem esta linha,
       // um orçamento novo com valor manual digitado salvaria sem o valor.
       valor: null,
+      desconto_tipo: null,
+      desconto_valor: null,
     };
     _avLinhas = []; _avLinhasId = null;
     _avSujo = false;
@@ -14549,6 +14624,14 @@ async function _avAcao(acao) {
     ...(sabeValorAtual
       ? { valor: _avParseMoeda(valorManualRaw) }
       : {}),
+    // Desconto (105). Mesma guarda do `valor`: só manda se o registro trouxe
+    // a chave, para um payload antigo não apagar o desconto gravado.
+    ...("desconto_tipo" in _avSelecionado
+      ? (document.getElementById("avToggleDesconto")?.checked && _avParseMoeda(document.getElementById("avDescValor")?.value) > 0
+          ? { desconto_tipo: document.getElementById("avDescTipo")?.value === "valor" ? "valor" : "percentual",
+              desconto_valor: _avParseMoeda(document.getElementById("avDescValor")?.value) }
+          : { desconto_tipo: null })
+      : {}),
     // Cliente: condomínio cadastrado OU cliente avulso (pessoa física) — nunca os dois.
     ...(isAvulso
       ? {
@@ -14592,6 +14675,8 @@ async function _avAcao(acao) {
     _avSelecionado = _avData[idx] || _avSelecionado;
     if (msg) msg.textContent = "✓ Salvo";
     setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
+    // Salvou: o orçamento enviado volta a aparecer como documento (admin-orc-doc.js).
+    if (typeof _odAposSalvar === "function") _odAposSalvar();
     _avRenderTudo();
     _avRenderPainel();
   } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }

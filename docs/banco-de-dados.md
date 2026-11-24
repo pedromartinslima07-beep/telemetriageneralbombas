@@ -774,6 +774,36 @@ sai de quem cobra, não do tipo.
 
 ✅ Teste e ✅ **produção** (24/11/2026, conferida no `information_schema`, antes do push).
 
+## 105 — orçamento: desconto e fotos (23/11/2026)
+
+Fluxo em [orcamento-documento.md](modulos/orcamento-documento.md).
+
+- **`orcamentos.desconto_tipo`** (VARCHAR(10), `valor` | `percentual`, CHECK) e
+  **`desconto_valor`** (NUMERIC(12,2), R$ ou %). NULL = sem desconto.
+- ⚠️ **Com desconto, `orcamentos.valor` = soma dos itens − desconto**, gravado
+  por `fn_orcamento_aplicar_desconto(orc)`. O gatilho
+  `trg_orcamento_linhas_desconto` (AFTER INSERT / UPDATE de quantidade,
+  valor_unitario, orcamento_id / DELETE em `orcamento_linhas`) chama a função,
+  então o total acompanha os itens venha de qual rota vier. Sem desconto a
+  função não toca em nada (o total manual continua do operador). Quem separa
+  "total manual" de "total com desconto" é `desconto_tipo`.
+- **`orcamento_fotos`** — foto que vai no PDF e no painel do cliente.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `id` | SERIAL | PK |
+| `orcamento_id` | INTEGER | FK `orcamentos` **CASCADE** |
+| `os_foto_id` | INTEGER | FK `os_fotos` **CASCADE**; foto da O.S. sem copiar o arquivo. Único por orçamento |
+| `dados_base64` | TEXT | foto própria (data URI, já reduzida no navegador) |
+| `legenda` | VARCHAR(255) | sem ela, vale a da foto da O.S. |
+| `ordem` | INTEGER | |
+| `chave` | TEXT | 32 hexadecimais aleatórios, único: endereço público da imagem |
+| `criado_por`, `criado_em` | | |
+
+CHECK: `os_foto_id` ou `dados_base64`.
+
+⏳ **Aplicada em teste em 23/11/2026; falta produção** (o código lê as colunas: rodar antes do push).
+
 ## 104 — a página da nota: rascunho (23/11/2026)
 
 Fluxo em [nota-fiscal.md](modulos/nota-fiscal.md), seção "A página da nota".
@@ -1074,3 +1104,7 @@ chamados(id) ON DELETE SET NULL` + índice parcial. A visita marcada no quadro
 de despacho da Agenda sabe de que chamado é (ver
 [redesenho-admin.md](modulos/redesenho-admin.md), etapa 4). Nula nos
 compromissos antigos. ✅ Teste (19/11/2026). ✅ **Produção** (conferida no `information_schema` em 23/11/2026).
+
+## Preparação Meta Tech Provider (24/11/2026)
+
+Páginas legais e roteiro de análise: sem alterações de schema, migration ou dados. A exclusão continua sendo uma solicitação ao atendimento, não um DELETE público. A retenção padrão de conversas fechadas é 365 dias, configurável no serviço existente. Ver [Meta Tech Provider](modulos/meta-tech-provider.md).

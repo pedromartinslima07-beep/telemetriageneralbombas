@@ -1756,6 +1756,20 @@ body[data-estado="carregando"] .frase { color: var(--sobre-2); }
   color: var(--tinta-2);
 }
 
+/* Desconto (migration 105): subtotal, desconto e total no rodapé da tabela.
+   O desconto em vinho escuro (--risco-t), o total com o peso da conta. */
+.orc-tabela tfoot tr.orc-desc td { padding-top: 4px; }
+.orc-tabela tfoot tr.orc-desc td.n { color: var(--risco-t, #790000); }
+.orc-tabela tfoot tr.orc-total-l td { padding-top: 8px; border-top: 1px solid var(--fio-esc); }
+.orc-tabela tfoot tr.orc-total-l td.n { font-size: 1.1rem; }
+
+/* Fotos do orçamento (migration 105). Raio zero, fio de 1px: é chapa. */
+.orc-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.orc-foto { margin: 0; }
+.orc-foto a { display: block; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--fio-esc); background: var(--chapa-es, #d5dae6); }
+.orc-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.orc-foto figcaption { margin-top: 6px; font-size: .9rem; line-height: 1.45; color: var(--tinta-2); }
+
 /* O PDF é um botão de fio DENTRO da chapa clara. Não usa .relatorio .btn-fio
    do painel: ali essa regra pinta de amarelo, e aqui o amarelo é do
    "Aprovar" — dois amarelos na mesma tela e nenhum deles significa nada. */

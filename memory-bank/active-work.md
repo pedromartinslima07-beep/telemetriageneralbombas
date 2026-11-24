@@ -46,6 +46,15 @@ aliases:
 > detecção fica desligada). Etapa 2 (sensor no ladrão) no roadmap. Ver
 > [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 
+> 🟠 **Orçamento: documento, desconto e fotos — no código em 23/11/2026, sem
+> commit.** Itens 6, 7 e 8 da comparação com os sistemas profissionais.
+> Migration **105** aplicada em teste. Conferido no banco de teste (rota do
+> desconto, gatilho, foto, PDF, painel do cliente, celular); testes existentes
+> passam. ⏳ **Falta:** 105 em produção **antes** do push, commit/push. Ficaram
+> de fora os itens 1 a 5 (nova aprovação ao editar o aprovado, situação por
+> ação, link sem login, "cliente visualizou", opções conserto × troca). Ver
+> [orcamento-documento.md](../docs/modulos/orcamento-documento.md).
+
 > 🟠 **A nota virou página própria — no ar em 23/11/2026.**
 > `#/orcamentos/<id>/nota` (opção B da maquete `/dev/_nota-preview.html`),
 > no lugar do modal (que tinha ido ao ar em `270de06` como conferência):
@@ -4127,3 +4136,11 @@ Envs necessárias: `OPENAI_API_KEY`, `WHATSAPP_VERIFY_TOKEN`,
 - ~~**Restrição do operador é só de UI**~~ — resolvido em 27/08/2026: o corte
   passou a ser no guard (49 rotas para `gestaoOnly` + saída de `equipeInterna`),
   e Contratos saiu do menu do perfil.
+
+## Meta Tech Provider — retomar em 24/11/2026
+
+Portfólio e app criados na interface da Meta; adesão independente; empresa **Em análise**. Categoria gravada e logo existente carregado. Preparadas minutas de privacidade e exclusão e roteiro com duas demonstrações reais. Ainda não publicado, sem vídeos gravados, sem credenciais alteradas. Não enviar o checkout inteiro para produção: havia mudanças prévias de outros trabalhos. [Páginas, roteiros e pendências](../docs/modulos/meta-tech-provider.md).
+
+### Meta — páginas no ar em 24/11/2026
+
+Commit `8f212a8` publicado, páginas de privacidade/exclusão HTTP 200 e links salvos na Meta. Destinatário de teste confirmado. Consentimento final restrito à Test Messaging Account aguarda autorização; sem token ou mensagem enviados até este registro. [Estado e próximos passos](../docs/modulos/meta-tech-provider.md).

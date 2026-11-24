@@ -55,6 +55,7 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
 - [`painel-cliente.md`](docs/modulos/painel-cliente.md) — painel do síndico: "a resposta, não o painel", sem seções, tudo abre como ficha `#fluxo`
 - [`orcamentos-envio.md`](docs/modulos/orcamentos-envio.md) — as duas opções de envio do orçamento e por que as listas de destinatários são diferentes `#fluxo`
 - [`nota-fiscal.md`](docs/modulos/nota-fiscal.md) — nota do orçamento aprovado pelo Omie: uma nota por orçamento, molde copiado das notas feitas à mão, kill-switch `OMIE_EMISSAO` `#fluxo`
+- [`orcamento-documento.md`](docs/modulos/orcamento-documento.md) — orçamento enviado abre como documento (Editar abre o formulário), desconto em % ou R$ visível ao cliente, fotos no PDF e no painel (migration 105) `#fluxo`
 - [`pecas-no-orcamento.md`](docs/modulos/pecas-no-orcamento.md) — a linha de peça do orçamento nasce ligada ao produto do Omie: ✅ fase A (sugestão ao digitar, preço da última vez, bitola na busca) e B (peças da O.S. usadas e a orçar, migration 094); 🟡 C (fila do Hoje feita; contagem espera Relatórios) `#fluxo`
 - [`painel-admin.md`](docs/modulos/painel-admin.md) — painel de operação: as 15 telas, os 3 moldes, os defeitos medidos e a direção proposta `#fluxo`
 - [`redesenho-admin.md`](docs/modulos/redesenho-admin.md) — 📋 plano aprovado: o condomínio como eixo do admin, menu de 15 para 9, fundo claro `#fluxo`
@@ -86,3 +87,5 @@ Como cada coisa funciona ponta a ponta. Índice em [`modulos/README.md`](docs/mo
   "Endpoints", "O.S.").
 - Ao criar nota nova, ligue-a a partir daqui (ou de uma nota relacionada) para
   ela não ficar órfã no grafo.
+
+- [Meta Tech Provider](docs/modulos/meta-tech-provider.md) — preparação do app, páginas de privacidade/exclusão e roteiro dos vídeos.

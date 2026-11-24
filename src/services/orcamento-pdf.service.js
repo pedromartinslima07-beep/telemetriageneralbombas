@@ -136,6 +136,8 @@ async function buscarDadosAvulso(orcamentoId) {
        o.data_documento,
        o.criado_em,
        o.valor,
+       o.desconto_tipo,
+       o.desconto_valor,
        o.condominio_id,
        COALESCE(NULLIF(c.nome_fantasia,''), c.nome, o.cliente_nome) AS condominio_nome,
        c.nome      AS condominio_razao_social,
@@ -185,8 +187,68 @@ async function buscarDadosAvulso(orcamentoId) {
     // sem mexer em criado_em (auditoria — quando o registro foi criado).
     finalizada_em:            o.data_documento || o.criado_em,
   };
-  return { os, itens: linhasRes.rows };
+  return { os, itens: linhasRes.rows, fotos: await _fotosDoOrcamento(orcamentoId) };
 }
+
+// As fotos que vão no orçamento (migration 105): as próprias e as da O.S.
+// escolhidas. Só as que têm a imagem no banco (data URI) — foto antiga de
+// O.S. que só tinha URL em disco não sobreviveu aos deploys.
+async function _fotosDoOrcamento(orcamentoId) {
+  try {
+    const r = await pool.query(
+      `SELECT COALESCE(f.legenda, osf.legenda) AS legenda,
+              COALESCE(f.dados_base64, osf.dados_base64) AS dados
+         FROM orcamento_fotos f
+         LEFT JOIN os_fotos osf ON osf.id = f.os_foto_id
+        WHERE f.orcamento_id = $1
+        ORDER BY f.ordem, f.id`,
+      [orcamentoId]
+    );
+    return r.rows.filter(x => x.dados && /^data:image\/(jpeg|png|webp);base64,/i.test(x.dados));
+  } catch (e) {
+    // Sem a tabela (105 não aplicada) o PDF sai como antes.
+    console.error("[orcamento-pdf] fotos:", e.message);
+    return [];
+  }
+}
+
+// Subtotal / desconto / total (migration 105). null = sem desconto.
+function _resumoDesconto(os, itens) {
+  if (!os.desconto_tipo) return null;
+  const soma = itens.reduce((acc, it) => acc + Number(it.valor_unitario || 0) * Number(it.quantidade), 0);
+  const pct = os.desconto_tipo === "percentual";
+  const desc = pct ? soma * Number(os.desconto_valor || 0) / 100 : Number(os.desconto_valor || 0);
+  const rot = pct ? `Desconto (${String(Number(os.desconto_valor)).replace(".", ",")}%)` : "Desconto";
+  return { soma, desc: Math.min(desc, soma), rot };
+}
+
+function _blocoDescontoHtml(r) {
+  if (!r) return "";
+  return `<div class="sub-row"><div class="sub-box">
+    <div class="sub-l"><span>Subtotal</span><b>${escapeHtml(fmtMoeda(r.soma))}</b></div>
+    <div class="sub-l sub-desc"><span>${escapeHtml(r.rot)}</span><b>− ${escapeHtml(fmtMoeda(r.desc))}</b></div>
+  </div></div>`;
+}
+
+// Fotos: grade de 2 × 2, legenda embaixo. O CSS vem junto (FOTOS_CSS).
+function _fotosHtml(fotos, num) {
+  if (!fotos || !fotos.length) return "";
+  const cel = fotos.map(f => `<figure class="foto"><div class="foto-img"><img src="${f.dados}" alt=""></div>${f.legenda ? `<figcaption>${escapeHtml(f.legenda)}</figcaption>` : ""}</figure>`).join("");
+  return `<div class="sec fotos-sec"><div class="sec-title">${num ? `<span class="sec-num">${num}</span>` : ""}Fotos</div><div class="fotos-grid">${cel}</div></div>`;
+}
+
+const FOTOS_CSS = `
+  .sub-row { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .sub-box { min-width: 230px; font-size: 11px; }
+  .sub-l { display: flex; justify-content: space-between; gap: 18px; padding: 2px 4px; color: #4a5568; }
+  .sub-l b { color: #1a1f2e; }
+  .sub-desc b { color: #9b2c2c; }
+  .fotos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .foto { margin: 0; page-break-inside: avoid; break-inside: avoid; }
+  .foto-img { height: 82mm; border: 1px solid #e2e8f0; border-radius: 4px; background: #f7fafc; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .foto-img img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .foto figcaption { font-size: 10.5px; color: #2d3748; margin-top: 3px; line-height: 1.35; }
+`;
 
 const TIPO_SUBTITULO = {
   limpeza_reservatorio: "Limpeza e Higienização de Reservatório de Água Potável",
@@ -194,7 +256,7 @@ const TIPO_SUBTITULO = {
   limpeza_dedetizacao: "Limpeza de Reservatório de Água Potável + Dedetização",
 };
 
-function renderHTML({ os, itens }, areaP1, medidas = {}) {
+function renderHTML({ os, itens, fotos }, areaP1, medidas = {}) {
   const timbrado = timbradoBase64();
 
   const orcNumero   = os.orcamento_numero || os.os_numero || String(os.id);
@@ -208,12 +270,15 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   // Total definido manualmente (`orcamentos.valor`) = o preço não vem da soma
   // dos itens. Nesse caso as colunas de valor unitário/total por item saem do
   // PDF (ficariam vazias ou contradiriam o total) — só o VALOR TOTAL aparece.
-  const totalManual = os.valor != null;
+  // Com desconto (105), `valor` é a soma menos o desconto, e não um total
+  // manual: os preços por item continuam no PDF.
+  const totalManual = os.valor != null && !os.desconto_tipo;
+  const resumoDesc  = _resumoDesconto(os, itens);
 
   // ── Paginação ────────────────────────────────────────────────────────────────
   // AREA_P1 vem medido em mm pela passagem 1 do Puppeteer (altura real do cabeçalho)
   const AREA_P2   = 224; // mm = pagina-body das págs seguintes (297-48-25)
-  const RODAPE_MM = 30;  // total-box + sec condições + margens
+  const RODAPE_MM = os.desconto_tipo ? 42 : 30;  // total-box (+ subtotal e desconto) + sec condições + margens
 
   // Usa medidas reais do Puppeteer se disponíveis; fallback conservador caso contrário
   const ohP1       = medidas.ohP1       ?? 15;
@@ -353,6 +418,7 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
       }
       c += `</tbody></table>`;
       if (pag.showRodape) {
+        c += _blocoDescontoHtml(resumoDesc);
         c += `<div class="total-row"><div class="total-box">VALOR TOTAL<span>${escapeHtml(fmtMoeda(totalGeral))}</span></div></div>`;
       }
       c += `</div>`;
@@ -386,6 +452,12 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
     const extraClass = isFirst ? " pagina--primeira" : "";
     return `<div class="pagina${extraClass}" style="${bgStyle}"><div class="pagina-body">${c}</div></div>`;
   }).join("\n");
+
+  // Fotos (migration 105): páginas próprias depois das condições, 4 por página.
+  let fotosPaginas = "";
+  for (let i = 0; i < (fotos || []).length; i += 4) {
+    fotosPaginas += `\n<div class="pagina" style="${bgStyle}"><div class="pagina-body">${_fotosHtml(fotos.slice(i, i + 4), i === 0 ? 4 : null)}</div></div>`;
+  }
 
   // ── Documento completo ─────────────────────────────────────────────────────
   return `<!doctype html>
@@ -522,8 +594,9 @@ function renderHTML({ os, itens }, areaP1, medidas = {}) {
   .cond-val  { color: #1a1f2e; margin-top: 1px; }
 </style>
 </head>
+<style>${FOTOS_CSS}</style>
 <body>
-${paginasHtml}
+${paginasHtml}${fotosPaginas}
 </body></html>`;
 }
 
@@ -538,7 +611,7 @@ function renderMeasureHTML({ os }) {
   // Precisa espelhar exatamente a tabela do renderHTML: com total manual as
   // colunas de valor somem, a descrição fica mais larga e a altura da linha
   // medida aqui muda — se divergir, a paginação erra.
-  const totalManual = os.valor != null;
+  const totalManual = os.valor != null && !os.desconto_tipo;
 
   const theadHtml = `<thead><tr>
     <th class="it-idx">#</th>
@@ -733,7 +806,7 @@ ${clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens))}
 ${clausulasDedetizacao(acharEspecificacaoDedetizacao(itens), semGar)}`,
 };
 
-function renderHTMLServico({ os, itens }, timbrado) {
+function renderHTMLServico({ os, itens, fotos }, timbrado) {
   const orcNumero     = os.orcamento_numero || os.os_numero || String(os.id);
   const dataOrc       = fmtDataDocumento(os);
   const endParts      = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
@@ -747,7 +820,8 @@ function renderHTMLServico({ os, itens }, timbrado) {
 
   // Mesma regra do orçamento de peças: total manual (`orcamentos.valor`) tira o
   // valor por linha — a lista vira só a relação dos serviços cobertos.
-  const totalManual = os.valor != null;
+  const totalManual = os.valor != null && !os.desconto_tipo;
+  const resumoDesc  = _resumoDesconto(os, itens);
 
   const valoresHtml = itens.length
     ? itens.map(it => {
@@ -868,6 +942,7 @@ ${clausulasHtml}
 <div class="sec valores-sec">
   <div class="sec-title">Valores dos Serviços</div>
   <div class="valores-box">${valoresHtml}</div>
+  ${_blocoDescontoHtml(resumoDesc)}
   <div class="total-row"><div class="total-box">VALOR TOTAL<span>${escapeHtml(fmtMoeda(totalGeral))}</span></div></div>
 </div>
 
@@ -889,6 +964,8 @@ ${clausulasHtml}
   </div>
 </div>
 
+${_fotosHtml(fotos, null)}
+<style>${FOTOS_CSS} .fotos-sec { page-break-before: always; } .fotos-sec .foto-img { height: 78mm; }</style>
 </body></html>`;
 }
 

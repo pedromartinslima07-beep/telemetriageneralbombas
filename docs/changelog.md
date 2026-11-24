@@ -18667,6 +18667,29 @@ mostra número, PDF, boletos e histórico.
   banco e desfeito), entradas e celular. **Não exercitado:** a rota de emitir
   (o envio ao Omie é real e não tem sandbox).
 
+### Orçamento: documento, desconto e fotos (23/11/2026)
+
+Itens 6, 7 e 8 da comparação com os sistemas profissionais. Fluxo em
+[orcamento-documento.md](modulos/orcamento-documento.md).
+
+- **Documento:** enviado/aprovado/recusado abre como a folha que o cliente
+  recebe; "Editar" abre o formulário (no aprovado, com confirmação); salvar
+  volta ao documento. `public/admin-orc-doc.js` (novo), pendurado no
+  `_avRenderPainel`.
+- **Desconto** em % ou R$ no trilho, exclusivo com o total manual. Migration
+  **105**: `desconto_tipo`, `desconto_valor` e o gatilho que mantém
+  `orcamentos.valor` = soma − desconto. PDF (peças e serviço) e painel do
+  cliente mostram Subtotal / Desconto / Total.
+- **Fotos:** `orcamento_fotos` (105), rotas em `src/routes/orcamento-fotos.routes.js`,
+  redução no navegador, fotos da O.S. com um clique, páginas de fotos no PDF e
+  seção no painel do cliente.
+- Lista de condomínios do admin passa a trazer CNPJ e endereço (o documento mostra).
+- `admin.js?v=428`, `admin.css?v=389`, `admin-orc-doc.js?v=2`,
+  `cliente.css?v=49`, `cliente-orcamentos.js?v=17`.
+- Testes existentes passam (pecas-da-os, orcamento-linha-produto,
+  orc-linha-excluir, orcamento-vincula-os, nota-fiscal-danfe,
+  pecas-sem-cobranca, orcamento-vencimento).
+
 ## 2026-11-24 — Extravasamento detectado pelo nível (etapa 1, só software)
 
 Pedido do Pedro, para a proposta comercial de telemetria: o sistema passa a
@@ -18791,6 +18814,14 @@ Achados comparando com o bot do Petzu (outro projeto do Pedro). Fluxo em
 - ⏳ Para o aviso por modelo funcionar: cadastrar e aprovar o modelo na Meta e
   pôr `WHATSAPP_TEMPLATE_SENSOR` no Railway.
 
+## 2026-11-24 — preparação para análise da Meta
+
+Páginas locais de privacidade e exclusão em `app/public`, usando o mount público `/app` existente; estilo legível sem JavaScript e links na landing. Roteiro separado para as duas permissões de WhatsApp, com alternativa oficial pelo API Setup/WhatsApp Manager. Ícone existente enviado à Meta; categoria Negócio e Páginas já gravada; verificação empresarial em análise. Textos ainda dependem de revisão e publicação; vídeos não foram gravados, permissões não aprovadas e credenciais não alteradas. Sem migration. Ver [Meta Tech Provider](modulos/meta-tech-provider.md).
+
+### Meta — páginas no ar em 24/11/2026
+
+Commit `8f212a8` publicado, páginas de privacidade/exclusão HTTP 200 e links salvos na Meta. Destinatário de teste confirmado. Consentimento final restrito à Test Messaging Account aguarda autorização; sem token ou mensagem enviados até este registro. [Estado e próximos passos](modulos/meta-tech-provider.md).
+
 ## 2026-11-24 — Guias: qualquer conta a pagar, com a regra pelo emissor
 
 A tela de Guias passa a servir para **qualquer conta com código de barras**
@@ -18820,5 +18851,5 @@ vira "NOME|LINHA 1 DA FICHA|LINHA 2…" em maiúsculas (`descServNfse` em
 `src/services/nota-fiscal.service.js`). O `|` é a quebra de linha das O.S.
 feitas à mão no Omie (conferido em 41 itens recentes, só leitura). A página da
 nota mostra a ficha sob o item. DANFE sem mudança. Sem migration.
-`admin.css?v=387`, `admin-nota.js?v=3`. Ver
+`admin.css?v=390`, `admin-nota.js?v=3`. Ver
 [modulos/nota-fiscal.md](modulos/nota-fiscal.md).

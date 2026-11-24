@@ -1733,6 +1733,23 @@ número, situação, PDF, boletos e histórico na mesma página.
   pesquisa de verdade e maquete antes do código. Responder de memória e já
   implementar custou uma volta.
 
+## Orçamento: desconto mora no `valor`, e o documento não é outra tela (23/11/2026)
+
+- **O desconto materializa o total em `orcamentos.valor`**, com gatilho em
+  `orcamento_linhas`. A alternativa era ensinar o desconto a oito leitores de
+  `COALESCE(o.valor, soma)` (lista, PDF, cliente, e-mail, nota, relatórios…):
+  esquecer um mostraria ao síndico um total diferente do PDF. O gatilho cobre
+  também as rotas que criam linha sem passar pelo editor (peças da O.S.,
+  padrão de limpeza, bancada).
+- **Desconto e total manual são exclusivos.** Os dois juntos deixariam
+  ambíguo qual número vale.
+- **O documento é a mesma página**, com uma classe trocando o formulário pela
+  folha; o trilho (envio, nota, resposta) não foi duplicado. Reescrever o
+  formulário era risco alto num código cheio de cicatrizes.
+- **Aprovado editável com confirmação, sem nova aprovação** — o item 1 da
+  comparação (exigir nova aprovação) ficou para depois.
+- **Foto da O.S. por referência**, não cópia: a foto continua uma só.
+
 ## Extravasamento: o ladrão de cada reservatório, não uma porcentagem (24/11/2026)
 
 - **A altura do ladrão é cadastrada por reservatório.** Quando extravasa, o

@@ -935,6 +935,7 @@ router.get("/orcamentos/:id", authRequired, clienteOnly, async (req, res) => {
               o.forma_pagamento, o.prazo_entrega, o.garantia, o.valido_ate,
               o.criado_em, o.enviado_em, o.respondido_em,
               o.cliente_comentario, o.motivo_rejeicao,
+              o.desconto_tipo, o.desconto_valor,
               COALESCE(
                 o.valor,
                 (SELECT SUM(l.quantidade * COALESCE(l.valor_unitario, 0))
@@ -962,7 +963,16 @@ router.get("/orcamentos/:id", authRequired, clienteOnly, async (req, res) => {
          FROM orcamento_linhas WHERE orcamento_id = $1 ORDER BY id`,
       [id]
     );
-    return res.json({ ...orc, linhas: linhas.rows });
+    // Fotos do orçamento (migration 105): só o endereço público e a legenda.
+    let fotos = [];
+    try {
+      fotos = (await pool.query(
+        `SELECT f.chave, COALESCE(f.legenda, osf.legenda) AS legenda
+           FROM orcamento_fotos f LEFT JOIN os_fotos osf ON osf.id = f.os_foto_id
+          WHERE f.orcamento_id = $1 ORDER BY f.ordem, f.id`, [id]
+      )).rows.map(x => ({ url: `/admin/orcamentos/fotos/${x.chave}/imagem`, legenda: x.legenda }));
+    } catch (_) { /* sem a 105, sem fotos */ }
+    return res.json({ ...orc, linhas: linhas.rows, fotos });
   } catch (e) {
     console.error("[cliente] GET /orcamentos/:id:", e);
     return res.status(500).json({ error: "Erro ao carregar orçamento" });

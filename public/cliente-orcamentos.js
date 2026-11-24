@@ -432,7 +432,12 @@ async function abrir(id) {
   // A divergência entre a soma e o total só é afirmável quando a soma cobre
   // TODOS os itens. Com soma parcial ela é esperada, e apontá-la seria alarme
   // falso num documento que a pessoa está decidindo se aprova.
-  const divergem = temValor && !somaParcial
+  // DESCONTO (migration 105): o total é a soma menos o desconto, e a tabela
+  // mostra as três linhas. Não é divergência a avisar.
+  const desconto = o.desconto_tipo && temValor
+    ? Math.max(0, soma - Number(o.valor_total || 0)) : 0;
+  const pctDesc = o.desconto_tipo === "percentual" ? ` (${String(Number(o.desconto_valor)).replace(".", ",")}%)` : "";
+  const divergem = temValor && !somaParcial && !o.desconto_tipo
     && Math.abs(soma - Number(o.valor_total || 0)) > 0.005;
 
   const rotSoma = somaParcial ? "Soma dos itens com valor" : "Soma dos itens";
@@ -450,11 +455,32 @@ async function abrir(id) {
         <tbody>${corpoItens}</tbody>
         ${temValor ? `
         <tfoot><tr>
-          <td colspan="3">${rotSoma}</td>
-          <td class="n" data-rot="${rotSoma}">${moeda(soma)}</td>
-        </tr></tfoot>` : ""}
+          <td colspan="3">${o.desconto_tipo ? "Subtotal" : rotSoma}</td>
+          <td class="n" data-rot="${o.desconto_tipo ? "Subtotal" : rotSoma}">${moeda(soma)}</td>
+        </tr>${o.desconto_tipo ? `
+        <tr class="orc-desc">
+          <td colspan="3">Desconto${pctDesc}</td>
+          <td class="n" data-rot="Desconto${pctDesc}">− ${moeda(desconto)}</td>
+        </tr>
+        <tr class="orc-total-l">
+          <td colspan="3">Total</td>
+          <td class="n" data-rot="Total">${moeda(o.valor_total)}</td>
+        </tr>` : ""}</tfoot>` : ""}
       </table>
       ${divergem ? `<p class="orc-nota">O valor fechado deste orçamento é ${moeda(o.valor_total)}, no topo da página — é ele que vale.</p>` : ""}
+    </section>`;
+
+  // FOTOS (migration 105): as que o escritório pôs no orçamento.
+  const fotos = o.fotos || [];
+  const secFotos = !fotos.length ? "" : `
+    <section class="orc-sec">
+      <h3>Fotos</h3>
+      <div class="orc-fotos">${fotos.map(f => `
+        <figure class="orc-foto">
+          <a href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="${esc(f.legenda || "Foto do orçamento")}" loading="lazy"></a>
+          ${f.legenda ? `<figcaption>${esc(f.legenda)}</figcaption>` : ""}
+        </figure>`).join("")}
+      </div>
     </section>`;
   /* ── Condições ──────────────────────────────────────────────────────────
      Eram uma frase corrida com "·" separando três coisas diferentes, e um
@@ -579,6 +605,7 @@ async function abrir(id) {
               <p>${esc(o.constatacao)}</p>
             </section>` : ""}
           ${secItens}
+          ${secFotos}
         </div>
 
         <aside class="orc-col-agir">

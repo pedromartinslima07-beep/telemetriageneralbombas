@@ -539,6 +539,7 @@ app.use("/relatorios", relatoriosRouter);
 app.use("/admin", notaFiscalRouter);
 app.use("/admin", require("./routes/cobranca.routes")); // cobrança: títulos em atraso do que o sistema emitiu (Omie, fase 3)
 app.use("/admin", require("./routes/guias.routes")); // guias de tributos (PDF do Onvio) → contas a pagar no Omie
+app.use("/admin", require("./routes/orcamento-fotos.routes")); // fotos do orçamento (105): PDF e painel do cliente
 app.use("/admin", adminRouter);
 app.use(leiturasRouter); // ex: /ultima-leitura/:device_id
 app.use("/status", statusRouter);
