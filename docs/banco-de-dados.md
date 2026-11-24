@@ -776,6 +776,8 @@ sai de quem cobra, não do tipo.
 
 ## 105 — orçamento: desconto e fotos (23/11/2026)
 
+✅ Aplicada em teste e em produção (24/11/2026), antes do push.
+
 Fluxo em [orcamento-documento.md](modulos/orcamento-documento.md).
 
 - **`orcamentos.desconto_tipo`** (VARCHAR(10), `valor` | `percentual`, CHECK) e

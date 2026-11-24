@@ -1038,9 +1038,9 @@ Fluxo em [orcamento-documento.md](../docs/modulos/orcamento-documento.md).
 
 | # | Item | Estado |
 |---|---|---|
-| 6 | Fotos no orçamento (PDF e painel do cliente) | ✅ código · ⏳ 105 em prod e push |
-| 7 | Desconto em % ou R$ visível ao cliente | ✅ código · ⏳ 105 em prod e push |
-| 8 | Orçamento enviado como documento; Editar abre o formulário | ✅ código · ⏳ push |
+| 6 | Fotos no orçamento (PDF e painel do cliente) | ✅ no ar 24/11 (105 em prod) |
+| 7 | Desconto em % ou R$ visível ao cliente | ✅ no ar 24/11 (105 em prod) |
+| 8 | Orçamento enviado como documento; Editar abre o formulário | ✅ no ar 24/11 |
 | 1 | Editar o aprovado exige nova aprovação do cliente | 📋 |
 | 2 | Situação por ação (registrar aprovação por telefone) em vez de seletor | 📋 |
 | 3 | Link de aprovação sem login (administradora, zelador) | 📋 |

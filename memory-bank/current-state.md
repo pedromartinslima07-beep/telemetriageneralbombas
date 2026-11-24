@@ -286,7 +286,7 @@ real foi emitida. Ver
 enviado/aprovado/recusado abre como a folha que o cliente recebe; Editar
 abre o formulário. Desconto em % ou R$ (total = soma − desconto, mantido no
 banco por gatilho) e fotos (próprias ou da O.S.) no PDF e no painel do
-cliente. ⏳ 105 em produção antes do push. Ver
+cliente. ✅ 105 em produção e no ar (`8cf1165`, 24/11/2026). Ver
 [`../docs/modulos/orcamento-documento.md`](../docs/modulos/orcamento-documento.md).
 
 **A nota tem página própria (23/11/2026, migration 104):** `#/orcamentos/<id>/nota`,

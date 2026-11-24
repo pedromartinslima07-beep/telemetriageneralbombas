@@ -46,11 +46,11 @@ aliases:
 > detecção fica desligada). Etapa 2 (sensor no ladrão) no roadmap. Ver
 > [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 
-> 🟠 **Orçamento: documento, desconto e fotos — no código em 23/11/2026, sem
-> commit.** Itens 6, 7 e 8 da comparação com os sistemas profissionais.
+> 🟢 **Orçamento: documento, desconto e fotos — no ar em 24/11/2026
+> (`8cf1165`).** Itens 6, 7 e 8 da comparação com os sistemas profissionais.
 > Migration **105** aplicada em teste. Conferido no banco de teste (rota do
 > desconto, gatilho, foto, PDF, painel do cliente, celular); testes existentes
-> passam. ⏳ **Falta:** 105 em produção **antes** do push, commit/push. Ficaram
+> passam. ✅ 105 em produção (conferida no `information_schema` em 24/11/2026, antes do push). Ficaram
 > de fora os itens 1 a 5 (nova aprovação ao editar o aprovado, situação por
 > ação, link sem login, "cliente visualizou", opções conserto × troca). Ver
 > [orcamento-documento.md](../docs/modulos/orcamento-documento.md).
