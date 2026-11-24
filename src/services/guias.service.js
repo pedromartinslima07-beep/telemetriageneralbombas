@@ -53,10 +53,12 @@ const COLUNAS = `g.id, g.tipo, g.descricao, g.competencia, g.vencimento, g.valor
   g.codigo_barras, g.numero_documento, g.cnpj, g.leitura, g.arquivo_nome, g.arquivo_md5,
   (g.arquivo IS NOT NULL) AS tem_pdf, g.omie_fornecedor, g.omie_categoria, g.omie_conta, g.status,
   g.omie_codigo, g.omie_erro, g.anexo_ok, g.anexo_erro, g.enviado_em, g.criado_em, g.atualizado_em,
+  g.emissor_chave, (ge.chave IS NOT NULL) AS emissor_regra,
   f.razao_social AS fornecedor_nome, f.nome_fantasia AS fornecedor_fantasia,
   ue.nome AS enviado_por_nome, uc.nome AS criado_por_nome`;
 const DE = `FROM guias_tributos g
   LEFT JOIN omie_clientes f ON f.omie_codigo = g.omie_fornecedor
+  LEFT JOIN guias_emissores ge ON ge.chave = g.emissor_chave
   LEFT JOIN usuarios ue ON ue.id = g.enviado_por
   LEFT JOIN usuarios uc ON uc.id = g.criado_por`;
 
@@ -73,6 +75,16 @@ function formatar(r) {
     codigo_barras: r.codigo_barras,
     numero_documento: r.numero_documento,
     cnpj: r.cnpj,
+    // Quem cobra (conta que não é tributo). `origem` = de onde veio o
+    // fornecedor: "emissor" (regra gravada), "cnpj", "cnpj_mascara", "nome"
+    // (achado na cópia do Omie), "tipo" ou null.
+    emissor: r.emissor_chave || (r.leitura && r.leitura.emissor) ? {
+      chave: r.emissor_chave || null,
+      nome: (r.leitura && r.leitura.emissor && r.leitura.emissor.nome) || null,
+      cnpj: (r.leitura && r.leitura.emissor && r.leitura.emissor.cnpj) || null,
+      regra: !!r.emissor_regra,
+    } : null,
+    origem_destino: (r.leitura && r.leitura.destino) || null,
     avisos: (r.leitura && r.leitura.avisos) || [],
     leitura: r.leitura || {},
     arquivo_nome: r.arquivo_nome,
@@ -129,6 +141,51 @@ async function _regra(tipo, db = pool) {
   return rows[0] || { omie_fornecedor: null, omie_categoria: null, omie_conta: null };
 }
 
+// O fornecedor do emissor na cópia dos cadastros do Omie (sem chamar o Omie):
+// pelo CNPJ; pelo CNPJ mascarado ("61.***.***/****-93", a Enel) se só um
+// cadastro bate; pelo nome do beneficiário se só um bate.
+async function _fornecedorDoEmissor(e, db = pool) {
+  if (!e) return null;
+  if (e.cnpj) {
+    const { rows } = await db.query(
+      `SELECT omie_codigo FROM omie_clientes WHERE documento = $1 AND NOT inativo ORDER BY omie_codigo LIMIT 1`, [e.cnpj]);
+    if (rows[0]) return { codigo: Number(rows[0].omie_codigo), origem: "cnpj" };
+  }
+  if (e.cnpj_mascara && /^\d{2}$/.test(e.cnpj_mascara.ini || "") && /^\d{2}$/.test(e.cnpj_mascara.fim || "")) {
+    const { rows } = await db.query(
+      `SELECT omie_codigo FROM omie_clientes WHERE documento LIKE $1 AND NOT inativo LIMIT 2`,
+      [`${e.cnpj_mascara.ini}__________${e.cnpj_mascara.fim}`]);
+    if (rows.length === 1) return { codigo: Number(rows[0].omie_codigo), origem: "cnpj_mascara" };
+  }
+  const nome = String(e.nome || "")
+    .replace(/\b(S\.?\s?\/?A\.?|LTDA\.?|ME|EPP|EIRELI|S\/S)\s*$/i, "").replace(/[%_\\]/g, "").replace(/[\s.,\-]+$/, "").trim();
+  if (nome.length >= 4) {
+    const { rows } = await db.query(
+      `SELECT omie_codigo FROM omie_clientes
+        WHERE NOT inativo AND (razao_social ILIKE '%' || $1 || '%' OR nome_fantasia ILIKE '%' || $1 || '%') LIMIT 2`, [nome.slice(0, 60)]);
+    if (rows.length === 1) return { codigo: Number(rows[0].omie_codigo), origem: "nome" };
+  }
+  return null;
+}
+
+// O destino no Omie de uma guia nova (ou que trocou de tipo):
+//   tributo → a regra do tipo (como sempre);
+//   "outro" com emissor → a regra do emissor, se gravada; senão o fornecedor
+//     achado na cópia do Omie, com a conta da regra "outro" e SEM categoria
+//     (a tela sugere a do histórico do fornecedor no Omie);
+//   "outro" sem emissor → a regra "outro" (o comportamento de antes).
+async function _destino(tipo, emissor, db = pool) {
+  const rt = await _regra(tipo, db);
+  if (tipo !== "outro" || !emissor) return { ...rt, origem: rt.omie_fornecedor ? "tipo" : null };
+  if (emissor.chave) {
+    const { rows } = await db.query(
+      `SELECT omie_fornecedor, omie_categoria, omie_conta FROM guias_emissores WHERE chave = $1`, [emissor.chave]);
+    if (rows[0]) return { ...rows[0], origem: "emissor" };
+  }
+  const f = await _fornecedorDoEmissor(emissor, db);
+  return { omie_fornecedor: f ? f.codigo : null, omie_categoria: null, omie_conta: rt.omie_conta, origem: f ? f.origem : null };
+}
+
 // ── Entrada do PDF ──────────────────────────────────────────────────────────
 
 // Devolve { guias: [...], repetidas: [...], sem_codigo: bool, erro? }.
@@ -156,16 +213,18 @@ async function receber(buffer, nomeArquivo, usuarioId) {
         `SELECT id FROM guias_tributos WHERE codigo_barras = $1 AND status <> 'descartada'`, [g.codigo_barras]);
       if (ja.rows[0]) { repetidas.push(await _uma(ja.rows[0].id)); continue; }
     }
-    const regra = await _regra(g.tipo);
+    const emissor = (g.leitura && g.leitura.emissor) || null;
+    const regra = await _destino(g.tipo, emissor);
+    const leit = { ...(g.leitura || {}), destino: regra.origem };
     try {
       const { rows } = await pool.query(
         `INSERT INTO guias_tributos (tipo, descricao, competencia, vencimento, valor, linha_digitavel, codigo_barras,
            numero_documento, cnpj, leitura, arquivo_nome, arquivo, arquivo_md5,
-           omie_fornecedor, omie_categoria, omie_conta, criado_por)
-         VALUES ($1,$2,$3,$4::date,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+           omie_fornecedor, omie_categoria, omie_conta, criado_por, emissor_chave)
+         VALUES ($1,$2,$3,$4::date,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
         [g.tipo, g.descricao, g.competencia, g.vencimento, g.valor, g.linha_digitavel, g.codigo_barras,
-          g.numero_documento, g.cnpj, JSON.stringify(g.leitura || {}), nome, buffer, lido.md5,
-          regra.omie_fornecedor, regra.omie_categoria, regra.omie_conta, usuarioId || null]);
+          g.numero_documento, g.cnpj, JSON.stringify(leit), nome, buffer, lido.md5,
+          regra.omie_fornecedor, regra.omie_categoria, regra.omie_conta, usuarioId || null, g.emissor_chave || null]);
       criadas.push(await _uma(rows[0].id));
     } catch (e) {
       // Duas abas mandando o mesmo PDF ao mesmo tempo: o índice segura.
@@ -194,6 +253,7 @@ async function atualizar(id, dados, usuarioId) {
     valor: atual.valor == null ? null : Number(atual.valor), linha_digitavel: atual.linha_digitavel,
     codigo_barras: atual.codigo_barras, numero_documento: atual.numero_documento,
     omie_fornecedor: atual.omie_fornecedor, omie_categoria: atual.omie_categoria, omie_conta: atual.omie_conta,
+    emissor_chave: atual.emissor_chave || null,
   };
   const leit = { ...(atual.leitura || {}) };
 
@@ -202,10 +262,12 @@ async function atualizar(id, dados, usuarioId) {
     if (d.tipo !== novo.tipo) {
       novo.tipo = d.tipo;
       novo.descricao = leitura.NOMES[d.tipo];
-      // Trocou o tipo: o destino no Omie vem da regra do tipo novo, a não ser
-      // que a tela mande o destino junto.
-      const r = await _regra(d.tipo);
+      // Trocou o tipo: o destino no Omie vem da regra do tipo novo (ou do
+      // emissor, se virou "outro"), a não ser que a tela mande o destino junto.
+      const r = await _destino(d.tipo, leit.emissor || null);
       novo.omie_fornecedor = r.omie_fornecedor; novo.omie_categoria = r.omie_categoria; novo.omie_conta = r.omie_conta;
+      leit.destino = r.origem;
+      if (d.tipo === "outro" && leit.emissor && leit.emissor.nome) novo.descricao = String(leit.emissor.nome).slice(0, 120);
     }
   }
   if (d.competencia !== undefined) {
@@ -227,6 +289,12 @@ async function atualizar(id, dados, usuarioId) {
       if (c.valor != null && d.valor === undefined) novo.valor = c.valor;
       if (c.vencimento && !novo.vencimento) novo.vencimento = c.vencimento;
       leit.especie = c.especie;
+      // PDF sem código de barras: a linha digitada é a única fonte do
+      // emissor (concessionária e boleto Bradesco/Itaú; sem CNPJ).
+      if (!novo.emissor_chave) {
+        const e = leitura.emissorDaLinha(c);
+        if (e) { novo.emissor_chave = e.chave; leit.emissor = e; }
+      }
     }
   }
   if (d.valor !== undefined) {
@@ -253,18 +321,28 @@ async function atualizar(id, dados, usuarioId) {
     await pool.query(
       `UPDATE guias_tributos SET tipo=$2, descricao=$3, competencia=$4, vencimento=$5::date, valor=$6, linha_digitavel=$7,
          codigo_barras=$8, numero_documento=$9, omie_fornecedor=$10, omie_categoria=$11, omie_conta=$12,
-         leitura=$13::jsonb, atualizado_em=NOW()
+         leitura=$13::jsonb, emissor_chave=$14, atualizado_em=NOW()
        WHERE id=$1`,
       [id, novo.tipo, novo.descricao, novo.competencia, novo.vencimento, novo.valor, novo.linha_digitavel,
         novo.codigo_barras, novo.numero_documento, novo.omie_fornecedor, novo.omie_categoria, novo.omie_conta,
-        JSON.stringify(leit)]);
+        JSON.stringify(leit), novo.emissor_chave]);
   } catch (e) {
     if (e.code === "23505") throw new GuiaErro(409, "Já existe outra guia com este código de barras.");
     throw e;
   }
 
-  // "Usar sempre para este tipo": grava a regra.
-  if (d.lembrar) {
+  // "Usar sempre": conta com emissor grava a regra DO EMISSOR (a Vivo não
+  // muda o destino da Sabesp); tributo, e conta sem emissor, a regra do tipo.
+  if (d.lembrar && novo.tipo === "outro" && novo.emissor_chave) {
+    await pool.query(
+      `INSERT INTO guias_emissores (chave, nome, omie_fornecedor, omie_categoria, omie_conta, atualizado_por, atualizado_em)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW())
+       ON CONFLICT (chave) DO UPDATE SET nome=COALESCE(EXCLUDED.nome, guias_emissores.nome),
+         omie_fornecedor=EXCLUDED.omie_fornecedor, omie_categoria=EXCLUDED.omie_categoria,
+         omie_conta=EXCLUDED.omie_conta, atualizado_por=EXCLUDED.atualizado_por, atualizado_em=NOW()`,
+      [novo.emissor_chave, (leit.emissor && leit.emissor.nome) ? String(leit.emissor.nome).slice(0, 120) : null,
+        novo.omie_fornecedor, novo.omie_categoria, novo.omie_conta, usuarioId || null]);
+  } else if (d.lembrar) {
     await pool.query(
       `INSERT INTO guias_regras (tipo, omie_fornecedor, omie_categoria, omie_conta, atualizado_por, atualizado_em)
        VALUES ($1,$2,$3,$4,$5,NOW())
@@ -342,6 +420,34 @@ async function fornecedores(q) {
       ORDER BY (omie_codigo IN (SELECT omie_fornecedor FROM guias_regras WHERE omie_fornecedor IS NOT NULL)) DESC, razao_social
       LIMIT 20`, [t.slice(0, 60), d.slice(0, 14)]);
   return rows.map(r => ({ codigo: Number(r.omie_codigo), nome: r.razao_social, fantasia: r.nome_fantasia, documento: r.documento }));
+}
+
+// A categoria e a conta mais usadas nos títulos deste fornecedor no Omie:
+// para a conta cujo emissor ainda não tem regra (a tela sugere, a pessoa
+// confirma). SÓ LEITURA no Omie; é a mesma consulta que o lançamento faz antes
+// de incluir, guardada 3 min.
+async function sugestao(fornecedor) {
+  const forn = Number(fornecedor);
+  if (!Number.isInteger(forn) || forn <= 0) throw new GuiaErro(400, "Fornecedor inválido.");
+  let titulos;
+  try { titulos = await _titulosDoFornecedor(forn); }
+  catch (e) { throw new GuiaErro(502, `Não consegui ler os títulos do fornecedor no Omie (${e.message}).`); }
+  const cats = new Map(), contas = new Map();
+  let n = 0;
+  for (const t of titulos) {
+    if (String(t.status_titulo || "").toUpperCase() === "CANCELADO") continue;
+    const cat = t.codigo_categoria || (Array.isArray(t.categorias) && t.categorias[0] && t.categorias[0].codigo_categoria) || null;
+    if (cat) cats.set(cat, (cats.get(cat) || 0) + 1);
+    if (t.id_conta_corrente) contas.set(Number(t.id_conta_corrente), (contas.get(Number(t.id_conta_corrente)) || 0) + 1);
+    n++;
+  }
+  const maisUsada = m => [...m.entries()].sort((a, b) => b[1] - a[1])[0] || null;
+  const c = maisUsada(cats), k = maisUsada(contas);
+  return {
+    fornecedor: forn, titulos: n,
+    categoria: c ? c[0] : null, categoria_vezes: c ? c[1] : 0,
+    conta: k ? k[0] : null, conta_vezes: k ? k[1] : 0,
+  };
 }
 
 // ── Lançar no Omie ──────────────────────────────────────────────────────────
@@ -557,6 +663,6 @@ async function anexarDeNovo(id) {
 }
 
 module.exports = {
-  GuiaErro, TIPOS, listar, pdf, receber, atualizar, descartar, restaurar, opcoes, fornecedores, lancar, anexarDeNovo,
-  _t: { zipUmArquivo, _crc32, _parecidas, _payload, _cache, _titulosForn },
+  GuiaErro, TIPOS, listar, pdf, receber, atualizar, descartar, restaurar, opcoes, fornecedores, sugestao, lancar, anexarDeNovo,
+  _t: { zipUmArquivo, _crc32, _parecidas, _payload, _cache, _titulosForn, fornecedorDoEmissor: _fornecedorDoEmissor },
 };

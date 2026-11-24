@@ -1762,3 +1762,21 @@ número, situação, PDF, boletos e histórico na mesma página.
 - **Faixas numa cópia no servidor**, entregue ao cliente pela API. O admin
   ficou com as duas constantes no topo do Monitoramento porque mudar o formato
   do `/admin/status` (uma lista) quebraria o legado.
+
+## Guias: conta comum pelo emissor, tributo pelo tipo (24/11/2026)
+
+- **A regra da conta comum é de quem cobra, não do tipo.** Com uma regra só
+  para "outro", a Vivo e a Sabesp dividiam fornecedor, e o "usar sempre" de uma
+  estragava a outra.
+- **Tributo continua pelo tipo.** A Receita emite DAS, DARF e parcelamento, que
+  vão para categorias diferentes: uma regra por emissor juntaria os três.
+- **Sem certeza, não adivinha.** CNPJ mascarado e nome do beneficiário só
+  preenchem o fornecedor se baterem com **um** cadastro. A Enel bate com dois
+  (Enel e SPAL terminam em …93) e fica para escolher uma vez. Lançar no
+  fornecedor errado custa mais que escolher.
+- **A chave vem do código de barras quando dá** (empresa Febraban da
+  concessionária, agência/conta do Bradesco/Itaú): o texto do PDF muda de
+  layout, o código não.
+- **A categoria é sugestão, não regra:** a mais usada no histórico do
+  fornecedor no Omie, só leitura, e a pessoa confirma. Só vira regra no "usar
+  sempre".

@@ -333,7 +333,14 @@ novo**, migration 102; [cobranca-avisos.md](modulos/cobranca-avisos.md)):
   `linha_digitavel`, `linha_formatada`, `codigo_barras`, `numero_documento`,
   `cnpj`, `avisos`, `arquivo_nome`, `tem_pdf`, `status`, `omie` `{ fornecedor,
   fornecedor_nome, categoria, conta, codigo, erro, anexo_ok, anexo_erro }`,
-  `enviado_em`/`enviado_por`, `criado_em`/`criado_por`.
+  `enviado_em`/`enviado_por`, `criado_em`/`criado_por`; desde 24/11 (migration
+  107) também `emissor` `{ chave, nome, cnpj, regra }` (null nos tributos) e
+  `origem_destino` (`emissor` | `cnpj` | `cnpj_mascara` | `nome` | `tipo` | null).
+- `GET /admin/guias/sugestao?fornecedor=` → `{ fornecedor, titulos, categoria,
+  categoria_vezes, conta, conta_vezes }`: a categoria e a conta mais usadas
+  nos títulos do fornecedor no Omie, sem os cancelados (**só leitura**, a mesma
+  consulta do lançamento, guardada 3 min). 400 fornecedor inválido; 502 o
+  Omie não respondeu.
 - `GET /admin/guias/opcoes` → `{ categorias, contas, erro }` do Omie (só
   leitura, guardadas 6 h; só categorias de despesa ativas e não totalizadoras).
 - `GET /admin/guias/fornecedores?q=` → `{ fornecedores }` da cópia
@@ -345,7 +352,9 @@ novo**, migration 102; [cobranca-avisos.md](modulos/cobranca-avisos.md)):
   linha_digitavel?, numero_documento?, omie_fornecedor?, omie_categoria?,
   omie_conta?, lembrar? }` → `{ guia }`. 400 linha com DV errado ou valor
   diferente do código de barras; 409 guia já lançada. Trocar o tipo sem
-  mandar o destino traz a regra do tipo novo; `lembrar` grava a regra.
+  mandar o destino traz a regra do tipo novo (virar "outro" traz a do
+  emissor); `lembrar` grava a regra: numa conta "outro" com emissor, em
+  `guias_emissores`; senão, a do tipo.
 - `POST /admin/guias/:id/lancar` `{ forcar? }` → ⚠️ **grava no Omie**
   (`IncluirContaPagar` + `IncluirAnexo`) → `{ guia, anexo, ja_existia? }`.
   503 sem `OMIE_EMISSAO=1`; 400 falta campo; **409 `{ error, parecidas }`** se

@@ -98,6 +98,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 103 | orcamento_vencido_arquivado | `orcamentos.arquivado_em`/`arquivado_por` (o enviado vencido sem resposta sai da fila; status continua `enviado`) e a tabela **`orcamento_lembretes`** (o lembrete antes de vencer, um por orçamento/validade). ✅ **Aplicada em teste e em produção em 23/11/2026**; os 111 vencidos de produção arquivados no mesmo dia. Ver a entrada de 23/11/2026 abaixo |
 | 102 | cobranca_avisos | `orcamentos.nota_emails`; tabelas **`omie_cliente_emails`** (para quem o Omie manda a nota de cada cliente), **`omie_receber_avencer`** (títulos do sistema a vencer) e **`cobranca_avisos`** (a fila e o histórico dos avisos, um por título/etapa/vencimento). **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Ver a entrada de 23/11/2026 abaixo |
 | 106 | reservatorio_extravasor | `reservatorios.altura_extravasor_m` (altura do ladrão, liga a detecção de extravasamento), `extravasor_desde` e `extravasor_bomba_desde` (o relógio da regra de tempo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
+| 107 | guias_emissores | `guias_tributos.emissor_chave` (quem cobra: `cnpj:` / `arr:` / `bol:`) e a tabela **`guias_emissores`** (fornecedor/categoria/conta do Omie por emissor, para conta que não é tributo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
 | 092 | agenda | tabelas **`compromissos`** (agenda da empresa, com repetição semanal/mensal e `so_admin`), **`omie_contratos`** e **`omie_contrato_notas`** (cópia dos contratos de serviço do Omie e das NFS-e de cada um) e **`omie_sincronizacoes`**. **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push que levar a agenda** (a rota e o job leem as tabelas). Ver [agenda.md](modulos/agenda.md) |
@@ -18789,3 +18790,24 @@ Achados comparando com o bot do Petzu (outro projeto do Pedro). Fluxo em
   `admin-condominio.js?v=16`. Sem migration.
 - ⏳ Para o aviso por modelo funcionar: cadastrar e aprovar o modelo na Meta e
   pôr `WHATSAPP_TEMPLATE_SENSOR` no Railway.
+
+## 2026-11-24 — Guias: qualquer conta a pagar, com a regra pelo emissor
+
+A tela de Guias passa a servir para **qualquer conta com código de barras**
+(boleto de fornecedor, água, luz, telefone), não só para tributos. Nessas
+contas, fornecedor, categoria e conta do Omie saem de **quem cobra**: o leitor
+tira do PDF a chave do emissor (CNPJ do beneficiário; empresa Febraban da
+concessionária; agência/conta do boleto Bradesco/Itaú). O fornecedor é achado
+na cópia dos cadastros do Omie pelo CNPJ, a categoria é sugerida pelo
+histórico dele no Omie (só leitura) e "Usar sempre que vier de..." grava a
+regra do emissor. Tributo continua pela regra do tipo.
+
+Corrigido no leitor, com 5 PDFs reais: o boleto pegava o CNPJ do pagador (a
+General); a conta da Sabesp virava **DAS** ("das 8h às 17h" no rodapé); a
+conta da Enel virava **guia municipal** ("prefeitura" no texto). As siglas agora
+só valem em maiúsculas, e tributo só vem por arrecadação dos segmentos 1 e 5.
+
+Migration **107** (✅ teste e produção, 24/11/2026). Rota nova `GET
+/admin/guias/sugestao`. Teste `guias-tributos.test.js` **64/64**; tela conferida
+no banco de teste. `admin-guias.js?v=3`. Ver
+[guias-tributos.md](modulos/guias-tributos.md#conta-que-não-é-tributo-a-regra-pelo-emissor-24112026).

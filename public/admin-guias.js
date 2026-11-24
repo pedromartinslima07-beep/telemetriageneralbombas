@@ -34,6 +34,7 @@
     opcoes: null, opcoesPedido: null, gravando: false, subindo: null,
     parecidas: {},            // id → lista do 409
     fornBusca: "", fornRes: null, fornTimer: null,
+    sug: {},                  // fornecedor → { categoria, conta, titulos, ... } | { pedindo } | { erro }
   };
   const admin = () => typeof _myRole !== "undefined" && _myRole === "admin";
   const lista0 = () => st.dados || [];
@@ -48,8 +49,18 @@
   const compTxt = c => { const m = String(c || "").match(/^(\d{4})-(\d{2})$/); return m ? `${MESES[Number(m[2]) - 1]}/${m[1]}` : ""; };
   const TIPOS = [
     ["das", "DAS · Simples Nacional"], ["darf", "DARF"], ["fgts", "FGTS Digital"], ["dae", "DAE · eSocial"],
-    ["gps", "GPS · INSS"], ["parcelamento", "Parcelamento"], ["municipal", "Guia municipal"], ["outro", "Outra guia"],
+    ["gps", "GPS · INSS"], ["parcelamento", "Parcelamento"], ["municipal", "Guia municipal"], ["outro", "Conta (boleto, água, luz…)"],
   ];
+  const cnpjFmt = c => String(c || "").replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  // Conta que não é tributo e tem emissor reconhecido: a regra é dele.
+  const porEmissor = g => g.tipo === "outro" && !!(g.emissor && g.emissor.chave);
+  const emissorNome = g => (g.emissor && (g.emissor.nome || (g.emissor.cnpj ? "CNPJ " + cnpjFmt(g.emissor.cnpj) : ""))) || "este emissor";
+  const ORIGEM = {
+    emissor: "pela regra deste emissor",
+    cnpj: "achado pelo CNPJ de quem cobra",
+    cnpj_mascara: "achado pelo CNPJ (parcial) de quem cobra: confira",
+    nome: "achado pelo nome de quem cobra: confira",
+  };
   const tipoNome = t => (TIPOS.find(x => x[0] === t) || [t, "Guia"])[1];
   const aLancar = g => ["conferir", "erro", "incerto"].includes(g.status);
   const dias = g => {
@@ -109,6 +120,38 @@
       .then(j => { st.opcoes = { categorias: j.categorias || [], contas: j.contas || [], erro: j.erro || null }; })
       .catch(e => { st.opcoes = { categorias: [], contas: [], erro: e.message }; })
       .finally(() => { st.opcoesPedido = null; if (ativa()) lista.desenharLado(); });
+  }
+
+  // Categoria e conta mais usadas nos títulos do fornecedor no Omie (só
+  // leitura; o servidor guarda 3 min). Para a conta cujo emissor ainda não tem
+  // regra: preenche o que está vazio no formulário, sem apagar o que a pessoa
+  // escolheu, e diz de onde veio.
+  function pedirSugestao(forn) {
+    if (!forn || st.sug[forn]) { aplicarSugestao(forn); return; }
+    st.sug[forn] = { pedindo: true };
+    fetch("/admin/guias/sugestao?fornecedor=" + encodeURIComponent(forn), { headers: authHeaders() })
+      .then(r => json(r, "Sugestão do Omie").then(j => { if (!r.ok) throw new Error(j.error || "Não consegui ler o Omie"); return j; }))
+      .then(j => { st.sug[forn] = j; })
+      .catch(e => { st.sug[forn] = { erro: e.message }; })
+      .finally(() => aplicarSugestao(forn));
+  }
+  function sugTxt(s) {
+    if (!s || s.pedindo) return "Procurando a categoria que este fornecedor costuma usar no Omie…";
+    if (s.erro) return "Não consegui ler o histórico do fornecedor no Omie: " + s.erro;
+    if (!s.categoria) return s.titulos ? "Os títulos deste fornecedor no Omie não têm categoria: escolha." : "Nenhum título deste fornecedor no Omie ainda: escolha a categoria.";
+    return "Categoria sugerida: a usada em " + s.categoria_vezes + " de " + s.titulos + " títulos deste fornecedor no Omie.";
+  }
+  function aplicarSugestao(forn) {
+    const s = st.sug[forn];
+    if (!s || String(val("guForn")) !== String(forn)) return;
+    const cat = document.getElementById("guCat"), conta = document.getElementById("guConta");
+    if (s.categoria && cat && !cat.value) {
+      if (![...cat.options].some(o => o.value === s.categoria)) cat.insertAdjacentHTML("beforeend", opt(s.categoria, s.categoria + " · (do Omie)", ""));
+      cat.value = s.categoria;
+    }
+    if (s.conta && conta && !conta.value && [...conta.options].some(o => o.value === String(s.conta))) conta.value = String(s.conta);
+    const p = document.getElementById("guSug");
+    if (p) { p.textContent = sugTxt(s); p.hidden = false; }
   }
 
   // ===== subir PDFs =====
@@ -188,7 +231,7 @@
       if (!r.ok) throw new Error(j.error || "Não consegui salvar");
       const i = lista0().findIndex(x => x.id === g.id);
       if (i >= 0) st.dados[i] = j.guia;
-      if (corpo.lembrar) st.regras[j.guia.tipo] = { fornecedor: j.guia.omie.fornecedor, categoria: j.guia.omie.categoria, conta: j.guia.omie.conta };
+      if (corpo.lembrar && !porEmissor(j.guia)) st.regras[j.guia.tipo] = { fornecedor: j.guia.omie.fornecedor, categoria: j.guia.omie.categoria, conta: j.guia.omie.conta };
       return j.guia;
     } catch (e) {
       alert(e.message);
@@ -286,7 +329,11 @@
     const ops = st.opcoes;
     const cats = ops?.categorias || [];
     const contas = ops?.contas || [];
-    const catAtual = g.omie.categoria && !cats.some(c => c.codigo === g.omie.categoria) ? [{ codigo: g.omie.categoria, descricao: "(código guardado)" }] : [];
+    // A sugestão do histórico do Omie sobrevive a um redesenho do painel
+    // (categorias que chegam depois redesenham tudo).
+    const s = g.tipo === "outro" && !g.omie.categoria && g.omie.fornecedor ? st.sug[g.omie.fornecedor] : null;
+    const catSel = g.omie.categoria || (s && s.categoria) || "";
+    const catAtual = catSel && !cats.some(c => c.codigo === catSel) ? [{ codigo: catSel, descricao: g.omie.categoria ? "(código guardado)" : "(do Omie)" }] : [];
     const contaAtual = g.omie.conta && !contas.some(c => c.codigo === g.omie.conta) ? [{ codigo: g.omie.conta, descricao: "(conta " + g.omie.conta + ")" }] : [];
     const dis = st.gravando ? "disabled" : "";
     return `
@@ -307,13 +354,18 @@
           <label><span>Fornecedor</span>
             <input type="hidden" id="guForn" value="${esc(g.omie.fornecedor || "")}">
             <span class="gu-forn-atual">${g.omie.fornecedor ? esc(g.omie.fornecedor_nome || "Fornecedor " + g.omie.fornecedor) : `<span class="ls-txt-at">escolha o fornecedor</span>`}</span>
+            ${g.omie.fornecedor && ORIGEM[g.origem_destino] ? `<span class="ls-sub">${esc(ORIGEM[g.origem_destino])}</span>` : ""}
             <input type="search" id="guFornQ" placeholder="Trocar: busque pelo nome (ex.: Receita)" value="${esc(st.fornBusca)}" ${dis}>
             <div id="guFornRes" class="gu-forn-res">${st.fornBusca ? fornResHtml() : ""}</div>
           </label>
-          <label><span>Categoria</span><select id="guCat" ${dis}>${opt("", ops ? "Escolha a categoria" : "Carregando do Omie…", g.omie.categoria || "")}${[...catAtual, ...cats].map(c => opt(c.codigo, `${c.codigo} · ${c.descricao}`, g.omie.categoria)).join("")}</select></label>
+          <label><span>Categoria</span><select id="guCat" ${dis}>${opt("", ops ? "Escolha a categoria" : "Carregando do Omie…", catSel)}${[...catAtual, ...cats].map(c => opt(c.codigo, `${c.codigo} · ${c.descricao}`, catSel)).join("")}</select></label>
           <label><span>Conta</span><select id="guConta" ${dis}>${opt("", ops ? "Escolha a conta" : "Carregando do Omie…", g.omie.conta || "")}${[...contaAtual, ...contas].map(c => opt(c.codigo, c.descricao, g.omie.conta)).join("")}</select></label>
+          <p class="ls-sub" id="guSug" ${g.tipo === "outro" && g.omie.fornecedor && st.sug[g.omie.fornecedor] && !g.omie.categoria ? "" : "hidden"}>${esc(sugTxt(st.sug[g.omie.fornecedor]))}</p>
           ${ops && ops.erro ? `<p class="ls-txt-ri">Não consegui ler categorias e contas do Omie: ${esc(ops.erro)}</p>` : ""}
-          <label class="gu-lembrar"><input type="checkbox" id="guLembrar" ${dis}><span>Usar este fornecedor, categoria e conta sempre para ${esc(tipoNome(g.tipo))}</span></label>
+          <label class="gu-lembrar"><input type="checkbox" id="guLembrar" ${dis}><span>${porEmissor(g)
+            ? "Usar este fornecedor, categoria e conta sempre que vier de " + esc(emissorNome(g))
+            : "Usar este fornecedor, categoria e conta sempre para " + esc(tipoNome(g.tipo))}</span></label>
+          ${g.tipo === "outro" && !porEmissor(g) ? `<p class="ls-sub">Não deu para reconhecer quem cobra neste PDF: a regra vale para toda conta sem emissor.</p>` : ""}
         </div>`)}`;
   }
 
@@ -364,7 +416,9 @@
 
     return `
       <div class="ls-l-cab">
-        <div class="ls-l-sup">${ico("landmark")}<span>${esc(tipoNome(g.tipo))}${g.cnpj ? " · CNPJ " + esc(g.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")) : ""}</span></div>
+        <div class="ls-l-sup">${ico(g.tipo === "outro" ? "receipt" : "landmark")}<span>${g.tipo === "outro"
+          ? esc(g.emissor && g.emissor.cnpj ? "Conta · quem cobra: CNPJ " + cnpjFmt(g.emissor.cnpj) : "Conta a pagar")
+          : esc(tipoNome(g.tipo)) + (g.cnpj ? " · CNPJ " + esc(cnpjFmt(g.cnpj)) : "")}</span></div>
         <h2>${esc(titulo(g))}</h2>
         <div class="ls-l-selo">${selo(g)}<span class="ls-mudo">${moeda(g.valor)} · vence ${dataBr(g.vencimento) || "?"}</span></div>
         <div class="oc-bts">${g.tem_pdf ? `<button type="button" class="ls-bt is-p" data-gu-pdf>${ico("file-text")}Ver PDF</button>` : ""}
@@ -386,9 +440,9 @@
   const lista = window.GBLista.criar({
     id: "guias",
     raiz: "guLsRoot",
-    titulo: "Guias de tributos",
+    titulo: "Guias e contas a pagar",
     nomePlural: "as guias",
-    buscaDica: "Tipo, competência, valor ou documento",
+    buscaDica: "Tipo, fornecedor, competência, valor ou documento",
     dados: ordem,
     chave: g => g.id,
     texto: g => `${titulo(g)} ${tipoNome(g.tipo)} ${g.numero_documento || ""} ${g.omie.fornecedor_nome || ""} ${moeda(g.valor)} ${dataBr(g.vencimento)} ${g.arquivo_nome || ""}`,
@@ -406,12 +460,12 @@
       urgente: "Nenhuma guia a lançar vencendo nos próximos 5 dias.",
       omie: "Nenhuma guia lançada pelo sistema ainda.",
       descartadas: "Nenhuma guia descartada.",
-      todas: "Nenhuma guia ainda. Arraste os PDFs das guias (DAS, DARF, FGTS…) para esta tela.",
+      todas: "Nenhuma guia ainda. Arraste os PDFs para esta tela: guias (DAS, DARF, FGTS…), boletos de fornecedor, água, luz, telefone.",
     },
     icVazio: "file-up",
     frase: (d, estado) => {
       if (st.subindo) return `<span class="ls-txt-in">${esc(st.subindo)}</span>`;
-      if (estado !== "pronto") return "Do PDF do Onvio ao contas a pagar do Omie.";
+      if (estado !== "pronto") return "Do PDF (guia, boleto ou conta) ao contas a pagar do Omie.";
       const a = d.filter(aLancar);
       const soma = a.reduce((s, g) => s + (Number(g.valor) || 0), 0);
       const urg = a.filter(urgente).length;
@@ -447,7 +501,14 @@
     detalhe,
     icLado: "landmark",
     ladoVazio: "Escolha uma guia na lista.",
-    aoSelecionar: () => { garantirOpcoes(); },
+    aoSelecionar: g => {
+      garantirOpcoes();
+      // Conta com fornecedor e sem categoria (emissor ainda sem regra):
+      // sugere a categoria do histórico dele no Omie.
+      if (g && g.tipo === "outro" && ["conferir", "erro"].includes(g.status) && g.omie.fornecedor && !g.omie.categoria) {
+        setTimeout(() => pedirSugestao(g.omie.fornecedor), 0);
+      }
+    },
     aoClicar: e => {
       let el;
       const sel = () => lista0().find(x => String(x.id) === String(lista.estado.sel));
@@ -470,6 +531,9 @@
         st.fornBusca = ""; st.fornRes = null;
         const q = document.getElementById("guFornQ"); if (q) q.value = "";
         const box = document.getElementById("guFornRes"); if (box) box.innerHTML = "";
+        // Fornecedor trocado numa conta: sugere a categoria dele (sem apagar
+        // a que já está escolhida).
+        if (val("guTipo") === "outro") pedirSugestao(Number(el.dataset.guForn));
         return true;
       }
       return false;

@@ -181,16 +181,132 @@ function numeroBr(s) {
 
 // Ordem importa: parcelamento é um DAS (ou DARF) de parcelamento, e vai para
 // outra categoria; o DAE do eSocial tem "eSocial" e não "Simples".
+// ⚠️ As siglas (DAS, DAE, GPS, ISS...) só em MAIÚSCULAS: com /i, o "das" de
+// "atendimento das 8h às 17h" da conta da Sabesp virava DAS (24/11/2026).
 function tipoDoTexto(t) {
   const s = sem(t);
   if (/parcelamento/i.test(s)) return "parcelamento";
-  if (/FGTS\s*Digital|Guia do FGTS|\bGFD\b|Fundo de Garantia/i.test(s)) return "fgts";
-  if (/Arrecadacao do eSocial|\bDAE\b/i.test(s)) return "dae";
-  if (/Simples Nacional|\bDAS\b|PGDAS/i.test(s)) return "das";
-  if (/Receitas Federais|\bDARF\b/i.test(s)) return "darf";
-  if (/Previdencia Social|\bGPS\b/i.test(s)) return "gps";
-  if (/Prefeitura|Municipio|Municipal|\bISS\b|\bTFE\b|\bTFA\b|DAMSP/i.test(s)) return "municipal";
+  if (/FGTS\s*Digital|Guia do FGTS|Fundo de Garantia/i.test(s) || /\bGFD\b/.test(s)) return "fgts";
+  if (/Arrecadacao do eSocial/i.test(s) || /\bDAE\b/.test(s)) return "dae";
+  if (/Simples Nacional|PGDAS/i.test(s) || /\bDAS\b/.test(s)) return "das";
+  if (/Receitas Federais/i.test(s) || /\bDARF\b/.test(s)) return "darf";
+  if (/Previdencia Social/i.test(s) || /\bGPS\b/.test(s)) return "gps";
+  if (/Prefeitura|Municipio|Municipal|DAMSP/i.test(s) || /\b(ISS|TFE|TFA)\b/.test(s)) return "municipal";
   return null;
+}
+
+// ── O emissor (quem cobra) ──────────────────────────────────────────────────
+//
+// Para a conta que não é tributo (boleto de fornecedor, água, luz, telefone),
+// o destino no Omie sai de QUEM COBRA, não do tipo. A chave do emissor, da
+// mais estável para a menos:
+//   cnpj:<14>               CNPJ do beneficiário (boleto: perto do rótulo
+//                           "Beneficiário"/"Cedente"; conta de concessionária:
+//                           o primeiro CNPJ que não é o da General)
+//   arr:<segmento>:<empresa> conta de concessionária (arrecadação, segmentos
+//                           2 saneamento, 3 energia, 4 telefone, 6 e 7): a
+//                           identificação Febraban da empresa NO CÓDIGO DE
+//                           BARRAS — não depende do texto
+//   bol:<banco>:<ag>-<conta> boleto sem CNPJ legível: a agência/conta do
+//                           beneficiário (no código de barras para Bradesco e
+//                           Itaú; no texto para os outros bancos)
+// Tributo (segmentos 1 e 5) não tem chave: a Receita é emissora de DAS, DARF e
+// parcelamento, que vão para categorias diferentes — ali vale a regra do tipo.
+//
+// Conferido em 24/11/2026 com PDFs reais: boleto Cora (CNPJ do beneficiário
+// depois do do pagador), boleto Bradesco da Alelo (sem CNPJ nenhum), conta da
+// Enel (boleto Bradesco, CNPJ mascarado "61.***.***/****-93"), Sabesp
+// (arrecadação segmento 2, CNPJ no cabeçalho) e DARF.
+
+// O CNPJ da própria General Bombas: aparece como pagador/contribuinte e nunca
+// é o emissor (o mesmo do rodapé do contrato, contrato-pdf.service.js).
+const EMPRESA_CNPJ = "26427361000102";
+
+const RE_CNPJ = /\b(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})\b/g;
+const RE_ROT_BENEF = /Benefici[aá]rio|Cedente/gi;
+
+function cnpjsDoTexto(t) {
+  const out = [];
+  for (const m of String(t).matchAll(RE_CNPJ)) out.push({ cnpj: m[1].replace(/\D/g, ""), pos: m.index });
+  return out.filter(c => c.cnpj !== EMPRESA_CNPJ);
+}
+
+// O CNPJ do beneficiário: o primeiro que vem até 120 caracteres depois de um
+// rótulo "Beneficiário"/"Cedente" (o do intermediário — "Intermediado por:
+// Cora SCFI CNPJ ..." — vem longe do rótulo e fica de fora).
+function cnpjBeneficiario(t) {
+  const cnpjs = cnpjsDoTexto(t);
+  for (const m of String(t).matchAll(RE_ROT_BENEF)) {
+    const c = cnpjs.find(x => x.pos > m.index && x.pos - m.index <= 120);
+    if (c) return c.cnpj;
+  }
+  return null;
+}
+
+// "61.***.***/****-93" → { ini: "61", fim: "93" } (a Enel mascara o próprio CNPJ).
+function cnpjMascarado(t) {
+  const m = String(t).match(/\b(\d{2})\.\*{3}\.\*{3}\/\*{4}-(\d{2})\b/);
+  return m ? { ini: m[1], fim: m[2] } : null;
+}
+
+// O nome do beneficiário: a linha logo depois do rótulo, se ela parecer um
+// nome (não é rótulo, não é banco, não é número). Só para mostrar e para
+// sugerir o fornecedor; a chave nunca sai daqui.
+function nomeBeneficiario(t) {
+  const linhas = String(t).split("\n").map(l => l.trim());
+  for (let i = 0; i < linhas.length - 1; i++) {
+    if (!/^(Benefici[aá]rio|Cedente)\s*:?$/i.test(linhas[i])) continue;
+    const n = linhas[i + 1];
+    if (n.length < 3 || n.length > 80) continue;
+    if (/CNPJ|CPF|Ag[eê]ncia|Banco|Vencimento|Pagador|Sacado|Local de pagamento/i.test(n)) continue;
+    if ((n.match(/\d/g) || []).length > 4) continue;
+    return n;
+  }
+  return null;
+}
+
+// Agência/conta do beneficiário no campo livre do código de barras, para os
+// bancos de layout fixo (Febraban, campo livre = posições 20–44).
+function contaDoCampoLivre(barras) {
+  const banco = barras.slice(0, 3), cl = barras.slice(19);
+  if (banco === "237") return `${cl.slice(0, 4)}-${cl.slice(17, 24)}`;   // ag 4 · cart 2 · nosso nº 11 · conta 7 · 0
+  if (banco === "341") return `${cl.slice(12, 16)}-${cl.slice(16, 21)}`; // cart 3 · nosso nº 8 · dac · ag 4 · conta 5 · dac · 000
+  return null;
+}
+
+// Os outros bancos: "Agência/Código do Beneficiário 1234 / 56789-0" no texto.
+// Menos de 6 dígitos não serve (a Cora imprime "0001" para todo mundo).
+function contaDoTexto(t) {
+  const m = sem(t).match(/Ag[eê]ncia\s*\/\s*C[oó]d(?:igo|\.)?\s*(?:do\s*)?Benefici[aá]rio\s*:?\s*([\d][\d \/.\-]{3,30}[\dXx])/i);
+  if (!m) return null;
+  const d = m[1].replace(/[^\dXx]/g, "");
+  return d.length >= 6 ? d : null;
+}
+
+// Segmentos da arrecadação (Febraban): 1 prefeitura, 2 saneamento, 3 energia
+// e gás, 4 telecomunicações, 5 órgãos do governo, 6 empresas com CNPJ,
+// 7 multas de trânsito, 9 exclusivo do banco.
+const SEG_TRIBUTO = new Set(["1", "5"]);
+
+function emissorDe(texto, c) {
+  if (c.especie === "arrecadacao" && SEG_TRIBUTO.has(c.segmento)) return null;
+  const mascara = cnpjMascarado(texto);
+  if (c.especie === "arrecadacao") {
+    const cnpj = (cnpjsDoTexto(texto)[0] || {}).cnpj || null;
+    const emp = c.segmento === "6" ? c.barras.slice(15, 23) : c.barras.slice(15, 19);
+    return {
+      chave: cnpj ? `cnpj:${cnpj}` : `arr:${c.segmento}:${emp}`,
+      cnpj, cnpj_mascara: cnpj ? null : mascara, nome: null,
+    };
+  }
+  const cnpj = cnpjBeneficiario(texto);
+  const nome = nomeBeneficiario(texto);
+  let chave = cnpj ? `cnpj:${cnpj}` : null;
+  if (!chave) {
+    const conta = contaDoCampoLivre(c.barras) || contaDoTexto(texto);
+    if (conta) chave = `bol:${c.barras.slice(0, 3)}:${conta}`;
+  }
+  return { chave, cnpj, cnpj_mascara: cnpj ? null : mascara, nome };
 }
 
 // O primeiro dd/mm/aaaa depois de um dos rótulos (até 80 caracteres adiante,
@@ -239,7 +355,7 @@ function cnpjDoTexto(t) {
 
 const NOMES = {
   das: "DAS · Simples Nacional", darf: "DARF", fgts: "FGTS Digital", dae: "DAE · eSocial",
-  gps: "GPS · INSS", parcelamento: "Parcelamento", municipal: "Guia municipal", outro: "Guia",
+  gps: "GPS · INSS", parcelamento: "Parcelamento", municipal: "Guia municipal", outro: "Conta a pagar",
 };
 
 // Uma página → uma guia (ou nenhuma, se não tiver código de barras).
@@ -259,20 +375,27 @@ function lerPagina(texto, hoje) {
   // viram duas guias, cada uma com o mesmo texto ao redor.
   return codigos.map(c => {
     const avisos = [];
-    let tipo = tipoTxt;
+    // Tributo só vem por arrecadação de governo (segmentos 1 e 5). Boleto e
+    // conta de concessionária são "outro" mesmo que o texto fale em
+    // prefeitura (a conta da Enel traz "PREFEITURA DO MUNICÍPIO" e a COSIP).
+    const tributo = c.especie === "arrecadacao" && SEG_TRIBUTO.has(c.segmento);
+    let tipo = tributo ? tipoTxt : null;
     if (!tipo) tipo = c.especie === "arrecadacao" && c.segmento === "1" ? "municipal" : "outro";
+    const emissor = emissorDe(texto, c);
     const valor = c.valor ?? valorTxt;
     if (c.valor == null) avisos.push("O código de barras não traz o valor: confira o valor.");
-    else if (valorTxt != null && Math.abs(valorTxt - c.valor) > 0.009 && codigos.length === 1) {
+    // Só nas guias: numa fatura (água, luz) o "valor do texto" pega subtotal
+    // ou item, e o aviso vira ruído — vale o do código de qualquer jeito.
+    else if (tributo && valorTxt != null && Math.abs(valorTxt - c.valor) > 0.009 && codigos.length === 1) {
       avisos.push(`O texto diz ${valorTxt.toFixed(2).replace(".", ",")}, o código de barras diz ${c.valor.toFixed(2).replace(".", ",")}. Vale o do código.`);
     }
     const vencimento = venc || c.vencimento;
     if (!vencimento) avisos.push("Não achei o vencimento no PDF: informe a data.");
     if (venc && c.vencimento && venc !== c.vencimento) avisos.push("O vencimento do texto e o do código de barras não batem: confira.");
-    if (!tipoTxt) avisos.push("Não reconheci o tipo da guia: escolha.");
+    if (tributo && !tipoTxt) avisos.push("Não reconheci o tipo da guia: escolha.");
     return {
       tipo,
-      descricao: NOMES[tipo] || "Guia",
+      descricao: tipo === "outro" && emissor && emissor.nome ? emissor.nome.slice(0, 120) : NOMES[tipo] || "Guia",
       competencia: comp,
       vencimento,
       valor,
@@ -280,7 +403,8 @@ function lerPagina(texto, hoje) {
       codigo_barras: c.barras,
       numero_documento: numDoc,
       cnpj,
-      leitura: { especie: c.especie, valor_texto: valorTxt, vencimento_texto: venc, avisos },
+      emissor_chave: emissor ? emissor.chave : null,
+      leitura: { especie: c.especie, segmento: c.segmento, valor_texto: valorTxt, vencimento_texto: venc, emissor, avisos },
     };
   });
 }
@@ -339,4 +463,16 @@ function lerLinhaDigitavel(linha, hoje) {
   return null;
 }
 
-module.exports = { lerPdf, lerLinhaDigitavel, linhaFormatada, NOMES, _t: { mod10, mod11Arrecadacao, lerArrecadacao, lerBoleto, acharCodigos, lerPagina, dataDoFator } };
+// Para a linha digitada à mão (PDF escaneado): a chave que dá para tirar só
+// do código de barras — concessionária pela identificação Febraban, boleto
+// Bradesco/Itaú pela agência/conta. Sem texto, não há CNPJ.
+function emissorDaLinha(c) {
+  if (!c) return null;
+  const e = emissorDe("", c);
+  return e && e.chave ? e : null;
+}
+
+module.exports = {
+  lerPdf, lerLinhaDigitavel, linhaFormatada, emissorDaLinha, NOMES, EMPRESA_CNPJ,
+  _t: { mod10, mod11Arrecadacao, lerArrecadacao, lerBoleto, acharCodigos, lerPagina, dataDoFator, emissorDe, tipoDoTexto },
+};

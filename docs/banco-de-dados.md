@@ -754,6 +754,26 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 107 — guias: a regra pelo emissor (24/11/2026)
+
+Fluxo em [guias-tributos.md](modulos/guias-tributos.md#conta-que-não-é-tributo-a-regra-pelo-emissor-24112026).
+Na conta que não é tributo (boleto, água, luz, telefone), o destino no Omie
+sai de quem cobra, não do tipo.
+
+- **`guias_tributos.emissor_chave`** VARCHAR(60): `cnpj:<14>` |
+  `arr:<segmento>:<empresa>` | `bol:<banco>:<agência>-<conta>`. NULL nos
+  tributos (vale o tipo) e no boleto sem nada que identifique quem cobra.
+  Índice parcial `guias_tributos_emissor_idx`. O que o leitor achou (nome,
+  CNPJ, CNPJ mascarado) fica em `leitura.emissor`; de onde veio o fornecedor,
+  em `leitura.destino` (`emissor`, `cnpj`, `cnpj_mascara`, `nome`, `tipo`).
+- **`guias_emissores`** (`chave` PK, `nome`, `omie_fornecedor`,
+  `omie_categoria`, `omie_conta`, `atualizado_por`, `atualizado_em`): o
+  destino no Omie de cada emissor. Nasce vazia e é gravada pelo "Usar sempre
+  que vier de..." da tela. Não substitui `guias_regras`: tributo continua
+  pela regra do tipo.
+
+✅ Teste e ✅ **produção** (24/11/2026, conferida no `information_schema`, antes do push).
+
 ## 104 — a página da nota: rascunho (23/11/2026)
 
 Fluxo em [nota-fiscal.md](modulos/nota-fiscal.md), seção "A página da nota".

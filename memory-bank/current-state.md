@@ -185,6 +185,12 @@ vencimento e tipo do texto), conferido e lançado no contas a pagar do Omie
 com o PDF anexado (`guias.service.js`, travas contra conta em dobro,
 `OMIE_EMISSAO=1`). Migration 100 (✅ produção, 23/11/2026). Ver
 [`../docs/modulos/guias-tributos.md`](../docs/modulos/guias-tributos.md).
+**Guias para qualquer conta a pagar (24/11, commitado, sem push):** boleto de
+fornecedor, água, luz e telefone entram na mesma tela. O destino no Omie sai de
+quem cobra (`emissor_chave`: CNPJ do beneficiário, empresa Febraban ou
+agência/conta do boleto). O fornecedor vem da cópia do Omie, a categoria é
+sugerida pelo histórico dele, e "usar sempre" grava em `guias_emissores`.
+Migration 107 (✅ teste e produção, 24/11/2026).
 **E-mail da nota e avisos de cobrança (23/11):** a nota emitida pelo sistema
 passa a levar o bloco de e-mail do Omie (os destinatários da nota mais recente
 do cliente lá, conferidos no modal); Financeiro → "Avisos" monta a fila do

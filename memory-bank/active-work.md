@@ -86,6 +86,12 @@ aliases:
 > `IncluirAnexo` nunca foram chamados de verdade); o Pedro decidir o
 > fornecedor do DAS/FGTS (o Omie tem Receita e Prefeitura misturados).
 > Ver [guias-tributos.md](../docs/modulos/guias-tributos.md).
+>
+> 🟡 **Regra pelo emissor (qualquer conta a pagar) — commitada em 24/11/2026,
+> sem push.** Teste 64/64, os 5 PDFs reais conferidos, tela vista no banco de
+> teste. ✅ Migration 107 em produção (24/11). ⏳ **Falta:** o push. A
+> Enel não acha o fornecedor sozinha (o CNPJ mascarado bate com 2 cadastros):
+> na primeira conta, escolher e marcar "usar sempre".
 
 > 🟢 **Cobrança dos atrasados (Omie, fase 3) — na main e em produção em
 > 23/11/2026.** Aba "Em atraso" no Financeiro, só com os títulos das notas

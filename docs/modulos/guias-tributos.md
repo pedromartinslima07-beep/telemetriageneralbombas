@@ -7,6 +7,8 @@ aliases:
   - Guias
   - DAS no contas a pagar
   - Onvio
+  - Contas a pagar por boleto
+  - Regra pelo emissor
 ---
 # Fluxo: guias de tributos → contas a pagar do Omie (23/11/2026)
 
@@ -65,6 +67,68 @@ também não está confirmado.
    anexa o PDF (`geral/anexo` `IncluirAnexo`, tabela `conta-pagar`, o PDF num
    zip e o MD5 do zip). Anexo que falha não desfaz a conta a pagar: o painel
    mostra "Anexar de novo".
+
+## Conta que não é tributo: a regra pelo emissor (24/11/2026)
+
+A tela serve também para **qualquer conta a pagar com código de barras**:
+boleto de fornecedor, água, luz, telefone. Para essas, o destino no Omie
+sai de **quem cobra**, não do tipo. Antes, todas caíam em "outro", uma regra
+só, e a Vivo dividia o fornecedor com a Sabesp. Migration **107**.
+
+**1. O leitor tira a chave do emissor** (`emissorDe` em
+`guia-leitura.service.js`), da mais estável para a menos:
+
+| Chave | Quando | De onde |
+|---|---|---|
+| `cnpj:<14>` | boleto com o CNPJ do beneficiário; conta de concessionária com CNPJ no cabeçalho | boleto: o 1º CNPJ até 120 caracteres depois de "Beneficiário"/"Cedente"; concessionária: o 1º CNPJ que não é o da General |
+| `arr:<segmento>:<empresa>` | concessionária sem CNPJ legível (arrecadação, segmentos 2, 3, 4, 6 e 7) | a identificação Febraban da empresa **no código de barras** |
+| `bol:<banco>:<agência>-<conta>` | boleto sem CNPJ | Bradesco (237) e Itaú (341): a agência/conta no campo livre do código de barras; outros bancos: "Agência/Código do Beneficiário" no texto, com 6 dígitos ou mais |
+
+O CNPJ da General (`26.427.361/0001-02`, `EMPRESA_CNPJ`) nunca é o emissor: ele
+aparece como pagador. **Tributo não tem chave.** Arrecadação dos segmentos 1
+(prefeitura) e 5 (governo) usa a regra do tipo, porque a Receita é a
+emissora de DAS, DARF e parcelamento, que vão para categorias diferentes.
+
+**2. O tipo:** tributo só vem por arrecadação dos segmentos 1 e 5. Boleto e
+conta de concessionária são sempre "outro", mesmo com "prefeitura" no texto.
+
+**3. O destino ao receber o PDF** (`_destino` em `guias.service.js`):
+1. tributo → a regra do tipo (`guias_regras`), como antes;
+2. "outro" com emissor → a regra do emissor (`guias_emissores`), se gravada;
+3. sem regra → o fornecedor achado na **cópia dos cadastros do Omie**
+   (`omie_clientes.documento`, sem chamar o Omie), pelo CNPJ; pelo CNPJ
+   mascarado se só um cadastro bate; ou pelo nome do beneficiário se só um
+   bate. Vem com a conta da regra "outro" e **sem categoria**;
+4. "outro" sem emissor → a regra "outro" (o comportamento de antes).
+
+A tela diz de onde veio o fornecedor ("achado pelo CNPJ de quem cobra",
+"pela regra deste emissor"...).
+
+**4. A categoria sugerida:** com fornecedor e sem categoria, a tela pede
+`GET /admin/guias/sugestao?fornecedor=` e recebe a categoria e a conta mais
+usadas nos títulos dele no Omie (só leitura, a mesma consulta do lançamento,
+guardada 3 min). A tela preenche o que está vazio e mostra "usada em N de M
+títulos".
+
+**5. "Usar sempre":** numa conta com emissor, a caixa vira "sempre que vier
+de <nome>" e grava em `guias_emissores`, sem mexer na regra do tipo. Na
+próxima conta do mesmo emissor, fornecedor, categoria e conta já vêm prontos.
+Na linha digitada à mão (PDF escaneado), a chave sai só do código de barras.
+
+**Conferido com 5 PDFs reais** (24/11/2026; a cópia do Omie de produção só
+foi lida):
+
+| PDF | Antes | Agora |
+|---|---|---|
+| Boleto Cora (Kompleta) | `cnpj` = o da General (pagador) | `cnpj:31530910000100` → KOMPLETA pelo CNPJ |
+| Boleto Bradesco (Alelo), sem CNPJ | outro, sem nada | `bol:237:2374-0181397` → ALELO pelo nome |
+| Conta da Enel (boleto Bradesco) | **"Guia municipal"** (o texto fala em prefeitura) | outro, `bol:237:…`; o CNPJ mascarado `61.***.***/****-93` bate com **dois** cadastros (Enel e SPAL), então o fornecedor fica para escolher uma vez e "usar sempre" |
+| Conta da Sabesp (arrecadação, segmento 2) | **"DAS"** (o "DAS 8H" do horário de atendimento) | outro, `cnpj:43776517000180` → SABESP pelo CNPJ |
+| DARF DCTFWeb | DARF | DARF, sem emissor (vale o tipo) |
+
+⚠️ As siglas (DAS, DAE, GPS, ISS, TFE) agora só valem em **maiúsculas**. E nas
+contas que não são tributo não aparece mais o aviso "o texto diz X, o código
+diz Y": numa fatura, o "valor do texto" pega subtotal.
 
 ## As travas contra conta a pagar em dobro
 
@@ -125,6 +189,18 @@ módulo 11 e valor em reais**, não módulo 10.
   zip válido com o PDF e o MD5; queda → incerto → consulta sem incluir de
   novo; anexo que falha e "anexar de novo"; 403 para gerente, operador e
   admin fora do painel novo.
+- **64/64** com a regra pelo emissor (24/11/2026): CNPJ do beneficiário (não
+  o do pagador nem o do intermediário); Bradesco sem CNPJ pela agência/conta;
+  "prefeitura" num boleto não vira municipal; CNPJ mascarado guardado;
+  concessionária pelo CNPJ e, sem ele, pela empresa Febraban; "das 8h" não é
+  DAS; tributo sem emissor; linha digitada dá o emissor; pela rota: boleto
+  acha o fornecedor pelo CNPJ na cópia, sugestão (mais usada, sem os
+  cancelados, 400 com fornecedor inválido), "lembrar" grava a regra do
+  emissor sem mexer na do tipo, o 2º boleto já chega com a regra, trocar
+  para tributo e voltar.
+- Na tela (24/11, banco de teste, os PDFs da Kompleta e da Alelo): fornecedor
+  "achado pelo CNPJ de quem cobra", a categoria sugerida pelo histórico real
+  do Omie (só leitura), a caixa "sempre que vier de...".
 - Na tela (banco de teste, 1440px e 375px): lista, chips, "Pede ação",
   painel, busca de fornecedor na cópia, categorias e contas lidas do Omie de
   verdade (só leitura), salvar com a linha digitada, o aviso do 409
@@ -137,6 +213,8 @@ módulo 11 e valor em reais**, não módulo 10.
 ## O que falta
 
 - ✅ Migration **100** em produção (conferida em 23/11/2026).
+- ✅ Migration **107** (regra pelo emissor) em teste e em produção (24/11/2026,
+  conferida no `information_schema`, antes do push).
 - `OMIE_EMISSAO=1` no Railway (é a mesma chave das notas e do lote).
 - A primeira guia real acompanhada.
 - Pedir acesso à API do Onvio (e-mail ao time da Onvio BR API) e perguntar
@@ -145,7 +223,8 @@ módulo 11 e valor em reais**, não módulo 10.
 
 ## Arquivos
 
-`migrations/100_guias_tributos.sql` · `src/services/guia-leitura.service.js`
+`migrations/100_guias_tributos.sql` · `migrations/107_guias_emissores.sql` ·
+`src/services/guia-leitura.service.js`
 (o leitor) · `src/services/guias.service.js` (fila, regras, lançamento) ·
 `src/routes/guias.routes.js` · `src/services/omie.service.js` (contas a pagar,
 anexo, categorias, contas correntes) · `public/admin-guias.js` ·

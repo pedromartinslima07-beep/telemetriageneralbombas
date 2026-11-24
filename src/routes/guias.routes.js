@@ -7,11 +7,15 @@
 //   GET    /admin/guias                     a lista + as regras por tipo
 //   GET    /admin/guias/opcoes              categorias e contas do Omie (lidas a cada 6 h)
 //   GET    /admin/guias/fornecedores?q=     fornecedores da cópia do Omie (não chama o Omie)
+//   GET    /admin/guias/sugestao?fornecedor= categoria e conta mais usadas nos títulos do
+//                                           fornecedor no Omie (só leitura, guardado 3 min)
 //   POST   /admin/guias                     { nome, pdf_base64 } → lê o PDF e cria a(s) guia(s)
 //   GET    /admin/guias/:id/pdf             o PDF da guia
 //   PATCH  /admin/guias/:id                 conferência { tipo, competencia, vencimento, valor,
 //                                           linha_digitavel, numero_documento, omie_fornecedor,
 //                                           omie_categoria, omie_conta, lembrar }
+//                                           lembrar: conta "outro" com emissor → regra do
+//                                           emissor (guias_emissores); senão, do tipo
 //   POST   /admin/guias/:id/lancar          ⚠️ GRAVA NO OMIE { forcar? } (exige OMIE_EMISSAO=1)
 //   POST   /admin/guias/:id/anexo           ⚠️ GRAVA NO OMIE: tenta anexar o PDF de novo
 //   POST   /admin/guias/:id/descartar       tira da fila (só no sistema)
@@ -53,6 +57,11 @@ router.get("/guias/opcoes", ...guarda, async (req, res) => {
 router.get("/guias/fornecedores", ...guarda, async (req, res) => {
   try { res.json({ fornecedores: await guias.fornecedores(req.query.q) }); }
   catch (err) { _falha(res, "fornecedores", err); }
+});
+
+router.get("/guias/sugestao", ...guarda, async (req, res) => {
+  try { res.json(await guias.sugestao(req.query.fornecedor)); }
+  catch (err) { _falha(res, "sugestao", err); }
 });
 
 router.post("/guias", ...guarda, async (req, res) => {

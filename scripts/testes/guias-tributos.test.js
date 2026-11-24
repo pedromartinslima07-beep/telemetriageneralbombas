@@ -72,8 +72,13 @@ async function pdfDe(html) {
 }
 
 let regrasAntes = [];
+// O fornecedor de mentira na cópia do Omie (código alto, CNPJ válido de
+// exemplo) para a regra pelo emissor.
+const FORN_TESTE = 990000000111, CNPJ_TESTE = "11222333000181";
 async function limpar() {
   await pool.query(`DELETE FROM guias_tributos WHERE arquivo_nome LIKE 'TESTE-GUIA%'`);
+  await pool.query(`DELETE FROM guias_emissores WHERE chave = $1`, ["cnpj:" + CNPJ_TESTE]);
+  await pool.query(`DELETE FROM omie_clientes WHERE omie_codigo = $1`, [FORN_TESTE]);
   for (const g of regrasAntes) {
     await pool.query(`UPDATE guias_regras SET omie_fornecedor=$2, omie_categoria=$3, omie_conta=$4 WHERE tipo=$1`,
       [g.tipo, g.omie_fornecedor, g.omie_categoria, g.omie_conta]);
@@ -101,6 +106,40 @@ async function main() {
   const b = leitura.lerLinhaDigitavel(bc);
   ok("boleto: valor e fator 1000 = 22/02/2025", b && b.valor === 589 && b.vencimento === "2025-02-22", b);
   ok("linha no formato do Omie", fmt(L1.linha) === [0, 1, 2, 3].map(i => L1.linha.slice(i * 12, i * 12 + 11) + "-" + L1.linha[i * 12 + 11]).join(" "));
+
+  // ── O emissor (24/11/2026), sem banco ─────────────────────────────────────
+  const { lerPagina, tipoDoTexto } = leitura._t;
+  ok("\"das 8h às 17h\" não é DAS (sigla só em maiúscula)", tipoDoTexto("ATENDIMENTO SEG A SEX das 8H AS 17H") === null && tipoDoTexto("AGENDE SEG A SEX DAS 8H") === "das");
+  // Arrecadação de qualquer segmento, identificador 8 (reais, módulo 11).
+  const linhaArr = (seg, cent, livre) => {
+    const corpo = "8" + seg + "8" + "X" + String(cent).padStart(11, "0") + String(livre).padStart(29, "0").slice(0, 29);
+    const barras = corpo.replace("X", String(mod11Arrecadacao(corpo.replace("X", ""))));
+    return { barras, linha: [0, 1, 2, 3].map(i => { const b = barras.slice(i * 11, i * 11 + 11); return b + mod11Arrecadacao(b); }).join("") };
+  };
+  // Boleto com campo livre escolhido (DVs dos campos calculados).
+  const boleto = (banco, livre, valorCent) => {
+    const c1 = banco + "9" + livre.slice(0, 5), c2 = livre.slice(5, 15), c3 = livre.slice(15, 25);
+    return c1 + mod10(c1) + c2 + mod10(c2) + c3 + mod10(c3) + "1" + "1641" + String(valorCent).padStart(10, "0");
+  };
+  // Cora: o CNPJ do pagador (a General) vem antes; o do intermediário, depois.
+  const bCora = boleto("403", "0000731530910020536539201", 120000);
+  let e = lerPagina(`Pagador General Bombas - CNPJ 26.427.361/0001-02\n${fmt(bCora)}\nVencimento\n25/11/2026\nBeneficiário\nEmpresa de Teste Ltda\nCPF/CNPJ do Beneficiário\n11.222.333/0001-81\nAgência/Código do Beneficiário\n0001\nIntermediado por: Banco Qualquer\nCNPJ 37.880.206/0001-63\n`)[0];
+  ok("boleto: o CNPJ do beneficiário, não o do pagador nem o do intermediário", e && e.tipo === "outro" && e.emissor_chave === "cnpj:11222333000181" && e.leitura.emissor.nome === "Empresa de Teste Ltda", e && e.leitura.emissor);
+  ok("boleto: sem o aviso de tipo, descrição com o nome de quem cobra", e && e.leitura.avisos.length === 0 && e.descricao === "Empresa de Teste Ltda", e && [e.leitura.avisos, e.descricao]);
+  // Bradesco sem CNPJ (a Alelo), com "PREFEITURA" no texto (a Enel): agência/conta do código.
+  const bBra = boleto("237", "2374090302571324601813970", 140000);
+  e = lerPagina(`Cedente\nAlelo S.A.\n${fmt(bBra)}\nPREFEITURA DO MUNICÍPIO 0800\nEletropaulo - CNPJ: 61.***.***/****-93\nData de Vencimento\n24/11/2026\n`)[0];
+  ok("boleto Bradesco sem CNPJ: agência/conta do código de barras", e && e.tipo === "outro" && e.emissor_chave === "bol:237:2374-0181397", e && e.emissor_chave);
+  ok("…\"prefeitura\" num boleto não vira guia municipal; CNPJ mascarado guardado", e && e.tipo === "outro" && e.leitura.emissor.cnpj_mascara && e.leitura.emissor.cnpj_mascara.ini === "61" && e.leitura.emissor.cnpj_mascara.fim === "93", e && e.leitura.emissor);
+  // Sabesp: arrecadação segmento 2, CNPJ no cabeçalho, "DAS 8H" no rodapé.
+  const aSab = linhaArr("2", 16396, "0097" + "0911218809295619618076313");
+  e = lerPagina(`Cia de Saneamento\nCNPJ: 43.776.517/0001-80\nAGENDE SEG A SEX DAS 8H AS 17H\nVENCIMENTO\n25/11/2026\n${fmt(aSab.linha)}\nSUBTOTAL R$ 81,57\n`)[0];
+  ok("concessionária: outro, CNPJ do cabeçalho, sem aviso de valor do texto", e && e.tipo === "outro" && e.emissor_chave === "cnpj:43776517000180" && e.leitura.avisos.length === 0, e && [e.tipo, e.emissor_chave, e.leitura.avisos]);
+  e = lerPagina(`Conta de água\nVencimento 25/11/2026\n${fmt(aSab.linha)}\n`)[0];
+  ok("concessionária sem CNPJ: a empresa Febraban do código de barras", e && e.emissor_chave === "arr:2:0097", e && e.emissor_chave);
+  ok("linha digitada à mão também dá o emissor", leitura.emissorDaLinha(leitura.lerLinhaDigitavel(bBra))?.chave === "bol:237:2374-0181397");
+  e = lerPagina(`Documento de Arrecadação de Receitas Federais\n26.427.361/0001-02\nVencimento 30/11/2026\n${fmt(linhaArrecadacao(5000, "9").linha)}\n`)[0];
+  ok("tributo (segmento 5): sem emissor, vale o tipo", e && e.tipo === "darf" && e.emissor_chave === null && e.leitura.emissor === null, e && [e.tipo, e.emissor_chave]);
 
   // ── Preparação ───────────────────────────────────────────────────────────
   await limpar();
@@ -251,6 +290,41 @@ async function main() {
     ok("anexo que falhou fica marcado, sem desfazer", lz.j.guia && !lz.j.guia.omie.anexo_ok && /inválido/.test(lz.j.guia.omie.anexo_erro || ""), lz.j.guia && lz.j.guia.omie);
     lz = await chama("POST", `/admin/guias/${gf.id}/anexo`, ADM);
     ok("anexar de novo", lz.s === 200 && lz.j.guia.omie.anexo_ok, lz.j);
+
+    // ── regra pelo emissor (24/11/2026) ──
+    await pool.query(`INSERT INTO omie_clientes (omie_codigo, documento, razao_social, nome_fantasia) VALUES ($1,$2,'TESTE EMISSOR LTDA','TESTE EMISSOR')
+      ON CONFLICT (omie_codigo) DO UPDATE SET documento=EXCLUDED.documento, inativo=FALSE`, [FORN_TESTE, CNPJ_TESTE]);
+    const regraOutro = (await pool.query(`SELECT * FROM guias_regras WHERE tipo='outro'`)).rows[0];
+    const bolPdf = cent => pdfDe(`<p>Pagador General Bombas - CNPJ 26.427.361/0001-02</p><p>Beneficiário</p><p>Teste Emissor Ltda</p>
+      <p>CPF/CNPJ do Beneficiário</p><p>11.222.333/0001-81</p><p>Vencimento</p><p>25/11/2026</p>
+      <p style="font-size:14px">${fmt(boleto("403", "0000" + String(Date.now()).slice(-13) + "00000000", cent))}</p>`);
+    const se1 = await subir(await bolPdf(33300), "TESTE-GUIA-boleto1.pdf");
+    const ge1 = se1.j.guias && se1.j.guias[0];
+    ok("boleto vira conta com o emissor", se1.s === 201 && ge1 && ge1.tipo === "outro" && ge1.emissor && ge1.emissor.chave === "cnpj:" + CNPJ_TESTE && !ge1.emissor.regra, se1.j);
+    ok("…fornecedor achado pelo CNPJ na cópia, sem categoria, conta da regra \"outro\"",
+      ge1 && ge1.omie.fornecedor === FORN_TESTE && ge1.origem_destino === "cnpj" && ge1.omie.categoria === null && ge1.omie.conta === (regraOutro.omie_conta == null ? null : Number(regraOutro.omie_conta)), ge1 && [ge1.omie, ge1.origem_destino]);
+    omieSim.existentes = [
+      { codigo_categoria: "2.01.05", id_conta_corrente: 6109178168, status_titulo: "PAGO" },
+      { codigo_categoria: "2.01.05", id_conta_corrente: 6109178168, status_titulo: "PAGO" },
+      { categorias: [{ codigo_categoria: "2.09.01" }], id_conta_corrente: 1, status_titulo: "AVENCER" },
+      { codigo_categoria: "2.09.09", status_titulo: "CANCELADO" },
+    ];
+    const sg = await chama("GET", `/admin/guias/sugestao?fornecedor=${FORN_TESTE}`, ADM);
+    ok("sugestão: a categoria e a conta mais usadas, sem os cancelados", sg.s === 200 && sg.j.categoria === "2.01.05" && sg.j.categoria_vezes === 2 && sg.j.titulos === 3 && sg.j.conta === 6109178168, sg.j);
+    ok("sugestão: fornecedor inválido é 400", (await chama("GET", "/admin/guias/sugestao?fornecedor=abc", ADM)).s === 400);
+    const pe = await chama("PATCH", `/admin/guias/${ge1.id}`, ADM, { omie_categoria: "2.01.05", omie_conta: 6109178168, lembrar: true });
+    const re = (await pool.query(`SELECT * FROM guias_emissores WHERE chave=$1`, ["cnpj:" + CNPJ_TESTE])).rows[0];
+    const ro = (await pool.query(`SELECT * FROM guias_regras WHERE tipo='outro'`)).rows[0];
+    ok("\"lembrar\" numa conta grava a regra DO EMISSOR", pe.s === 200 && re && Number(re.omie_fornecedor) === FORN_TESTE && re.omie_categoria === "2.01.05" && re.nome === "Teste Emissor Ltda" && pe.j.guia.emissor.regra, [pe.s, re, pe.j]);
+    ok("…e não mexe na regra do tipo \"outro\"", ro.omie_categoria === regraOutro.omie_categoria && String(ro.omie_fornecedor) === String(regraOutro.omie_fornecedor), ro);
+    const se2 = await subir(await bolPdf(44400), "TESTE-GUIA-boleto2.pdf");
+    const ge2 = se2.j.guias && se2.j.guias[0];
+    ok("o próximo boleto do mesmo emissor já chega com a regra", ge2 && ge2.origem_destino === "emissor" && ge2.omie.fornecedor === FORN_TESTE && ge2.omie.categoria === "2.01.05", ge2 && [ge2.omie, ge2.origem_destino]);
+    const catDas = (await pool.query(`SELECT omie_categoria FROM guias_regras WHERE tipo='das'`)).rows[0].omie_categoria;
+    const pt = await chama("PATCH", `/admin/guias/${ge2.id}`, ADM, { tipo: "das" });
+    ok("virar tributo traz a regra do tipo", pt.s === 200 && pt.j.guia.omie.categoria === catDas, pt.j.guia && pt.j.guia.omie);
+    const pv = await chama("PATCH", `/admin/guias/${ge2.id}`, ADM, { tipo: "outro" });
+    ok("voltar a \"outro\" traz a regra do emissor de novo", pv.s === 200 && pv.j.guia.omie.categoria === "2.01.05" && pv.j.guia.descricao === "Teste Emissor Ltda", pv.j.guia && [pv.j.guia.omie, pv.j.guia.descricao]);
 
     // ── descartar ──
     const s4 = await subir(await pdfDe(`<p>Documento de Arrecadação de Receitas Federais</p><p>Vencimento 30/11/2026</p><p>${fmt(linhaArrecadacao(5000, "3" + Date.now()).linha)}</p>`), "TESTE-GUIA-darf.pdf");
