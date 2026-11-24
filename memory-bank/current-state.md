@@ -81,7 +81,7 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
-### ⚠️ Webhook do WhatsApp assinado (24/11/2026, no ar; `WHATSAPP_APP_SECRET` no Railway)
+### ⚠️ Webhook do WhatsApp assinado (24/11/2026, no ar em cbb0b8b; `WHATSAPP_APP_SECRET` no serviço web — teste da Meta 200, POST sem/falsa assinatura 403)
 
 `POST /whatsapp/webhook` só processa com `X-Hub-Signature-256` válida
 (`WHATSAPP_APP_SECRET`); sem a variável, recusa tudo com 403. Na Meta: WABA
