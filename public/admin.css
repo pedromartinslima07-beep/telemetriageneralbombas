@@ -9279,6 +9279,8 @@ body.role-viewer .viewer-only-hide-inline {
 .nfp-erro { color: var(--risco-t); }
 .nfp-cod, .nfp-num { font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .nfp-cod { color: var(--muted); white-space: nowrap; }
+/* Ficha técnica da linha: vai junto no texto do item da NFS-e. */
+.nfp-ficha { margin-top: 2px; font-size: 12px; color: var(--muted); white-space: pre-line; line-height: 1.4; }
 
 .main .nfp-caixa { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-radius: var(--r-cartao, 10px); background: #fff; border: 1px solid var(--border); font-size: 13px; color: var(--text); }
 .nfp-caixa b { font-size: 13.5px; }

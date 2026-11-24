@@ -292,7 +292,7 @@ async function _carregar(orcId, db = pool) {
   );
   if (!r.rowCount) throw new NotaErro(404, "Orçamento não encontrado.");
   const l = await db.query(
-    `SELECT id, descricao, quantidade, valor_unitario, tipo_servico, natureza, omie_produto_codigo
+    `SELECT id, descricao, ficha_tecnica, quantidade, valor_unitario, tipo_servico, natureza, omie_produto_codigo
        FROM orcamento_linhas WHERE orcamento_id = $1 ORDER BY id`,
     [orcId]
   );
@@ -403,6 +403,8 @@ function _conferir(orc, linhas, naturezas, escolhas, prodInfo = new Map(), pagam
     itens: itens.map(i => ({
       linha_id: i.id, descricao: tipo === "nfe" && i.produto?.descricao ? i.produto.descricao : i.descricao,
       quantidade: i.quantidade, valor_unitario: i.unitCent / 100, total: i.totalCent / 100,
+      // NFS-e: a ficha técnica vai junto na nota (descServNfse); a prévia mostra.
+      ...(tipo === "nfse" && i.ficha_tecnica ? { ficha_tecnica: i.ficha_tecnica } : {}),
       ...(tipo === "nfe" ? {
         codigo_produto: i.omie_produto_codigo || null, codigo: i.produto?.codigo || null,
         ncm: i.produto?.ncm || null, cfop: i.produto?.cfop || MOLDE_NFE.cfopPadrao,
@@ -711,6 +713,19 @@ function _blocoEmailOs(emails, pagamento) {
   return { Email: { cEnvLink: "S", cEnvBoleto: pagamento && pagamento.boleto === false ? "N" : "S", cEnvRecibo: "N", cEnviarPara: emails.join(", ") } };
 }
 
+// Texto do item na NFS-e: o nome da linha e, embaixo, a ficha técnica
+// (o texto detalhado do editor do orçamento). Pedido do Pedro, 24/11/2026.
+// ⚠️ A QUEBRA DE LINHA É "|", NÃO "\n". Conferido nas O.S. feitas à mão no
+// Omie (ex.: 3209, "CONSERTO ...:|BOMBA 01 ...|BOMBA 2 ..."): nenhuma das 41
+// linhas recentes tinha "\n", e o "|" é a quebra que a prefeitura de SP
+// entende na discriminação.
+function descServNfse(i) {
+  const nome = String(i.descricao || "").trim();
+  const ficha = String(i.ficha_tecnica || "")
+    .split(/\r?\n|\|/).map(s => s.trim()).filter(Boolean);
+  return [nome, ...ficha].join("|").toUpperCase();
+}
+
 function montarOs({ orc, itens, nCodCli, pagamento, emails }) {
   const parc = pagamento && pagamento.lista?.length && pagamento.lista.every(p => p.vencimento) ? pagamento : null;
   return {
@@ -742,7 +757,7 @@ function montarOs({ orc, itens, nCodCli, pagamento, emails }) {
       cTribServ: MOLDE_NFSE.cTribServ,
       cNbs: MOLDE_NFSE.cNbs,
       cRetemISS: MOLDE_NFSE.cRetemISS,
-      cDescServ: String(i.descricao || "").trim().toUpperCase(),
+      cDescServ: descServNfse(i),
       nQtde: i.quantidade,
       nValUnit: i.unitCent / 100,
     })),
@@ -885,7 +900,7 @@ async function _emitirNfse(orc, conf, nCodCli) {
   let nCodOS = os?.Cabecalho?.nCodOS || null;
   if (!nCodOS) {
     // Os itens são OS MESMOS da prévia que quem emitiu viu e confirmou.
-    const itens = conf.itens.map(i => ({ descricao: i.descricao, quantidade: i.quantidade, unitCent: Math.round(i.valor_unitario * 100) }));
+    const itens = conf.itens.map(i => ({ descricao: i.descricao, ficha_tecnica: i.ficha_tecnica || null, quantidade: i.quantidade, unitCent: Math.round(i.valor_unitario * 100) }));
     const novo = await omie.incluirOs(montarOs({ orc, itens, nCodCli, pagamento: conf.pagamento, emails: conf.emails }));
     nCodOS = novo.nCodOS;
     if (!nCodOS) throw new NotaErro(502, "O Omie não devolveu o código da OS criada.");

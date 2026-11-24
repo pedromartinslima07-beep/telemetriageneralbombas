@@ -18811,3 +18811,14 @@ Migration **107** (✅ teste e produção, 24/11/2026). Rota nova `GET
 /admin/guias/sugestao`. Teste `guias-tributos.test.js` **64/64**; tela conferida
 no banco de teste. `admin-guias.js?v=3`. Ver
 [guias-tributos.md](modulos/guias-tributos.md#conta-que-não-é-tributo-a-regra-pelo-emissor-24112026).
+
+## 2026-11-24 — NFS-e: a ficha técnica do item vai na nota
+
+Pedido do Pedro: o texto detalhado de cada linha do orçamento (a ficha
+técnica, abaixo do nome no editor) agora sai no item da NFS-e. `cDescServ`
+vira "NOME|LINHA 1 DA FICHA|LINHA 2…" em maiúsculas (`descServNfse` em
+`src/services/nota-fiscal.service.js`). O `|` é a quebra de linha das O.S.
+feitas à mão no Omie (conferido em 41 itens recentes, só leitura). A página da
+nota mostra a ficha sob o item. DANFE sem mudança. Sem migration.
+`admin.css?v=387`, `admin-nota.js?v=3`. Ver
+[modulos/nota-fiscal.md](modulos/nota-fiscal.md).

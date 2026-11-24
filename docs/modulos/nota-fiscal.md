@@ -269,6 +269,13 @@ inventado.**
   (`nCodServico: 0`, como em 7 de 10 OS recentes), com os códigos direto:
   `cCodServMun 140101`, `cCodServLC116 14.01`, `cTribServ 01`,
   `cNbs 120029000`, `cRetemISS N`. A descrição vai em maiúsculas.
+- **Texto do item = nome da linha + ficha técnica** (24/11/2026, pedido do
+  Pedro): `cDescServ` leva a descrição e, embaixo, cada linha da
+  `ficha_tecnica` do orçamento (`descServNfse`). A página da nota mostra a
+  ficha sob o item. ⚠️ **A quebra de linha é `|`, não `\n`**: é o que as O.S.
+  feitas à mão usam (ex.: 3209, "CONSERTO ...:|BOMBA 01 ...|BOMBA 2 ...";
+  nenhuma das 41 linhas recentes tinha `\n`). A DANFE não muda: lá o item é
+  o produto do cadastro.
 - Cabeçalho: `cCodParc 000`, 1 parcela, categoria `1.01.02`, conta corrente
   `6109178168`, etapa `50`. (Desde 23/11/2026 a parcela vai com `999` e a
   data, e a conta é a do banco escolhido. Ver "Banco e boleto".)

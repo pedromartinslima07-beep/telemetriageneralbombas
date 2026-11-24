@@ -198,6 +198,11 @@ dia (antes, no dia, 1ª e 2ª cobrança) dos títulos do sistema e manda por
 e-mail com o boleto, com aprovação até ligar o automático
 (`cobranca-avisos.service.js`, `COBRANCA_EMAIL=1`). Migration 102 (✅
 produção, 23/11/2026). Ver [`../docs/modulos/cobranca-avisos.md`](../docs/modulos/cobranca-avisos.md).
+
+**Ficha técnica na NFS-e (24/11):** o item da NFS-e leva o nome da linha e a
+ficha técnica, separados por `|` (a quebra de linha das O.S. feitas à mão).
+No ar em 24/11; falta ver na primeira NFS-e real. Ver
+[nota-fiscal.md](../docs/modulos/nota-fiscal.md).
 **Orçamento que vence (23/11):** o enviado que vence sem resposta é arquivado
 pelo job `orcamento-vencimento` (`orcamentos.arquivado_em`; o status continua
 `enviado`), vai para a visão "Arquivados" e volta com validade nova; lembrete

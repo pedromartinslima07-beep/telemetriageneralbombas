@@ -289,7 +289,7 @@ function _nfpItensHtml() {
   const linhas = (p.itens || []).map((i, k) => `
     <tr>
       ${nfe ? `<td class="nfp-cod">${_nfpEsc(i.codigo || "—")}</td>` : ""}
-      <td>${_nfpEsc(i.descricao)}</td>
+      <td>${_nfpEsc(i.descricao)}${i.ficha_tecnica ? `<div class="nfp-ficha">${_nfpEsc(i.ficha_tecnica)}</div>` : ""}</td>
       ${nfe ? `<td class="nfp-num">${_nfpEsc(i.ncm || "—")}</td><td class="nfp-num">${_nfpEsc(i.cfop || "")}</td>` : ""}
       <td class="n">${_nfpEsc(i.quantidade)}</td>
       <td class="n">${_nfpMoeda(i.valor_unitario)}</td>
@@ -482,7 +482,7 @@ function _nfpEspelho() {
   const info = document.querySelector("[data-nfp-info]")?.value ?? p.rascunho?.info_adicional ?? p.info_adicional_padrao ?? "";
   const imp = p.impostos?.totais || {};
   const parcelas = (p.pagamento?.lista || []).map(x => `<div class="df-c"><span>${String(x.numero).padStart(3, "0")} · ${_nfpDataBr(x.vencimento)}</span><b>${_nfpMoeda(x.valor)}</b></div>`).join("");
-  const itens = (p.itens || []).map(i => `<tr>${nfe ? `<td>${_nfpEsc(i.codigo || "")}</td>` : ""}<td>${_nfpEsc(i.descricao)}</td>${nfe ? `<td>${_nfpEsc(String(i.ncm || "").replace(/\D/g, ""))}</td><td>${_nfpEsc(String(i.cfop || "").replace(/\D/g, ""))}</td>` : ""}<td>${_nfpEsc(i.quantidade)}</td><td>${_nfpMoeda(i.valor_unitario)}</td><td>${_nfpMoeda(i.total)}</td></tr>`).join("");
+  const itens = (p.itens || []).map(i => `<tr>${nfe ? `<td>${_nfpEsc(i.codigo || "")}</td>` : ""}<td>${_nfpEsc(i.descricao)}${i.ficha_tecnica ? `<div class="nfp-ficha">${_nfpEsc(i.ficha_tecnica)}</div>` : ""}</td>${nfe ? `<td>${_nfpEsc(String(i.ncm || "").replace(/\D/g, ""))}</td><td>${_nfpEsc(String(i.cfop || "").replace(/\D/g, ""))}</td>` : ""}<td>${_nfpEsc(i.quantidade)}</td><td>${_nfpMoeda(i.valor_unitario)}</td><td>${_nfpMoeda(i.total)}</td></tr>`).join("");
   const ov = document.createElement("div");
   ov.className = "modalOverlay nfp-esp-veu";
   ov.style.display = "flex";
