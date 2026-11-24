@@ -1116,14 +1116,51 @@ Pedido do Pedro em 18/11/2026. Ver [agenda.md](../docs/modulos/agenda.md).
 | C | Contas a pagar e a receber do Omie | 📋 |
 | D | Emitir as notas das preventivas | ❌ descartada: o Omie já fatura os contratos (seria nota em dobro) |
 
-## Meta Tech Provider — pendências de 24/11/2026
+## Meta Tech Provider 🟡 — o foco (plano de 24/11/2026)
 
+**Objetivo:** virar Tech Provider da Meta — outras empresas (condomínios,
+administradoras) conectam o WhatsApp delas ao sistema pelo cadastro
+incorporado, e o atendimento/avisos saem pelo número de cada uma. Hoje o
+sistema fala com **um** número e **um** token fixos do Railway; o maior
+trabalho é no código, não na Meta. Detalhes e IDs em
+[Meta Tech Provider](../docs/modulos/meta-tech-provider.md).
+
+### Fase 0 — Base na Meta ✅ (24/11/2026)
+
+- [x] App General Bombas Telemetria, ícone, categoria, termos do WhatsApp aceitos.
+- [x] Páginas de privacidade e exclusão no ar (8f212a8) e cadastradas na Meta.
+- [x] Destinatário de teste validado por código.
+- [x] Número próprio +55 11 92209-3834 adicionado; WABA General Bombas criada.
+- [x] Usuário do sistema `telemetria-servidor` com token sem expiração (Railway).
+- [x] Webhook salvo e verificado, `messages` assinado; assinatura `X-Hub-Signature-256` validada no código (cbb0b8b) com `WHATSAPP_APP_SECRET`.
 - [ ] Revisar contato de privacidade, retenção efetiva e textos preparados.
-- [ ] Publicar páginas legais revisadas e cadastrar URLs válidas na Meta.
-- [ ] Cadastrar destinatário autorizado e validar envio/recebimento com conta de teste.
-- [ ] Gravar os dois fluxos reais de mensagens e modelos, em arquivos separados.
-- [ ] Aguardar verificação empresarial e enviar análise das permissões.
-- [x] Validar assinatura do webhook (`X-Hub-Signature-256` com `WHATSAPP_APP_SECRET`, 24/11/2026, no ar).
-- [ ] Conferir versão da Graph API (gateway em v20.0; webhooks da Meta em v27.0) e credenciais antes de produção; implementar cadastro de clientes/contas de WhatsApp antes de oferecer a integração a terceiros.
 
-Detalhes: [Meta Tech Provider](../docs/modulos/meta-tech-provider.md).
+### Fase 1 — Dá para fazer agora 📋
+
+- [ ] **Login do Facebook para Empresas:** criar a configuração do cadastro incorporado (WhatsApp, permissões `whatsapp_business_management` + `whatsapp_business_messaging`) e anotar o `config_id`.
+- [ ] **Vídeo 2 — `whatsapp_business_management`:** gravar a criação do modelo `alerta_sensor_sem_comunicacao` (Utilidade, pt_BR) no WhatsApp Manager. Roteiro na doc. Não depende do número registrado.
+
+### Fase 2 — Depende da Meta / do usuário ⏳
+
+- [ ] **Cartão** no WhatsApp Manager (usuário) — sem ele só o cliente inicia conversa.
+- [ ] **Análise da WABA** e **verificação da empresa** saírem (em análise desde 24/11).
+- [ ] Registrar o número com PIN, ligar "Assinar webhooks" da WABA, pôr `WHATSAPP_PHONE_NUMBER_ID=1447746398428187` no Railway, `hello_world` para o destinatário de teste — e conferir se o 130497 some.
+
+### Fase 3 — Código: vários clientes (enquanto a Meta analisa) 📋
+
+Reaproveitar o desenho do projeto do pet shop (cofre cifrado `src/cofre.js`,
+"coexistência parte B" com cadastro incorporado pronto).
+
+- [ ] Tela no admin que abre o cadastro incorporado (SDK do Facebook + `config_id`) e recebe o código de volta.
+- [ ] Trocar o código pelo token do cliente; guardar **cifrado no banco** (migration nova), com WABA e `phone_number_id` de cada cliente; inscrever o app na WABA do cliente.
+- [ ] Webhook separa por `phone_number_id` → cliente/condomínio certo; conversas e chamados ficam do cliente.
+- [ ] Envio (`evolution.service.js`) com o número e o token do cliente certo; o número da General Bombas vira só mais um.
+- [ ] Conferir a versão da Graph API (gateway em v20.0; webhooks em v27.0).
+- [ ] Testes de rota (Express + JWT) para cada caminho que grava.
+
+### Fase 4 — Análise do app 📋
+
+- [ ] **Vídeo 1 — `whatsapp_business_messaging`:** mensagem real enviada e recebida (depende da Fase 2).
+- [ ] Enviar a Análise do app com os dois vídeos (depende da verificação da empresa).
+- [ ] Publicar o app ("Verifique se todos os requisitos…" no painel).
+- [ ] Primeiro cliente de fora conectado pelo cadastro incorporado.

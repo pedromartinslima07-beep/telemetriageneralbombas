@@ -13,6 +13,15 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🎯 **Foco: Meta Tech Provider (desde 24/11/2026).** Base na Meta pronta
+> (número +55 na WABA General Bombas, usuário do sistema, webhook assinado).
+> Próximo: configuração do Login do Facebook para Empresas e vídeo 2; em
+> paralelo, o código de vários clientes (cadastro incorporado, token cifrado
+> por cliente, webhook por `phone_number_id`). ⏳ Meta analisando WABA e
+> empresa; falta cartão. Plano em fases no
+> [roadmap](roadmap.md);
+> detalhes em [meta-tech-provider.md](../docs/modulos/meta-tech-provider.md).
+
 > 🟠 **Bot sem silêncio + aviso fora das 24h + telas antigas — no ar em
 > 24/11/2026.** Testes: falhas 12/12, confirmação 41/41, alertas
 > 17/17 (consertado), extravasamento 28/28. ⏳ **Falta:** cadastrar

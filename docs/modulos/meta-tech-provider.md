@@ -164,6 +164,12 @@ Texto-base para o pedido da permissão — usar somente com a gravação real:
   documentação atual antes da ligação em produção.
 - Nenhuma dessas variáveis foi alterada nesta preparação.
 
+## Plano
+
+As fases (base na Meta, o que dá para fazer agora, o que depende da Meta, o
+código de vários clientes e a análise do app) estão no
+[roadmap](../../memory-bank/roadmap.md).
+
 ## Critério de conclusão
 
 A aprovação como Tech Provider depende de **verificação empresarial,
