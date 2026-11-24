@@ -1,27 +1,52 @@
 // src/jobs/offline.job.js
 const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
-const { enviarMensagem } = require("../services/evolution.service");
+const { enviarMensagem, enviarTemplate } = require("../services/evolution.service");
 const { sendAlertaEmail } = require("../services/email");
 const { OFFLINE_MINUTES } = require("../config");
 const { getConfigInt } = require("../services/config.service");
 const { abrirChamadoAuto } = require("../services/chamados.service");
 
-async function _notificarClienteWhatsApp(condominio_id, mensagem) {
-  // Busca cliente + conversa aberta do condomínio
+// ⚠️ A JANELA DE 24 HORAS DA META. Texto livre só chega a quem mandou
+// mensagem ao número nas últimas 24h; para os outros a Meta recusa (131047) e
+// só aceita MODELO aprovado. O aviso de sensor mudo saía sempre em texto livre,
+// e o síndico que não falou com a gente ontem — quase todos — não recebia
+// nada, enquanto a conversa no painel mostrava a mensagem como enviada.
+//
+// Agora: dentro das 24h, texto livre (como antes). Fora delas, o modelo de
+// `WHATSAPP_TEMPLATE_SENSOR` (corpo com {{1}} = condomínio e {{2}} =
+// reservatório; idioma em `WHATSAPP_TEMPLATE_IDIOMA`, padrão pt_BR). Sem
+// modelo configurado, não manda — e diz no log —, porque gravar como enviada
+// uma mensagem que a Meta vai recusar é pior que não mandar: o chamado e o
+// e-mail de alerta continuam saindo. Ver docs/modulos/whatsapp-ia.md.
+const JANELA_WHATSAPP_HORAS = 24;
+
+async function _notificarClienteWhatsApp(condominio_id, mensagem, { condominioNome, reservatorioNome } = {}) {
+  // Busca cliente + conversa aberta do condomínio + última fala DELE (a janela)
   const r = await pool.query(
     `SELECT cw.telefone, cw.id AS cliente_id,
             (SELECT id FROM conversas_whatsapp
              WHERE cliente_whatsapp_id = cw.id AND status IN ('aberta','em_atendimento')
-             ORDER BY criado_em DESC LIMIT 1) AS conversa_id
+             ORDER BY criado_em DESC LIMIT 1) AS conversa_id,
+            (SELECT MAX(m.criado_em) FROM mensagens_whatsapp m
+               JOIN conversas_whatsapp c2 ON c2.id = m.conversa_id
+              WHERE c2.cliente_whatsapp_id = cw.id AND m.direcao = 'entrada') AS ultima_entrada
      FROM clientes_whatsapp cw
      WHERE cw.condominio_id = $1
      LIMIT 1`,
     [condominio_id]
   );
-  if (!r.rows.length || !r.rows[0].telefone) return;
+  if (!r.rows.length || !r.rows[0].telefone) return { enviado: false, motivo: "sem contato" };
 
-  const { telefone, cliente_id, conversa_id } = r.rows[0];
+  const { telefone, cliente_id, conversa_id, ultima_entrada } = r.rows[0];
+  const dentroDaJanela = ultima_entrada
+    && (Date.now() - new Date(ultima_entrada).getTime()) < JANELA_WHATSAPP_HORAS * 3600 * 1000;
+  const modelo = String(process.env.WHATSAPP_TEMPLATE_SENSOR || "").trim();
+
+  if (!dentroDaJanela && !modelo) {
+    console.warn(`[offline.job] WhatsApp não enviado ao condomínio ${condominio_id}: fora da janela de 24h e sem WHATSAPP_TEMPLATE_SENSOR`);
+    return { enviado: false, motivo: "fora da janela, sem modelo" };
+  }
 
   // Cria conversa nova se não houver aberta
   let convId = conversa_id;
@@ -33,15 +58,26 @@ async function _notificarClienteWhatsApp(condominio_id, mensagem) {
     convId = nova.rows[0].id;
   }
 
-  // Salva mensagem de saída
+  // Envia (não bloqueia o job em caso de falha) e só então grava, com o que
+  // de fato saiu: o painel não pode mostrar como enviada a que a Meta recusou.
+  let envio = null;
+  try {
+    envio = dentroDaJanela
+      ? await enviarMensagem(telefone, mensagem)
+      : await enviarTemplate(telefone, modelo, process.env.WHATSAPP_TEMPLATE_IDIOMA || "pt_BR",
+          [condominioNome || "seu condomínio", reservatorioNome || "reservatório"]);
+  } catch (e) {
+    console.error("[offline.job] erro ao enviar WhatsApp:", e.message);
+  }
+  if (!envio?.ok) return { enviado: false, motivo: envio?.configurado === false ? "whatsapp não configurado" : "meta recusou ou falhou" };
+
   await pool.query(
     `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo)
-     VALUES ($1, 'saida', 'text', $2)`,
-    [convId, mensagem]
+     VALUES ($1, 'saida', $2, $3)`,
+    [convId, dentroDaJanela ? "text" : "template",
+     dentroDaJanela ? mensagem : `[modelo ${modelo}] ${condominioNome || ""} · ${reservatorioNome || ""}`]
   );
-
-  // Envia via Evolution API (não bloqueia em caso de falha)
-  try { await enviarMensagem(telefone, mensagem); } catch (_) {}
+  return { enviado: true, via: dentroDaJanela ? "texto" : "modelo" };
 }
 
 async function jobVerificarOffline() {
@@ -93,7 +129,8 @@ async function jobVerificarOffline() {
           `O ${nomeRes}${tipoRes} está offline há ${r.minutos_sem_atualizar} minutos.\n` +
           `Um chamado de atendimento foi aberto automaticamente. Nossa equipe foi notificada.`;
         try {
-          await _notificarClienteWhatsApp(r.condominio_id, msgWA);
+          await _notificarClienteWhatsApp(r.condominio_id, msgWA,
+            { condominioNome: r.condominio_nome, reservatorioNome: `${nomeRes}${tipoRes}` });
         } catch (e) {
           console.error("[offline.job] erro ao notificar WhatsApp:", e.message);
         }
@@ -164,4 +201,4 @@ function startOfflineScheduler() {
   tick();
 }
 
-module.exports = { jobVerificarOffline, startOfflineScheduler, getOfflineJobStatus };
+module.exports = { jobVerificarOffline, startOfflineScheduler, getOfflineJobStatus, _notificarClienteWhatsApp };

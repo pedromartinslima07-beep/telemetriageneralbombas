@@ -134,10 +134,17 @@ function _icFila() {
           t: `${r.nome || "Reservatório"} sem sinal`,
           m: `${quando ? "Última leitura " + _icHa(quando) : "Nunca enviou leitura"}${temChamadoAberto.has(Number(cid)) ? " · há chamado aberto no prédio" : " · nenhum chamado aberto"}`,
           quando, acao: "Ver água", attr: `data-ic-condo="${cid}" data-ic-aba="telemetria"` });
-      } else if (pct != null && pct < 20) {
+      } else if (_situacaoAgua(r) === "critico") {
+        // Pela situação (número + alerta aberto, admin.js): com o alerta ainda
+        // aberto o número pode já ter passado de 20% e voltado a subir.
         itens.push({ tipo: "agua", q: "agora", cor: "ri", ic: "droplet", ord: 0, condo: cid, condoNome: cn,
           t: `${r.nome || "Reservatório"} em ${Math.round(pct)}%`,
-          m: `Abaixo do crítico (20%)${temChamadoAberto.has(Number(cid)) ? " · há chamado aberto no prédio" : " · nenhum chamado aberto"}`,
+          m: `${pct < _FAIXA_NIVEL.critico ? `Abaixo do crítico (${_FAIXA_NIVEL.critico}%)` : "Voltando a subir, alerta crítico ainda aberto"}${temChamadoAberto.has(Number(cid)) ? " · há chamado aberto no prédio" : " · nenhum chamado aberto"}`,
+          quando, acao: "Ver água", attr: `data-ic-condo="${cid}" data-ic-aba="telemetria"` });
+      } else if (_situacaoAgua(r) === "extravasando") {
+        itens.push({ tipo: "agua", q: "agora", cor: "at", ic: "droplets", ord: 1, condo: cid, condoNome: cn,
+          t: `${r.nome || "Reservatório"} no nível do ladrão`,
+          m: `Pode estar extravasando${temChamadoAberto.has(Number(cid)) ? " · há chamado aberto no prédio" : " · nenhum chamado aberto"}`,
           quando, acao: "Ver água", attr: `data-ic-condo="${cid}" data-ic-aba="telemetria"` });
       }
     }
@@ -325,20 +332,24 @@ function _icCarteiraHtml() {
   if (!rs.length) {
     return `<section class="hj-carteira is-carregando" aria-busy="true"><span class="hj-esq-barra"></span></section>`;
   }
+  // Pela situação (número + alerta aberto, `_situacaoAgua` em admin.js).
+  const sits = rs.map(_situacaoAgua);
   const mudo = rs.filter(r => r.offline).length;
-  const crit = rs.filter(r => !r.offline && r.ultima_leitura?.nivel_pct != null && r.ultima_leitura.nivel_pct < 20).length;
-  const baixo = rs.filter(r => !r.offline && r.ultima_leitura?.nivel_pct != null && r.ultima_leitura.nivel_pct >= 20 && r.ultima_leitura.nivel_pct < 45).length;
-  const ok = rs.length - mudo - crit - baixo;
+  const crit = sits.filter(s => s === "critico").length;
+  const baixo = sits.filter(s => s === "baixo").length;
+  const extrav = sits.filter(s => s === "extravasando").length;
+  const ok = rs.length - mudo - crit - baixo - extrav;
   const seg = (n, cor) => n ? `<i style="flex:${n};background:${cor}"></i>` : "";
   return `<section class="hj-carteira" aria-label="Situação da água na carteira">
       <div class="hj-carteira-frase">
         <span><b>${ok} de ${rs.length}</b> reservatórios normais</span>
-        ${crit ? `<span><i class="hj-pt is-ri"></i><b>${crit}</b> abaixo de 20%</span>` : ""}
+        ${crit ? `<span><i class="hj-pt is-ri"></i><b>${crit}</b> em nível crítico</span>` : ""}
         ${baixo ? `<span><i class="hj-pt is-at"></i><b>${baixo}</b> com nível baixo</span>` : ""}
+        ${extrav ? `<span><i class="hj-pt is-at"></i><b>${extrav}</b> extravasando</span>` : ""}
         ${mudo ? `<span><i class="hj-pt is-cz"></i><b>${mudo}</b> sem sinal</span>` : ""}
       </div>
-      <div class="hj-barra" role="img" aria-label="${ok} normais, ${baixo} baixos, ${crit} críticos, ${mudo} sem sinal">
-        ${seg(ok, "var(--hj-ok)")}${seg(baixo, "var(--hj-at)")}${seg(crit, "var(--hj-ri)")}${seg(mudo, "#a9b2c9")}
+      <div class="hj-barra" role="img" aria-label="${ok} normais, ${baixo} baixos, ${extrav} extravasando, ${crit} críticos, ${mudo} sem sinal">
+        ${seg(ok, "var(--hj-ok)")}${seg(baixo + extrav, "var(--hj-at)")}${seg(crit, "var(--hj-ri)")}${seg(mudo, "#a9b2c9")}
       </div>
       <button type="button" class="hj-link" data-ic-secao="monitoramento">Ver monitoramento${_icIco("arrow-right")}</button>
     </section>`;

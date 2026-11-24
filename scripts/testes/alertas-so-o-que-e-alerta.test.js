@@ -46,6 +46,15 @@ const ctx = {
 };
 ctx.window = ctx; ctx.globalThis = ctx;
 vm.createContext(ctx);
+// `_chEmAberto` é uma const de uma linha (não `function`), que o
+// `_chamadoSlaEstourado` passou a usar depois que este teste nasceu — sem ela o
+// teste quebrava com ReferenceError antes de medir qualquer coisa. Lida do
+// próprio admin.js, para não divergir.
+{
+  const linha = arquivo.match(/^const _chEmAberto = .*$/m);
+  if (!linha) throw new Error("const _chEmAberto não encontrada em public/admin.js");
+  vm.runInContext(linha[0].replace(/^const /, "var "), ctx, { filename: "_chEmAberto" });
+}
 for (const a of [
   "function _alCondoIdDoDevice(deviceId) {",
   "function _chamadoSlaEstourado(ch) {",

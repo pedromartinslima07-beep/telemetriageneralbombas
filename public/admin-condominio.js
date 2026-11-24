@@ -492,9 +492,16 @@ function _cfAguaResumo(d) {
   const offline = d.reservs.filter(r => r.offline).length;
   const pcts = d.reservs.map(r => r.ultima_leitura?.nivel_pct).filter(v => v != null);
   const menor = pcts.length ? Math.min(...pcts) : null;
+  // Pela situação (número + alerta aberto, `_situacaoAgua` em admin.js), e o
+  // número que aparece é o do PIOR daquele estado, não o menor do prédio.
+  const pior = (s) => d.reservs.filter(r => _situacaoAgua(r) === s)
+    .sort((a, b) => (a.ultima_leitura?.nivel_pct ?? 999) - (b.ultima_leitura?.nivel_pct ?? 999))[0];
   if (offline) return { tom: "risco", txt: `${offline} de ${d.reservs.length} sem sinal` };
-  if (menor != null && menor < 20) return { tom: "risco", txt: `nível crítico, ${Math.round(menor)}%` };
-  if (menor != null && menor < 45) return { tom: "atencao", txt: `nível baixo, ${Math.round(menor)}%` };
+  const crit = pior("critico");
+  if (crit) return { tom: "risco", txt: `nível crítico, ${Math.round(crit.ultima_leitura.nivel_pct)}%` };
+  const baixo = pior("baixo");
+  if (baixo) return { tom: "atencao", txt: `nível baixo, ${Math.round(baixo.ultima_leitura.nivel_pct)}%` };
+  if (pior("extravasando")) return { tom: "atencao", txt: "no nível do ladrão" };
   return { tom: "ok", txt: menor != null ? `normal, ${d.reservs.length > 1 ? "menor " : ""}${Math.round(menor)}%` : "sem leitura" };
 }
 
@@ -735,7 +742,12 @@ function _cfEventos(d) {
     const u = r.ultima_leitura;
     const pct = u?.nivel_pct;
     if (r.offline) ev.push({ f: "telemetria", ic: "wifi-off", em: u?.criado_em || null, tipo: r.nome || "Reservatório", txt: "Sem sinal", sub: u?.criado_em ? `última leitura ${_cfData(u.criado_em)}` : "nunca enviou leitura", sel: _cfSeloLs("Agora", "risco"), attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
-    else if (pct != null && pct < 45) ev.push({ f: "telemetria", ic: "droplet", em: u?.criado_em || null, tipo: r.nome || "Reservatório", txt: `Nível em ${Math.round(pct)}%`, sub: pct < 20 ? "abaixo do crítico (20%)" : "abaixo de 45%", sel: _cfSeloLs("Agora", pct < 20 ? "risco" : "atencao"), attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
+    else {
+      // Pela situação (número + alerta aberto, `_situacaoAgua` em admin.js).
+      const sit = _situacaoAgua(r);
+      if (sit === "critico" || sit === "baixo") ev.push({ f: "telemetria", ic: "droplet", em: u?.criado_em || null, tipo: r.nome || "Reservatório", txt: `Nível em ${Math.round(pct)}%`, sub: _cfSubNivel(sit, pct), sel: _cfSeloLs("Agora", sit === "critico" ? "risco" : "atencao"), attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
+      else if (sit === "extravasando") ev.push({ f: "telemetria", ic: "droplets", em: u?.criado_em || null, tipo: r.nome || "Reservatório", txt: "No nível do ladrão", sub: "pode estar extravasando", sel: _cfSeloLs("Agora", "atencao"), attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
+    }
   }
   // Sem data = estado de agora (a água fora do normal): fica no topo.
   const t = e => (e.em ? new Date(e.em).getTime() : Infinity);
@@ -803,14 +815,24 @@ function _cfColHistorico(d) {
   </section>`;
 }
 
+// O subtítulo do nível baixo/crítico. Com o alerta ainda aberto o número pode
+// já ter passado da faixa (histerese): "abaixo de 45%" ao lado de 47% mentiria.
+function _cfSubNivel(sit, pct) {
+  const lim = sit === "critico" ? _FAIXA_NIVEL.critico : _FAIXA_NIVEL.baixo;
+  if (pct >= lim) return "voltando a subir, alerta ainda aberto";
+  return sit === "critico" ? `abaixo do crítico (${lim}%)` : `abaixo de ${lim}%`;
+}
+
 // ----- coluna da direita: água agora, em aberto, acesso do síndico -----
 
 function _cfPendencias(d) {
   const pend = [];
   for (const r of d.reservs) {
     const pct = r.ultima_leitura?.nivel_pct;
+    const sit = _situacaoAgua(r);
     if (r.offline) pend.push({ tom: "risco", ic: "wifi-off", txt: `${r.nome || "Reservatório"} sem sinal`, attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
-    else if (pct != null && pct < 45) pend.push({ tom: pct < 20 ? "risco" : "atencao", ic: "droplet", txt: `${r.nome || "Reservatório"} em ${Math.round(pct)}%`, attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
+    else if (sit === "critico" || sit === "baixo") pend.push({ tom: sit === "critico" ? "risco" : "atencao", ic: "droplet", txt: `${r.nome || "Reservatório"} em ${Math.round(pct)}%`, attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
+    else if (sit === "extravasando") pend.push({ tom: "atencao", ic: "droplets", txt: `${r.nome || "Reservatório"} no nível do ladrão`, attr: `data-action="ir-telemetria-condo" data-condo-id="${_cfCondoId}"` });
   }
   for (const ch of d.chamados.filter(x => _chEmAberto(x.status))) {
     pend.push({ tom: ch.prioridade === "p1" || ch.prioridade === "p2" ? "risco" : "atencao", ic: "inbox",
@@ -849,7 +871,10 @@ function _cfColDireita(c, d) {
     agua = d.reservs.map(r => {
       const u = r.ultima_leitura;
       const pct = u?.nivel_pct;
-      const tom = r.offline ? "risco" : pct == null ? "neutro" : pct < 20 ? "risco" : pct < 45 ? "atencao" : "ok";
+      // Pela situação (número + alerta aberto, `_situacaoAgua` em admin.js).
+      const sit = _situacaoAgua(r);
+      const tom = r.offline ? "risco" : sit === "sem_leitura" ? "neutro" : sit === "critico" ? "risco"
+        : sit === "baixo" || sit === "extravasando" ? "atencao" : "ok";
       const bomba = u?.bomba_ligada === true ? "bomba ligada" : u?.bomba_ligada === false ? "bomba desligada" : "bomba sem leitura";
       return `<div class="cp-res">
         <div class="cp-res-txt"><b>${_cfEsc(r.nome || "Reservatório")}</b><small>${bomba} · ${u?.criado_em ? "leitura " + _tempoRelativo(u.criado_em) : "sem leitura"}</small></div>

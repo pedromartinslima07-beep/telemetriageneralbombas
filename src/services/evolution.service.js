@@ -5,19 +5,41 @@ function _configurado() {
 }
 
 async function enviarMensagem(telefone, texto) {
+  return _postar({ messaging_product: "whatsapp", to: telefone, type: "text", text: { body: texto } });
+}
+
+// Mensagem por MODELO aprovado na Meta. ⚠️ É o único jeito de falar com quem
+// não mandou mensagem ao número nas últimas 24h: texto livre fora dessa janela
+// a Meta recusa (erro 131047). `parametros` preenchem {{1}}, {{2}}… do corpo,
+// na ordem; o nome e a quantidade têm de bater com o modelo cadastrado.
+async function enviarTemplate(telefone, nome, idioma, parametros = []) {
+  return _postar({
+    messaging_product: "whatsapp",
+    to: telefone,
+    type: "template",
+    template: {
+      name: nome,
+      language: { code: idioma || "pt_BR" },
+      components: parametros.length
+        ? [{ type: "body", parameters: parametros.map((t) => ({ type: "text", text: String(t) })) }]
+        : [],
+    },
+  });
+}
+
+// Uma porta de saída para os dois tipos. Resolve com o corpo da resposta
+// mesmo em erro HTTP (como sempre foi: quem chama não para por isso), e
+// devolve `ok` para quem quiser saber. Com tempo-limite: sem ele, a Meta
+// lenta segurava o job e a conversa sem prazo.
+function _postar(payload) {
   if (!_configurado()) {
     console.warn("[meta-wa] variáveis não configuradas — mensagem não enviada");
-    return;
+    return Promise.resolve({ ok: false, configurado: false });
   }
 
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token         = process.env.WHATSAPP_ACCESS_TOKEN;
-  const body = JSON.stringify({
-    messaging_product: "whatsapp",
-    to:   telefone,
-    type: "text",
-    text: { body: texto },
-  });
+  const body = JSON.stringify(payload);
 
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -30,18 +52,19 @@ async function enviarMensagem(telefone, texto) {
           "Content-Length": Buffer.byteLength(body),
           "Authorization": `Bearer ${token}`,
         },
+        timeout: 15000,
       },
       (res) => {
         let data = "";
         res.on("data", (c) => (data += c));
         res.on("end", () => {
-          if (res.statusCode >= 400) {
-            console.error("[meta-wa] erro ao enviar:", res.statusCode, data);
-          }
-          resolve(data);
+          const ok = res.statusCode < 400;
+          if (!ok) console.error("[meta-wa] erro ao enviar:", res.statusCode, data);
+          resolve({ ok, http: res.statusCode, data });
         });
       }
     );
+    req.on("timeout", () => req.destroy(new Error("tempo esgotado falando com a Meta")));
     req.on("error", (err) => {
       console.error("[meta-wa] erro ao enviar mensagem:", err.message);
       reject(err);
@@ -88,4 +111,4 @@ async function checarStatusConexao() {
   });
 }
 
-module.exports = { enviarMensagem, checarStatusConexao };
+module.exports = { enviarMensagem, enviarTemplate, checarStatusConexao };

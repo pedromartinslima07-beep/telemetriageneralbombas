@@ -212,6 +212,12 @@ do detalhe de alerta (admin novo e legado) até 24/11/2026.
   como alerta: sem olhar os alertas, o prédio extravasando aparecia
   "abastecido". No cliente ele é o estado `extravasando` (depois de crítico,
   sem sinal e baixo), com desenho âmbar e manchete "está no nível do ladrão".
+- **Telas antigas do admin também** (24/11/2026): `_situacaoAgua(r)` em
+  `admin.js` é a mesma regra (pior entre número e alerta aberto) para o Início
+  (lista de críticos da Telemetria antiga, que ainda usava 40% no lugar de 45%),
+  a Carteira (o que é urgente agora e o resumo da água) e a ficha do condomínio
+  (selo "Água:", linha do tempo, pendências e "Água agora"). O extravasamento
+  aparece nas três.
 - **"Último sinal" é o `last_seen`**, que `/admin/status` e `/cliente/status`
   devolvem em cada reservatório. `ultima_leitura.criado_em` é a última leitura
   GRAVADA (o write-threshold só grava a cada 5% ou 10 min) e fazia o sensor

@@ -9,6 +9,9 @@ const { registrarCriacao } = require("../services/chamado-historico.service");
 // o chamado com "não, pode deixar" e "não quero".
 const { classificarResposta } = require("../services/whatsapp-aceite.service");
 
+// O que o cliente lê quando a IA falha (tempo esgotado, erro, resposta vazia).
+const MSG_FALHA_IA = "Desculpe, tive um problema para responder agora. Pode repetir sua mensagem em instantes? Se for urgente, ligue para (11) 2038-8679.";
+
 // Uma palavra só que ainda assim pede resposta: a saudação que abre conversa.
 const _RE_SAUDACAO = /^(oi+|ol[aá]|opa|e\s?a[ií]|al[oô]|hello|hi)\W*$/i;
 
@@ -298,20 +301,35 @@ async function processarMensagem(msg) {
 
     const ctx = clienteRes.rows[0] || {};
 
-    const resultado = await processarComIA({
-      conversa_id:         conversaId,
-      condominio_id:       ctx.condominio_id ?? null,
-      condominio_nome:     ctx.condominio_nome ?? null,
-      cliente_whatsapp_id: clienteId,
-      contato_nome:        ctx.nome ?? null,
-      contato_tipo:        ctx.tipo ?? "desconhecido",
-      contato_observacoes: ctx.observacoes ?? null,
-      historico:           historicoRes.rows,
-    });
+    // ⚠️ FALHA DA IA NÃO PODE VIRAR SILÊNCIO. Antes, OpenAI lenta, fora do ar
+    // ou resposta vazia caíam no catch do fim e o cliente ficava sem nada —
+    // achando que foi ignorado. Agora ele recebe um "pode repetir?", e a falha
+    // conta no mesmo anti-loop abaixo: na 3ª seguida, a conversa vai para um
+    // atendente (ideia do bot do Petzu).
+    let resultado;
+    try {
+      resultado = await processarComIA({
+        conversa_id:         conversaId,
+        condominio_id:       ctx.condominio_id ?? null,
+        condominio_nome:     ctx.condominio_nome ?? null,
+        cliente_whatsapp_id: clienteId,
+        contato_nome:        ctx.nome ?? null,
+        contato_tipo:        ctx.tipo ?? "desconhecido",
+        contato_observacoes: ctx.observacoes ?? null,
+        historico:           historicoRes.rows,
+      });
+    } catch (err) {
+      console.error(`[whatsapp] IA falhou na conversa ${conversaId}:`, err.message);
+      resultado = { resposta: null, progresso: false, falhou: true };
+    }
 
-    if (!resultado) return;
-    const { resposta: respostaIA, progresso } = resultado;
-    if (!respostaIA) return;
+    if (!resultado) return; // IA desligada em Configurações: silêncio é o combinado
+    const { progresso } = resultado;
+    let respostaIA = resultado.resposta;
+    if (!respostaIA || !String(respostaIA).trim()) {
+      if (!resultado.falhou) console.error(`[whatsapp] IA respondeu vazio na conversa ${conversaId}`);
+      respostaIA = MSG_FALHA_IA;
+    }
 
     // Anti-loop: sem progresso incrementa contador; com progresso reseta.
     // Ao atingir 3 trocas sem avanço → escalação automática para humano.

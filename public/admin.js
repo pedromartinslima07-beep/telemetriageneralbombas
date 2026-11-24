@@ -359,6 +359,27 @@ function resumoCard(titulo, valorHtml, kind, cardKey, unidade = "") {
 let _statusData = [];
 let _alertasAbertos = [];
 let _alertasPorDevice = new Map();
+
+// ===== situação da água de um reservatório =====
+// ⚠️ O PIOR ENTRE O NÚMERO E O ALERTA ABERTO — a mesma regra do Monitoramento
+// (admin-monitoramento.js) e do painel do cliente (estadoDo). O alerta tem
+// histerese: a 47% com `nivel_baixo` ainda aberto, quem olhava só o número
+// dizia "normal". E o extravasamento só existe como alerta. Início, Carteira e
+// ficha do condomínio decidiam cada um pelo número (a Telemetria antiga ainda
+// com 40% no lugar de 45%); agora todos passam por aqui.
+// Faixas = LIMIARES_NIVEL de src/config.js.
+const _FAIXA_NIVEL = { baixo: 45, critico: 20 };
+function _situacaoAgua(r) {
+  if (!r) return "sem_leitura";
+  if (r.offline) return "mudo";
+  const pct = r.ultima_leitura?.nivel_pct;
+  if (pct == null) return "sem_leitura";
+  const tipos = new Set((_alertasAbertos || []).filter(a => a.device_id === r.device_id).map(a => a.tipo));
+  if (pct < _FAIXA_NIVEL.critico || tipos.has("nivel_muito_baixo")) return "critico";
+  if (pct < _FAIXA_NIVEL.baixo || tipos.has("nivel_baixo")) return "baixo";
+  if (tipos.has("extravasamento")) return "extravasando";
+  return "ok";
+}
 let _condominios = [];
 let _chamadosData = [];
 let _conversasData = [];
@@ -1625,10 +1646,13 @@ function renderTelCriticos() {
       const offline = !!r.offline;
       const alertas = r.alertas_abertos_count || 0;
       let kind = null, prioridade = 999;
-      if (offline)                      { kind = "off";  prioridade = 0; }
-      else if (pct != null && pct < 20) { kind = "bad";  prioridade = 1; }
-      else if (pct != null && pct < 40) { kind = "warn"; prioridade = 2; }
-      else if (alertas > 0)             { kind = "warn"; prioridade = 3; }
+      // Pela situação (número + alerta aberto). Era `pct < 40`, cinco pontos
+      // abaixo da faixa de 45% que o alerta usa.
+      const sit = _situacaoAgua(r);
+      if (offline)                                       { kind = "off";  prioridade = 0; }
+      else if (sit === "critico")                        { kind = "bad";  prioridade = 1; }
+      else if (sit === "baixo" || sit === "extravasando") { kind = "warn"; prioridade = 2; }
+      else if (alertas > 0)                              { kind = "warn"; prioridade = 3; }
       return kind ? { r, pct, offline, alertas, kind, prioridade } : null;
     })
     .filter(Boolean)

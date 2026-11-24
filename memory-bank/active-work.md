@@ -13,6 +13,13 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Bot sem silêncio + aviso fora das 24h + telas antigas — no ar em
+> 24/11/2026.** Testes: falhas 12/12, confirmação 41/41, alertas
+> 17/17 (consertado), extravasamento 28/28. ⏳ **Falta:** cadastrar
+> o modelo do aviso de sensor na Meta e pôr `WHATSAPP_TEMPLATE_SENSOR` no
+> Railway (sem ele o aviso fora das 24h não sai). Ver
+> [whatsapp-ia.md](../docs/modulos/whatsapp-ia.md).
+
 > 🟠 **Bot do WhatsApp: 3 defeitos — no ar em 24/11/2026.**
 > "Sim" sozinho era descartado, "não, pode deixar" abria o chamado, o contexto
 > do condomínio nunca chegava à IA (e o histórico eram as 20 primeiras

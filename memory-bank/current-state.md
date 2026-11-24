@@ -88,6 +88,13 @@ bomba ligada por 3 min. Abre chamado `[AUTO]` de `vazamento`. Só funciona no
 reservatório com "Altura do ladrão" cadastrada (modal do admin novo). Ver
 [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 
+### ⚠️ Bot sem silêncio, aviso fora das 24h, telas antigas (24/11/2026, no ar)
+
+IA com tempo-limite, teto de voltas e "pode repetir?" na falha; aviso de
+sensor mudo fora das 24h por `WHATSAPP_TEMPLATE_SENSOR`; Início, Carteira e
+ficha do condomínio pela `_situacaoAgua`. Ver
+[whatsapp-ia.md](../docs/modulos/whatsapp-ia.md).
+
 ### ⚠️ Bot do WhatsApp: confirmação e contexto (24/11/2026, no ar)
 
 "Sim" sozinho confirma, "não, pode deixar" recusa (`whatsapp-aceite.service.js`),

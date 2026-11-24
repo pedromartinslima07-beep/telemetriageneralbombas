@@ -18768,3 +18768,24 @@ Achados comparando com o bot do Petzu (outro projeto do Pedro). Fluxo em
 - Teste novo `scripts/testes/whatsapp-confirmacao.test.js`: 41/41 (regra do
   aceite + processamento real da mensagem no banco de teste, sem OpenAI nem
   Meta). Sem migration e sem mudança de front.
+
+## 2026-11-24 — Bot que não fica mudo, aviso fora das 24h, telas antigas pelo alerta
+
+- **Bot do WhatsApp**: tempo-limite de 25 s na OpenAI (era até 10 min), teto
+  de 5 voltas no laço de ferramentas (era `while (true)`), e falha ou resposta
+  vazia mandam "pode repetir?" em vez de silêncio — na 3ª seguida, atendente.
+  Ver [whatsapp-ia.md](modulos/whatsapp-ia.md#quando-a-ia-falha-24112026).
+- **Aviso de sensor mudo fora das 24h**: usa o modelo de
+  `WHATSAPP_TEMPLATE_SENSOR`; sem ele, não manda (a Meta recusaria). Grava na
+  conversa só o que a Meta aceitou. `enviarTemplate` novo e tempo-limite de
+  15 s no envio. Ver [whatsapp-ia.md](modulos/whatsapp-ia.md#mensagem-fora-da-janela-de-24-horas).
+- **Telas antigas do admin pela situação** (`_situacaoAgua` em `admin.js`):
+  Início, Carteira e ficha do condomínio passam a considerar o alerta aberto e o
+  extravasamento, como o Monitoramento.
+- **Teste consertado**: `alertas-so-o-que-e-alerta.test.js` quebrava com
+  `_chEmAberto is not defined` (17/17 agora).
+- Teste novo `scripts/testes/whatsapp-falhas.test.js` (12/12, OpenAI e Meta
+  falsas). Cache: `admin.js?v=429`, `admin-carteira.js?v=14`,
+  `admin-condominio.js?v=16`. Sem migration.
+- ⏳ Para o aviso por modelo funcionar: cadastrar e aprovar o modelo na Meta e
+  pôr `WHATSAPP_TEMPLATE_SENSOR` no Railway.

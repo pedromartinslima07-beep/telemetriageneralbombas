@@ -8,9 +8,17 @@ let _client = null;
 function getClient() {
   if (_client) return _client;
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY não configurada");
-  _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // ⚠️ Tempo-limite e UMA nova tentativa. Sem isso o padrão do SDK espera até
+  // 10 min com 2 retentativas: o síndico ficava sem resposta nenhuma enquanto
+  // a OpenAI estava lenta. Estourado, o controller manda "pode repetir?".
+  _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 25000, maxRetries: 1 });
   return _client;
 }
+// Só para teste: troca o cliente da OpenAI por um falso.
+function _definirClienteParaTeste(c) { _client = c; }
+
+// Quantas voltas de ferramenta antes de obrigar a responder em texto.
+const MAX_VOLTAS_FERRAMENTA = 5;
 
 // ─── Funções disponíveis para a IA ───────────────────────────────────────────
 
@@ -651,21 +659,32 @@ async function processarComIA({
   let resposta = null;
   const ferramentasUsadas = new Set();
 
-  // Loop de function calling — a IA pode chamar múltiplas funções antes de responder
-  while (true) {
+  // Loop de function calling — a IA pode chamar múltiplas funções antes de
+  // responder. ⚠️ COM TETO: era `while (true)`, e um modelo que insistisse em
+  // chamar ferramenta prendia a conversa (e a conta) para sempre. Na última
+  // volta `tool_choice: "none"` obriga a responder em texto com o que já tem.
+  for (let volta = 0; ; volta++) {
+    const ultimaVolta = volta >= MAX_VOLTAS_FERRAMENTA;
     const completion = await client.chat.completions.create({
       model: modelo,
       messages,
       tools,
-      tool_choice: "auto",
+      tool_choice: ultimaVolta ? "none" : "auto",
     });
 
     const choice = completion.choices[0];
     messages.push(choice.message);
 
-    if (choice.finish_reason === "tool_calls") {
+    if (choice.finish_reason === "tool_calls" && !ultimaVolta) {
       for (const call of choice.message.tool_calls) {
-        const args = JSON.parse(call.function.arguments);
+        // Argumento que não é JSON não derruba a conversa: volta como erro da
+        // ferramenta, e o modelo corrige ou responde.
+        let args;
+        try { args = JSON.parse(call.function.arguments || "{}"); }
+        catch (_) {
+          messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ erro: "argumentos inválidos" }) });
+          continue;
+        }
 
         args.conversa_id         = conversa_id;
         args.cliente_whatsapp_id = args.cliente_whatsapp_id ?? cliente_whatsapp_id;
@@ -698,4 +717,4 @@ async function processarComIA({
   return { resposta, progresso };
 }
 
-module.exports = { processarComIA, SYSTEM_PROMPT_PADRAO, _executarCriarOrcamento, _buscarContextoOperacional };
+module.exports = { processarComIA, SYSTEM_PROMPT_PADRAO, _executarCriarOrcamento, _buscarContextoOperacional, _definirClienteParaTeste, MAX_VOLTAS_FERRAMENTA };

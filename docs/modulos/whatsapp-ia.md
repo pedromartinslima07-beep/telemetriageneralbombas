@@ -71,6 +71,20 @@ OpenAI `gpt-4o-mini` com **function calling**. Tools disponíveis (entre outras)
 Modelo e `system_prompt` editáveis via config dinâmica (`ia.modelo`,
 `ia.system_prompt`, `ia.enabled`).
 
+## Quando a IA falha (24/11/2026)
+
+- **Tempo-limite**: o cliente da OpenAI tem `timeout: 25000` e uma nova
+  tentativa (`maxRetries: 1`). O padrão do SDK esperava até 10 minutos.
+- **Teto no laço de ferramentas**: `MAX_VOLTAS_FERRAMENTA` (5). Na última volta
+  `tool_choice: "none"` obriga o modelo a responder em texto. Era `while (true)`.
+  Argumento de ferramenta que não é JSON volta como erro para o modelo, em vez
+  de derrubar a conversa.
+- **Falha não vira silêncio**: erro, tempo esgotado ou resposta vazia mandam ao
+  cliente "Desculpe, tive um problema para responder agora. Pode repetir…?"
+  (`MSG_FALHA_IA` no controller). A falha conta no mesmo `ia_sem_avanco` do
+  anti-loop: na 3ª seguida a conversa vai para um atendente. Ideia do bot do
+  Petzu.
+
 ## Backend é o juiz final (state machine)
 
 ```
@@ -94,6 +108,28 @@ TRIAGEM → ESCALADO → FINALIZADO
   automaticamente para humano.
 - Guard anti-duplicata: se já há chamado aberto para a `conversa_id`, retorna o
   existente em vez de criar novo.
+
+## Mensagem fora da janela de 24 horas
+
+A Meta só aceita **texto livre** para quem mandou mensagem ao número nas
+últimas 24h; para os outros, só **modelo aprovado** (erro 131047). O aviso de
+sensor sem comunicação (`offline.job.js` → `_notificarClienteWhatsApp`) olha a
+última mensagem **de entrada** do contato:
+
+- dentro das 24h → texto livre, como antes;
+- fora → o modelo de **`WHATSAPP_TEMPLATE_SENSOR`** (idioma em
+  `WHATSAPP_TEMPLATE_IDIOMA`, padrão `pt_BR`), com `{{1}}` = condomínio e
+  `{{2}}` = reservatório. Exemplo de corpo para cadastrar na Meta (categoria
+  Utilidade): *"Alerta automático — {{1}}: o sensor do {{2}} parou de enviar
+  leituras. Um chamado foi aberto e nossa equipe já foi avisada."*;
+- fora e sem modelo configurado → **não manda** e avisa no log. O chamado
+  automático e o e-mail de alerta saem do mesmo jeito.
+
+A mensagem só é gravada na conversa **depois** que a Meta aceitou (antes era
+gravada antes de enviar, e a central mostrava como enviada a que a Meta
+recusou). Por modelo, entra com `tipo = 'template'`. `evolution.service.js`
+ganhou `enviarTemplate` e tempo-limite de 15 s em toda requisição; as duas
+funções devolvem `{ ok, http }`.
 
 ## Saída e central de atendimento (admin)
 
