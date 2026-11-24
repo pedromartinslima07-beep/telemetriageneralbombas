@@ -9,6 +9,7 @@ const { pool } = require("../db");
 const { authRequired } = require("../middleware/authRequired");
 const { clienteOnly } = require("../middleware/clienteOnly");
 const { OFFLINE_MINUTES, LIMIARES_NIVEL } = require("../config");
+const { getConfigInt } = require("../services/config.service");
 const { gerarPdfOS } = require("../services/os-pdf.service");
 const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 const { sendOrcamentoRespondido } = require("../services/email");
@@ -67,6 +68,7 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
         r.nome,
         r.tipo,
         r.device_id,
+        r.last_seen,
 
         ul.nivel         AS ultima_nivel,
         ul.nivel_pct     AS ultima_nivel_pct,
@@ -121,6 +123,8 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
         criado_em: r.ultima_criado_em,
       } : null,
       offline: !!r.offline,
+      // Último contato do aparelho — ver o mesmo campo em /admin/status.
+      last_seen: r.last_seen,
       minutos_sem_atualizar: r.minutos_sem_atualizar,
       alertas_abertos_count: r.alertas_abertos_count,
     }));
@@ -154,6 +158,10 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
       alertas_abertos: alertasResult.rows,
       // As faixas que o alerta usa — o painel lê daqui em vez de repetir 45/20.
       limiares: LIMIARES_NIVEL,
+      // O período mais longo que o histórico de fato tem: as leituras são
+      // apagadas depois de `leituras.retencao_dias` (padrão 60). O botão de
+      // "90 dias" entregava 60 sem avisar. Teto de 90 = o que /historico aceita.
+      historico_dias_max: Math.min(90, await getConfigInt("leituras.retencao_dias", 60)),
     });
 
   } catch (error) {

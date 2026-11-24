@@ -177,6 +177,11 @@ router.get("/status", authRequired, adminOnly, async (req, res) => {
           : null,
 
         minutos_sem_atualizar,
+        // Último CONTATO do aparelho (toda leitura atualiza). Diferente de
+        // `ultima_leitura.criado_em`, que é a última GRAVADA — o
+        // write-threshold só grava a cada 5% ou 10 min, e a tela que usava
+        // esse carimbo dizia "há 9 min" com o sensor falando agora.
+        last_seen: row.last_seen,
         offline,
         alertas_abertos_count: row.alertas_abertos_count,
       });

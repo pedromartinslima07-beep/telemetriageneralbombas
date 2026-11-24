@@ -18726,3 +18726,26 @@ Revisão de como a telemetria aparece no admin e no cliente. Detalhes em
   Caixa 2 a 47% com alerta aberto como "Nível baixo", Caixa 1 com
   extravasamento como "Extravasando" e manchete do cliente. Teste de
   extravasamento 28/28.
+
+## 2026-11-24 — Telemetria na tela, parte 2: último sinal, período, eixo e tipo
+
+Itens 4 a 7 da revisão. Detalhes em
+[telemetria.md](modulos/telemetria.md#faixas-e-situação-na-tela-24112026).
+
+- **Último sinal pelo `last_seen`**: `/admin/status` e `/cliente/status`
+  passam a devolver `last_seen` por reservatório; o Monitoramento ("Último
+  sinal" e o painel lateral) e o cliente ("Última leitura", "Sem resposta há")
+  usam esse carimbo em vez da última leitura gravada.
+- **Período "90 dias" → o da retenção**: `/cliente/status` devolve
+  `historico_dias_max`; o último botão vira "60 dias" (some se a retenção for
+  de 30 dias ou menos). Rótulo do PDF e do eixo saem do número.
+- **Gráfico do cliente com eixo de tempo** e linha quebrada nos buracos.
+- **Tipo do reservatório com nome** no Monitoramento e no cliente (antes
+  "superior" cru, e o Monitoramento comparava com valores que o cadastro não
+  aceita).
+- Monitoramento: em 24 h a ponta de ontem do gráfico leva a data (antes
+  "10:30 … 10:30").
+- Cache: `admin-monitoramento.js?v=6`, `cliente.js?v=45`. Nenhum endpoint
+  novo (só campos a mais em respostas existentes).
+- Conferido no banco de teste, admin novo e cliente, com um buraco de 20 h
+  tirado do histórico da Caixa 1.

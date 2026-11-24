@@ -119,6 +119,13 @@ async function erroDe(r) {
   try { return JSON.parse(txt).error || txt; } catch { return txt || `erro ${r.status}`; }
 }
 
+/* Nome do tipo do reservatório. O banco guarda superior | inferior | outro
+   (CHECK em reservatorios), e a tela mostrava a palavra crua ("superior").
+   "outro" não diz nada ao síndico, então some. `caixa`/`cisterna` são
+   valores antigos (o banco de teste ainda os tem; o cadastro não os aceita). */
+const TIPO_NOME = { superior: "Caixa superior", inferior: "Cisterna", outro: "",
+                    caixa: "Caixa d'água", cisterna: "Cisterna" };
+
 const NUM = ["nenhum", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze"];
 const porExtenso = n => NUM[n] || String(n);
 
@@ -158,12 +165,15 @@ function leituras() {
     return {
       device_id: r.device_id,
       nome: r.nome || "Reservatório",
-      tipo: r.tipo || "",
+      tipo: TIPO_NOME[r.tipo] ?? "",
       estado: e,
       // extravasando usa o desenho de atenção (âmbar), sem CSS próprio
       cls: e === "ok" ? "" : e === "extravasando" ? "baixo" : e,
       n: e === "mudo" ? 0 : Math.max(0, Math.min(100, Math.round(r.ultima_leitura?.nivel_pct ?? 0))),
-      quando: r.ultima_leitura?.criado_em || null,
+      // Último CONTATO do aparelho, não a última leitura gravada: o banco só
+      // grava a cada 5% ou 10 min, e "Última leitura há 9 min" com o sensor
+      // falando agora fazia o painel parecer parado.
+      quando: r.last_seen || r.ultima_leitura?.criado_em || null,
       /* ⚠️ `?? null`, não `|| false`: "desligada" e "não informou" são
          coisas diferentes, e a prova só mostra a linha da bomba quando o
          reservatório de fato reportou. Num painel cujo produto é medir,
@@ -504,7 +514,7 @@ function restoHTML(todas) {
 function listaHTML(todas, modo) {
   return todas.map(r => `<li><button class="res-item ${r.cls}" type="button"
       data-lista-device="${esc(r.device_id)}" data-lista-modo="${modo}">
-      <span class="nm">${esc(r.nome)}${r.tipo ? `<small>${esc(r.tipo)}</small>` : ""}</span>
+      <span class="nm">${esc(r.nome)}${r.tipo && !r.nome.toLowerCase().includes(r.tipo.toLowerCase()) ? `<small>${esc(r.tipo)}</small>` : ""}</span>
       <span class="brr"><i style="width:${r.estado === "mudo" ? 0 : r.n}%"></i></span>
       <span class="vl">${r.estado === "mudo" ? "—" : r.n + "%"}</span>
     </button></li>`).join("");
@@ -1069,12 +1079,30 @@ function abrirReservatorio(deviceId) {
   carregarGrafico();
 }
 
+// Rótulo de um período em dias ("24 horas", "7 dias", "60 dias"…).
+const rotuloDias = d => (d <= 1 ? "24 horas" : `${d} dias`);
+
+/* O último botão de período é o histórico inteiro que existe, não "90 dias"
+   fixo: as leituras são apagadas depois da retenção (padrão 60), e o botão
+   de 90 entregava 60 sem avisar. O servidor diz o número em
+   /cliente/status → historico_dias_max. */
+function ajustarPeriodoMaximo() {
+  const max = Number(_status?.historico_dias_max);
+  const btn = document.querySelector("#fResPeriodos button:last-child");
+  if (!btn || !Number.isFinite(max)) return;
+  // Retenção curta (até 30 dias): o botão de 30 já é o histórico inteiro.
+  btn.hidden = max <= 30;
+  if (max <= 30 || Number(btn.dataset.dias) === max) return;
+  if (_resDias === Number(btn.dataset.dias)) _resDias = max;
+  btn.dataset.dias = String(max);
+  btn.textContent = rotuloDias(max);
+}
+
 function aplicarPeriodo(dias) {
   _resDias = dias;
   document.querySelectorAll("#fResPeriodos button").forEach(b =>
     b.setAttribute("aria-pressed", String(Number(b.dataset.dias) === dias)));
-  const rot = { 1: "24 horas", 7: "7 dias", 30: "30 dias", 90: "90 dias" }[dias];
-  $("fResPdf").textContent = `Baixar PDF de ${rot}`;
+  $("fResPdf").textContent = `Baixar PDF de ${rotuloDias(dias)}`;
 }
 
 /* O gráfico é SVG desenhado aqui, não uma biblioteca: são oito linhas de
@@ -1084,15 +1112,35 @@ function aplicarPeriodo(dias) {
    do viewBox: lá dentro ele encolhe junto com o gráfico e vira borrão no
    celular. E a malha e o limiar são desenhados DEPOIS da área, senão ela
    os cobre. */
-function graficoSVG(pontos, dias) {
+/* ⚠️ O EIXO É TEMPO, não a ordem dos pontos. Antes cada ponto ocupava a
+   mesma largura: dois dias de sensor mudo sumiam, a linha parecia contínua e
+   "7 DIAS ATRÁS" mentia. Agora a janela vai de `dias` atrás até agora, e um
+   buraco maior que 3 baldes quebra a linha (e a área) em pedaços. */
+function graficoSVG(pontos, dias, bucketSec) {
   const W = 600, H = 190;
-  const x = i => pontos.length === 1 ? W / 2 : (i / (pontos.length - 1)) * W;
+  const t1 = Date.now(), t0 = t1 - dias * 86400000;
+  const x = t => Math.max(0, Math.min(W, ((t - t0) / (t1 - t0)) * W));
   const y = p => H - (Math.max(0, Math.min(100, p)) / 100) * H;
 
-  const d = pontos.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p).toFixed(1)}`).join(" ");
-  const area = `${d} L${W} ${H} L0 ${H} Z`;
-  const min = Math.min(...pontos), max = Math.max(...pontos);
-  const rot = { 1: "24 HORAS ATRÁS", 7: "7 DIAS ATRÁS", 30: "30 DIAS ATRÁS", 90: "90 DIAS ATRÁS" }[dias];
+  const buraco = Math.max(3 * (Number(bucketSec) || 3600) * 1000, 30 * 60000);
+  const trechos = [];
+  for (const p of pontos) {
+    const atual = trechos[trechos.length - 1];
+    if (!atual || p.t - atual[atual.length - 1].t > buraco) trechos.push([p]);
+    else atual.push(p);
+  }
+  const linhaDe = tr => tr.length === 1
+    // ponto isolado vira um traço curto, senão não aparece
+    ? `M${(x(tr[0].t) - 2).toFixed(1)} ${y(tr[0].v).toFixed(1)} L${(x(tr[0].t) + 2).toFixed(1)} ${y(tr[0].v).toFixed(1)}`
+    : tr.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)} ${y(p.v).toFixed(1)}`).join(" ");
+  const d = trechos.map(linhaDe).join(" ");
+  const area = trechos.map(tr => {
+    const a = x(tr[0].t).toFixed(1), b = x(tr[tr.length - 1].t).toFixed(1);
+    return `${linhaDe(tr)} L${b} ${H} L${a} ${H} Z`;
+  }).join(" ");
+  const vals = pontos.map(p => p.v);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const rot = `${rotuloDias(dias)} atrás`.toUpperCase();
 
   return `
     <div class="grafico-caixa">
@@ -1118,10 +1166,10 @@ async function carregarGrafico() {
     if (!r.ok) throw new Error(await erroDe(r));
     const data = await r.json();
     const pontos = (Array.isArray(data.leituras) ? data.leituras : [])
-      .map(l => Number(l.nivel_pct_avg))
-      .filter(n => Number.isFinite(n));
+      .map(l => ({ t: new Date(l.bucket).getTime(), v: Number(l.nivel_pct_avg) }))
+      .filter(p => Number.isFinite(p.t) && Number.isFinite(p.v));
     alvo.innerHTML = pontos.length
-      ? graficoSVG(pontos, _resDias)
+      ? graficoSVG(pontos, _resDias, data.bucket_sec)
       : `<p class="grafico-vazio">Sem leituras registradas neste período.</p>`;
   } catch (e) {
     alvo.innerHTML = `<p class="grafico-vazio">Não deu para carregar o histórico: ${esc(e.message)}</p>`;
@@ -1200,6 +1248,7 @@ async function carregar() {
     mostrarAviso(null);
     _status = await sR.json();
     if (_status?.limiares) Object.assign(LIMIARES, _status.limiares);
+    ajustarPeriodoMaximo();
     if (cR?.ok) _chamados = await cR.json();
 
     identidade();

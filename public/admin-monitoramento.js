@@ -110,6 +110,16 @@
   const corNivel = n => (n == null ? "#a9b2c9" : n < FAIXA.critico ? "var(--mn-ri)" : n < FAIXA.baixo ? "var(--mn-at)" : "var(--mn-ok)");
   // Cor da barra pela SITUAÇÃO (que já considera o alerta), não pelo número.
   const corSit = r => (r.offline ? null : { ok: "var(--mn-ok)", at: "var(--mn-at)", ri: "var(--mn-ri)" }[r.sit] || null);
+  // Último CONTATO do aparelho (`last_seen`), não a última leitura gravada —
+  // o banco só grava a cada 5% ou 10 min. Cai no carimbo da leitura se o
+  // servidor ainda não mandar o campo.
+  // O banco guarda superior | inferior | outro (CHECK em reservatorios); a
+  // tela comparava com "caixa"/"cisterna", que não existem, e mostrava a
+  // palavra crua.
+  // `caixa`/`cisterna` são valores antigos que o cadastro não aceita mais.
+  const TIPO_NOME = { superior: "Caixa superior", inferior: "Cisterna (inferior)", outro: "Outro",
+                      caixa: "Caixa d'água", cisterna: "Cisterna" };
+  const sinal = r => r.last_seen || r.ultima_leitura?.criado_em || null;
   const selo = r => `<span class="mn-selo is-${r.sit}">${esc(r.motivo)}</span>`;
   const bomba = r => {
     const b = r.ultima_leitura?.bomba_ligada;
@@ -209,7 +219,7 @@
             <td class="mn-c-nivel">${r.nivel == null ? `<span class="mn-mudo">sem leitura</span>`
               : `<span class="mn-nivel${r.offline ? " is-velho" : ""}"><span class="mn-nivel-barra"><i style="width:${Math.max(2, r.nivel)}%;background:${corSit(r) || corNivel(null)}"></i></span><b>${r.nivel}%</b></span>`}</td>
             <td class="mn-om">${bomba(r)}</td>
-            <td class="mn-om"><span class="${r.offline ? "mn-sinal-mudo" : "mn-sub0"}">${r.ultima_leitura?.criado_em ? rel(r.ultima_leitura.criado_em) : "nunca"}</span></td>
+            <td class="mn-om"><span class="${r.offline ? "mn-sinal-mudo" : "mn-sub0"}">${sinal(r) ? rel(sinal(r)) : "nunca"}</span></td>
             <td class="mn-c-sit">${selo(r)}${al ? `<span class="mn-al">${al} alerta${al === 1 ? "" : "s"}</span>` : ""}</td>
           </tr>`;
         }).join("")}</tbody>
@@ -287,7 +297,7 @@
         <div class="mn-l-leitura">
           <span class="mn-l-pct" style="color:${r.offline || r.nivel == null ? "var(--muted)" : "inherit"}">${r.nivel == null ? "—" : r.nivel + "%"}</span>
           ${selo(r)}
-          <span class="mn-l-quando">${r.ultima_leitura?.criado_em ? (r.offline ? "última leitura " : "leitura ") + rel(r.ultima_leitura.criado_em) : "nunca enviou leitura"}</span>
+          <span class="mn-l-quando">${sinal(r) ? (r.offline ? "último sinal " : "sinal ") + rel(sinal(r)) : "nunca enviou leitura"}</span>
         </div>
         <div class="mn-l-acoes">
           <button type="button" class="mn-bt is-pri" data-mn-chamado="${r.condoId}">${ico("plus")}Abrir chamado</button>
@@ -317,7 +327,7 @@
         <h3>Aparelho</h3>
         <dl class="mn-fatos">
           <div><dt>Código</dt><dd class="mn-mono">${esc(r.device_id || "—")}</dd></div>
-          <div><dt>Tipo</dt><dd>${esc(r.tipo === "caixa" ? "Caixa d'água" : r.tipo === "cisterna" ? "Cisterna" : r.tipo || "—")}</dd></div>
+          <div><dt>Tipo</dt><dd>${esc(TIPO_NOME[r.tipo] || r.tipo || "—")}</dd></div>
           <div><dt>Bomba</dt><dd>${bomba(r)}</dd></div>
           <div><dt>Sem atualizar</dt><dd>${r.minutos_sem_atualizar == null ? "nunca atualizou" : r.minutos_sem_atualizar < 60 ? r.minutos_sem_atualizar + " min" : rel(new Date(Date.now() - r.minutos_sem_atualizar * 60000).toISOString()).replace(/^há /, "").replace(/^em /, "desde ")}</dd></div>
         </dl>
@@ -386,7 +396,12 @@
     const ult = pts[pts.length - 1];
     const fmt = t => {
       const dt = new Date(t);
-      return st.horas <= 24 ? dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      if (st.horas > 24) return dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      // Em 24 h as duas pontas têm a mesma hora ("10:30 … 10:30"): a de
+      // ontem leva a data.
+      const h = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return dt.toDateString() === new Date().toDateString() ? h
+        : `${dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${h}`;
     };
     const min = Math.round(Math.min(...pts.map(p => p.v))), max = Math.round(Math.max(...pts.map(p => p.v)));
     return `<svg class="mn-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Nível no período: mínimo ${min}%, máximo ${max}%, agora ${Math.round(ult.v)}%">

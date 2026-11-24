@@ -16,10 +16,10 @@ aliases:
 > 🟠 **Telemetria na tela — no ar em 24/11/2026.** Gráfico
 > do Monitoramento (lia `j[device]` em vez de `j.series[device]`), situação
 > pelo alerta aberto no admin e no cliente, extravasamento visível, faixas em
-> `src/config.js`. Conferido no banco de teste. ⏳ **Ficaram para depois** os itens 4 a 7 da revisão: "último
-> sinal" pela leitura gravada em vez do `last_seen`, botão de 90 dias com
-> retenção de 60, eixo do gráfico do cliente por índice e não por tempo, tipo
-> do reservatório cru ("superior"). Ver
+> `src/config.js`. Conferido no banco de teste. Parte 2 (24/11, mesmo dia):
+> "último sinal" pelo `last_seen`, período máximo do cliente = retenção (60
+> dias), eixo de tempo no gráfico do cliente, tipo com nome. ⏳ O nível
+> mostrado ainda pode estar até 4 pontos atrás (custo do write-threshold). Ver
 > [telemetria.md](../docs/modulos/telemetria.md#faixas-e-situação-na-tela-24112026).
 
 > 🟠 **Extravasamento pelo nível (etapa 1) — no ar em 24/11/2026.** Alerta `extravasamento` + chamado `[AUTO]` de `vazamento`, regra em

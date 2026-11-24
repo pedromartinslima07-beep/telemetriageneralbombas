@@ -212,6 +212,23 @@ do detalhe de alerta (admin novo e legado) até 24/11/2026.
   como alerta: sem olhar os alertas, o prédio extravasando aparecia
   "abastecido". No cliente ele é o estado `extravasando` (depois de crítico,
   sem sinal e baixo), com desenho âmbar e manchete "está no nível do ladrão".
+- **"Último sinal" é o `last_seen`**, que `/admin/status` e `/cliente/status`
+  devolvem em cada reservatório. `ultima_leitura.criado_em` é a última leitura
+  GRAVADA (o write-threshold só grava a cada 5% ou 10 min) e fazia o sensor
+  falando agora aparecer "há 9 min". O nível mostrado continua sendo o da
+  última leitura gravada, então pode estar até 4 pontos atrás do real — é o
+  custo do write-threshold, não corrigido.
+- **Período mais longo do cliente = retenção**: `/cliente/status` devolve
+  `historico_dias_max` (= `leituras.retencao_dias`, teto 90) e o último botão
+  de período vira esse número (hoje "60 dias"). Antes era "90 dias" entregando
+  60.
+- **Gráfico do cliente com eixo de tempo**: a janela vai de N dias atrás até
+  agora, e buraco maior que 3 baldes quebra a linha. Antes cada ponto tinha a
+  mesma largura e dias sem leitura sumiam.
+- **Tipo do reservatório**: o cadastro aceita `superior | inferior | outro`; os
+  dados antigos do banco de teste têm `caixa`. As telas mapeiam os dois para
+  um nome ("Caixa superior", "Cisterna", "Caixa d'água"); no cliente `outro`
+  não aparece.
 
 ## Retenção
 
