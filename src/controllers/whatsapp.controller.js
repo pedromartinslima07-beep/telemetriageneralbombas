@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const { pool } = require("../db");
 const { processarComIA, _executarCriarOrcamento } = require("../services/ia.service");
 const { enviarMensagem } = require("../services/evolution.service");
@@ -376,8 +377,30 @@ async function processarMensagem(msg) {
   }
 }
 
+// Confere se o POST veio mesmo da Meta: X-Hub-Signature-256 é o HMAC-SHA256
+// do corpo cru com a chave secreta do app (WHATSAPP_APP_SECRET). Sem a chave
+// configurada, recusa tudo — webhook aberto deixaria qualquer um falar com a IA.
+function _assinaturaValida(req) {
+  const segredo = String(process.env.WHATSAPP_APP_SECRET || "").trim();
+  if (!segredo) return { ok: false, motivo: "WHATSAPP_APP_SECRET não configurada" };
+  const recebida = String(req.get("x-hub-signature-256") || "");
+  if (!recebida.startsWith("sha256=")) return { ok: false, motivo: "sem assinatura" };
+  if (!Buffer.isBuffer(req.rawBody)) return { ok: false, motivo: "sem corpo cru" };
+  const esperada = "sha256=" + crypto.createHmac("sha256", segredo).update(req.rawBody).digest("hex");
+  const a = Buffer.from(recebida);
+  const b = Buffer.from(esperada);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false, motivo: "assinatura não confere" };
+  return { ok: true };
+}
+
 // POST /whatsapp/webhook — recebe eventos da Meta
 async function receberWebhook(req, res) {
+  const assinatura = _assinaturaValida(req);
+  if (!assinatura.ok) {
+    console.warn(`[whatsapp] webhook recusado: ${assinatura.motivo}`);
+    return res.sendStatus(403);
+  }
+
   // Meta exige 200 imediato, senão reenvia
   res.sendStatus(200);
 

@@ -74,7 +74,7 @@ segue no comportamento padrão do Express.
 | POST | `/auth/verify-otp` | valida OTP → JWT + cookie trusted device. **Serve aos dois caminhos** |
 | POST | `/telemetria` | ingestão de leitura (auth via header `X-Device-Key`) |
 | GET | `/whatsapp/webhook` | verificação do webhook da Meta (`hub.challenge`) |
-| POST | `/whatsapp/webhook` | recebe eventos da Meta API (valida verify token) |
+| POST | `/whatsapp/webhook` | recebe eventos da Meta API; exige `X-Hub-Signature-256` válida com `WHATSAPP_APP_SECRET`, senão 403 |
 | GET | `/tiles/:z/:x/:y.png` | proxy de tiles do mapa (Carto), cache em memória |
 | GET | `/` `/login` `/admin/painel` `/cliente/painel` `/operador/painel` | páginas HTML (no-cache) |
 | GET | `/admin/reset-cache`, `/reset-cache` | limpa SW/caches do PWA |

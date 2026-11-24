@@ -81,6 +81,14 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### ⚠️ Webhook do WhatsApp assinado (24/11/2026, no ar; `WHATSAPP_APP_SECRET` no Railway)
+
+`POST /whatsapp/webhook` só processa com `X-Hub-Signature-256` válida
+(`WHATSAPP_APP_SECRET`); sem a variável, recusa tudo com 403. Na Meta: WABA
+General Bombas e número +55 11 92209-3834 em análise, usuário do sistema
+`telemetria-servidor` com token sem expiração, webhook salvo com `messages`
+assinado. Ver [meta-tech-provider.md](../docs/modulos/meta-tech-provider.md).
+
 ### ⚠️ Extravasamento pelo nível (24/11/2026, migration 106, no ar)
 
 Novo alerta `extravasamento`: nível no ladrão por 10 min, ou no ladrão com a

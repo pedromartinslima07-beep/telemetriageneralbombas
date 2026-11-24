@@ -1123,6 +1123,7 @@ Pedido do Pedro em 18/11/2026. Ver [agenda.md](../docs/modulos/agenda.md).
 - [ ] Cadastrar destinatário autorizado e validar envio/recebimento com conta de teste.
 - [ ] Gravar os dois fluxos reais de mensagens e modelos, em arquivos separados.
 - [ ] Aguardar verificação empresarial e enviar análise das permissões.
-- [ ] Validar assinatura do webhook, versão da Graph API e credenciais antes de produção; implementar cadastro de clientes/contas de WhatsApp antes de oferecer a integração a terceiros.
+- [x] Validar assinatura do webhook (`X-Hub-Signature-256` com `WHATSAPP_APP_SECRET`, 24/11/2026, no ar).
+- [ ] Conferir versão da Graph API (gateway em v20.0; webhooks da Meta em v27.0) e credenciais antes de produção; implementar cadastro de clientes/contas de WhatsApp antes de oferecer a integração a terceiros.
 
 Detalhes: [Meta Tech Provider](../docs/modulos/meta-tech-provider.md).

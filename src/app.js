@@ -108,7 +108,14 @@ if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGINS) {
 app.use(cors({ origin: corsOrigins }));
 // Limit aumentado pra 8mb pra aceitar fotos da O.S. em base64
 // (comprimidas client-side pra ~150-300KB cada; base64 infla ~33%).
-app.use(express.json({ limit: "8mb" }));
+// O webhook da Meta guarda o corpo cru: a assinatura X-Hub-Signature-256 é
+// calculada sobre os bytes recebidos, não sobre o JSON já interpretado.
+app.use(express.json({
+  limit: "8mb",
+  verify: (req, _res, buf) => {
+    if (req.originalUrl.startsWith("/whatsapp/webhook")) req.rawBody = buf;
+  },
+}));
 app.use(cookieParser());
 
 // Uploads (fotos de O.S.) — público e cacheável

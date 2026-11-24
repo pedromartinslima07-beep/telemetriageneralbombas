@@ -21,7 +21,13 @@ Cliente WhatsApp → Meta WhatsApp Business API → POST /whatsapp/webhook
 - **Verificação** (`GET /whatsapp/webhook`): responde o `hub.challenge` da Meta
   conferindo `WHATSAPP_VERIFY_TOKEN`.
 - **Recebimento** (`POST /whatsapp/webhook`, `whatsapp.controller.js`):
-  1. Valida o verify token.
+  1. **Confere a assinatura `X-Hub-Signature-256`**: HMAC-SHA256 do corpo
+     **cru** com `WHATSAPP_APP_SECRET` (a Chave secreta do app na Meta). O
+     corpo cru é guardado pelo `verify` do `express.json` em `src/app.js`, só
+     nessa rota. Sem a variável, sem assinatura ou com assinatura errada →
+     **403** e nada é processado (o motivo vai para o log como
+     `[whatsapp] webhook recusado: …`). Desde 24/11/2026; teste em
+     `scripts/testes/whatsapp-assinatura.test.js`.
   2. **Responde 200 imediatamente** e processa em background (`setImmediate`) —
      a Meta reenvia se demorar.
   3. Salva a mensagem em `mensagens_whatsapp` com `ON CONFLICT DO NOTHING` por

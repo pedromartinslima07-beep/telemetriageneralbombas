@@ -18843,6 +18843,18 @@ Migration **107** (✅ teste e produção, 24/11/2026). Rota nova `GET
 no banco de teste. `admin-guias.js?v=3`. Ver
 [guias-tributos.md](modulos/guias-tributos.md#conta-que-não-é-tributo-a-regra-pelo-emissor-24112026).
 
+## 2026-11-24 — Webhook do WhatsApp só aceita POST assinado pela Meta
+
+O `POST /whatsapp/webhook` aceitava qualquer corpo e mandava para a IA. Agora
+confere `X-Hub-Signature-256` (HMAC-SHA256 do corpo cru com a nova variável
+`WHATSAPP_APP_SECRET`, a Chave secreta do app) e responde 403 sem ela, sem a
+assinatura ou com assinatura que não confere. `express.json` guarda o corpo
+cru (`req.rawBody`) só nessa rota. Sem migration, sem mudança de front.
+Teste novo `scripts/testes/whatsapp-assinatura.test.js` (8/8). ⚠️ Sem
+`WHATSAPP_APP_SECRET` no Railway o webhook recusa tudo. Ver
+[modulos/whatsapp-ia.md](modulos/whatsapp-ia.md) e
+[modulos/meta-tech-provider.md](modulos/meta-tech-provider.md).
+
 ## 2026-11-24 — NFS-e: a ficha técnica do item vai na nota
 
 Pedido do Pedro: o texto detalhado de cada linha do orçamento (a ficha
