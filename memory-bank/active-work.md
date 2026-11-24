@@ -13,6 +13,15 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Telemetria na tela — no ar em 24/11/2026.** Gráfico
+> do Monitoramento (lia `j[device]` em vez de `j.series[device]`), situação
+> pelo alerta aberto no admin e no cliente, extravasamento visível, faixas em
+> `src/config.js`. Conferido no banco de teste. ⏳ **Ficaram para depois** os itens 4 a 7 da revisão: "último
+> sinal" pela leitura gravada em vez do `last_seen`, botão de 90 dias com
+> retenção de 60, eixo do gráfico do cliente por índice e não por tempo, tipo
+> do reservatório cru ("superior"). Ver
+> [telemetria.md](../docs/modulos/telemetria.md#faixas-e-situação-na-tela-24112026).
+
 > 🟠 **Extravasamento pelo nível (etapa 1) — no ar em 24/11/2026.** Alerta `extravasamento` + chamado `[AUTO]` de `vazamento`, regra em
 > `extravasor.service.js`. ✅ Migration **106** em teste e em produção (antes do push); teste
 > `extravasamento.test.js` 28/28; campo conferido no modal do admin novo.

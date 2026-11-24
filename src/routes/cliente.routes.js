@@ -8,7 +8,7 @@ const { pool } = require("../db");
 
 const { authRequired } = require("../middleware/authRequired");
 const { clienteOnly } = require("../middleware/clienteOnly");
-const { OFFLINE_MINUTES } = require("../config");
+const { OFFLINE_MINUTES, LIMIARES_NIVEL } = require("../config");
 const { gerarPdfOS } = require("../services/os-pdf.service");
 const { gerarPdfAvulso } = require("../services/orcamento-pdf.service");
 const { sendOrcamentoRespondido } = require("../services/email");
@@ -152,6 +152,8 @@ router.get("/status", authRequired, clienteOnly, async (req, res) => {
       reservatorios,
       ultima_leitura: ultimaGeral, // mantém compatível com o seu cliente.js atual
       alertas_abertos: alertasResult.rows,
+      // As faixas que o alerta usa — o painel lê daqui em vez de repetir 45/20.
+      limiares: LIMIARES_NIVEL,
     });
 
   } catch (error) {

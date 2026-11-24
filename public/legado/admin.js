@@ -2597,7 +2597,7 @@ async function _alCarregarHistorico(deviceId) {
       });
       if (!r.ok) throw new Error("historico " + r.status);
       const j = await r.json();
-      dados = j[deviceId] || [];
+      dados = j.series?.[deviceId] || []; // resposta: { horas, bucket_sec, series }
       _alHistoricoCache.set(deviceId, { ts: Date.now(), dados });
     }
 

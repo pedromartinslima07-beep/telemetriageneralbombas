@@ -456,6 +456,18 @@ momento em que ele **age**; a tela de descanso continua descansando.
 
 ---
 
+## O estado de cada reservatório vem do número E do alerta (24/11/2026)
+
+`estadoDo(r)` devolve o pior entre a faixa do número e o alerta aberto daquele
+aparelho: `critico` > `baixo` > `extravasando` > `ok` (`mudo` vem antes de
+tudo). Antes era só o número, e o alerta com histerese deixava a manchete
+dizendo "abastecido" enquanto a história logo abaixo dizia "passou abaixo de
+45%". O `extravasando` reaproveita o desenho de atenção (`cls = "baixo"`), tem
+ramo próprio no veredito e texto próprio na ficha. As faixas (`LIMIARES`) são
+copiadas de `/cliente/status` → `limiares` a cada carga; o número fixo no
+arquivo só vale até a primeira resposta. Detalhes em
+[telemetria.md](telemetria.md#faixas-e-situação-na-tela-24112026).
+
 ## O PDF e o `device_id`
 
 ⚠️ **`GET /relatorio/pdf` exige `device_id`** — não existe relatório "do

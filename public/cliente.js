@@ -42,8 +42,10 @@ function usuarioLocal() {
 }
 
 /* ── Faixas de alerta ───────────────────────────────────────────────────
-   ⚠️ São as MESMAS do backend (`nivelFromPct`) e as mesmas desenhadas na
-   coluna d'água da landing. Se mudarem lá, mudam nos três. */
+   ⚠️ A fonte é o servidor (`src/config.js` → `limiares` em /cliente/status),
+   copiada para cá a cada carga. Estes valores só valem até a primeira
+   resposta. A coluna d'água da landing e as marcas 45/20 do tubo (CSS)
+   continuam desenhadas com os mesmos números. */
 const LIMIARES = { critico: 20, baixo: 45 };
 
 /* ── Estado ─────────────────────────────────────────────────────────────── */
@@ -122,12 +124,20 @@ const porExtenso = n => NUM[n] || String(n);
 
 /* ── Leitura de um reservatório ─────────────────────────────────────────── */
 
+/* ⚠️ O ESTADO É O PIOR ENTRE O NÚMERO E O ALERTA ABERTO. O alerta tem
+   histerese (para "melhorar" o nível precisa subir alguns pontos além da
+   faixa): só pelo número, a 47% com o alerta de nível baixo ainda aberto, a
+   manchete dizia "abastecido" e a história logo abaixo, "passou abaixo de
+   45%". E o extravasamento (nível no ladrão) não é faixa de nível: sem olhar
+   o alerta, o prédio extravasando aparecia como "abastecido". */
 function estadoDo(r) {
   if (r.offline) return "mudo";
   const pct = r.ultima_leitura?.nivel_pct;
   if (pct == null) return "mudo";
-  if (pct < LIMIARES.critico) return "critico";
-  if (pct < LIMIARES.baixo)   return "baixo";
+  const tipos = new Set(alertasAbertos().filter(a => a.device_id === r.device_id).map(a => a.tipo));
+  if (pct < LIMIARES.critico || tipos.has("nivel_muito_baixo")) return "critico";
+  if (pct < LIMIARES.baixo   || tipos.has("nivel_baixo"))       return "baixo";
+  if (tipos.has("extravasamento")) return "extravasando";
   return "ok";
 }
 
@@ -150,7 +160,8 @@ function leituras() {
       nome: r.nome || "Reservatório",
       tipo: r.tipo || "",
       estado: e,
-      cls: e === "ok" ? "" : e,
+      // extravasando usa o desenho de atenção (âmbar), sem CSS próprio
+      cls: e === "ok" ? "" : e === "extravasando" ? "baixo" : e,
       n: e === "mudo" ? 0 : Math.max(0, Math.min(100, Math.round(r.ultima_leitura?.nivel_pct ?? 0))),
       quando: r.ultima_leitura?.criado_em || null,
       /* ⚠️ `?? null`, não `|| false`: "desligada" e "não informou" são
@@ -193,6 +204,7 @@ function veredito(lst) {
   const criticos = lst.filter(r => r.estado === "critico");
   const mudos    = lst.filter(r => r.estado === "mudo");
   const baixos   = lst.filter(r => r.estado === "baixo");
+  const extrav   = lst.filter(r => r.estado === "extravasando");
 
   /* ⚠️ ESTE RAMO É O ÚNICO QUE ANUNCIA, e a regra dele é NOMEAR, não
      convencer (25/08/2026, decisão do Pedro).
@@ -271,6 +283,21 @@ function veredito(lst) {
         : `<em>${baixos.length} reservatórios</em> estão abaixo de ${LIMIARES.baixo}%.`,
       apoio: `Abaixo de ${LIMIARES.baixo}% a bomba costuma repor sozinha, e acompanhamos de perto.` + notaSemChamado +
         (abertos.length ? "" : "Nossa equipe é avisada automaticamente quando o nível chega aqui."),
+      desde: ultimaLeituraTxt(lst),
+    };
+  }
+
+  /* Extravasamento: não falta água, sobra — e vai embora pelo ladrão. Não é
+     risco de desabastecimento, por isso `risco: false`; vem depois do nível
+     baixo, que é o que o síndico precisa saber primeiro. */
+  if (extrav.length) {
+    return {
+      chave: "extravasando", risco: false,
+      frase: extrav.length === 1
+        ? `A <em>${esc(extrav[0].nome)}</em> está no nível do ladrão.`
+        : `<em>${extrav.length} reservatórios</em> estão no nível do ladrão.`,
+      apoio: "Pode estar extravasando: quando a boia não fecha, a água sai pelo cano do ladrão." + notaSemChamado +
+        (abertos.length ? "" : "Nossa equipe é avisada automaticamente."),
       desde: ultimaLeituraTxt(lst),
     };
   }
@@ -389,7 +416,7 @@ const ICO_SEM_SINAL = `<span class="selo-mudo" aria-hidden="true">
    ⚠️ Não voltar a mostrar N. Três objetos idênticos lado a lado leem como
    gráfico de barras — o vício que derrubou a v1 e que sobreviveu ao corte
    de onze para três. Os outros vivem na ficha `#fTodos`, atrás do botão. */
-const ORDEM_PIOR = { critico: 0, mudo: 1, baixo: 2, ok: 3 };
+const ORDEM_PIOR = { critico: 0, mudo: 1, baixo: 2, extravasando: 3, ok: 4 };
 
 function oPior(todas) {
   if (!todas.length) return null;
@@ -403,9 +430,10 @@ function oPior(todas) {
    escolha nenhuma para justificar. */
 function motivoDoPior(r, todas) {
   if (todas.length < 2) return "";
-  if (r.estado === "critico") return "abaixo de 20% — o mais urgente do prédio";
+  if (r.estado === "critico") return `abaixo de ${LIMIARES.critico}% — o mais urgente do prédio`;
   if (r.estado === "mudo")    return "sem leitura — por isso está na tela";
-  if (r.estado === "baixo")   return "abaixo de 45% — o que pede atenção";
+  if (r.estado === "baixo")   return `abaixo de ${LIMIARES.baixo}% — o que pede atenção`;
+  if (r.estado === "extravasando") return "no nível do ladrão — pode estar extravasando";
   return `o mais baixo dos ${todas.length}`;
 }
 
@@ -1023,11 +1051,18 @@ function abrirReservatorio(deviceId) {
 
   const est = $("fResEstado");
   est.querySelector(".ponto").className = "ponto" +
-    (r?.estado === "critico" ? " risco" : r?.estado === "baixo" ? " atencao" : r?.estado === "mudo" ? " aberto" : "");
+    (r?.estado === "critico" ? " risco" : r?.estado === "baixo" || r?.estado === "extravasando" ? " atencao" : r?.estado === "mudo" ? " aberto" : "");
   $("fResEstadoTxt").textContent = !r ? "—"
     : r.estado === "mudo"    ? "Sem leitura — o sensor parou de responder"
-    : r.estado === "critico" ? `${r.n}% agora — abaixo de ${LIMIARES.critico}%, tratamos como urgência`
-    : r.estado === "baixo"   ? `${r.n}% agora — abaixo de ${LIMIARES.baixo}%, acompanhando`
+    // Com o alerta ainda aberto o número pode já ter passado da faixa
+    // (histerese): aí "abaixo de 45%" seria mentira ao lado de "47%".
+    : r.estado === "critico" ? (r.n < LIMIARES.critico
+        ? `${r.n}% agora — abaixo de ${LIMIARES.critico}%, tratamos como urgência`
+        : `${r.n}% agora — voltando a subir, ainda tratamos como urgência`)
+    : r.estado === "baixo"   ? (r.n < LIMIARES.baixo
+        ? `${r.n}% agora — abaixo de ${LIMIARES.baixo}%, acompanhando`
+        : `${r.n}% agora — voltando a subir, ainda acompanhando`)
+    : r.estado === "extravasando" ? `${r.n}% agora — no nível do ladrão, pode estar extravasando`
     : `${r.n}% agora — dentro do esperado`;
 
   aplicarPeriodo(_resDias);
@@ -1164,6 +1199,7 @@ async function carregar() {
 
     mostrarAviso(null);
     _status = await sR.json();
+    if (_status?.limiares) Object.assign(LIMIARES, _status.limiares);
     if (cR?.ok) _chamados = await cR.json();
 
     identidade();

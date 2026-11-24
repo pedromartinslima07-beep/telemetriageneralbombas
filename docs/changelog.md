@@ -18702,3 +18702,27 @@ identificar reservatório extravasando. Fluxo e regra em
   duas rotas contra o banco de teste, num condomínio temporário apagado no
   fim). ⚠️ `alertas-so-o-que-e-alerta.test.js` já falhava antes desta mudança
   (`_chEmAberto` fora do contexto do teste), igual no `admin.js` do último commit.
+
+## 2026-11-24 — Telemetria na tela: gráfico do admin, alerta na situação, faixas numa cópia
+
+Revisão de como a telemetria aparece no admin e no cliente. Detalhes em
+[telemetria.md](modulos/telemetria.md#faixas-e-situação-na-tela-24112026).
+
+- **Gráfico do Monitoramento e do detalhe de alerta nunca desenhavam**: liam
+  `j[device]` em vez de `j.series[device]` de `/admin/historico`. Corrigido em
+  `admin-monitoramento.js`, `admin.js` e no legado (`legado/admin.js?v=367`,
+  conserto vale na cópia).
+- **Situação = pior entre o número e o alerta aberto** no Monitoramento e no
+  painel do cliente. O extravasamento passa a aparecer: "Extravasando" no
+  Monitoramento (com contagem no resumo, fora do filtro de nível baixo) e
+  estado `extravasando` no cliente, com manchete e texto da ficha próprios.
+  Com o alerta ainda aberto e o número já acima da faixa, a ficha do cliente
+  diz "voltando a subir" em vez de "abaixo de 45%".
+- **Faixas 45/20 numa cópia**: `LIMIARES_NIVEL` em `src/config.js`, usada pelo
+  alerta e pelo operador e devolvida em `GET /cliente/status` → `limiares`.
+- Cache: `admin.js?v=430`, `admin-monitoramento.js?v=5`, `cliente.js?v=44`,
+  `legado/admin.js?v=367`. Nenhum endpoint novo.
+- Conferido no banco de teste (painel novo e cliente): gráfico desenhando,
+  Caixa 2 a 47% com alerta aberto como "Nível baixo", Caixa 1 com
+  extravasamento como "Extravasando" e manchete do cliente. Teste de
+  extravasamento 28/28.

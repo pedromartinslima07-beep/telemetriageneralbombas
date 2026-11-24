@@ -6,6 +6,7 @@ const { sendAlertaEmail } = require("../services/email");
 const { abrirChamadoAuto } = require("../services/chamados.service");
 const { avaliarExtravasor, alturaAguaM } = require("../services/extravasor.service");
 const { getConfigInt } = require("../services/config.service");
+const { LIMIARES_NIVEL } = require("../config");
 
 const router = express.Router();
 
@@ -20,8 +21,8 @@ const telemetriaLimiter = rateLimit({
 // Deriva nivel (string) a partir de nivel_pct (0-100)
 const nivelFromPct = (pct) => {
   if (pct >= 70) return "alto";
-  if (pct >= 45) return "medio";
-  if (pct >= 20) return "baixo";
+  if (pct >= LIMIARES_NIVEL.baixo) return "medio";
+  if (pct >= LIMIARES_NIVEL.critico) return "baixo";
   return "muito_baixo";
 };
 

@@ -23,10 +23,11 @@ const {
 
 const router = express.Router();
 
-// Faixas de nível — as MESMAS do resto do sistema (telemetria.md).
-// Duplicadas aqui de propósito: o front do operador não carrega admin.js.
-const NIVEL_BAIXO = 45;
-const NIVEL_CRITICO = 20;
+// Faixas de nível — a mesma cópia do alerta (src/config.js). O front do
+// operador não carrega admin.js e as recebe na resposta (`limiares`).
+const { LIMIARES_NIVEL } = require("../config");
+const NIVEL_BAIXO = LIMIARES_NIVEL.baixo;
+const NIVEL_CRITICO = LIMIARES_NIVEL.critico;
 
 // Minutos sem leitura a partir dos quais o reservatório é considerado mudo.
 // Mesmo valor de `OFFLINE_MINUTES` em src/config.js — importado de lá para

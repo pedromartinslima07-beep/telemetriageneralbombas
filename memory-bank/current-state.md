@@ -88,6 +88,13 @@ bomba ligada por 3 min. Abre chamado `[AUTO]` de `vazamento`. Só funciona no
 reservatório com "Altura do ladrão" cadastrada (modal do admin novo). Ver
 [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 
+### ⚠️ Telemetria na tela: situação pelo alerta (24/11/2026, no ar)
+
+Gráfico do Monitoramento voltou a desenhar (`series`); a situação no admin e
+no cliente é o pior entre número e alerta aberto, e o extravasamento aparece.
+Faixas em `LIMIARES_NIVEL` (`src/config.js`). Ver
+[telemetria.md](../docs/modulos/telemetria.md#faixas-e-situação-na-tela-24112026).
+
 ### ⚠️ Agenda: editar e apagar pelo quadro (23/11/2026)
 
 O menu do Quadro agora tem "Apagar"/"Apagar a série" para todo compromisso, e

@@ -38,20 +38,31 @@
     painelAberto: false,    // celular: o painel cobre a lista
   };
 
+  // Faixas de nível — as mesmas de src/config.js (LIMIARES_NIVEL), que o
+  // alerta usa. O /admin/status devolve uma lista e não tem onde levá-las.
+  const FAIXA = { baixo: 45, critico: 20 };
+
   // ===== DADOS =====
+  // ⚠️ A SITUAÇÃO É O PIOR ENTRE O NÚMERO E O ALERTA ABERTO. O alerta tem
+  // histerese (para "melhorar" o nível precisa subir 5 pontos além da faixa),
+  // e a tela comparava só o número: a 47% com `nivel_baixo` aberto, a linha
+  // dizia "Normal" com "1 alerta" ao lado. E o extravasamento, que não é
+  // faixa de nível, não aparecia em lugar nenhum da situação.
   function reservatorios() {
     const out = [];
     for (const g of (typeof _statusData !== "undefined" && Array.isArray(_statusData) ? _statusData : [])) {
       for (const r of (g.reservatorios || [])) {
         const pct = r.ultima_leitura?.nivel_pct;
         const nivel = pct != null ? Math.round(Number(pct)) : null;
-        let sit = "ok", motivo = "Normal";
+        const tipos = new Set(alertasDe(r.device_id).map(a => a.tipo));
+        let sit = "ok", motivo = "Normal", extravasando = false;
         if (r.offline) { sit = "mudo"; motivo = "Sem sinal"; }
         else if (nivel == null) { sit = "mudo"; motivo = "Sem leitura"; }
-        else if (nivel < 20) { sit = "ri"; motivo = "Nível crítico"; }
-        else if (nivel < 45) { sit = "at"; motivo = "Nível baixo"; }
+        else if (nivel < FAIXA.critico || tipos.has("nivel_muito_baixo")) { sit = "ri"; motivo = "Nível crítico"; }
+        else if (nivel < FAIXA.baixo || tipos.has("nivel_baixo")) { sit = "at"; motivo = "Nível baixo"; }
+        else if (tipos.has("extravasamento")) { sit = "at"; motivo = "Extravasando"; extravasando = true; }
         out.push({
-          ...r, nivel, sit, motivo,
+          ...r, nivel, sit, motivo, extravasando,
           condoId: g.condominio?.id,
           condoNome: g.condominio?.nome_fantasia || g.condominio?.nome || "Condomínio",
           bairro: [g.condominio?.bairro, g.condominio?.cidade].filter(Boolean).join(" · "),
@@ -65,7 +76,7 @@
   const FILTROS = [
     ["atencao", "Pede atenção", r => r.sit !== "ok"],
     ["mudo", "Sem sinal", r => r.sit === "mudo", "cz"],
-    ["baixo", "Nível baixo ou crítico", r => r.sit === "ri" || r.sit === "at", "at"],
+    ["baixo", "Nível baixo ou crítico", r => (r.sit === "ri" || r.sit === "at") && !r.extravasando, "at"],
     ["todos", "Todos", () => true],
   ];
   function filtrados(lista) {
@@ -96,7 +107,9 @@
     bomba_desligada: "Bomba parada", bomba_ligada_continuo: "Bomba ligada sem parar",
   };
   const tipoAlerta = t => TIPO_ALERTA[t] || String(t || "Alerta").replaceAll("_", " ");
-  const corNivel = n => (n == null ? "#a9b2c9" : n < 20 ? "var(--mn-ri)" : n < 45 ? "var(--mn-at)" : "var(--mn-ok)");
+  const corNivel = n => (n == null ? "#a9b2c9" : n < FAIXA.critico ? "var(--mn-ri)" : n < FAIXA.baixo ? "var(--mn-at)" : "var(--mn-ok)");
+  // Cor da barra pela SITUAÇÃO (que já considera o alerta), não pelo número.
+  const corSit = r => (r.offline ? null : { ok: "var(--mn-ok)", at: "var(--mn-at)", ri: "var(--mn-ri)" }[r.sit] || null);
   const selo = r => `<span class="mn-selo is-${r.sit}">${esc(r.motivo)}</span>`;
   const bomba = r => {
     const b = r.ultima_leitura?.bomba_ligada;
@@ -159,10 +172,11 @@
       }).join("");
     }
     const mudos = todos.filter(r => r.sit === "mudo").length;
-    const baixos = todos.filter(r => r.sit === "ri" || r.sit === "at").length;
+    const extrav = todos.filter(r => r.extravasando).length;
+    const baixos = todos.filter(r => (r.sit === "ri" || r.sit === "at") && !r.extravasando).length;
     const resumo = document.getElementById("monResumo");
     if (resumo) resumo.innerHTML = todos.length
-      ? `<b>${todos.length - mudos - baixos} de ${todos.length}</b> normais${baixos ? ` · <b>${baixos}</b> com nível baixo` : ""}${mudos ? ` · <b>${mudos}</b> sem sinal` : ""}`
+      ? `<b>${todos.length - mudos - baixos - extrav} de ${todos.length}</b> normais${baixos ? ` · <b>${baixos}</b> com nível baixo` : ""}${extrav ? ` · <b>${extrav}</b> extravasando` : ""}${mudos ? ` · <b>${mudos}</b> sem sinal` : ""}`
       : "";
     const vivo = document.getElementById("monVivo");
     if (vivo) vivo.querySelector("span").textContent = `Ao vivo · ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
@@ -181,7 +195,7 @@
     if (!lista.length) {
       const bom = st.filtro !== "todos" && !st.busca && !st.condo;
       alvo.innerHTML = `<div class="mn-vazio">${ico(bom ? "circle-check" : "search")}<b>${bom ? "Nada pedindo atenção agora." : "Nenhum reservatório com esse filtro."}</b>
-        <span>${bom ? "Todos os reservatórios estão com sinal e acima de 45%." : "Mude o filtro ou a busca."}</span>
+        <span>${bom ? "Todos os reservatórios estão com sinal e acima de ${FAIXA.baixo}%." : "Mude o filtro ou a busca."}</span>
         ${bom ? "" : `<button type="button" class="mn-bt" data-mn-limpar>Limpar filtros</button>`}</div>`;
       icones(alvo); return;
     }
@@ -193,7 +207,7 @@
           return `<tr data-mn-res="${r.id}" tabindex="0" class="${r.id === st.sel ? "is-sel" : ""}${r.sit !== "ok" ? " is-" + r.sit : ""}" aria-selected="${r.id === st.sel}">
             <td><b>${esc(r.condoNome)}</b><span class="mn-sub">${esc(r.nome || r.device_id)}${r.bairro ? " · " + esc(r.bairro) : ""}</span></td>
             <td class="mn-c-nivel">${r.nivel == null ? `<span class="mn-mudo">sem leitura</span>`
-              : `<span class="mn-nivel${r.offline ? " is-velho" : ""}"><span class="mn-nivel-barra"><i style="width:${Math.max(2, r.nivel)}%;background:${corNivel(r.offline ? null : r.nivel)}"></i></span><b>${r.nivel}%</b></span>`}</td>
+              : `<span class="mn-nivel${r.offline ? " is-velho" : ""}"><span class="mn-nivel-barra"><i style="width:${Math.max(2, r.nivel)}%;background:${corSit(r) || corNivel(null)}"></i></span><b>${r.nivel}%</b></span>`}</td>
             <td class="mn-om">${bomba(r)}</td>
             <td class="mn-om"><span class="${r.offline ? "mn-sinal-mudo" : "mn-sub0"}">${r.ultima_leitura?.criado_em ? rel(r.ultima_leitura.criado_em) : "nunca"}</span></td>
             <td class="mn-c-sit">${selo(r)}${al ? `<span class="mn-al">${al} alerta${al === 1 ? "" : "s"}</span>` : ""}</td>
@@ -326,7 +340,7 @@
             <button type="button" class="mn-bt is-p is-ghost" data-mn-comentar="${a.id}" title="Comentários e análise por IA">${ico("message-square")}</button>
           </div>
         </div>`).join("")
-        : `<p class="mn-nada">Nenhum alerta aberto. Faixas: baixo abaixo de 45%, crítico abaixo de 20%.</p>`}
+        : `<p class="mn-nada">Nenhum alerta aberto. Faixas: baixo abaixo de ${FAIXA.baixo}%, crítico abaixo de ${FAIXA.critico}%.</p>`}
     </section>`;
   }
 
@@ -341,7 +355,9 @@
         const resp = await fetch(`/admin/historico?device_ids=${encodeURIComponent(r.device_id)}&horas=${st.horas}`, { headers: authHeaders() });
         if (!resp.ok) throw new Error(String(resp.status));
         const j = await resp.json();
-        c = { ts: Date.now(), pontos: (j[r.device_id] || []).map(p => ({ t: new Date(p.bucket).getTime(), v: p.nivel_pct_avg })).filter(p => p.v != null) };
+        // ⚠️ A resposta é { horas, bucket_sec, series: { <device>: [...] } }.
+        // Ler j[device] (sem `series`) deixava o gráfico sempre "sem leituras".
+        c = { ts: Date.now(), pontos: (j.series?.[r.device_id] || []).map(p => ({ t: new Date(p.bucket).getTime(), v: p.nivel_pct_avg })).filter(p => p.v != null) };
       } catch (e) {
         c = { erro: true, ts: Date.now() };
       }
@@ -374,13 +390,13 @@
     };
     const min = Math.round(Math.min(...pts.map(p => p.v))), max = Math.round(Math.max(...pts.map(p => p.v)));
     return `<svg class="mn-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Nível no período: mínimo ${min}%, máximo ${max}%, agora ${Math.round(ult.v)}%">
-      <rect x="${pl}" y="${y(45)}" width="${W - pl - pr}" height="${y(20) - y(45)}" fill="rgba(217,148,17,.09)"/>
-      <rect x="${pl}" y="${y(20)}" width="${W - pl - pr}" height="${y(0) - y(20)}" fill="rgba(210,58,44,.08)"/>
-      ${[0, 20, 45, 100].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(6,16,51,${v === 20 || v === 45 ? ".22" : ".1"})" ${v === 20 || v === 45 ? 'stroke-dasharray="3 3"' : ""} vector-effect="non-scaling-stroke"/>
+      <rect x="${pl}" y="${y(FAIXA.baixo)}" width="${W - pl - pr}" height="${y(FAIXA.critico) - y(FAIXA.baixo)}" fill="rgba(217,148,17,.09)"/>
+      <rect x="${pl}" y="${y(FAIXA.critico)}" width="${W - pl - pr}" height="${y(0) - y(FAIXA.critico)}" fill="rgba(210,58,44,.08)"/>
+      ${[0, FAIXA.critico, FAIXA.baixo, 100].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(6,16,51,${v === FAIXA.critico || v === FAIXA.baixo ? ".22" : ".1"})" ${v === FAIXA.critico || v === FAIXA.baixo ? 'stroke-dasharray="3 3"' : ""} vector-effect="non-scaling-stroke"/>
         <text x="${pl - 5}" y="${y(v) + 3}" text-anchor="end">${v}</text>`).join("")}
       <path d="${area}" fill="rgba(13,39,117,.08)"/>
       <path d="${d}" fill="none" stroke="#0d2775" stroke-width="1.8" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
-      <circle cx="${x(ult.t)}" cy="${y(ult.v)}" r="3.5" fill="${corNivel(ult.v).startsWith("var") ? (ult.v < 20 ? "#d23a2c" : ult.v < 45 ? "#d99411" : "#1f9d57") : "#a9b2c9"}" stroke="#fff" stroke-width="1.5"/>
+      <circle cx="${x(ult.t)}" cy="${y(ult.v)}" r="3.5" fill="${corNivel(ult.v).startsWith("var") ? (ult.v < FAIXA.critico ? "#d23a2c" : ult.v < FAIXA.baixo ? "#d99411" : "#1f9d57") : "#a9b2c9"}" stroke="#fff" stroke-width="1.5"/>
       <text x="${pl}" y="${H - 5}">${fmt(t0)}</text><text x="${W - pr}" y="${H - 5}" text-anchor="end">${fmt(t1)}</text>
     </svg>
     <p class="mn-graf-rodape">Mínimo <b>${min}%</b> · máximo <b>${max}%</b> no período</p>`;

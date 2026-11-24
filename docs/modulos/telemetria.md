@@ -193,6 +193,26 @@ banco de teste).
   próprio condomínio).
 - **Relatório PDF:** `GET /relatorio/pdf` (Puppeteer).
 
+⚠️ **`/admin/historico` devolve `{ horas, bucket_sec, series: { <device>: [...] } }`.**
+Ler `j[device]` sem o `series` não dá erro: dá lista vazia, e a tela diz "sem
+leituras" com o sensor funcionando. Foi assim no gráfico do Monitoramento e no
+do detalhe de alerta (admin novo e legado) até 24/11/2026.
+
+### Faixas e situação na tela (24/11/2026)
+
+- **As faixas (45% / 20%) têm uma cópia no servidor**: `LIMIARES_NIVEL` em
+  `src/config.js`, lida pelo alerta (`nivelFromPct`), pelo operador e
+  devolvida ao cliente em `GET /cliente/status` → `limiares`. O Monitoramento
+  do admin repete as duas no topo (`FAIXA`), porque o `/admin/status` é uma
+  lista sem lugar para levá-las.
+- **A situação mostrada é o PIOR entre o número e o alerta aberto**, no
+  Monitoramento (`reservatorios()`) e no cliente (`estadoDo`). O alerta tem
+  histerese: a 47% com `nivel_baixo` ainda aberto, a tela que só olhava o
+  número dizia "Normal" com "1 alerta" ao lado. E o extravasamento só existe
+  como alerta: sem olhar os alertas, o prédio extravasando aparecia
+  "abastecido". No cliente ele é o estado `extravasando` (depois de crítico,
+  sem sinal e baixo), com desenho âmbar e manchete "está no nível do ladrão".
+
 ## Retenção
 
 A tabela `leituras` cresce ~1 linha por device a cada poucos minutos (~86k

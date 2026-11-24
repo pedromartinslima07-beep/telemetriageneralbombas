@@ -1752,3 +1752,13 @@ número, situação, PDF, boletos e histórico na mesma página.
   lá.
 - **Descartado (por ora):** sensor no ladrão. Dá certeza, mas é hardware,
   firmware e instalação: é a etapa 2, opcional para cisterna sem bomba.
+
+## A situação na tela é o pior entre o número e o alerta (24/11/2026)
+
+- **O alerta manda na situação, o número só pode piorá-la.** O alerta tem
+  histerese e o extravasamento só existe como alerta; a tela que olhava só o
+  número desmentia o próprio alerta ao lado. A alternativa (tirar a histerese)
+  voltaria a abrir dezenas de alertas com o nível parado na fronteira.
+- **Faixas numa cópia no servidor**, entregue ao cliente pela API. O admin
+  ficou com as duas constantes no topo do Monitoramento porque mudar o formato
+  do `/admin/status` (uma lista) quebraria o legado.
