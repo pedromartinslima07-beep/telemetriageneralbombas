@@ -540,9 +540,14 @@ async function _buscarContextoOperacional(condominio_id) {
         [condominio_id]
       ),
       pool.query(
-        `SELECT tipo, mensagem FROM alertas
-          WHERE condominio_id = $1 AND status = 'aberto'
-          ORDER BY criado_em DESC LIMIT 5`,
+        // ⚠️ `alertas` NÃO tem condominio_id: é chaveada por device_id. A
+        // versão antiga filtrava por um campo que não existe, a consulta dava
+        // erro, o catch abaixo engolia, e o contexto inteiro (telemetria,
+        // alertas e chamados) nunca chegou ao prompt (24/11/2026).
+        `SELECT a.tipo, a.mensagem FROM alertas a
+           JOIN reservatorios r ON r.device_id = a.device_id
+          WHERE r.condominio_id = $1 AND a.status = 'aberto'
+          ORDER BY a.criado_em DESC LIMIT 5`,
         [condominio_id]
       ),
       pool.query(
@@ -573,7 +578,11 @@ async function _buscarContextoOperacional(condominio_id) {
       );
     }
     return linhas.length ? linhas.join("\n") : null;
-  } catch (_) {
+  } catch (err) {
+    // Sem contexto a IA ainda responde (chama buscar_telemetria se precisar),
+    // mas o erro tem de aparecer no log: calado, ele escondeu por meses que o
+    // contexto nunca era montado.
+    console.error("[ia] contexto operacional falhou:", err.message);
     return null;
   }
 }
@@ -689,4 +698,4 @@ async function processarComIA({
   return { resposta, progresso };
 }
 
-module.exports = { processarComIA, SYSTEM_PROMPT_PADRAO, _executarCriarOrcamento };
+module.exports = { processarComIA, SYSTEM_PROMPT_PADRAO, _executarCriarOrcamento, _buscarContextoOperacional };

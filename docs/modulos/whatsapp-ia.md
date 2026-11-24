@@ -36,12 +36,26 @@ A IA **não responde** se:
 - `aguardando_avaliacao = true` → captura a nota 1–4 e encerra.
 - Sessão expirada (> `whatsapp.sessao_timeout_horas`, default 8h) → abre nova
   conversa, IA recomeça do zero.
+- Mensagem de **uma palavra só** ("ok", "obrigado") — exceto saudação ("oi",
+  "olá") — **e** fora de uma confirmação pendente. ⚠️ Esse filtro roda DEPOIS
+  da confirmação: até 24/11/2026 rodava antes, e "Sim" sozinho, a resposta mais
+  comum a "Posso abrir o chamado?", era descartado sem resposta.
+
+A IA recebe as **20 últimas** mensagens da conversa, em ordem. Até 24/11/2026
+eram as 20 primeiras (`ORDER BY ASC LIMIT 20`): da 21ª em diante ela respondia
+sem ver o que o cliente acabara de escrever.
 
 ## Contexto pré-injetado
 
 Antes de cada chamada à OpenAI, `_buscarContextoOperacional` injeta no prompt:
 telemetria atual (nível/bomba), alertas abertos e chamados em andamento do
 condomínio. A IA já entra sabendo o estado real, economizando function calls.
+
+⚠️ **`alertas` não tem `condominio_id`** — é chaveada por `device_id`, e o
+condomínio vem pelo `JOIN reservatorios`. Até 24/11/2026 a consulta filtrava
+pelo campo inexistente, dava erro, o `catch` engolia e **o contexto nunca
+chegava ao prompt**. O erro agora vai para o log (`[ia] contexto operacional
+falhou`).
 
 ## Função da IA (`ia.service.js`)
 
@@ -68,6 +82,13 @@ TRIAGEM → ESCALADO → FINALIZADO
 - Ações **não-P1** (`abrir_chamado`, `criar_solicitacao_orcamento`) ficam em
   `pendente_acao (JSONB)` e só executam **após confirmação explícita** do
   cliente (`_executarAcaoPendente`).
+- **A resposta do cliente** é lida por `classificarResposta`
+  (`src/services/whatsapp-aceite.service.js`): **recusa primeiro** (qualquer
+  negação na frase) e **aceite só inequívoco** (a frase inteira é um aceite:
+  "sim", "pode abrir", "ok, por favor"). O resto vai para a IA com a ação ainda
+  pendente. Até 24/11/2026 eram duas regex de palavra solta com o sim conferido
+  antes do não, e "não, pode deixar" ou "não quero" abriam o chamado. Ideia do
+  `aceiteInequivoco` do bot do Petzu.
 - **Emergência P1** executa direto (sem confirmação).
 - **Anti-loop:** `ia_sem_avanco` conta trocas sem progresso; em 3, escala
   automaticamente para humano.

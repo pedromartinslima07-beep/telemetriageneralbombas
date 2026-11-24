@@ -18749,3 +18749,22 @@ Itens 4 a 7 da revisão. Detalhes em
   novo (só campos a mais em respostas existentes).
 - Conferido no banco de teste, admin novo e cliente, com um buraco de 20 h
   tirado do histórico da Caixa 1.
+
+## 2026-11-24 — Bot do WhatsApp: confirmação, contexto e histórico
+
+Achados comparando com o bot do Petzu (outro projeto do Pedro). Fluxo em
+[whatsapp-ia.md](modulos/whatsapp-ia.md).
+
+- **"Sim" sozinho voltou a confirmar**: o filtro de uma palavra passou para
+  depois da confirmação pendente (antes descartava o "Sim" e o chamado não
+  abria). A saudação de uma palavra ("oi") agora chama a IA.
+- **"Não, pode deixar" não abre mais o chamado**: `whatsapp-aceite.service.js`
+  (novo) — recusa primeiro, aceite só quando a frase inteira é aceite. A
+  recusa de um pedido de orçamento diz "orçamento", não "chamado".
+- **Contexto do condomínio chega à IA**: `_buscarContextoOperacional` filtrava
+  `alertas` por um `condominio_id` que não existe; agora junta por
+  `reservatorios`, e o erro vai para o log em vez de ser engolido.
+- **Histórico = as 20 últimas mensagens** (eram as 20 primeiras).
+- Teste novo `scripts/testes/whatsapp-confirmacao.test.js`: 41/41 (regra do
+  aceite + processamento real da mensagem no banco de teste, sem OpenAI nem
+  Meta). Sem migration e sem mudança de front.

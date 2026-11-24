@@ -13,6 +13,15 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟠 **Bot do WhatsApp: 3 defeitos — no ar em 24/11/2026.**
+> "Sim" sozinho era descartado, "não, pode deixar" abria o chamado, o contexto
+> do condomínio nunca chegava à IA (e o histórico eram as 20 primeiras
+> mensagens). Teste 41/41. ⏳ Próximos, trazidos do
+> Petzu: juntar mensagens seguidas, tempo-limite + modelo de reserva, template
+> fora das 24h no aviso de sensor mudo; depois segunda tentativa, áudio,
+> aviso ao responsável na escalação e rastro. Ver
+> [whatsapp-ia.md](../docs/modulos/whatsapp-ia.md).
+
 > 🟠 **Telemetria na tela — no ar em 24/11/2026.** Gráfico
 > do Monitoramento (lia `j[device]` em vez de `j.series[device]`), situação
 > pelo alerta aberto no admin e no cliente, extravasamento visível, faixas em

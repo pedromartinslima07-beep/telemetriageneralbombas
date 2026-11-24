@@ -88,6 +88,12 @@ bomba ligada por 3 min. Abre chamado `[AUTO]` de `vazamento`. Só funciona no
 reservatório com "Altura do ladrão" cadastrada (modal do admin novo). Ver
 [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 
+### ⚠️ Bot do WhatsApp: confirmação e contexto (24/11/2026, no ar)
+
+"Sim" sozinho confirma, "não, pode deixar" recusa (`whatsapp-aceite.service.js`),
+o contexto do condomínio chega à IA e o histórico são as 20 últimas mensagens.
+Ver [whatsapp-ia.md](../docs/modulos/whatsapp-ia.md).
+
 ### ⚠️ Telemetria na tela: situação pelo alerta (24/11/2026, no ar)
 
 Gráfico do Monitoramento voltou a desenhar (`series`); a situação no admin e

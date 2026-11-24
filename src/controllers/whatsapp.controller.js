@@ -4,8 +4,13 @@ const { enviarMensagem } = require("../services/evolution.service");
 const { getConfigInt } = require("../services/config.service");
 const { registrarCriacao } = require("../services/chamado-historico.service");
 
-const _RE_CONFIRMACAO = /\b(sim|pode|ok|vai|certo|por favor|claro|confirmo|confirma|quero|preciso|abre|abrir|registra|registrar)\b/i;
-const _RE_NEGACAO     = /\b(n[aã]o|cancel|deixa|ignora|esquece|desiste)\b/i;
+// Sim / não à ação pendente: regra em whatsapp-aceite.service.js (aceite
+// inequívoco, recusa primeiro). As duas regex soltas que moravam aqui abriam
+// o chamado com "não, pode deixar" e "não quero".
+const { classificarResposta } = require("../services/whatsapp-aceite.service");
+
+// Uma palavra só que ainda assim pede resposta: a saudação que abre conversa.
+const _RE_SAUDACAO = /^(oi+|ol[aá]|opa|e\s?a[ií]|al[oô]|hello|hi)\W*$/i;
 
 // Executa a ação pendente quando o cliente confirma (backend como juiz final — P3)
 async function _executarAcaoPendente(conversaId, pendente, telefone) {
@@ -216,7 +221,7 @@ async function processarMensagem(msg) {
 
     // Só processa texto com IA
     if (tipo !== "text") return;
-    if (!conteudo || conteudo.trim().split(/\s+/).length < 2) return;
+    if (!conteudo || !conteudo.trim()) return;
 
     // Checa estado da conversa (assumida, aguardando atendente, ação pendente)
     const convRes = await pool.query(
@@ -236,17 +241,24 @@ async function processarMensagem(msg) {
     }
 
     // State machine: ação pendente aguardando confirmação do cliente (Prioridade 3)
+    //
+    // ⚠️ VEM ANTES DO FILTRO DE UMA PALAVRA. Ele ficava acima daqui, e "Sim"
+    // — a resposta mais comum a "Posso abrir o chamado?" — era descartada sem
+    // resposta nenhuma: o chamado nunca abria (24/11/2026).
     if (convData.estado_conversa === "aguardando_confirmacao" && convData.pendente_acao) {
-      if (_RE_CONFIRMACAO.test(conteudo)) {
+      const respostaCliente = classificarResposta(conteudo);
+      if (respostaCliente === "aceite") {
         await _executarAcaoPendente(conversaId, convData.pendente_acao, telefone);
         return;
       }
-      if (_RE_NEGACAO.test(conteudo)) {
+      if (respostaCliente === "recusa") {
         await pool.query(
           `UPDATE conversas_whatsapp SET pendente_acao = NULL, estado_conversa = 'triagem' WHERE id = $1`,
           [conversaId]
         );
-        const msg = "Tudo bem, não vou abrir o chamado. Se precisar de mais alguma coisa, é só falar.";
+        const oQue = convData.pendente_acao?.tipo === "criar_solicitacao_orcamento"
+          ? "registrar o pedido de orçamento" : "abrir o chamado";
+        const msg = `Tudo bem, não vou ${oQue}. Se precisar de mais alguma coisa, é só falar.`;
         await pool.query(
           `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo) VALUES ($1, 'saida', 'text', $2)`,
           [conversaId, msg]
@@ -257,11 +269,21 @@ async function processarMensagem(msg) {
       // Cliente mandou outra coisa — deixa a IA responder mantendo o estado
     }
 
+    // Uma palavra só ("ok", "obrigado", "👍") fora de uma confirmação não chama
+    // a IA: é o fim de conversa que não pede resposta. A saudação sim.
+    const _txt = conteudo.trim();
+    if (_txt.split(/\s+/).length < 2 && !_RE_SAUDACAO.test(_txt)) return;
+
     // Busca histórico + contexto do contato
     const [historicoRes, clienteRes] = await Promise.all([
+      // ⚠️ As 20 ÚLTIMAS, em ordem. Era `ORDER BY ASC LIMIT 20` — as 20
+      // PRIMEIRAS: da 21ª mensagem em diante a IA respondia sem ver o que o
+      // cliente acabou de escrever (24/11/2026).
       pool.query(
-        `SELECT direcao, conteudo FROM mensagens_whatsapp
-         WHERE conversa_id = $1 ORDER BY criado_em ASC LIMIT 20`,
+        `SELECT direcao, conteudo FROM (
+           SELECT direcao, conteudo, criado_em, id FROM mensagens_whatsapp
+            WHERE conversa_id = $1 ORDER BY criado_em DESC, id DESC LIMIT 20
+         ) ult ORDER BY criado_em ASC, id ASC`,
         [conversaId]
       ),
       pool.query(
@@ -347,4 +369,4 @@ async function receberWebhook(req, res) {
   }
 }
 
-module.exports = { receberWebhook, verificarWebhook };
+module.exports = { receberWebhook, verificarWebhook, _processarMensagem: processarMensagem };
