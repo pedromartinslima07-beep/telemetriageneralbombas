@@ -1,0 +1,13 @@
+@font-face{font-family:Archivo;src:url("/static/fonts/archivo.woff2") format("woff2");font-display:swap;font-weight:400 900}
+:root{--navy:#030a26;--ink:#061033;--muted:#414f74;--line:#d5dae6;--paper:#f5f7fb;--amber:#fbb329}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:1.5rem}body{margin:0;background:var(--paper);color:var(--ink);font:1.0625rem/1.75 Archivo,system-ui,sans-serif}
+a{color:#0d2775;text-underline-offset:.2em;overflow-wrap:anywhere}a:hover{text-decoration-thickness:2px}a:focus-visible{outline:3px solid var(--amber);outline-offset:4px}
+.skip{position:absolute;left:1rem;top:-8rem;background:var(--amber);padding:.7rem;z-index:2}.skip:focus{top:1rem}
+header{background:var(--navy);color:white;border-bottom:5px solid var(--amber)}.bar{max-width:68rem;margin:auto;padding:1.35rem 1.5rem;display:flex;gap:1.5rem;align-items:center;justify-content:space-between}.brand img{display:block;width:190px;max-width:50vw;height:auto}.bar nav{display:flex;gap:1.2rem;flex-wrap:wrap}.bar nav a{color:white;font-size:1rem}
+main{max-width:52rem;margin:auto;padding:3.8rem 1.5rem 4.5rem}.eyebrow{font-size:.875rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 .8rem}
+h1{font-size:clamp(2.15rem,5.8vw,3.35rem);line-height:1.12;letter-spacing:-.035em;margin:0 0 1rem}h2{font-size:1.45rem;line-height:1.3;margin:2.6rem 0 .8rem;letter-spacing:-.02em}p{margin:.75rem 0 1rem}.lead{font-size:1.2rem;line-height:1.65}.date{font-size:1rem;color:var(--muted)}
+.summary{border-left:5px solid var(--amber);padding:1rem 1.3rem;background:white;margin:2rem 0}.summary p:last-child{margin-bottom:0}.toc{padding:1.25rem 1.4rem;border:1px solid var(--line);margin:2rem 0}.toc strong{display:block}.toc ul{padding-left:1.2rem;margin:.5rem 0}
+li{margin:.45rem 0}ul,ol{padding-left:1.4rem}section{scroll-margin-top:1.5rem}.contact{background:white;border:1px solid var(--line);padding:1.4rem;margin-top:2.5rem}.contact h2{margin-top:0}address{font-style:normal}
+footer{border-top:1px solid var(--line);max-width:68rem;margin:auto;padding:1.7rem 1.5rem 2.5rem;font-size:1rem;color:var(--muted)}footer nav{display:flex;flex-wrap:wrap;gap:1rem}
+@media(max-width:560px){.bar{align-items:flex-start;flex-direction:column}.bar nav{gap:1rem}main{padding-top:2.5rem}.brand img{max-width:65vw}.lead{font-size:1.1rem}}
+@media print{body{background:white;font:11pt/1.5 Arial,sans-serif}header,.skip,.toc,footer{display:none}main{max-width:none;padding:0}h1{font-size:24pt}h2{font-size:15pt;break-after:avoid}.summary,.contact{break-inside:avoid}a{color:inherit}}
