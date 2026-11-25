@@ -18878,3 +18878,18 @@ segunda porta, como antes. Pedido do Pedro. Sem migration, sem mudança no app.
 Teste `roteiro-competencia.test.js` **7/7** (caso novo: o ciclo do mês que vem
 não entra) e `preventivas-mes.test.js` 66/66. Ver
 [modulos/app-mobile.md](modulos/app-mobile.md#o-roteiro-não-mostra-o-mês-que-vem-24112026).
+
+## 2026-11-25 — Plano do Tech Provider ganha a coexistência
+
+Só documentação, sem código nem migration. O número principal da General
+Bombas entra por **coexistência**: a equipe continua no WhatsApp Business do
+celular e a IA responde pela Cloud API no mesmo número, conectado pelo cadastro
+incorporado como primeiro cliente. O plano em fases do roadmap ganhou os itens
+que faltavam:
+- Fase 0: a integração como Tech Provider independente, já iniciada (conferida no painel).
+- Fase 1: configuração com token que não expira, escolha entre a janela própria e o link hospedado pela Meta, e assinatura de `smb_message_echoes`/`history`/`smb_app_state_sync` antes de conectar.
+- Fase 3: sem `/register`, sincronização em 24 h, pausa da IA pelo eco, `PARTNER_REMOVED`.
+- Fase 4: a conexão do número em coexistência.
+
+Regras e situação do painel na seção "Coexistência" de
+[Meta Tech Provider](modulos/meta-tech-provider.md).

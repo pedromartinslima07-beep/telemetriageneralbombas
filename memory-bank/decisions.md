@@ -1807,3 +1807,21 @@ número, situação, PDF, boletos e histórico na mesma página.
 - ❌ Baixar `planos.roteiro_antecedencia_dias` para 0: resolve a virada do mês
   mas tira a antecedência de preventiva que vence mais para o fim do mesmo mês.
 - A antecedência continua valendo **dentro** do mês.
+
+## WhatsApp da equipe em coexistência (25/11/2026)
+
+- **O número da equipe não sai do celular.** Decisão do Pedro: a equipe segue
+  atendendo pelo WhatsApp Business e a IA responde pela Cloud API, no mesmo
+  número. Isso amarra o número da General Bombas ao caminho de Tech Provider,
+  porque a Meta só libera coexistência pelo cadastro incorporado, e o
+  cadastro incorporado só para Tech Provider/Solution Partner.
+- ❌ **Adicionar o número pela Etapa 2 do painel:** é o caminho de número
+  novo, e tira o número do app do celular (foi o que aconteceu com o
+  +55 11 92209-3834, que fica como número só de API).
+- ❌ **Conectar pelo app do Petzu, que já é Tech Provider:** sairia mais
+  rápido, mas o telemetria ficaria dependendo do app de outro produto, e o
+  atendimento da General Bombas passaria por uma integração com nome de pet
+  shop.
+- **Lição herdada do Petzu:** a sincronização de histórico/contatos só pode
+  ser pedida uma vez e em 24 h. Os campos de webhook vão assinados **antes**
+  da primeira conexão, não depois.

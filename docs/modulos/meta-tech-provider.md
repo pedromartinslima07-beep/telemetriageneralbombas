@@ -164,6 +164,73 @@ Texto-base para o pedido da permissão — usar somente com a gravação real:
   documentação atual antes da ligação em produção.
 - Nenhuma dessas variáveis foi alterada nesta preparação.
 
+## Coexistência — o número da equipe continua no celular
+
+Decidido em 25/11/2026: o número principal da General Bombas (o que a equipe
+já usa no **WhatsApp Business** do celular) entra por **coexistência**. A
+equipe segue atendendo pelo app e a IA responde pela Cloud API, no mesmo
+número. Base: o caminho já percorrido no projeto do pet shop (Petzu), onde a
+coexistência funcionou de ponta a ponta em 25/10/2026.
+
+**Por que isso exige Tech Provider:** a coexistência só entra pelo cadastro
+incorporado, e a Meta só o libera para Solution Partner ou Tech Provider
+("You must already be a Solution Partner or Tech Provider"). Não existe pelo
+painel de desenvolvedor.
+
+### Situação na Meta (conferida no painel em 25/11/2026)
+
+- **A integração como Tech Provider independente já foi iniciada:** Casos de
+  uso › Conectar no WhatsApp › Torne-se um Provedor de Tecnologia mostra
+  "Fazer a integração como um Provedor de Tecnologia independente — 0 de 2
+  etapas" (1. Verificação da empresa, 2. Análise do app). No Petzu, **foi este
+  passo não iniciado que trancou o cadastro por três semanas**; aqui já está
+  feito.
+- A mesma página oferece **"Cadastro incorporado hospedado pela Meta — Gerar
+  link"**: a Meta hospeda a janela e o cliente só abre o link. Pode dispensar
+  a tela própria com o SDK do Facebook. **Não confirmado:** como o token e a
+  WABA do cliente chegam ao servidor nesse modo (evento `account_update` /
+  `PARTNER_ADDED`, troca de código ou acesso compartilhado ao usuário do
+  sistema). Ler a doc da Meta antes de escolher.
+- **Divergência a conferir:** essa página marca a Análise do app como "Em
+  análise", mas Analisar › Análise do app › Envios mostra o rascunho **Não
+  enviado** (as três permissões, uso permitido sem preencher). O que vale é a
+  lista de envios.
+
+### Regras (aprendidas no Petzu)
+
+1. **O número da coexistência NUNCA entra pela Etapa 2 ("Adicionar número").**
+   Esse caminho tira o número do app do celular, que foi o que aconteceu com o
+   +55 11 92209-3834. O número da equipe entra **só pela janela do cadastro
+   incorporado**: o dono escolhe "Crie um novo número", digita o número que já
+   está no app, a Meta reconhece o perfil do WhatsApp Business e mostra um QR
+   code para ler no app (Menu › Conta › Plataforma). "Use a display name with a
+   virtual number instead" **não** é coexistência.
+2. O número precisa estar no **WhatsApp Business** (não no WhatsApp comum),
+   versão 2.24.17 ou mais nova.
+3. **Não chamar `/register`** para o número da coexistência (a doc da Meta manda
+   pular).
+4. `POST /{waba_id}/subscribed_apps` com o token do cliente.
+5. Assinar no app, além de `messages`: **`smb_message_echoes`**, **`history`** e
+   **`smb_app_state_sync`**.
+6. **Em até 24 h** da conexão, pedir a sincronização de contatos e histórico
+   (SMB App Data API, `sync_type` `smb_app_state_sync` e `history`). Sem isso a
+   Meta desconecta. **Só dá para pedir uma vez** ("You can only perform this
+   step once"): se os campos do item 5 não estiverem assinados antes, o
+   histórico se perde e só volta desconectando e passando pela janela de novo.
+7. **Eco = humano respondeu pelo celular → a IA pausa naquela conversa.** Sem
+   isso as duas respondem. No Petzu a pausa dura 12 h, cada eco renova o prazo,
+   e a resposta da IA que ficou pronta depois de um humano assumir vai para o
+   lixo.
+8. **Configuração do cadastro incorporado:** usar a variação **"Cadastro
+   incorporado do WhatsApp"** com token de usuário do sistema que **nunca
+   expira**. Se "Criar configuração" só oferecer "Geral", ou o modelo fixar
+   token de **60 dias**, não seguir: no Petzu isso foi sintoma da integração de
+   Tech Provider ainda não iniciada. O editor da configuração pede os produtos
+   de novo (irreversível): não mexer numa configuração pronta.
+9. Limites do app no modo coexistência: somem mensagem temporária,
+   visualização única, localização ao vivo e listas de transmissão; 20
+   mensagens/s no número.
+
 ## Plano
 
 As fases (base na Meta, o que dá para fazer agora, o que depende da Meta, o

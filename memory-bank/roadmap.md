@@ -1131,6 +1131,14 @@ sistema fala com **um** número e **um** token fixos do Railway; o maior
 trabalho é no código, não na Meta. Detalhes e IDs em
 [Meta Tech Provider](../docs/modulos/meta-tech-provider.md).
 
+**Coexistência (decidido em 25/11/2026):** o número principal da General
+Bombas, o da equipe no WhatsApp Business do celular, também entra pelo
+cadastro incorporado, **em coexistência**: a equipe segue no app e a IA
+responde pela API no mesmo número. Ele é o **primeiro cliente** do cadastro
+incorporado. Regras (nunca pela Etapa 2, sincronização em 24 h, pausa da IA
+pelo eco) na seção "Coexistência" da
+[doc](../docs/modulos/meta-tech-provider.md).
+
 ### Fase 0 — Base na Meta ✅ (24/11/2026)
 
 - [x] App General Bombas Telemetria, ícone, categoria, termos do WhatsApp aceitos.
@@ -1140,10 +1148,14 @@ trabalho é no código, não na Meta. Detalhes e IDs em
 - [x] Usuário do sistema `telemetria-servidor` com token sem expiração (Railway).
 - [x] Webhook salvo e verificado, `messages` assinado; assinatura `X-Hub-Signature-256` validada no código (cbb0b8b) com `WHATSAPP_APP_SECRET`.
 - [ ] Revisar contato de privacidade, retenção efetiva e textos preparados.
+- [x] Integração como **Tech Provider independente** iniciada (Torne-se um Provedor de Tecnologia, "0 de 2 etapas"; conferido em 25/11/2026). Foi o passo que trancou o Petzu.
 
 ### Fase 1 — Dá para fazer agora 📋
 
-- [ ] **Login do Facebook para Empresas:** criar a configuração do cadastro incorporado (WhatsApp, permissões `whatsapp_business_management` + `whatsapp_business_messaging`) e anotar o `config_id`.
+- [ ] **Login do Facebook para Empresas:** criar a configuração do cadastro incorporado (WhatsApp, permissões `whatsapp_business_management` + `whatsapp_business_messaging`) e anotar o `config_id`. Usar a variação **"Cadastro incorporado do WhatsApp"** com token que **nunca expira**; se só aparecer "Geral" ou token de 60 dias, parar e conferir.
+- [ ] Decidir entre a janela própria (SDK + `config_id`) e o **"Cadastro incorporado hospedado pela Meta — Gerar link"**, depois de ler como o token/WABA do cliente chegam no modo hospedado.
+- [ ] Conferir a divergência da Análise do app: a página de Tech Provider diz "Em análise", a lista de envios diz "Não enviado".
+- [ ] Assinar no webhook do app `smb_message_echoes`, `history` e `smb_app_state_sync` (além de `messages`) **antes** de conectar o número da coexistência: a sincronização só pode ser pedida uma vez.
 - [ ] **Vídeo 2 — `whatsapp_business_management`:** gravar a criação do modelo `alerta_sensor_sem_comunicacao` (Utilidade, pt_BR) no WhatsApp Manager. Roteiro na doc. Não depende do número registrado.
 
 ### Fase 2 — Depende da Meta / do usuário ⏳
@@ -1163,10 +1175,14 @@ Reaproveitar o desenho do projeto do pet shop (cofre cifrado `src/cofre.js`,
 - [ ] Envio (`evolution.service.js`) com o número e o token do cliente certo; o número da General Bombas vira só mais um.
 - [ ] Conferir a versão da Graph API (gateway em v20.0; webhooks em v27.0).
 - [ ] Testes de rota (Express + JWT) para cada caminho que grava.
+- [ ] **Coexistência:** número conectado por coexistência **não** passa pelo `/register`; na conexão, pedir `smb_app_state_sync` e `history` em até 24 h (ronda que refaz a que falhou, como no Petzu) e virar ocorrência se não sair.
+- [ ] **Eco pausa a IA:** `smb_message_echoes` (humano respondeu pelo celular) grava a mensagem na conversa como da equipe e pausa a IA naquela conversa; resposta da IA pronta depois disso é descartada. No Petzu: 12 h, renovadas a cada eco.
+- [ ] `account_update` com `PARTNER_REMOVED` (desconectado pelo celular) solta o cliente.
 
 ### Fase 4 — Análise do app 📋
 
 - [ ] **Vídeo 1 — `whatsapp_business_messaging`:** mensagem real enviada e recebida (depende da Fase 2).
 - [ ] Enviar a Análise do app com os dois vídeos (depende da verificação da empresa).
 - [ ] Publicar o app ("Verifique se todos os requisitos…" no painel).
+- [ ] **Número da General Bombas conectado em coexistência** pela janela do cadastro incorporado (nunca pela Etapa 2), no WhatsApp Business 2.24.17+, com sincronização confirmada nas 24 h.
 - [ ] Primeiro cliente de fora conectado pelo cadastro incorporado.

@@ -18,7 +18,9 @@ aliases:
 > Próximo: configuração do Login do Facebook para Empresas e vídeo 2; em
 > paralelo, o código de vários clientes (cadastro incorporado, token cifrado
 > por cliente, webhook por `phone_number_id`). ⏳ Meta analisando WABA e
-> empresa; falta cartão. Plano em fases no
+> empresa; falta cartão. **25/11: o número da equipe entra em coexistência**
+> (continua no WhatsApp Business do celular, IA pela API) — nunca pela
+> Etapa 2; integração de Tech Provider independente já iniciada. Plano em fases no
 > [roadmap](roadmap.md);
 > detalhes em [meta-tech-provider.md](../docs/modulos/meta-tech-provider.md).
 
