@@ -18947,3 +18947,11 @@ Aplicada em produção antes do merge da branch `feature/whatsapp-coexistencia`
 `ia_pausada_ate`, `mensagens_whatsapp.origem` e os três índices. Sem efeito no
 que está no ar (o código da `main` não lê as colunas novas). Falta
 `WHATSAPP_APP_ID` e `WHATSAPP_TOKENS_CHAVE` no Railway antes do merge.
+
+## 2026-11-26 — Variáveis do cofre no Railway
+
+`WHATSAPP_APP_ID` e `WHATSAPP_TOKENS_CHAVE` colocadas pelo usuário no serviço
+web do Railway (a chave gerada por ele, 32 bytes em base64; o valor não passou
+por aqui). Depois do redeploy: `/login` 200 e GET do webhook com token errado
+403. O código no ar ainda não lê as duas; com elas e a 108 em produção, o merge
+de `feature/whatsapp-coexistencia` não depende de mais nada no Railway.

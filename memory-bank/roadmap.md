@@ -1183,7 +1183,7 @@ só em teste; teste `whatsapp-coexistencia.test.js` 33/33). Detalhes em
 - [x] **Coexistência:** sem `/register`; sincronização pedida na conexão e refeita pela ronda `whatsapp-sync.job.js` (5 tentativas em 24 h); vencido, `ultimo_erro` pede reconexão. ⏳ Virar aviso na tela/e-mail.
 - [x] **Eco pausa a IA:** `origem = 'celular'`, `ia_pausada_ate` (12 h, `whatsapp.coexistencia_pausa_horas`), conferida antes e depois da IA. ⏳ A central mostrar a mensagem como "pelo celular".
 - [x] `account_update` com `PARTNER_REMOVED` desconecta e apaga o token.
-- [ ] **Antes do deploy:** ~~migration 108 em produção~~ ✅ aplicada em 26/11/2026 (conferida no `information_schema`); falta `WHATSAPP_APP_ID` e `WHATSAPP_TOKENS_CHAVE` (cópia fora do Railway) no serviço web.
+- [x] **Antes do deploy:** migration 108 em produção ✅ 26/11/2026 (conferida no `information_schema`); `WHATSAPP_APP_ID` e `WHATSAPP_TOKENS_CHAVE` no serviço web ✅ 26/11/2026 (colocadas pelo usuário; valor não lido aqui; `/login` 200 depois do redeploy). Cópia da chave fora do Railway: responsabilidade do usuário.
 
 ### Fase 4 — Análise do app 📋
 
