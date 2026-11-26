@@ -9259,9 +9259,6 @@ body.role-viewer .viewer-only-hide-inline {
 .main .nfp-aviso { margin-top: 12px; padding: 9px 14px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); font-size: 13px; color: var(--text); }
 .nfp-aviso.is-erro { color: var(--risco-t); border-color: rgba(121, 0, 0, .35); background: #fff; }
 
-.nfp-passos { list-style: none; display: flex; margin: 16px 0; padding: 0; gap: 6px; }
-.nfp-passos li { flex: 1; padding-top: 8px; font-size: 12.5px; color: var(--muted); border-top: 3px solid var(--border); }
-.nfp-passos li.is-feito { border-top-color: var(--mar-700); color: var(--text); font-weight: 600; }
 
 .nfp-grade { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
 .nfp-col, .nfp-trilho { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -9376,7 +9373,6 @@ body.role-viewer .viewer-only-hide-inline {
   .nfp-dl { grid-template-columns: 1fr; }
   .nfp-pend-it { flex-direction: column; }
   .nfp-pend-acoes { justify-content: flex-start; }
-  .nfp-passos li { font-size: 11px; }
   .nfp-t { font-size: 18px; }
   .nfp-esp-box .df { overflow-x: auto; }
 }
@@ -13339,3 +13335,297 @@ a.ls-bt { text-decoration: none; }
    direita. No celular o .fn-esp some e a troca ocupa a linha inteira. */
 .fn-cab .fn-seg { order: -1; }
 .fn-cab .fn-mes { order: 1; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PÁGINA DO ORÇAMENTO: O ACABAMENTO DAS OUTRAS PÁGINAS (26/11/2026)
+   O orçamento virou página em 18/11, mas a caixa continuou com a roupa do
+   modal: fundo cinza "chapa" (#e8ebf2) no cabeçalho e no formulário, títulos
+   de seção em caixa alta de 10,5 px, selo antigo em caixa alta de 9,5 px,
+   bloco de envio em âmbar e dois amarelos na tela ("+ Adicionar" e
+   "Salvar"). Chamado, O.S. e contrato são brancos, com o lado em #f4f6fa,
+   títulos em frase e selo em frase: aqui fica igual. Tudo escopado a
+   #avModal.is-pagina, então nada muda fora da página.
+   ════════════════════════════════════════════════════════════════════════ */
+#avModal.is-pagina .av-modal-dialog { background: #fff; }
+#avModal.is-pagina .av-modal-head { background: #fff; border-bottom: 1px solid var(--border); }
+#avModal.is-pagina .av-tempo { padding-top: 16px; }
+#avModal.is-pagina .av-rail { background: #f4f6fa; }
+
+/* selo em frase, as mesmas cores do selo da nota */
+#avModal.is-pagina .av-modal-head .orc-status-pill {
+  font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  padding: 2px 10px; border-radius: 999px; clip-path: none; box-shadow: none;
+}
+#avModal.is-pagina .av-modal-head .orc-status-off  { background: #eef1f6; color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
+#avModal.is-pagina .av-modal-head .orc-status-pend { background: #fdf1d6; color: var(--atencao-t); }
+#avModal.is-pagina .av-modal-head .orc-status-ok   { background: #dff1e6; color: var(--ok-t); }
+#avModal.is-pagina .av-modal-head .orc-status-bad  { background: #f8e1e1; color: var(--risco-t); }
+#avModal.is-pagina .av-modal-date { color: var(--muted); }
+
+/* títulos de seção em frase, no peso dos títulos da nota e da O.S. */
+#avModal.is-pagina .ap-section-title {
+  font-size: 14px; font-weight: 700; letter-spacing: -.005em;
+  text-transform: none; color: var(--tinta);
+}
+
+/* tabela de itens: cabeçalho em frase e coluna de número à direita */
+#avModal.is-pagina .orc-itens-table th {
+  font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 600;
+  background: #f7f8fb; color: var(--muted);
+}
+#avModal.is-pagina .orc-itens-table :is(th, td).orc-it-num { text-align: right; }
+#avModal.is-pagina .orc-itens-table td.orc-it-num { font-variant-numeric: tabular-nums; font-weight: 600; }
+#avModal.is-pagina .orc-itens-table tbody tr:hover td { background: transparent; }
+
+/* trilho: rótulos em frase; o envio vira um bloco do trilho, não um alerta */
+#avModal.is-pagina .av-total-lbl,
+#avModal.is-pagina .av-envio-t {
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted);
+}
+#avModal.is-pagina .av-envio-t { color: var(--tinta); font-size: 13px; font-weight: 700; }
+#avModal.is-pagina .av-envio { background: #fff; border-color: var(--border); }
+#avModal.is-pagina .av-total { letter-spacing: -.02em; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PÁGINA DA NOTA: O TOPO DAS OUTRAS PÁGINAS (26/11/2026)
+   Cabeçalho, aviso e linha do tempo numa caixa branca, com o cabeçalho
+   grudando ao rolar (o Emitir fica à mão) — o mesmo topo do chamado, da
+   O.S., do orçamento e do contrato. Antes o título flutuava no fundo da
+   página e as etapas eram traços próprios (.nfp-passos, que saiu).
+   ════════════════════════════════════════════════════════════════════════ */
+.nfp-topo { background: #fff; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+.nfp-topo .nfp-cab {
+  position: sticky; top: -22px; z-index: 5;
+  padding: 16px 22px; background: #fff;
+  border-bottom: 1px solid var(--border); border-radius: 10px 10px 0 0;
+  align-items: center;
+}
+.nfp-topo .nfp-t { font-size: 19px; }
+.nfp-topo .nfp-aviso { margin: 14px 22px 0; }
+.nfp-topo .nfp-tempo { padding: 16px 22px 18px; }
+.main .nfp-tab th.n { text-align: right; }
+@media (max-width: 640px) {
+  .nfp-topo .nfp-cab { position: static; padding: 12px 14px; }
+  .nfp-topo .nfp-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; padding: 14px 14px 16px; }
+  .nfp-topo .nfp-aviso { margin: 12px 14px 0; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PÁGINA DO ORÇAMENTO: A ESTRUTURA NOVA (26/11/2026)
+   Maquete /dev/_documentos-preview.html, aprovada pelo Pedro. Cliente numa
+   linha no cabeçalho, a ação da vez no topo (Enviar / Registrar resposta /
+   Preparar a nota), salvar sozinho ("Salvo às"), item numa linha só que abre
+   ao clicar, e o trilho em seções: total (no topo, como antes), o que o
+   técnico pediu, Para o cliente, Envio, Histórico. Tudo escopado à página.
+   ════════════════════════════════════════════════════════════════════════ */
+#avModal.is-pagina .av-modal-head { gap: 16px; flex-wrap: wrap; }
+#avModal.is-pagina .av-modal-head-info { flex: 1 1 320px; min-width: 0; }
+.av-cab-txt { min-width: 0; }
+.av-cab-l1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.av-cab-sub { margin-top: 4px; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.av-cab-sub b { color: var(--tinta); font-weight: 700; }
+.av-cab-falta { color: var(--atencao-t); font-weight: 600; }
+.av-lk-mudo { border: 0; background: none; padding: 0 2px; margin-left: 4px; font: inherit; font-size: 12.5px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.av-lk-mudo:hover { color: var(--tinta); }
+.av-lk { border: 0; background: none; padding: 0; font: inherit; color: #0d2775; font-weight: 600; cursor: pointer; }
+.av-lk:hover { text-decoration: underline; text-underline-offset: 3px; }
+.av-cab-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.av-cab-acoes .btn { height: 34px; }
+.av-salvo { font-size: 12.5px; color: var(--muted); margin-right: 4px; white-space: nowrap; }
+.av-salvo.is-ok::before { content: "\2713  "; color: #1f9d57; font-weight: 700; }
+.av-salvo.is-erro { color: var(--risco-t); font-weight: 600; }
+.av-menu-wrap { position: relative; }
+.av-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 220px; padding: 5px;
+  background: #fff; border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 10px 28px rgba(6,16,51,.14); }
+.av-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; font: inherit; font-size: 13.5px; color: var(--tinta); cursor: pointer; }
+.av-menu button:hover, .av-menu button:focus-visible { background: #f4f6fa; }
+#avModal.is-pagina .av-head-acoes { margin: 0; }
+
+/* o cliente e o tipo, quando abertos pelo "trocar" */
+#avModal.is-pagina .av-cliente-painel { padding: 14px 16px; margin-top: 4px; border: 1px solid var(--border); border-radius: 10px; background: #f8faff; }
+#avModal.is-pagina .av-cliente-painel .ap-section-title { border: 0; padding: 0; margin-bottom: 10px; }
+.av-tipo-campo { display: block; max-width: 320px; margin-bottom: 12px; }
+
+/* ── itens: uma linha por item ── */
+#avModal.is-pagina .orc-itens-table td { vertical-align: top; }
+#avModal.is-pagina .orc-itens-table .av-it-n { width: 34px; color: var(--muted); font-family: var(--mono); font-size: 11.5px; padding-top: 13px; }
+#avModal.is-pagina .orc-itens-table th.av-it-n { padding-top: 8px; }
+.av-it { cursor: pointer; }
+.av-it > td { padding-top: 11px !important; padding-bottom: 11px !important; }
+.av-it:not(.is-aberto):hover > td { background: #fafbfd; }
+.av-it:focus-visible { outline: 2px solid #0d2775; outline-offset: -2px; }
+.av-it-desc { font-weight: 600; font-size: 13.5px; color: var(--tinta); }
+.av-it-sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; margin-top: 3px; font-size: 12px; color: var(--muted); }
+.av-it-sep { color: var(--border); }
+.av-it-cod { font-family: var(--mono); font-size: 11px; }
+.av-it-falta { color: var(--atencao-t); font-weight: 600; }
+.av-it-falta .av-lk { font-size: 12px; }
+.av-it-ficha-resumo { font-style: italic; }
+.av-it-tipo { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-top: 1px; }
+.av-it-tipo.is-peca { background: #e9eef9; color: #0d2775; }
+.av-it-tipo.is-serv { background: #eef1f6; color: var(--muted); }
+.av-it-tipo.is-sem { background: none; color: var(--atencao-t); padding-left: 0; text-decoration: underline; text-underline-offset: 3px; }
+#avModal.is-pagina .orc-itens-table td.orc-it-num { font-size: 13.5px; font-weight: 500; padding-top: 12px !important; }
+#avModal.is-pagina .orc-itens-table .av-it-tot { font-weight: 700; }
+.av-it-x { width: 40px; text-align: center; }
+#avModal.is-pagina .orc-it-del { color: var(--muted); opacity: 0; padding: 4px; border-radius: 6px; line-height: 0; }
+#avModal.is-pagina tr:hover .orc-it-del, #avModal.is-pagina .orc-it-del:focus-visible, #avModal.is-pagina tr.is-aberto .orc-it-del { opacity: 1; }
+#avModal.is-pagina .orc-it-del:hover { color: var(--risco-t); background: #fbe4e2; }
+/* o item aberto */
+.av-it.is-aberto { cursor: default; }
+.av-it.is-aberto > td { background: #f8faff; border-top: 1px solid #0d2775 !important; border-bottom: 1px solid #0d2775 !important; }
+.av-it-edit { padding: 9px 8px 12px !important; }
+.av-it-linha { display: grid; grid-template-columns: minmax(0, 1fr) 64px 112px 104px; gap: 8px; align-items: start; }
+.av-it-linha > .input { text-align: right; }
+.av-it-linha .av-it-tot { padding-top: 8px; text-align: right; font-size: 13.5px; }
+.av-it-desc-campo { min-width: 0; }
+.av-it-desc-campo .input { width: 100%; font-weight: 600; }
+.av-it-desc-campo .av-pc { margin-top: 6px; }
+.av-it-ficha { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: 12.5px; font-weight: 600; color: var(--tinta); }
+.av-it-ficha em { font-style: normal; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.av-it-ficha textarea { width: 100%; resize: vertical; font-size: 13px; font-weight: 400; }
+.av-it-fechar { display: block; margin: 8px 0 0 auto; }
+/* a linha de adicionar, no pé, alinhada às colunas da tabela */
+#avModal.is-pagina .av-itens-scroll .orc-add-item-form.av-it-novo { background: #fff; clip-path: none; box-shadow: 0 -1px 0 var(--border); padding: 10px 0 4px; margin-top: 0; }
+#avModal.is-pagina .av-itens-scroll .av-it-novo .orc-add-item-row { grid-template-columns: 34px minmax(0, 1fr) 64px 112px 152px; }
+#avModal.is-pagina .av-it-novo .orc-add-item-row > .av-it-mais { margin: 0; text-align: center; color: #0d2775; font-weight: 700; font-size: 16px; }
+#avModal.is-pagina .av-it-novo #avNewDesc { border-style: dashed; font-size: 13.5px; }
+#avModal.is-pagina .av-it-novo #avNewDesc:focus { border-style: solid; }
+#avModal.is-pagina .av-it-novo :is(#avNewQtd, #avNewVal) { text-align: right; font-size: 13.5px; }
+
+/* ── trilho ── */
+#avModal.is-pagina .av-rail { gap: 0; }
+#avModal.is-pagina .av-rail > div:first-child { padding-bottom: 14px; }
+.av-tot-l { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 2px 0; }
+.av-tot-l b { font-weight: 600; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.av-tot-l.is-desc b { color: #105c31; }
+.av-fraco { color: var(--muted); font-weight: 400; }
+.av-rail-sec { padding: 14px 0; border-top: 1px solid var(--border); }
+.av-rail-h { font-size: 13.5px; font-weight: 700; color: var(--tinta); margin-bottom: 6px; }
+.av-rail-txt { margin: 0 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--tinta); }
+#avModal.is-pagina .av-rail-sec .av-rail-kv { font-size: 12.5px; padding: 3px 0; }
+#avModal.is-pagina .av-rail-sec .av-envio-to:empty { display: none; }
+#avModal.is-pagina .av-rail-sec .av-situacao-nota { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+#avModal.is-pagina .av-rail .av-cond { margin-top: 6px; border: 0; padding: 0; }
+#avModal.is-pagina .av-rail .av-cond-sum .ap-section-title { font-size: 12.5px; font-weight: 600; color: #0d2775; }
+#avModal.is-pagina .av-rail .av-cond-grid { grid-template-columns: 1fr; gap: 8px; }
+#avModal.is-pagina .av-rail .av-resposta-cliente,
+#avModal.is-pagina .av-rail #avBaixaWrap,
+#avModal.is-pagina .av-rail .av-nota { margin: 0 0 14px; }
+#avModal.is-pagina .av-rail .orc-form-msg:empty { display: none; }
+.av-situacao-mao { padding: 10px 12px; margin-bottom: 10px; border: 1px dashed var(--border); border-radius: 8px; background: #fff; }
+.av-rail-pe { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 760px) {
+  .av-cab-acoes { width: 100%; }
+  .av-salvo { order: 9; width: 100%; }
+  /* item: duas linhas por item no celular */
+  #avModal.is-pagina .av-itens-scroll { overflow-x: visible !important; }
+  #avModal.is-pagina .orc-itens-table, #avModal.is-pagina .orc-itens-table tbody { display: block; width: 100%; }
+  #avModal.is-pagina .orc-itens-table colgroup, #avModal.is-pagina .orc-itens-table thead { display: none; }
+  #avModal.is-pagina .orc-itens-table tr.av-it { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 2px 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  #avModal.is-pagina .orc-itens-table tr.av-it > td { display: block; border: 0; padding: 0 !important; }
+  #avModal.is-pagina tr.av-it:not(.is-aberto) > td.av-it-n,
+  #avModal.is-pagina tr.av-it:not(.is-aberto) > td.orc-it-num:not(.av-it-tot) { display: none; }
+  #avModal.is-pagina tr.av-it:not(.is-aberto) > td:nth-child(2) { grid-column: 1; grid-row: 1 / span 2; }
+  #avModal.is-pagina tr.av-it:not(.is-aberto) > td:nth-child(3) { grid-column: 2; grid-row: 1; }
+  #avModal.is-pagina tr.av-it:not(.is-aberto) > td.av-it-tot { grid-column: 2; grid-row: 2; text-align: right; }
+  #avModal.is-pagina tr.av-it > td.av-it-x { grid-column: 3; grid-row: 1; }
+  #avModal.is-pagina .orc-it-del { opacity: 1; }
+  #avModal.is-pagina tr.av-it.is-aberto { grid-template-columns: minmax(0, 1fr) auto; padding: 10px 8px; background: #f8faff; border: 1px solid #0d2775; border-radius: 8px; }
+  #avModal.is-pagina tr.av-it.is-aberto > td { background: none; border: 0 !important; }
+  #avModal.is-pagina tr.av-it.is-aberto > td.av-it-n { display: none; }
+  .av-it-linha { grid-template-columns: 1fr 1fr; }
+  .av-it-desc-campo { grid-column: 1 / -1; }
+  .av-it-linha .av-it-tot { grid-column: 1 / -1; }
+  #avModal.is-pagina .av-itens-scroll .av-it-novo .orc-add-item-row { grid-template-columns: 24px minmax(0, 1fr) 64px; row-gap: 8px; }
+  #avModal.is-pagina .av-it-novo #avNewVal { grid-column: 2; }
+  #avModal.is-pagina .av-it-novo [data-av-action="add-linha"] { grid-column: 3; }
+}
+/* No modo documento (enviado/aprovado, só leitura) o que edita sai de vista. */
+#avModalBody.is-doc-modo :is([data-av-cliente-abrir], .av-rail .av-cond, [data-av-situacao-mao], .av-situacao-mao) { display: none !important; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PÁGINA DA NOTA: A NOTA NO MEIO, "PARA EMITIR" NO TRILHO (26/11/2026)
+   Maquete /dev/_documentos-preview.html, aprovada pelo Pedro. O papel tem o
+   conteúdo do espelho no desenho do painel (Archivo, números em Martian
+   Mono), com o que falta marcado em âmbar onde falta. O espelho fiel, no
+   formato da DANFE (.df), continua no modal "Ver no formato da DANFE".
+   ════════════════════════════════════════════════════════════════════════ */
+.nfp-falta { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 6px 8px; border-radius: 6px;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--atencao-t); cursor: pointer; }
+.nfp-falta:hover { background: #fbf0d3; }
+
+.main .nfp-papel { background: #fff; border: 1px solid rgba(6,16,51,.2); border-radius: 6px; padding: 20px 22px 18px;
+  box-shadow: 0 1px 2px rgba(6,16,51,.05), 0 10px 26px rgba(6,16,51,.06); }
+.nfp-papel .pp-l { display: flex; border: 1px solid rgba(6,16,51,.2); }
+.nfp-papel .pp-l + .pp-l { border-top: 0; }
+.nfp-papel .pp-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; border-left: 1px solid rgba(6,16,51,.2); }
+.nfp-papel .pp-c:first-child { border-left: 0; }
+.nfp-papel .pp-c > span { font-size: 11px; color: var(--muted); }
+.nfp-papel .pp-c > b { font-size: 13.5px; font-weight: 600; color: var(--tinta); overflow-wrap: anywhere; }
+.nfp-papel .pp-c > small { font-size: 11.5px; color: var(--muted); }
+.nfp-papel .pp-2 { flex: 2; }
+.nfp-papel .pp-topo { margin-bottom: 10px; }
+.nfp-papel .pp-emit { flex: 2; padding: 11px 12px; }
+.nfp-papel .pp-emit > b { font-size: 16px; font-weight: 800; }
+.nfp-papel .pp-tit { align-items: center; justify-content: center; text-align: center; }
+.nfp-papel .pp-tit > b { font-size: 18px; font-weight: 900; letter-spacing: .06em; }
+.nfp-papel .pp-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 18px 0 7px; font-size: 13px; font-weight: 700; color: var(--tinta); }
+.nfp-papel .pp-h .nfp-lk { font-weight: 600; }
+.nfp-papel .pp-tab { border: 1px solid rgba(6,16,51,.2); }
+.main .nfp-papel .pp-tab th { padding: 7px 10px; background: #f7f8fb; border-bottom: 1px solid rgba(6,16,51,.2); }
+.main .nfp-papel .pp-tab th.n { text-align: right; }
+.nfp-papel .pp-tab td { padding: 9px 10px; }
+.nfp-papel .pp-tab tr.is-falta td { background: #fffaf0; }
+.nfp-papel .pp-marca { display: inline-block; margin-left: 6px; font-size: 11.5px; font-weight: 600; color: var(--atencao-t); }
+.nfp-papel .pp-marca::before { content: "\26A0  "; }
+.nfp-papel .pp-c.is-falta { background: #fbf0d3; }
+.nfp-papel .pp-c.is-falta > b { color: var(--atencao-t); font-family: inherit; }
+.nfp-papel .pp-tot { margin-top: 12px; }
+.nfp-papel .pp-total { background: #f7f8fb; }
+.nfp-papel .pp-total > b { font-size: 17px; font-weight: 700; }
+.nfp-papel textarea { width: 100%; }
+.nfp-papel .pp-pe { margin: 12px 0 0; text-align: right; }
+
+/* Para emitir: a lista que vai ficando verde */
+.nfp-emitir:focus { outline: none; }
+.nfp-emitir:focus-visible { outline: 2px solid #0d2775; outline-offset: 2px; }
+.nfp-check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; font-size: 13px; }
+.nfp-check li { display: flex; gap: 8px; align-items: flex-start; line-height: 1.4; }
+.nfp-check li > svg { flex: none; margin-top: 1px; }
+.nfp-check li > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nfp-check .is-ok { color: var(--muted); }
+.nfp-check .is-ok > svg { color: #1f9d57; }
+.nfp-check .is-falta { font-weight: 600; color: var(--tinta); }
+.nfp-check .is-falta > svg { color: #d99411; }
+.nfp-check .is-falta .nfp-lk, .nfp-check .is-falta small { font-weight: 500; align-self: flex-start; }
+.nfp-check .is-espera { color: var(--muted); }
+.nfp-emitir .nfp-pend { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.nfp-emitir .nfp-pend-it { flex-direction: column; gap: 8px; }
+.nfp-emitir .nfp-pend-acoes { justify-content: flex-start; }
+.nfp-emitir .nfp-sug li { grid-template-columns: 1fr auto; }
+.nfp-emitir .nfp-sug li .nfp-lk { grid-column: 1 / -1; justify-self: start; }
+
+@media (max-width: 640px) {
+  .main .nfp-papel { padding: 12px; overflow-x: auto; }
+  .nfp-papel .pp-l { flex-wrap: wrap; }
+  .nfp-papel .pp-c { flex-basis: 45%; }
+  .nfp-papel .pp-topo .pp-c, .nfp-papel .pp-2 { flex-basis: 100%; border-left: 0; }
+}
+/* O trilho da nota rola com a página (26/11/2026): fixo, ele passava da
+   altura da tela e o fim (Envio) nunca ficava à vista. */
+.main .nfp-trilho { position: static; }
+@media (max-width: 760px) {
+  /* a regra global "table { min-width: 520px }" do celular empurrava os itens
+     180 px para fora da tela */
+  #avModal.is-pagina .orc-itens-table { min-width: 0; }
+  /* linha de adicionar: descrição em cima, quantidade, valor e botão embaixo */
+  #avModal.is-pagina .av-itens-scroll .av-it-novo .orc-add-item-row { grid-template-columns: 64px minmax(0, 1fr) auto; }
+  #avModal.is-pagina .av-it-novo .orc-add-item-row > .av-it-mais { display: none; }
+  #avModal.is-pagina .av-it-novo #avNewDesc { grid-column: 1 / -1; }
+  #avModal.is-pagina .av-it-novo #avNewQtd { grid-column: 1; }
+  #avModal.is-pagina .av-it-novo #avNewVal { grid-column: 2; }
+  #avModal.is-pagina .av-it-novo [data-av-action="add-linha"] { grid-column: 3; }
+  #avModal.is-pagina .av-itens-scroll .orc-add-item-row > * { margin: 0 4px; }
+}

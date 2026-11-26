@@ -145,54 +145,74 @@ function _nfpRender() {
   else if (st === "cancelada") sub = "Cancelada no Omie. Uma nota nova para este orçamento precisa ser emitida por lá.";
   else sub = `Do ${_nfpEsc(orcNum)} · ${_nfpEsc(p.cliente?.nome || "—")} · ${_nfpSalvoEm ? "rascunho salvo " + _nfpHora(_nfpSalvoEm) + (p.rascunho?.salvo_por_nome ? " por " + _nfpEsc(p.rascunho.salvo_por_nome) : "") : "nada alterado ainda"}`;
 
+  // O MOTIVO DO EMITIR APAGADO FICA AO LADO DELE (26/11/2026, maquete
+  // /dev/_documentos-preview.html). Antes ele ficava apagado sem dizer por
+  // quê, e a resposta estava num cartão vermelho mais abaixo.
+  const falta = editavel ? _nfpFaltaContar(pend, bloq) : 0;
   let acoes = "";
   if (editavel) {
     acoes = `
       ${p.rascunho?.salvo_em ? `<button class="btn" type="button" data-nfp="descartar">Descartar rascunho</button>` : ""}
-      <button class="btn" type="button" data-nfp="espelho">Espelho da nota</button>
+      ${falta && !podeEmitir ? `<button type="button" class="nfp-falta" data-nfp="ir-pendencias"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>${falta === 1 ? "Falta 1 coisa" : "Faltam " + falta + " coisas"}</button>` : ""}
       <button class="btn btnAccent" type="button" data-nfp="emitir"${podeEmitir ? "" : " disabled"}>${_nfpOcupado === "emitindo" ? "Emitindo…" : (st === "erro" ? "Tentar de novo" : rotEmitir)}</button>`;
   } else {
     acoes = `
       ${n.nota_url ? `<a class="btn" href="${_nfpEsc(n.nota_url)}" target="_blank" rel="noopener">${nfe ? "DANFE (PDF)" : "Ver a NFS-e"}</a>` : ""}
-      <button class="btn" type="button" data-nfp="espelho">Espelho</button>
       ${st === "processando" || st === "emitida" ? `<button class="btn" type="button" data-nfp="atualizar">Atualizar</button>` : ""}`;
   }
 
   const temBoleto = !!(_nfpPag ? _nfpPag.boleto : n.boleto_status);
+  // A linha do tempo é a .os-tempo das outras páginas (chamado, O.S.,
+  // orçamento, contrato): bolinha cheia no que foi feito, aro âmbar no que
+  // vem a seguir, e uma linha embaixo dizendo a situação. Até 26/11/2026 era
+  // uma barra de traços própria, só com o nome da etapa.
+  const autorizada = st === "emitida";
   const passos = [
-    ["Rascunho", true],
-    ["Impostos conferidos", Boolean(p.impostos) || st === "emitida" || st === "processando"],
-    [nfe ? "Autorizada pela SEFAZ" : "Autorizada pela prefeitura", st === "emitida"],
-    ...(temBoleto || n.boleto_status ? [["Boletos gerados", n.boleto_status === "gerado"]] : []),
+    { rot: "Rascunho", feito: true,
+      txt: _nfpSalvoEm ? "salvo " + _nfpHora(_nfpSalvoEm) : "do " + _nfpEsc(orcNum) },
+    { rot: "Impostos conferidos", feito: Boolean(p.impostos) || autorizada || st === "processando",
+      txt: p.impostos ? (p.impostos_vencidos ? "itens mudaram, conferir de novo" : "simulados no Omie") : "" },
+    { rot: nfe ? "Autorizada pela SEFAZ" : "Autorizada pela prefeitura", feito: autorizada,
+      alerta: st === "erro",
+      txt: autorizada ? (n.nota_numero ? "nº " + _nfpEsc(n.nota_numero) : "autorizada")
+        : st === "processando" ? "processando no Omie" : st === "erro" ? "a última tentativa falhou"
+        : st === "cancelada" ? "cancelada" : "" },
+    ...(temBoleto || n.boleto_status ? [{ rot: "Boletos gerados", feito: n.boleto_status === "gerado",
+      alerta: Boolean(n.boleto_erro), txt: n.boleto_status === "gerado" ? "gerados no Omie" : n.boleto_erro ? "erro no boleto" : "" }] : []),
   ];
+  const atual = passos.findIndex(e => !e.feito);
+  const tempoHtml = `<ol class="os-tempo av-tempo nfp-tempo" style="--n:${passos.length}" aria-label="Situação da nota">${passos.map((e, i) => {
+    const cls = [e.feito ? "is-feito" : i === atual ? "is-atual" : "", e.alerta ? "is-alerta" : ""].filter(Boolean).join(" ");
+    const txt = e.txt || (i === atual ? "a seguir" : "");
+    return `<li class="${cls}"><span class="os-tempo-rot">${e.rot}</span><span class="os-tempo-em">${txt}</span></li>`;
+  }).join("")}</ol>`;
 
   raiz.innerHTML = `
     ${_pgVoltarHtml("nf", orcNum || "Orçamento")}
-    <header class="nfp-cab">
-      <div class="nfp-cab-txt">
-        <h1 class="nfp-t">${tipoNome} <span class="nfp-selo ${stCls}">${_nfpEsc(stRot)}</span></h1>
-        <p class="nfp-sub">${sub}</p>
-      </div>
-      <div class="nfp-acoes">${acoes}</div>
-    </header>
-    ${_nfpAviso ? `<div class="nfp-aviso${_nfpAviso.erro ? " is-erro" : ""}" role="status">${_nfpEsc(_nfpAviso.txt)}</div>` : ""}
-    <ol class="nfp-passos" aria-label="Situação da nota">
-      ${passos.map(([t, ok]) => `<li class="${ok ? "is-feito" : ""}">${t}</li>`).join("")}
-    </ol>
+    <section class="nfp-topo">
+      <header class="nfp-cab">
+        <div class="nfp-cab-txt">
+          <h1 class="nfp-t">${tipoNome} <span class="nfp-selo ${stCls}">${_nfpEsc(stRot)}</span></h1>
+          <p class="nfp-sub">${sub}</p>
+        </div>
+        <div class="nfp-acoes">${acoes}</div>
+      </header>
+      ${_nfpAviso ? `<div class="nfp-aviso${_nfpAviso.erro ? " is-erro" : ""}" role="status">${_nfpEsc(_nfpAviso.txt)}</div>` : ""}
+      ${tempoHtml}
+    </section>
+    <!-- A NOTA É A COLUNA PRINCIPAL (26/11/2026): o espelho, que se
+         escondia atrás de um botão, virou o documento da página, com o que
+         falta marcado onde falta. O trilho ficou com o que se decide:
+         Para emitir, impostos, cobrança, envio. -->
     <div class="nfp-grade">
       <div class="nfp-col">
         ${st === "erro" && n.nota_erro ? `<div class="nfp-caixa is-erro"><b>A última tentativa falhou</b><span>${_nfpEsc(n.nota_erro)}</span></div>` : ""}
-        ${bloq ? _nfpBloqHtml(bloq) : ""}
-        ${editavel && !p.emissao_ligada && !bloq ? `<div class="nfp-caixa is-info">Emissão desligada neste ambiente (OMIE_EMISSAO). Dá para preparar e conferir tudo; o botão não emite.</div>` : ""}
-        ${pend.length ? _nfpPendHtml(pend) : ""}
-        ${_nfpDestHtml()}
-        ${_nfpItensHtml()}
-        ${_nfpInfoHtml(editavel)}
+        ${_nfpPapelHtml(editavel, pend, bloq)}
         ${_nfpHistHtml()}
       </div>
       <aside class="nfp-trilho">
-        ${_nfpResumoHtml()}
-        ${_nfpImpostosHtml(editavel, pend)}
+        ${_nfpParaEmitirHtml(editavel, pend, bloq)}
+        ${p.tipo !== "nfe" || p.impostos ? _nfpImpostosHtml(editavel, pend) : ""}
         ${_nfpCobrancaHtml(editavel)}
         ${_nfpEnvioHtml(editavel)}
         ${st === "emitida" ? `<div class="card nfp-card"><h3 class="nfp-h">Corrigir ou cancelar</h3><p class="nfp-nota">Carta de correção e cancelamento são feitos no Omie. Depois, use Atualizar aqui.</p></div>` : ""}
@@ -200,13 +220,65 @@ function _nfpRender() {
     </div>`;
 }
 
-function _nfpBloqHtml(bloq) {
+// ── Para emitir (26/11/2026) ─────────────────────────────────────────────
+// Uma lista que vai ficando verde até o Emitir acender. Junta o que antes
+// eram três caixas soltas no meio da página: "Não dá para emitir" (o
+// bloqueio), "Antes de emitir" (as pendências do orçamento, com os mesmos
+// botões de resolver) e o "Ainda não conferidos" dos impostos.
+function _nfpImpostosOk() {
   const p = _nfpDados;
-  const cadastro = /CNPJ|cadastro/i.test(bloq) && p.destinatario?.condominio_id
-    ? `<a class="nfp-lk" href="#/condominios/${p.destinatario.condominio_id}">Abrir o cadastro do prédio</a>` : "";
-  return `<div class="nfp-caixa is-erro" role="alert"><b>Não dá para emitir</b><span>${_nfpEsc(bloq)}</span>${cadastro}</div>`;
+  return p.tipo !== "nfe" || (Boolean(p.impostos) && !p.impostos_vencidos);
 }
 
+function _nfpFaltaContar(pend, bloq) {
+  const prod = pend.some(x => x.tipo !== "marca");
+  return (bloq ? 1 : 0) + (pend.some(x => x.tipo === "marca") ? 1 : 0) + (prod ? 1 : 0)
+    + (!_nfpImpostosOk() && !bloq && !pend.length ? 1 : 0);
+}
+
+function _nfpParaEmitirHtml(editavel, pend, bloq) {
+  const p = _nfpDados;
+  // Emitida, processando ou cancelada: não há o que resolver (o Envio do
+  // trilho já diz para quem o Omie mandou).
+  if (!editavel) return "";
+  const nfe = p.tipo === "nfe";
+  const d = p.destinatario || {};
+  const marca = pend.find(x => x.tipo === "marca");
+  const prod = pend.filter(x => x.tipo === "produto" || x.tipo === "inativo");
+  const impOk = _nfpImpostosOk();
+  const cadastro = bloq && /CNPJ|cadastro/i.test(bloq) && d.condominio_id
+    ? `<a class="nfp-lk" href="#/condominios/${d.condominio_id}">abrir o cadastro do prédio</a>` : "";
+  const ICO = {
+    ok: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>',
+    falta: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+    espera: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>',
+  };
+  const it = (estado, txt, extra = "") => `<li class="is-${estado}">${ICO[estado]}<span>${txt}${extra}</span></li>`;
+  const linhas = [
+    bloq ? it("falta", _nfpEsc(bloq), cadastro) : it("ok", nfe ? "Destinatário completo" : "Tomador completo"),
+    marca ? it("falta", `Peça ou serviço em ${marca.linhas.length === 1 ? "1 linha" : marca.linhas.length + " linhas"}`) : it("ok", "Linhas marcadas como peça ou serviço"),
+  ];
+  if (nfe) {
+    linhas.push(prod.length
+      ? it("falta", prod.length === 1 ? "Produto do Omie em 1 peça" : `Produto do Omie em ${prod.length} peças`)
+      : it("ok", "Produto do Omie em todas as peças"));
+    linhas.push(impOk ? it("ok", "Impostos simulados no Omie")
+      : _nfpOcupado === "conferindo" ? it("espera", "Conferindo os impostos no Omie…")
+      : bloq || pend.length ? it("espera", "Impostos: simulam sozinhos quando o resto estiver certo")
+      : it("falta", p.impostos_vencidos ? "Impostos: os itens mudaram desde a última simulação" : "Impostos ainda não conferidos",
+          `${_nfpImpErro ? `<small class="nfp-erro">${_nfpEsc(_nfpImpErro)}</small>` : ""}<button type="button" class="nfp-lk" data-nfp="impostos">conferir agora</button>`));
+  }
+  return `
+    <section class="card nfp-card nfp-emitir" id="nfpParaEmitir" tabindex="-1" aria-labelledby="nfpEmitirT">
+      <h3 class="nfp-h" id="nfpEmitirT">Para emitir</h3>
+      <ul class="nfp-check">${linhas.join("")}</ul>
+      ${!p.emissao_ligada ? `<p class="nfp-nota">Emissão desligada neste ambiente (OMIE_EMISSAO). Dá para preparar e conferir tudo; o botão não emite.</p>` : ""}
+      ${pend.length ? _nfpPendHtml(pend) : ""}
+    </section>`;
+}
+
+// As pendências do orçamento, com os botões de resolver. Desde 26/11/2026
+// moram dentro do "Para emitir", sem cartão próprio.
 function _nfpPendHtml(pend) {
   const ROT = { peca: "peça", servico: "serviço" };
   const itens = pend.map(x => {
@@ -252,78 +324,117 @@ function _nfpPendHtml(pend) {
     ? `<p class="nfp-nota nfp-cat">${cat.sincronizando ? "Atualizando o catálogo do Omie (cerca de 1 min)…" : `Peça nova no Omie? Cadastre lá e atualize a cópia do catálogo${cat.atualizado_em ? " (de " + _nfpHora(cat.atualizado_em) + ")" : ""}.`}
         ${cat.sincronizando ? "" : `<button type="button" class="nfp-lk" data-nfp="catalogo">Atualizar catálogo</button>`}</p>` : "";
   return `
-    <section class="card nfp-card nfp-pend" aria-labelledby="nfpPendT">
-      <h3 class="nfp-h" id="nfpPendT">Antes de emitir</h3>
-      <p class="nfp-nota nfp-pend-sub">${pend.length === 1 ? "Falta 1 coisa" : "Faltam " + pend.length + " coisas"} no orçamento. O que for resolvido aqui fica gravado nele.</p>
+    <div class="nfp-pend">
+      <p class="nfp-nota nfp-pend-sub">Resolva aqui; fica gravado no orçamento.</p>
       <ul class="nfp-pend-lista">${itens}</ul>
       ${catTxt}
-    </section>`;
+    </div>`;
 }
 
-function _nfpDestHtml() {
-  const d = _nfpDados.destinatario || {};
-  const end = [d.endereco, d.bairro, d.cidade && d.uf ? d.cidade + "/" + d.uf : d.cidade, d.cep].filter(Boolean).join(" · ");
-  return `
-    <section class="card nfp-card">
-      <div class="nfp-card-cab"><h3 class="nfp-h">Destinatário</h3>
-        ${d.condominio_id ? `<a class="nfp-lk" href="#/condominios/${d.condominio_id}">Abrir o cadastro</a>` : ""}</div>
-      <dl class="nfp-dl">
-        <div><dt>Razão social</dt><dd>${_nfpEsc(d.nome || "—")}${d.fantasia && d.fantasia !== d.nome ? `<small>${_nfpEsc(d.fantasia)}</small>` : ""}</dd></div>
-        <div><dt>CPF/CNPJ</dt><dd class="nfp-num">${_nfpEsc(d.documento || "—")}</dd></div>
-        <div><dt>No Omie</dt><dd>${d.omie_codigo ? "já cadastrado" : "cadastrado na emissão"}</dd></div>
-        <div class="is-larga"><dt>Endereço</dt><dd>${_nfpEsc(end || "—")}</dd></div>
-      </dl>
-    </section>`;
-}
-
-function _nfpItensHtml() {
+// ── A nota como papel (26/11/2026) ───────────────────────────────────────
+// O mesmo conteúdo do espelho (_nfpEspelho), no desenho do painel e com o
+// que falta marcado no lugar: o CNPJ vazio, a peça sem produto do Omie. O
+// espelho fiel, no formato da DANFE, continua a um clique ("Ver no formato
+// da DANFE"). Substitui os cartões Destinatário, Itens, Informações
+// adicionais e Resumo, que diziam o mesmo em quatro caixas.
+function _nfpPapelHtml(editavel, pend, bloq) {
   const p = _nfpDados;
   const nfe = p.tipo === "nfe";
+  const d = p.destinatario || {};
+  const n = p.nota || {};
   const imp = p.impostos && p.impostos.tipo === "nfe" ? p.impostos : null;
+  const t = imp?.totais || {};
+  const faltaDe = new Map(pend.filter(x => x.linha).map(x => [String(x.linha.id), x.tipo]));
+  const semMarca = new Set((pend.find(x => x.tipo === "marca")?.linhas || []).map(l => String(l.id)));
+  const marca = (id) => {
+    const f = faltaDe.get(String(id));
+    const txt = f === "produto" ? "sem produto do Omie" : f === "inativo" ? "produto inativo no Omie" : semMarca.has(String(id)) ? "peça ou serviço?" : "";
+    return txt ? ` <span class="pp-marca">${txt}</span>` : "";
+  };
+  const end = [d.endereco, d.bairro, d.cidade && d.uf ? d.cidade + "/" + d.uf : d.cidade, d.cep].filter(Boolean).join(" · ");
+  const semDoc = !d.documento;
   const tribDe = (i, k) => {
     if (!imp) return "";
-    const x = imp.itens.find(t => t.item === `${i.linha_id}-${k + 1}`) || imp.itens[k];
+    const x = imp.itens.find(y => y.item === `${i.linha_id}-${k + 1}`) || imp.itens[k];
     return x ? (x.icms_cst || "") : "";
   };
-  const linhas = (p.itens || []).map((i, k) => `
-    <tr>
-      ${nfe ? `<td class="nfp-cod">${_nfpEsc(i.codigo || "—")}</td>` : ""}
-      <td>${_nfpEsc(i.descricao)}${i.ficha_tecnica ? `<div class="nfp-ficha">${_nfpEsc(i.ficha_tecnica)}</div>` : ""}</td>
-      ${nfe ? `<td class="nfp-num">${_nfpEsc(i.ncm || "—")}</td><td class="nfp-num">${_nfpEsc(i.cfop || "")}</td>` : ""}
-      <td class="n">${_nfpEsc(i.quantidade)}</td>
-      <td class="n">${_nfpMoeda(i.valor_unitario)}</td>
-      <td class="n"><b>${_nfpMoeda(i.total)}</b></td>
-      ${imp ? `<td class="nfp-num">${_nfpEsc(tribDe(i, k))}</td>` : ""}
-    </tr>`).join("");
+  // Sem itens calculados (o que falta no orçamento impede a conta), o papel
+  // mostra as linhas do orçamento, marcadas.
+  let linhas;
+  if ((p.itens || []).length) {
+    linhas = p.itens.map((i, k) => `
+      <tr${faltaDe.has(String(i.linha_id)) ? ' class="is-falta"' : ""}>
+        ${nfe ? `<td class="nfp-cod">${_nfpEsc(i.codigo || "—")}</td>` : ""}
+        <td>${_nfpEsc(i.descricao)}${marca(i.linha_id)}${i.ficha_tecnica ? `<div class="nfp-ficha">${_nfpEsc(i.ficha_tecnica)}</div>` : ""}</td>
+        ${nfe ? `<td class="nfp-num">${_nfpEsc(i.ncm || "—")}</td><td class="nfp-num">${_nfpEsc(i.cfop || "")}</td>` : ""}
+        <td class="n">${_nfpEsc(i.quantidade)}</td>
+        <td class="n">${_nfpMoeda(i.valor_unitario)}</td>
+        <td class="n"><b>${_nfpMoeda(i.total)}</b></td>
+        ${imp ? `<td class="nfp-num">${_nfpEsc(tribDe(i, k))}</td>` : ""}
+      </tr>`).join("");
+  } else {
+    linhas = (p.linhas || []).filter(l => l.cobravel).map(l => `
+      <tr${marca(l.id) ? ' class="is-falta"' : ""}>
+        ${nfe ? `<td class="nfp-cod">—</td>` : ""}
+        <td>${_nfpEsc(l.descricao)}${marca(l.id)}</td>
+        ${nfe ? `<td class="nfp-num">—</td><td class="nfp-num">—</td>` : ""}
+        <td class="n">${_nfpEsc(l.quantidade)}</td>
+        <td class="n">${_nfpMoeda(l.valor_unitario)}</td>
+        <td class="n"><b>${_nfpMoeda(Number(l.valor_unitario || 0) * Number(l.quantidade || 0))}</b></td>
+        ${imp ? "<td></td>" : ""}
+      </tr>`).join("");
+  }
   const notas = [];
   if (nfe && p.servico_embutido > 0) notas.push(`O serviço (${_nfpMoeda(p.servico_embutido)}) não sai como linha: entra no preço das peças, na proporção de cada uma.`);
   if (p.rateado && !(nfe && p.servico_embutido > 0)) notas.push(`O orçamento tem valor total manual: ele foi distribuído entre ${nfe ? "as peças" : "as linhas"}, na proporção de cada uma.`);
-  if (p.linhas.some(l => !l.cobravel)) notas.push("Linhas sem valor não entram na nota.");
+  if ((p.linhas || []).some(l => !l.cobravel)) notas.push("Linhas sem valor não entram na nota.");
   if (!nfe) notas.push("Serviço 14.01 (conserto e manutenção de máquinas e equipamentos), código municipal 140101.");
-  const { editavel } = _nfpEstado();
+  const soma = (p.itens || []).reduce((a, i) => a + Number(i.total || 0), 0);
+  const info = p.rascunho?.info_adicional ?? p.info_adicional_padrao ?? "";
+  const totais = nfe
+    ? `<div class="pp-c"><span>Total dos produtos</span><b class="nfp-num">${_nfpMoeda(soma || p.total)}</b></div>
+       <div class="pp-c"><span>ICMS</span><b class="nfp-num">${imp ? _nfpMoeda(t.icms) : "a conferir"}</b></div>
+       <div class="pp-c"><span>IPI</span><b class="nfp-num">${imp ? _nfpMoeda(t.ipi) : "a conferir"}</b></div>
+       <div class="pp-c"><span>Frete</span><b class="nfp-num">${_nfpMoeda(0)}</b></div>`
+    : `<div class="pp-c"><span>Valor dos serviços</span><b class="nfp-num">${_nfpMoeda(soma || p.total)}</b></div>
+       <div class="pp-c"><span>ISS retido</span><b>não</b></div>`;
   return `
-    <section class="card nfp-card">
-      <div class="nfp-card-cab"><h3 class="nfp-h">Itens</h3>
-        ${editavel ? `<a class="nfp-lk" href="#/orcamentos/${_nfpId}">Editar no orçamento</a>` : ""}</div>
+    <article class="nfp-papel" aria-label="A nota">
+      <div class="pp-l pp-topo">
+        <div class="pp-c pp-emit"><span>Emitente</span><b>General Bombas</b></div>
+        <div class="pp-c pp-tit"><b>${nfe ? "DANFE" : "NFS-e"}</b><small>${nfe ? "Documento auxiliar da NF-e · 1 - saída" : "Nota fiscal de serviço eletrônica"}</small><small>${n.nota_numero ? "Nº " + _nfpEsc(n.nota_numero) : "Número na emissão"}</small></div>
+      </div>
+      <div class="pp-l">
+        <div class="pp-c pp-2"><span>${nfe ? "Natureza da operação" : "Serviço"}</span><b>${nfe ? "Venda de mercadoria" : "14.01 · Conserto e manutenção de máquinas e equipamentos"}</b></div>
+        <div class="pp-c"><span>Emissão</span><b class="nfp-num">${n.nota_emitida_em ? _nfpDataBr(String(n.nota_emitida_em).slice(0, 10)) : new Date().toLocaleDateString("pt-BR")}</b></div>
+      </div>
+
+      <h4 class="pp-h">${nfe ? "Destinatário" : "Tomador"}${editavel && d.condominio_id ? `<a class="nfp-lk" href="#/condominios/${d.condominio_id}">abrir o cadastro</a>` : ""}</h4>
+      <div class="pp-l">
+        <div class="pp-c pp-2"><span>Razão social</span><b>${_nfpEsc(d.nome || "—")}</b>${d.fantasia && d.fantasia !== d.nome ? `<small>${_nfpEsc(d.fantasia)}</small>` : ""}</div>
+        <div class="pp-c${semDoc && editavel ? " is-falta" : ""}"><span>CPF/CNPJ</span><b class="nfp-num">${semDoc ? (editavel ? "falta no cadastro" : "—") : _nfpEsc(d.documento)}</b></div>
+        <div class="pp-c"><span>No Omie</span><b>${d.omie_codigo ? "já cadastrado" : "cadastrado na emissão"}</b></div>
+      </div>
+      <div class="pp-l"><div class="pp-c"><span>Endereço</span><b>${_nfpEsc(end || "—")}</b></div></div>
+
+      <h4 class="pp-h">${nfe ? "Produtos" : "Serviços"}${editavel ? `<a class="nfp-lk" href="#/orcamentos/${_nfpId}">editar no orçamento</a>` : ""}</h4>
       ${linhas ? `
-        <div class="nfp-tab-wrap"><table class="nfp-tab">
+        <div class="nfp-tab-wrap"><table class="nfp-tab pp-tab">
           <thead><tr>${nfe ? "<th>Código</th>" : ""}<th>Descrição</th>${nfe ? "<th>NCM</th><th>CFOP</th>" : ""}<th class="n">Qtd</th><th class="n">Unitário</th><th class="n">Total</th>${imp ? "<th>ICMS</th>" : ""}</tr></thead>
           <tbody>${linhas}</tbody>
-        </table></div>`
-        : `<p class="nfp-nota">Os itens aparecem aqui quando o que falta no orçamento for resolvido.</p>`}
-      ${notas.map(t => `<p class="nfp-nota">${t}</p>`).join("")}
-    </section>`;
-}
+        </table></div>` : `<p class="nfp-nota">Nenhuma linha com valor no orçamento.</p>`}
+      ${notas.map(x => `<p class="nfp-nota">${x}</p>`).join("")}
 
-function _nfpInfoHtml(editavel) {
-  const p = _nfpDados;
-  const v = p.rascunho?.info_adicional ?? p.info_adicional_padrao ?? "";
-  return `
-    <section class="card nfp-card">
-      <h3 class="nfp-h"><label for="nfpInfo">Informações adicionais</label></h3>
-      <textarea id="nfpInfo" class="input nfp-larga" rows="3" maxlength="1500" data-nfp-info${editavel ? "" : " readonly"}>${_nfpEsc(v)}</textarea>
-      <p class="nfp-nota">Vai no campo de informações complementares da nota${p.tipo === "nfe" ? " (DANFE)" : ""}.</p>
-    </section>`;
+      <div class="pp-l pp-tot">
+        ${totais}
+        <div class="pp-c pp-total"><span>Total da nota</span><b class="nfp-num">${_nfpMoeda(p.nota?.nota_valor || p.total)}</b></div>
+      </div>
+
+      <h4 class="pp-h"><label for="nfpInfo">Informações adicionais</label></h4>
+      <textarea id="nfpInfo" class="input nfp-larga" rows="3" maxlength="1500" data-nfp-info${editavel ? "" : " readonly"}>${_nfpEsc(info)}</textarea>
+      <p class="nfp-nota">Vai no campo de informações complementares da nota${nfe ? " (DANFE)" : ""}.</p>
+      <p class="pp-pe"><button type="button" class="nfp-lk" data-nfp="espelho">Ver no formato da ${nfe ? "DANFE" : "NFS-e"}</button></p>
+    </article>`;
 }
 
 function _nfpHistHtml() {
@@ -341,20 +452,6 @@ function _nfpHistHtml() {
     <section class="card nfp-card">
       <h3 class="nfp-h">Histórico</h3>
       <ul class="nfp-hist">${ev.map(([d, t]) => `<li><span class="nfp-hora">${d ? _nfpHora(d) : ""}</span>${t}</li>`).join("")}</ul>
-    </section>`;
-}
-
-function _nfpResumoHtml() {
-  const p = _nfpDados;
-  const soma = (p.itens || []).reduce((a, i) => a + Number(i.total || 0), 0);
-  return `
-    <section class="card nfp-card">
-      <h3 class="nfp-h">Resumo</h3>
-      <ul class="nfp-kv">
-        <li><span>${p.tipo === "nfe" ? "Produtos" : "Serviços"}</span><b>${_nfpMoeda(soma || p.total)}</b></li>
-        ${p.tipo === "nfe" ? `<li><span>Frete</span><b>${_nfpMoeda(0)}</b></li>` : ""}
-        <li class="is-total"><span>Total da nota</span><b>${_nfpMoeda(p.nota?.nota_valor || p.total)}</b></li>
-      </ul>
     </section>`;
 }
 
@@ -724,6 +821,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const a = el.dataset.nfp;
       if (a === "emitir") _nfpEmitir();
       else if (a === "espelho") _nfpEspelho();
+      else if (a === "ir-pendencias") {
+        const alvo = document.getElementById("nfpParaEmitir");
+        alvo?.scrollIntoView({ behavior: "smooth", block: "start" });
+        alvo?.focus({ preventScroll: true });
+      }
       else if (a === "descartar") _nfpDescartar();
       else if (a === "atualizar") _nfpAtualizar();
       else if (a === "boletos") _nfpGerarBoletos();

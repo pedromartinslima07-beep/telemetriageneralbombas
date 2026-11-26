@@ -259,6 +259,14 @@ Na mesma data: páginas de registro em duas larguras centradas (1180 e 1320),
 número sem quebra nas listas, um amarelo só no chamado, "Cancelar" no lugar
 do "Voltar" que cancelava (admin e operador) e a mesma caixa para página que
 não abre (`_pgVazioHtml`).
+
+**Orçamento e nota com estrutura nova (26/11/2026, maquete aprovada):** o
+orçamento tem uma linha por item (abre ao clicar), Enter adiciona, cliente
+numa linha no cabeçalho, a ação da vez no topo em vez do seletor de
+situação, e **salva sozinho** (sem botão Salvar). A nota mostra a própria
+nota na coluna principal, com o que falta marcado, e "Para emitir" no
+trilho. Ver a seção "Orçamento e nota: a estrutura nova" em
+[`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 Ver a seção "O voltar das páginas de registro" em
 [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 

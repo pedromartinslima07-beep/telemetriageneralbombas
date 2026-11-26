@@ -2441,3 +2441,78 @@ aparecem: a seta do voltar cai na borda da caixa em todas). A diferença de
 5 px entre condomínio e orçamento a 1920 é a barra de rolagem da página
 mais alta, não o layout. O painel do operador não foi aberto no navegador:
 lá a mudança é só o texto do botão (`node --check` limpo).
+
+## Orçamento e nota: a estrutura nova (26/11/2026)
+
+Pedido do Pedro: *"foca tanto na tela de fazer orçamento tanto na de fazer nf
+e melhora o visual"*. A primeira rodada foi só acabamento (página branca,
+selo em frase, títulos de seção em frase, números à direita, um amarelo só,
+a linha do tempo da nota igual à das outras páginas). À pergunta *"esse é o
+melhor jeito q da para fazer?"* a resposta foi não: o que pesava era a
+estrutura. Maquete estática em `/dev/_documentos-preview.html`
+(`public/_documentos-preview.*`), aprovada com um ajuste: **o total do
+orçamento fica no topo do trilho, como antes** (a maquete o fechava embaixo
+da tabela; ele preferiu o de hoje).
+
+### Orçamento (`public/admin.js`, `_avRenderPainel` e vizinhos)
+
+| Antes | Agora |
+|---|---|
+| Cada item em três linhas (descrição; Peça/Serviço e produto do Omie; ficha técnica) | **Uma linha por item** (`tr.av-it`): nº, descrição com o produto do Omie ou o que falta embaixo, tipo, qtd, unitário, total. Clicar (ou Enter) **abre** o item com os campos de sempre (`data-av-linha-field`); Esc ou "fechar o item" fecha. `_avItemAberto` guarda qual |
+| "+ Adicionar" amarelo, linha à parte | A linha vazia no pé da tabela: **Enter adiciona** e o cursor volta para ela (keydown em `_avBindEventos`). O botão "Adicionar" continua, comum |
+| Bloco Cliente (Cadastrado/Avulso, condomínio, O.S.) no topo do formulário; Tipo no trilho | **O cliente numa linha** no cabeçalho ("Residencial Ipê · da OS-… · Peças / Serviço · trocar"). "trocar" abre `#avClientePainel`, com o mesmo bloco e o **Tipo** junto. Sem cliente, nasce aberto |
+| Seletor de Situação no trilho | **A ação da vez no cabeçalho**: rascunho → Enviar ao cliente; enviado → Reenviar + Registrar resposta (Aprovado / Recusado); aprovado → Preparar a nota (ou Abrir a nota). O seletor virou **"Corrigir situação à mão"**, no pé do trilho |
+| Botão "Salvar orçamento" e aviso de alteração não salva | **Salva sozinho** 1,2 s depois da última alteração ("Salvo às 13:42" no cabeçalho). Sair da página, abrir a nota, gerar PDF ou enviar gravam o que falta antes |
+| Condições comerciais fechadas no pé do formulário | No trilho, em **"Para o cliente"** (validade, pagamento, prazo, garantia lidos; "Editar condições" abre os mesmos campos) |
+| Trilho: total, situação, envio, nota misturados | Seções: total (com itens e desconto em linhas de conta), o que o técnico pediu, Para o cliente, Envio, resposta/baixa, nota (só quando já existe), Histórico, e no pé "Corrigir situação à mão" e "Excluir" |
+
+**Salvar sozinho, como funciona.** `_avAgendarSalvar` (ligado uma vez em
+`_avBindEventos`, para qualquer input/select/textarea do formulário menos os
+que gravam sozinhos: itens, item novo, fotos e a situação à mão) marca
+`_avSujo`, conta `_avEdicaoSeq` e agenda `_avSalvarJa`. O salvamento é o
+`_avAcao("salvar", { silencioso: true })`: grava, não redesenha a página
+(tiraria o foco), e `_avAtualizarResumos` refaz só a frase do cliente e o
+"Para o cliente".
+
+⚠️ **O corpo do PATCH é lido antes de qualquer `await`** (`_avCorpoSalvar`,
+separado do `_avAcao`). `_avPodeSair` limpa `_avSelecionado` na hora em que a
+pessoa sai; se o corpo fosse lido depois do `await _avGarantirRegistro()`,
+ele já não existiria. E o `_avSujo` só é limpo se `_avEdicaoSeq` não mudou
+durante o pedido: o que foi digitado no meio não se perde.
+
+**No modo documento** (enviado ou aprovado, `admin-orc-doc.js`), o
+`#avModalBody` ganha `.is-doc-modo` e somem o "trocar", o "Editar condições"
+e a situação à mão. "Ver documento" grava o que falta e redesenha (antes
+perguntava se descartava).
+
+O `admin-orc-pecas.js` não foi reescrito: ele decora as linhas que têm o
+campo da descrição, e agora só a linha aberta tem. O "escolher" de uma linha
+fechada abre o item e dispara o "trocar" dele.
+
+### Nota (`public/admin-nota.js`)
+
+| Antes | Agora |
+|---|---|
+| Emitir apagado sem dizer por quê | **"Faltam N coisas"** ao lado dele, leva à lista do trilho |
+| Cartões Destinatário, Itens, Informações adicionais e Resumo; o espelho atrás de um botão | **A nota é a coluna principal** (`_nfpPapelHtml`): o conteúdo do espelho no visual do painel, com o CNPJ vazio e a peça sem produto **marcados onde faltam**. O espelho fiel continua em "Ver no formato da DANFE" |
+| "Não dá para emitir", "Antes de emitir" e "Impostos: ainda não conferidos" soltos | **"Para emitir"** no topo do trilho (`_nfpParaEmitirHtml`): lista que fica verde item a item (destinatário, peça ou serviço, produto do Omie, impostos), com os botões de resolver de sempre embaixo |
+| Trilho fixo mais alto que a tela (o Envio nunca aparecia) | Trilho rola com a página |
+
+Some o "Resumo" (os totais estão no papel). O cartão Impostos fica só depois
+da simulação (com PIS, COFINS e o destacado); antes disso o "Para emitir"
+diz em que pé está.
+
+### Testado (banco de teste, 26/11/2026)
+
+1440×900 e 375 px. Orçamento: item abre e fecha (clique, Enter, Esc), Enter
+no item novo adiciona e devolve o cursor (item de teste removido depois),
+salvar sozinho grava no servidor (conferido pela rota da lista) e grava ao
+sair da página antes do tempo, enviado → "Registrar resposta → Aprovado"
+volta a aprovado com "Preparar a nota" no topo, modo documento sem os
+controles de edição. Nota: "Faltam 3 coisas", CNPJ e peça marcados no papel,
+"Ver no formato da DANFE" abre o espelho, sem rolagem lateral no celular.
+Testes `trilho-os-vinculada` 13/13, `orcamento-vincula-os` 22/22,
+`painel-novo` 35/35. **Não exercitado:** a emissão de verdade (Omie sem
+sandbox) e o envio por e-mail.
+`admin.css?v=397`, `admin.js?v=436`, `admin-nota.js?v=7`,
+`admin-orc-doc.js?v=5`, `admin-orc-pecas.js?v=7`.

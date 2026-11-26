@@ -272,6 +272,9 @@
     if (!layout || !o) return;
     const doc = modoDoc(o);
     layout.classList.toggle("is-doc", doc);
+    // O cabeçalho e o trilho também precisam saber (26/11/2026): "trocar" o
+    // cliente, "Editar condições" e a situação à mão só valem no formulário.
+    document.getElementById("avModalBody")?.classList.toggle("is-doc-modo", doc);
     for (const id of ["avInputStatus", "avInputTipo"]) {
       const s = document.getElementById(id);
       if (s) s.disabled = doc;
@@ -307,13 +310,16 @@
     document.querySelector(".content")?.scrollTo?.({ top: 0, behavior: "smooth" });
   }
 
-  function verDocumento() {
+  // Desde 26/11/2026 o formulário salva sozinho: voltar ao documento grava o
+  // que ainda esperava e redesenha a partir do banco (antes perguntava se
+  // descartava as alterações não salvas).
+  async function verDocumento() {
     const o = orc();
     if (!o) return;
-    if (typeof _avSujo !== "undefined" && _avSujo) {
-      if (!confirm("Descartar as alterações não salvas?\n\nItens e fotos já foram gravados na hora; o que se perde é o resto do formulário (cliente, constatação, condições, total).")) return;
+    if (typeof _avSujo !== "undefined" && _avSujo && typeof _avSalvarJa === "function") {
+      await _avSalvarJa();
       editandoId = null;
-      _avRenderPainel();   // redesenha a partir do que está salvo
+      _avRenderPainel();
       return;
     }
     editandoId = null;

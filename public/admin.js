@@ -12616,6 +12616,12 @@ let _avLinhasPromise = null;    // fetch de linhas em andamento, se houver
 let _avPreencherPadraoAtivo = false; // trava contra chamadas concorrentes (evita duplicar linha)
 let _avBindFeito   = false;
 let _avCondos      = []; // lista de condominios para o select
+// Estrutura nova da página (26/11/2026, maquete /dev/_documentos-preview.html):
+let _avClienteAberto = null;  // id do orçamento com o bloco do cliente aberto ("novo" sem id)
+let _avItemAberto    = null;  // id da linha aberta (ficha, Peça/Serviço, produto do Omie)
+let _avAutoTimer     = null;  // salvar sozinho: espera o fim da digitação
+let _avEdicaoSeq     = 0;     // cada alteração conta; o salvamento só limpa o "sujo" se nada mudou no meio
+let _avSalvando      = null;  // promessa do salvamento em andamento
 
 // ⚠️ TRAZ TODOS, DE PÁGINA EM PÁGINA (20/11/2026). A rota cortava em 300 fixo
 // e os orçamentos mais antigos sumiam da tela como se tivessem sido apagados
@@ -12805,12 +12811,12 @@ async function _avAbrirPelaRota(id) {
 function _avPodeSair(destino) {
   if (destino === "orcamento-detalhe") return true;
   if (!_avNaPagina() || !_avSelecionado) return true;
-  if (_avSujo && !confirm("Você tem alterações não salvas neste orçamento. Sair mesmo assim?")) {
-    const aqui = `#/orcamentos/${_avSelecionado.id ?? "novo"}`;
-    if (location.hash !== aqui) history.pushState(null, "", aqui);
-    return false;
-  }
-  _avSujo = false;
+  // Salvar sozinho (26/11/2026): o que ainda esperava o fim da digitação é
+  // gravado agora, e a pessoa sai sem pergunta. O corpo é lido antes de
+  // qualquer await (_avCorpoSalvar), então limpar o estado logo abaixo não
+  // atrapalha o salvamento que já partiu.
+  if (_avSujo) _avSalvarJa();
+  _avItemAberto = null;
   _avSelecionado = null;
   _avEmpurrouHistorico = false;
   const m = document.getElementById("avModal");
@@ -12895,10 +12901,10 @@ function _avFecharModal() {
 // ela perde ISSO ao sair. O orçamento em si, se já existir, permanece como
 // rascunho, que é um estado legítimo e visível na lista.
 async function _avTentarFechar() {
-  if (_avSujo) {
-    if (!confirm("Você tem alterações não salvas neste orçamento. Sair mesmo assim?")) return;
-  }
+  // Salvar sozinho (26/11/2026): grava o que falta em vez de perguntar.
+  if (_avSujo) await _avSalvarJa();
   _avSujo = false;
+  _avItemAberto = null;
   _avFecharModal();
 }
 
@@ -12947,18 +12953,63 @@ function _avRenderPainel() {
   // (descrição do card, título da seção, nota da zona de itens e aviso da
   // tabela) — a mesma frase repetida vira ruído, não ajuda.
 
+  // O CLIENTE NUMA LINHA (26/11/2026, maquete /dev/_documentos-preview.html
+  // aprovada pelo Pedro). Quase todo orçamento nasce de um chamado ou de uma
+  // O.S., com o prédio já sabido: o bloco Cadastrado/Avulso + condomínio +
+  // O.S. + tipo ocupava o topo do formulário para ser lido, não mexido.
+  // Agora é uma frase no cabeçalho; "trocar" abre o mesmo bloco (os mesmos
+  // ids, que o salvamento lê). Sem cliente ainda, ele já nasce aberto.
+  const condoSel = _avCondos.find(c => String(c.id) === String(o.condominio_id));
+  const clienteNome = avulso ? o.cliente_nome : (condoSel?.nome || o.condominio_nome);
+  const semCliente = !clienteNome;
+  const clienteAberto = semCliente || _avClienteAberto === (o.id ?? "novo");
+  const clienteFrase = [
+    clienteNome ? `<b>${_waEscaparHtml(clienteNome)}</b>` : `<span class="av-cab-falta">sem cliente</span>`,
+    o.os_numero ? `da ${_waEscaparHtml(o.os_numero)}` : "",
+    _waEscaparHtml(tipoLabels[tipoAtivo] || tipoAtivo),
+  ].filter(Boolean).join(" · ");
+
+  // A AÇÃO DA VEZ, no cabeçalho (26/11/2026). A situação deixou de ser um
+  // seletor que se troca à mão: ela anda pelo que se FAZ com o orçamento.
+  // Rascunho → Enviar; enviado → Registrar a resposta; aprovado → a nota.
+  // Corrigir à mão continua possível, escondido no pé do trilho.
+  // ⚠️ #avBtnEmail existe UMA vez: _avAtualizarDestinatario o desliga
+  // quando não há e-mail, e o envio abre pelo data-av-action.
+  const st = o.status || "rascunho";
+  const acaoDaVez = st === "rascunho"
+    ? `<button type="button" class="btn btnAccent" id="avBtnEmail" data-av-action="enviar-email">Enviar ao cliente</button>`
+    : st === "enviado"
+      ? `<button type="button" class="btn" id="avBtnEmail" data-av-action="enviar-email">Reenviar</button>
+         <div class="av-menu-wrap">
+           <button type="button" class="btn btnAccent" data-av-menu="resposta" aria-haspopup="menu" aria-expanded="false">Registrar resposta</button>
+           <div class="av-menu" data-av-menu-de="resposta" role="menu" hidden>
+             <button type="button" role="menuitem" data-av-resposta="aprovado">Aprovado pelo cliente</button>
+             <button type="button" role="menuitem" data-av-resposta="rejeitado">Recusado pelo cliente</button>
+           </div>
+         </div>`
+      : st === "aprovado"
+        ? `<button type="button" class="btn${o.nota_status ? "" : " btnAccent"}" data-av-action="nota-emitir">${o.nota_status ? "Abrir a nota" : "Preparar a nota"}</button>`
+        : "";
+
   wrap.innerHTML = `
     <div class="av-modal-head">
       <div class="av-modal-head-info">
         <!-- O cifrão em caixinha que abria este cabeçalho saiu em 26/11/2026:
              chamado, O.S. e contrato abrem direto no número e no selo. -->
-        <div>
-          <div class="av-modal-num" id="avModalTitulo">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
-          <div class="av-modal-meta">
+        <div class="av-cab-txt">
+          <div class="av-cab-l1">
+            <span class="av-modal-num" id="avModalTitulo">${_waEscaparHtml(o.numero || "Novo orçamento")}</span>
             <span class="orc-status-pill ${_avStatusCls(o.status)}">${_avStatusLabel(o.status)}</span>
-            <span class="av-modal-date">· ${_orcFmtData(o.criado_em)}</span>
+          </div>
+          <div class="av-cab-sub">${clienteFrase}
+            <button type="button" class="av-lk-mudo" data-av-cliente-abrir aria-expanded="${clienteAberto}" aria-controls="avClientePainel">${clienteAberto && !semCliente ? "fechar" : (semCliente ? "escolher" : "trocar")}</button>
           </div>
         </div>
+      </div>
+      <div class="av-cab-acoes">
+        <span class="av-salvo" id="avSalvo" aria-live="polite"></span>
+        <button type="button" class="btn" data-av-action="gerar-pdf">PDF</button>
+        ${acaoDaVez}
       </div>
     </div>
     ${_avLinhaTempo(o)}
@@ -12986,8 +13037,19 @@ function _avRenderPainel() {
              só deixou de ser oculto. -->
         <div class="av-setup">
           <div class="av-setup-col">
-            <div class="ap-section">
-              <div class="ap-section-title">Cliente</div>
+            <div class="ap-section av-cliente-painel" id="avClientePainel"${clienteAberto ? "" : " hidden"}>
+              <div class="ap-section-title">Cliente e tipo</div>
+              <!-- O Tipo morava no trilho; veio para junto do cliente porque
+                   os dois são escolhas feitas uma vez, no começo. O select e
+                   o id são os mesmos. -->
+              <label class="orc-form-label av-tipo-campo av-rail-tipo">Tipo do documento
+                <select id="avInputTipo" class="select">
+                  <option value="pecas" ${tipoAtivo==="pecas"?"selected":""}>Peças / Serviço</option>
+                  <option value="limpeza_reservatorio" ${tipoAtivo==="limpeza_reservatorio"?"selected":""}>Limpeza de reservatório</option>
+                  <option value="dedetizacao" ${tipoAtivo==="dedetizacao"?"selected":""}>Dedetização</option>
+                  <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza + dedetização</option>
+                </select>
+              </label>
               <div class="av-seg">
                 <button type="button" class="${avulso ? "" : "is-on"}" data-av-cliente="cadastrado">Cadastrado</button>
                 <button type="button" class="${avulso ? "is-on" : ""}" data-av-cliente="avulso">Avulso (pessoa física)</button>
@@ -13047,60 +13109,6 @@ function _avRenderPainel() {
           </div>
         </div>
 
-        <!-- ⚠️ As condições comerciais nascem TODAS preenchidas com o padrão
-             da casa e quase nunca mudam — mas ocupavam uma faixa permanente
-             de cinco campos no pé do formulário, competindo com os itens.
-             Agora vêm fechadas, com o valor atual escrito no resumo: dá para
-             conferir sem abrir, que é o que se faz na maioria das vezes.
-             Elemento details nativo de propósito — abre sem JS, é focável e
-             anunciável por leitor de tela de graça.
-             (Sem crase neste comentário: ver o aviso na faixa de configuração
-             acima — crase dentro de template literal fecha o template.) -->
-        <details class="av-cond">
-          <summary class="av-cond-sum">
-            <span class="ap-section-title">Condições comerciais</span>
-            <span class="av-cond-resumo">${[
-              o.forma_pagamento || "Via boleto bancário",
-              o.prazo_entrega   || "5 dias úteis após aprovação",
-              o.garantia        || "12 meses",
-              validadeVal ? `válido até ${_orcFmtData(o.valido_ate)}` : "sem validade",
-            ].map(_waEscaparHtml).join(" · ")}</span>
-          </summary>
-          <div class="av-cond-grid">
-            <label class="orc-form-label">Forma de pagamento
-              <input id="avInputPagamento" class="input" type="text" maxlength="255"
-                placeholder="Via boleto bancário" value="${_waEscaparHtml(o.forma_pagamento || '')}">
-            </label>
-            <label class="orc-form-label">Prazo de entrega
-              <input id="avInputPrazo" class="input" type="text" maxlength="100"
-                placeholder="5 dias úteis" value="${_waEscaparHtml(o.prazo_entrega || '')}">
-            </label>
-            <!-- Garantia vazia NÃO quer dizer sem garantia: o PDF imprime o
-                 padrão de 12 meses no lugar. Sem garantia é esta caixa: grava
-                 o texto literal como marca, esvazia e trava o campo, e o PDF
-                 tira a garantia do documento. Div, não label: label dentro de
-                 label é HTML inválido. -->
-            <div class="orc-form-label">
-              <span class="av-gar-head">
-                <label for="avInputGarantia">Garantia</label>
-                <label class="av-gar-sem">
-                  <input type="checkbox" id="avSemGarantia" ${_avEhSemGarantia(o.garantia) ? "checked" : ""}>
-                  Sem garantia
-                </label>
-              </span>
-              <input id="avInputGarantia" class="input" type="text" maxlength="100"
-                ${_avEhSemGarantia(o.garantia)
-                  ? 'placeholder="Não sai no PDF" value="" disabled'
-                  : `placeholder="12 meses" value="${_waEscaparHtml(o.garantia || '')}"`}>
-            </div>
-            <label class="orc-form-label">Data do orçamento
-              <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
-            </label>
-            <label class="orc-form-label">Válido até
-              <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
-            </label>
-          </div>
-        </details>
       </div>
 
       <aside class="av-rail">
@@ -13187,26 +13195,47 @@ function _avRenderPainel() {
         </div>
         <div class="av-rail-hr"></div>` : ""}
 
-        <div>
-          <div class="av-rail-kv">
-            <span>Situação</span>
-            <b><select id="avInputStatus" class="select" style="width:auto;padding:4px 8px;font-size:11.5px;">
-              <option value="rascunho" ${o.status==="rascunho"?"selected":""}>Rascunho</option>
-              <option value="enviado"  ${o.status==="enviado" ?"selected":""}>Enviado</option>
-              <option value="aprovado" ${o.status==="aprovado"?"selected":""}>Aprovado</option>
-              <option value="rejeitado"${o.status==="rejeitado"?"selected":""}>Rejeitado</option>
-            </select></b>
-          </div>
-          <!-- ⚠️ O EFEITO COLATERAL DITO EM VOZ ALTA (26/08/2026). Marcar
-               "Enviado" aqui é o que faz o orçamento aparecer no painel do
-               síndico (_ORC_VISIVEIS_AO_CLIENTE, no cliente.routes.js) — o
-               seletor registra um fato E abre uma porta, e a porta era muda.
-               Nada mudou no comportamento; o que mudou é a tela avisar.
-               Separar registro de publicação de vez continua em aberto. -->
+        <!-- PARA O CLIENTE (26/11/2026): as condições comerciais saíram do pé
+             do formulário. Ficam lidas aqui, ao lado dos itens, e abrem no
+             mesmo lugar. Os campos e os ids são os mesmos de antes. -->
+        <section class="av-rail-sec">
+          <div class="av-rail-h">Para o cliente</div>
+          <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
+          <div class="av-rail-kv"><span>Pagamento</span><b>${_waEscaparHtml(o.forma_pagamento || "Via boleto bancário")}</b></div>
+          <div class="av-rail-kv"><span>Prazo</span><b>${_waEscaparHtml(o.prazo_entrega || "5 dias úteis após aprovação")}</b></div>
+          <div class="av-rail-kv"><span>Garantia</span><b>${_avEhSemGarantia(o.garantia) ? "sem garantia" : _waEscaparHtml(o.garantia || "12 meses")}</b></div>
+          ${_avCondicoesHtml(o, validadeVal, dataDocVal)}
+        </section>
+
+        <section class="av-rail-sec">
+          <div class="av-rail-h">Envio</div>
+          ${o.enviado_em ? `<p class="av-rail-txt">Enviado em ${_orcFmtData(o.enviado_em)}.</p>` : ""}
           <div class="av-situacao-nota" id="avSituacaoNota"${o.status === "rascunho" ? " hidden" : ""}>
             Visível no painel do cliente.
           </div>
-          <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
+          <div class="av-envio-to" id="avEnvioDest"></div>
+          ${o.status === "rascunho" ? `<p class="av-rail-txt av-fraco">Pelo botão Enviar ao cliente, no topo.</p>` : ""}
+        </section>
+
+        ${o.respondido_em && (o.cliente_comentario || o.motivo_rejeicao) ? `
+        <div class="av-resposta-cliente">
+          <div class="av-resposta-t">${o.respondido_por_nome ? _waEscaparHtml(o.respondido_por_nome) : "O cliente"} escreveu</div>
+          <p>${_waEscaparHtml(o.cliente_comentario || o.motivo_rejeicao)}</p>
+        </div>` : ""}
+
+        ${o.respondido_em ? `<div id="avBaixaWrap">${_avBaixaHtml(o)}</div>` : ""}
+
+        <!-- NOTA FISCAL PELO OMIE (migration 090). So aparece no aprovado, ou
+             quando ja existe nota — e ai fica mesmo que o status mude, porque
+             a nota existe na prefeitura de qualquer jeito.
+             Desde 26/11/2026 o "Preparar a nota" do aprovado sem nota é a
+             ação da vez, no cabeçalho; aqui fica só a nota que já existe. -->
+        ${o.nota_status ? `
+        <div class="av-envio av-nota" id="avNotaWrap">${_avNotaRailHtml(o)}</div>` : ""}
+
+        <section class="av-rail-sec">
+          <div class="av-rail-h">Histórico</div>
+          <div class="av-rail-kv"><span>Criado em</span><b>${_orcFmtData(o.criado_em)}</b></div>
           <!-- Quem MONTOU o documento. A coluna sempre foi gravada; até
                26/08/2026 ela não aparecia em lugar nenhum da tela, e a pergunta
                "quem fez este orçamento?" só se respondia no banco. Fica acima
@@ -13248,52 +13277,34 @@ function _avRenderPainel() {
               o.chamado_status === "aberto" || o.chamado_status === "em_atendimento"
                 ? "na fila do turno" : "fechado"}</i></b>
           </div>` : ""}
-          <div class="av-rail-kv av-rail-tipo">
-            <span><label for="avInputTipo">Tipo</label></span>
-            <b><select id="avInputTipo" class="select">
-              <option value="pecas" ${tipoAtivo==="pecas"?"selected":""}>Peças / Serviço</option>
-              <option value="limpeza_reservatorio" ${tipoAtivo==="limpeza_reservatorio"?"selected":""}>Limpeza de reservatório</option>
-              <option value="dedetizacao" ${tipoAtivo==="dedetizacao"?"selected":""}>Dedetização</option>
-              <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza + dedetização</option>
-            </select></b>
-          </div>
-        </div>
-
-        ${o.respondido_em && (o.cliente_comentario || o.motivo_rejeicao) ? `
-        <div class="av-resposta-cliente">
-          <div class="av-resposta-t">${o.respondido_por_nome ? _waEscaparHtml(o.respondido_por_nome) : "O cliente"} escreveu</div>
-          <p>${_waEscaparHtml(o.cliente_comentario || o.motivo_rejeicao)}</p>
-        </div>` : ""}
-
-        ${o.respondido_em ? `<div id="avBaixaWrap">${_avBaixaHtml(o)}</div>` : ""}
-
-        <div class="av-rail-hr"></div>
-
-        <div class="av-rail-acts">
-          <button class="btn btnAccent" data-av-action="salvar">Salvar orçamento</button>
-          <button class="btn av-btn-pdf" data-av-action="gerar-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Gerar PDF
-          </button>
-        </div>
-
-        <div class="av-envio">
-          <div class="av-envio-t">Enviar ao cliente</div>
-          <div class="av-envio-to" id="avEnvioDest"></div>
-          <button class="btn btn-sm av-btn-email" id="avBtnEmail" data-av-action="enviar-email">
-            Enviar por e-mail
-          </button>
-        </div>
-
-        <!-- NOTA FISCAL PELO OMIE (migration 090). So aparece no aprovado, ou
-             quando ja existe nota — e ai fica mesmo que o status mude, porque
-             a nota existe na prefeitura de qualquer jeito. -->
-        ${o.status === "aprovado" || o.nota_status ? `
-        <div class="av-envio av-nota" id="avNotaWrap">${_avNotaRailHtml(o)}</div>` : ""}
+        </section>
 
         <span class="orc-form-msg" id="avFormMsg"></span>
 
-        <div class="av-rail-danger">
+        <!-- A SITUAÇÃO À MÃO (26/11/2026). O seletor era a primeira coisa do
+             trilho; virou exceção, para corrigir o que as ações do topo não
+             cobrem. O select e o id são os mesmos (o salvamento lê dele). -->
+        <div class="av-situacao-mao" id="avSituacaoMao" hidden>
+          <div class="av-rail-kv">
+            <span>Situação</span>
+            <b><select id="avInputStatus" class="select" style="width:auto;padding:4px 8px;font-size:11.5px;">
+              <option value="rascunho" ${o.status==="rascunho"?"selected":""}>Rascunho</option>
+              <option value="enviado"  ${o.status==="enviado" ?"selected":""}>Enviado</option>
+              <option value="aprovado" ${o.status==="aprovado"?"selected":""}>Aprovado</option>
+              <option value="rejeitado"${o.status==="rejeitado"?"selected":""}>Rejeitado</option>
+            </select></b>
+          </div>
+          <!-- ⚠️ O EFEITO COLATERAL DITO EM VOZ ALTA (26/08/2026). Marcar
+               "Enviado" aqui é o que faz o orçamento aparecer no painel do
+               síndico (_ORC_VISIVEIS_AO_CLIENTE, no cliente.routes.js) — o
+               seletor registra um fato E abre uma porta, e a porta era muda.
+               Nada mudou no comportamento; o que mudou é a tela avisar.
+               Separar registro de publicação de vez continua em aberto. -->
+
+        </div>
+
+        <div class="av-rail-danger av-rail-pe">
+          <button type="button" data-av-situacao-mao>Corrigir situação à mão</button>
           <button type="button" data-av-action="deletar">Excluir orçamento</button>
         </div>
       </aside>
@@ -13387,13 +13398,10 @@ function _avRenderPainel() {
   // limpa em seguida, então digitar ali não deixa nada por salvar — marcar
   // sujo faria o aviso de saída disparar sem ter o que perder, que é o jeito
   // mais rápido de ensinar alguém a ignorar avisos.
-  const _AV_CAMPOS_ITEM_NOVO = new Set(["avNewDesc", "avNewQtd", "avNewVal", "avNewFicha"]);
-  const _avMarcarSujo = (e) => {
-    if (_AV_CAMPOS_ITEM_NOVO.has(e.target?.id)) return;
-    _avSujo = true;
-  };
-  wrap.addEventListener("input",  _avMarcarSujo);
-  wrap.addEventListener("change", _avMarcarSujo);
+  //
+  // ⚠️ DESDE 26/11/2026 QUEM MARCA É O SALVAR SOZINHO (_avAgendarSalvar),
+  // ligado UMA vez em _avBindEventos. Este listener era religado a cada
+  // render no mesmo #avModalBody, e acumulava.
 
   // ── Fiação dos controles visuais ──────────────────────────────────────────
   // Os cards de tipo e o segmentado de cliente NÃO guardam estado: eles setam
@@ -13454,6 +13462,59 @@ function _avRenderPainel() {
 
   _avAtualizarTotalRail();
   _avAtualizarDestinatario();
+}
+
+// As condições comerciais (forma de pagamento, prazo, garantia, data e
+// validade), no trilho desde 26/11/2026. Os ids são os de sempre: _avAcao lê
+// por getElementById. O resumo fica nas linhas "Para o cliente" acima dele.
+function _avCondicoesHtml(o, validadeVal, dataDocVal) {
+  return `
+        <!-- ⚠️ As condições comerciais nascem TODAS preenchidas com o padrão
+         da casa e quase nunca mudam — mas ocupavam uma faixa permanente
+         de cinco campos no pé do formulário, competindo com os itens.
+         Agora vêm fechadas, com o valor atual escrito no resumo: dá para
+         conferir sem abrir, que é o que se faz na maioria das vezes.
+         Elemento details nativo de propósito — abre sem JS, é focável e
+         anunciável por leitor de tela de graça.
+         (Sem crase neste comentário: ver o aviso na faixa de configuração
+         acima — crase dentro de template literal fecha o template.) -->
+    <details class="av-cond">
+      <summary class="av-cond-sum"><span class="ap-section-title">Editar condições</span></summary>
+      <div class="av-cond-grid">
+        <label class="orc-form-label">Forma de pagamento
+          <input id="avInputPagamento" class="input" type="text" maxlength="255"
+            placeholder="Via boleto bancário" value="${_waEscaparHtml(o.forma_pagamento || '')}">
+        </label>
+        <label class="orc-form-label">Prazo de entrega
+          <input id="avInputPrazo" class="input" type="text" maxlength="100"
+            placeholder="5 dias úteis" value="${_waEscaparHtml(o.prazo_entrega || '')}">
+        </label>
+        <!-- Garantia vazia NÃO quer dizer sem garantia: o PDF imprime o
+             padrão de 12 meses no lugar. Sem garantia é esta caixa: grava
+             o texto literal como marca, esvazia e trava o campo, e o PDF
+             tira a garantia do documento. Div, não label: label dentro de
+             label é HTML inválido. -->
+        <div class="orc-form-label">
+          <span class="av-gar-head">
+            <label for="avInputGarantia">Garantia</label>
+            <label class="av-gar-sem">
+              <input type="checkbox" id="avSemGarantia" ${_avEhSemGarantia(o.garantia) ? "checked" : ""}>
+              Sem garantia
+            </label>
+          </span>
+          <input id="avInputGarantia" class="input" type="text" maxlength="100"
+            ${_avEhSemGarantia(o.garantia)
+              ? 'placeholder="Não sai no PDF" value="" disabled'
+              : `placeholder="12 meses" value="${_waEscaparHtml(o.garantia || '')}"`}>
+        </div>
+        <label class="orc-form-label">Data do orçamento
+          <input id="avInputDataDoc" class="input" type="date" value="${dataDocVal}">
+        </label>
+        <label class="orc-form-label">Válido até
+          <input id="avInputValidade" class="input" type="date" value="${validadeVal}">
+        </label>
+      </div>
+    </details>`;
 }
 
 // Destinatário do envio, lido dos CAMPOS (não do objeto salvo): quem troca o
@@ -13631,11 +13692,17 @@ function _avAtualizarTotalRail() {
   const itens = `${n} ${n === 1 ? "item" : "itens"}`;
   // Enquanto edita, a linha de apoio mostra a soma dos itens: é justamente o
   // número que está sendo sobreposto, e é por ele que se decide o que digitar.
+  // 26/11/2026: com desconto, itens e desconto em linhas de conta (rótulo à
+  // esquerda, valor à direita) logo abaixo do total, como na maquete.
+  const pct = document.getElementById("avDescTipo")?.value !== "valor"
+    ? ` <span class="av-fraco">${_waEscaparHtml(document.getElementById("avDescValor")?.value || "")}%</span>` : "";
   sub.innerHTML = editando
     ? `soma dos itens: ${_orcFmtValor(soma)} · <button type="button" data-av-total-manual>voltar a somar</button>`
     : comDesc
-      ? `subtotal ${_orcFmtValor(soma)} · desconto − ${_orcFmtValor(desc)}<span class="av-sub-acao"> · <button type="button" data-av-desconto>tirar</button></span>`
-      : `${itens}<span class="av-sub-acao"> · <button type="button" data-av-total-manual>definir manualmente</button> · <button type="button" data-av-desconto>dar desconto</button></span>`;
+      ? `<div class="av-tot-l"><span>${itens}</span><b>${_orcFmtValor(soma)}</b></div>
+         <div class="av-tot-l is-desc"><span>Desconto${pct}</span><b>− ${_orcFmtValor(desc)}</b></div>
+         <span class="av-sub-acao"><button type="button" data-av-desconto>tirar o desconto</button></span>`
+      : `${itens}<span class="av-sub-acao"> · <button type="button" data-av-desconto>dar desconto</button> · <button type="button" data-av-total-manual>definir total à mão</button></span>`;
 }
 
 // Total manual de verdade: `valor` preenchido SEM desconto. Com desconto,
@@ -13737,6 +13804,43 @@ function _avComputeTotal(o, linhas) {
   return soma;
 }
 
+// ── A linha fechada do item (26/11/2026) ─────────────────────────────────
+function _avNum(v) {
+  return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function _avItemTipoHtml(l) {
+  if (l.natureza === "peca" || l.omie_produto_codigo) return `<span class="av-it-tipo is-peca">Peça</span>`;
+  if (l.natureza === "servico") return `<span class="av-it-tipo is-serv">Serviço</span>`;
+  return `<span class="av-it-tipo is-sem">marcar</span>`;
+}
+// Embaixo da descrição: o produto do Omie, ou o que falta para a nota.
+function _avItemSubHtml(l) {
+  const travado = ["emitida", "processando"].includes(_avSelecionado?.nota_status);
+  const grava = (typeof _myRole === "undefined" || _myRole === "admin") && !travado;
+  const partes = [];
+  if (l.omie_produto_codigo) {
+    partes.push(`<span class="av-it-omie">Omie <span class="av-it-cod">${_waEscaparHtml(l.produto_codigo || l.omie_produto_codigo)}</span>${l.produto_descricao ? " · " + _waEscaparHtml(l.produto_descricao) : ""}</span>`);
+    if (l.produto_inativo) partes.push(`<span class="av-it-falta">inativo no Omie</span>`);
+  } else if (l.natureza === "servico") {
+    partes.push(`<span>entra como serviço na nota</span>`);
+  } else if (l.natureza === "peca") {
+    partes.push(`<span class="av-it-falta">sem produto do Omie${grava ? ` · <button type="button" class="av-lk" data-av-escolher-produto="${l.id}">escolher</button>` : ""}</span>`);
+  }
+  if (l.peca_usada) partes.push(`<span>usada na visita</span>`);
+  const ficha = String(l.ficha_tecnica || "").trim();
+  if (ficha) partes.push(`<span class="av-it-ficha-resumo" title="${_waEscaparHtml(ficha)}">${_waEscaparHtml(ficha.length > 70 ? ficha.slice(0, 69) + "…" : ficha)}</span>`);
+  return partes.length ? `<div class="av-it-sub">${partes.join('<span class="av-it-sep">·</span>')}</div>` : "";
+}
+function _avAbrirItem(id, { buscar = false } = {}) {
+  _avItemAberto = id;
+  _avRenderLinhas();
+  const tr = document.querySelector(`#avItensWrap tr.is-aberto[data-av-linha-id="${id}"]`);
+  const inp = tr?.querySelector('input[data-av-linha-field="descricao"]');
+  if (!inp) return;
+  inp.focus();
+  if (buscar) tr.querySelector("[data-pc-trocar]")?.click();
+}
+
 function _avRenderLinhas() {
   const wrap = document.getElementById("avItensWrap");
   if (!wrap || _avLinhasId !== _avSelecionado?.id) return;
@@ -13788,8 +13892,10 @@ function _avRenderLinhas() {
   // conserto — e restringir por heurística de texto seria o erro que a
   // migration 068 veio corrigir.
   const nomeTravado = l => isServico && !!l.tipo_servico;
-  const colCount = isServico ? 3 : 5;
+  const colCount = isServico ? 3 : 7;
 
+  const posicao = new Map(_avLinhas.map((l, i) => [l.id, i + 1]));
+  if (_avItemAberto != null && !posicao.has(_avItemAberto)) _avItemAberto = null;
   const fileiras = _avLinhas.map(l => {
     const vuVal = l.valor_unitario != null ? l.valor_unitario : "";
     const tot   = l.valor_unitario == null ? null : Number(l.valor_unitario) * Number(l.quantidade);
@@ -13811,7 +13917,7 @@ function _avRenderLinhas() {
           data-av-linha-id="${l.id}" data-av-linha-field="ficha_tecnica"
           style="width:100%;font-size:10.5px;padding:4px 8px;margin-top:4px;resize:vertical;">${_waEscaparHtml(l.ficha_tecnica || "")}</textarea>
       </td>`;
-    const delCell = `<td style="text-align:center;"><button class="orc-it-del" data-av-del-linha="${l.id}" title="Remover">✕</button></td>`;
+    const delCell = `<td class="av-it-x"><button type="button" class="orc-it-del" data-av-del-linha="${l.id}" title="Remover o item" aria-label="Remover o item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></td>`;
 
     if (isServico) {
       return `<tr data-av-linha-id="${l.id}">
@@ -13820,11 +13926,41 @@ function _avRenderLinhas() {
         ${delCell}
       </tr>`;
     }
-    return `<tr data-av-linha-id="${l.id}">
-      ${descCell}
-      <td class="orc-it-num"><input class="input" type="number" min="1" step="1" value="${l.quantidade}" data-av-linha-id="${l.id}" data-av-linha-field="quantidade" style="width:100%;padding:4px 8px;text-align:right;"></td>
-      <td class="orc-it-num"><input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario" style="width:100%;padding:4px 8px;text-align:right;"></td>
-      <td class="orc-it-num" style="font-weight:600;">${_orcFmtValor(tot)}</td>
+    // ── PEÇAS E SERVIÇOS: UMA LINHA POR ITEM (26/11/2026) ──────────────────
+    // Cada item ocupava três linhas (descrição; Peça/Serviço com o produto do
+    // Omie; ficha técnica) e um orçamento de 15 itens virava uma rolagem que
+    // ninguém conferia. Fechado, o item é uma linha de leitura; clicado, abre
+    // com os MESMOS campos de antes (data-av-linha-field, que o change
+    // grava), e o admin-orc-pecas.js decora só a linha aberta, porque é a
+    // única que tem o campo da descrição.
+    if (l.id !== _avItemAberto) {
+      return `<tr class="av-it" data-av-linha-id="${l.id}" data-av-abrir-item="${l.id}" tabindex="0" aria-label="Abrir o item ${_waEscaparHtml(l.descricao)}">
+        <td class="av-it-n">${posicao.get(l.id)}</td>
+        <td><div class="av-it-desc">${_waEscaparHtml(l.descricao)}</div>${_avItemSubHtml(l)}</td>
+        <td>${_avItemTipoHtml(l)}</td>
+        <td class="orc-it-num">${Number(l.quantidade)}</td>
+        <td class="orc-it-num">${vuVal === "" ? "—" : _avNum(vuVal)}</td>
+        <td class="orc-it-num av-it-tot">${tot == null ? "—" : _avNum(tot)}</td>
+        ${delCell}
+      </tr>`;
+    }
+    return `<tr class="av-it is-aberto" data-av-linha-id="${l.id}">
+      <td class="av-it-n">${posicao.get(l.id)}</td>
+      <td colspan="5" class="av-it-edit">
+        <div class="av-it-linha">
+          <div class="av-it-desc-campo">
+            <input class="input" type="text" maxlength="500" value="${_waEscaparHtml(l.descricao)}" aria-label="Descrição"
+              data-av-linha-id="${l.id}" data-av-linha-field="descricao">
+          </div>
+          <input class="input" type="number" min="1" step="1" value="${l.quantidade}" aria-label="Quantidade" data-av-linha-id="${l.id}" data-av-linha-field="quantidade">
+          <input class="input" type="number" min="0" step="0.01" value="${vuVal}" placeholder="R$" aria-label="Valor unitário" data-av-linha-id="${l.id}" data-av-linha-field="valor_unitario">
+          <span class="orc-it-num av-it-tot">${tot == null ? "—" : _avNum(tot)}</span>
+        </div>
+        <label class="av-it-ficha"><span>Ficha técnica <em>vai no PDF e no texto da NFS-e</em></span>
+          <textarea class="input" rows="2" placeholder="${ficha.placeholder}" data-av-linha-id="${l.id}" data-av-linha-field="ficha_tecnica">${_waEscaparHtml(l.ficha_tecnica || "")}</textarea>
+        </label>
+        <button type="button" class="av-lk-mudo av-it-fechar" data-av-fechar-item>fechar o item</button>
+      </td>
       ${delCell}
     </tr>`;
   }).join("");
@@ -13834,11 +13970,11 @@ function _avRenderLinhas() {
   // igualmente e sobra vazio em Qtd/Unit./Total.
   const colGroup = isServico
     ? `<colgroup><col><col style="width:150px"><col style="width:40px"></colgroup>`
-    : `<colgroup><col><col style="width:84px"><col style="width:122px"><col style="width:122px"><col style="width:40px"></colgroup>`;
+    : `<colgroup><col style="width:34px"><col><col style="width:92px"><col style="width:64px"><col style="width:112px"><col style="width:112px"><col style="width:40px"></colgroup>`;
 
   const theadCols = isServico
     ? `<th>Descrição / Especificação</th><th class="orc-it-num">Valor</th><th></th>`
-    : `<th>Descrição / Ficha técnica</th><th class="orc-it-num">Qtd</th><th class="orc-it-num">Unit.</th><th class="orc-it-num">Total</th><th></th>`;
+    : `<th class="av-it-n">#</th><th>Descrição</th><th>Tipo</th><th class="orc-it-num">Qtd</th><th class="orc-it-num">Unitário</th><th class="orc-it-num">Total</th><th><span class="sr-only">Remover</span></th>`;
 
   // Serviço não tem formulário livre de "adicionar item": só as linhas do
   // "Preencher item(ns) padrão do tipo" fazem sentido (cada uma tem cláusula
@@ -13859,12 +13995,17 @@ function _avRenderLinhas() {
     // `_avAcao("add-linha")` lê `avNewFicha` com `?.` + `|| null`, então some
     // sem quebrar nada — o item nasce sem ficha, como já acontecia quando o
     // campo ficava vazio.
-    : `<div class="orc-add-item-form" id="avAddLinhaForm">
+    // ⚠️ 26/11/2026: a linha de adicionar fica no pé da tabela, sempre
+    // vazia: digita, Enter adiciona e o cursor volta para ela (ver o keydown
+    // em _avBindEventos). O botão continua para quem usa o mouse ou o
+    // celular, menor e sem amarelo (o amarelo é a ação da vez, no topo).
+    : `<div class="orc-add-item-form av-it-novo" id="avAddLinhaForm">
         <div class="orc-add-item-row">
-          <input id="avNewDesc" class="input" type="text" placeholder="Descrição do novo item *" maxlength="500">
-          <input id="avNewQtd"  class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" style="text-align:right;">
-          <input id="avNewVal"  class="input" type="number" min="0" step="0.01" placeholder="R$ unit." style="text-align:right;">
-          <button class="btn btn-sm btnAccent" data-av-action="add-linha" style="justify-content:center;">+ Adicionar</button>
+          <span class="av-it-mais" aria-hidden="true">+</span>
+          <input id="avNewDesc" class="input" type="text" placeholder="Adicionar item: digite a descrição ou busque no Omie" maxlength="500" aria-label="Descrição do item novo">
+          <input id="avNewQtd"  class="input" type="number" min="1" step="1" placeholder="Qtd" value="1" aria-label="Quantidade do item novo">
+          <input id="avNewVal"  class="input" type="number" min="0" step="0.01" placeholder="R$ unit." aria-label="Valor unitário do item novo">
+          <button class="btn btn-sm" data-av-action="add-linha" title="Enter também adiciona">Adicionar</button>
         </div>
       </div>`;
 
@@ -14366,16 +14507,11 @@ async function _avAtualizarNota() {
 // public/admin-nota.js; opção B da maquete /dev/_nota-preview.html). Era um
 // modal por cima do orçamento. Este nome continua porque todo botão "Emitir
 // nota" (trilho, lista, carteira) chega por aqui.
-function _avAbrirNota() {
+async function _avAbrirNota() {
   const orc = _avSelecionado;
   if (!orc?.id) return;
-  // Alteração não salva mudaria o que vai para a nota sem a página saber:
-  // ela lê o BANCO.
-  if (_avSujo) {
-    const fmsg = document.getElementById("avFormMsg");
-    if (fmsg) { fmsg.style.color = "var(--danger)"; fmsg.textContent = "Salve o orçamento antes de abrir a nota."; }
-    return;
-  }
+  // A nota lê o BANCO: o que ainda esperava o salvar sozinho grava antes.
+  if (_avSujo) await _avSalvarJa();
   _nfAbrirPagina(orc.id);
 }
 
@@ -14546,13 +14682,13 @@ async function _avGarantirRegistro() {
   if (numEl && j.numero) numEl.textContent = j.numero;
   // E o endereço deixa de ser "novo": F5 a partir daqui reabre este.
   if (_avNaPagina() && location.hash === "#/orcamentos/novo") {
-    history.replaceState(null, "", `#/orcamentos/${j.id}`);
+    history.replaceState(history.state, "", `#/orcamentos/${j.id}`);
   }
 
   return j.id;
 }
 
-async function _avAcao(acao) {
+async function _avAcao(acao, opts = {}) {
   const msg = document.getElementById("avFormMsg");
 
   // Baixa da resposta do cliente: não mexe no documento, então sai antes de
@@ -14596,6 +14732,15 @@ async function _avAcao(acao) {
   }
 
   if (!_avSelecionado) return;
+
+  // Lido JÁ, antes de qualquer await (ver _avCorpoSalvar).
+  const sel = _avSelecionado;
+  const corpoSalvar = acao === "salvar" ? _avCorpoSalvar(sel) : null;
+  const seqSalvar = _avEdicaoSeq;
+
+  // O que lê o BANCO (PDF, envio, nota) não pode sair com a última digitação
+  // ainda esperando o salvar sozinho.
+  if (["gerar-pdf", "enviar-email", "nota-emitir"].includes(acao) && _avSujo) await _avSalvarJa();
 
   // Fechar um rascunho que ainda não existe no servidor não tem o que apagar.
   if (acao === "deletar" && _avSelecionado.id == null) { _avFecharModal(); return; }
@@ -14689,22 +14834,147 @@ async function _avAcao(acao) {
   }
 
   // salvar
-  if (msg) msg.textContent = "Salvando…";
+  if (msg && !opts.silencioso) msg.textContent = "Salvando…";
+  const body = corpoSalvar;
+  try {
+    const r = await fetch(`/admin/orcamentos/avulsos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!r.ok) {
+      if (opts.silencioso) _avMostrarSalvo("erro", j.error || "Não salvou");
+      else if (msg) msg.textContent = j.error || "Erro";
+      return;
+    }
+    // Acabou de salvar — mas se a pessoa digitou durante o pedido, ainda há o
+    // que salvar, e o próximo salvar sozinho já está agendado.
+    if (_avEdicaoSeq === seqSalvar) _avSujo = false;
+    const idx = _avData.findIndex(o => o.id === id);
+    if (idx !== -1) {
+      Object.assign(_avData[idx], j);
+      // Nome exibido/agrupado: condomínio cadastrado usa o nome do condo;
+      // cliente avulso usa o nome digitado.
+      if (body.condominio_id) {
+        const c = _avCondos.find(c => String(c.id) === String(body.condominio_id));
+        if (c) _avData[idx].condominio_nome = c.nome;
+      } else {
+        _avData[idx].condominio_nome = body.cliente_nome || null;
+      }
+    }
+    // Salvar sozinho: grava e fica. Nada de redesenhar a página no meio da
+    // digitação; só o cabeçalho e o trilho, que repetem o que foi gravado.
+    if (opts.silencioso) {
+      if (_avSelecionado === sel && _avData[idx]) _avSelecionado = _avData[idx];
+      _avMostrarSalvo(_avSujo ? "pendente" : "salvo");
+      _avAtualizarResumos();
+      _avRenderTudo();
+      return;
+    }
+    _avSelecionado = _avData[idx] || _avSelecionado;
+    if (msg) msg.textContent = "✓ Salvo";
+    setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
+    // Salvou: o orçamento enviado volta a aparecer como documento (admin-orc-doc.js).
+    if (typeof _odAposSalvar === "function") _odAposSalvar();
+    _avRenderTudo();
+    _avRenderPainel();
+  } catch (e) {
+    if (opts.silencioso) _avMostrarSalvo("erro", "Sem conexão");
+    else if (msg) msg.textContent = "Erro: " + e.message;
+  }
+}
+
+// ── SALVAR SOZINHO (26/11/2026) ───────────────────────────────────────────
+// O "Salvar orçamento" saiu: a página grava sozinha 1,2 s depois da última
+// alteração, como a nota já fazia. Itens e fotos continuam gravando na hora
+// (rotas próprias); isto cobre o resto do formulário (cliente, constatação,
+// condições, total manual, desconto). O aviso de "alteração não salva" ao
+// sair virou um salvamento na hora (_avPodeSair, _avTentarFechar).
+function _avAgendarSalvar() {
+  if (!_avSelecionado || !_avNaPagina()) return;
+  _avSujo = true;
+  _avEdicaoSeq++;
+  _avMostrarSalvo("pendente");
+  clearTimeout(_avAutoTimer);
+  _avAutoTimer = setTimeout(() => { _avSalvarJa(); }, 1200);
+}
+
+async function _avSalvarJa() {
+  clearTimeout(_avAutoTimer);
+  _avAutoTimer = null;
+  if (_avSalvando) await _avSalvando;
+  if (!_avSujo || !_avSelecionado) return;
+  _avSalvando = _avAcao("salvar", { silencioso: true });
+  try { await _avSalvando; } finally { _avSalvando = null; }
+}
+
+function _avMostrarSalvo(estado, texto) {
+  const el = document.getElementById("avSalvo");
+  if (!el) return;
+  el.classList.toggle("is-erro", estado === "erro");
+  el.classList.toggle("is-ok", estado === "salvo");
+  if (estado === "pendente") el.textContent = "Salvando…";
+  else if (estado === "salvo") {
+    const h = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    el.textContent = `Salvo às ${h}`;
+  } else if (estado === "erro") el.textContent = `${texto || "Não salvou"} · tente de novo`;
+  else el.textContent = texto || "";
+}
+
+// Depois de salvar sozinho, o cabeçalho e o "Para o cliente" repetem o que
+// foi gravado sem redesenhar a página (o redesenho tiraria o foco de quem
+// ainda está digitando).
+function _avAtualizarResumos() {
+  const o = _avSelecionado;
+  if (!o) return;
+  const avulso = !!document.getElementById("avToggleAvulso")?.checked;
+  const condo = _avCondos.find(c => String(c.id) === String(document.getElementById("avInputCondo")?.value));
+  const nome = avulso ? (document.getElementById("avInputClienteNome")?.value.trim() || "") : (condo?.nome || "");
+  const tipoSel = document.getElementById("avInputTipo");
+  const sub = document.querySelector("#avModalBody .av-cab-sub");
+  if (sub) {
+    const bt = sub.querySelector("[data-av-cliente-abrir]");
+    const partes = [
+      nome ? `<b>${_waEscaparHtml(nome)}</b>` : `<span class="av-cab-falta">sem cliente</span>`,
+      !avulso && o.os_numero ? `da ${_waEscaparHtml(o.os_numero)}` : "",
+      _waEscaparHtml(tipoSel?.selectedOptions[0]?.textContent || ""),
+    ].filter(Boolean).join(" · ");
+    sub.innerHTML = partes + " ";
+    if (bt) sub.appendChild(bt);
+  }
+  const kv = (rot, val) => {
+    const linha = [...document.querySelectorAll("#avModalBody .av-rail-sec .av-rail-kv")].find(d => d.firstElementChild?.textContent === rot);
+    if (linha?.lastElementChild) linha.lastElementChild.textContent = val;
+  };
+  const v = id => document.getElementById(id)?.value.trim() || "";
+  const val = v("avInputValidade");
+  kv("Validade", val ? val.split("-").reverse().join("/") : "—");
+  kv("Pagamento", v("avInputPagamento") || "Via boleto bancário");
+  kv("Prazo", v("avInputPrazo") || "5 dias úteis após aprovação");
+  kv("Garantia", document.getElementById("avSemGarantia")?.checked ? "sem garantia" : (v("avInputGarantia") || "12 meses"));
+}
+
+// O corpo do PATCH do orçamento, lido dos campos da página. Separado do
+// _avAcao em 26/11/2026 para o salvar sozinho: ao sair da página o estado é
+// limpo na hora (_avPodeSair), então o corpo tem de ser lido ANTES de
+// qualquer await, enquanto o orçamento ainda é o que está na tela.
+function _avCorpoSalvar(sel) {
   // ⚠️ SÓ MANDA `valor` SE O MODAL SOUBE LER O VALOR ATUAL. O campo do total
-  // manual é preenchido a partir de `_avSelecionado.valor`; se o registro
+  // manual é preenchido a partir de `sel.valor`; se o registro
   // vier sem essa chave (foi o que a lista `GET /admin/orcamentos/avulsos`
   // fez até 24/08 — devolvia só o `valor_total` já resolvido), o campo nasce
   // vazio mesmo havendo total manual no banco, e mandar `valor: null` APAGA
   // o que estava lá. Três orçamentos aprovados foram a R$ 0,00 assim.
   // A lista voltou a trazer a coluna; esta guarda existe pra que a próxima
   // mudança de payload dê "não atualizou" em vez de perda silenciosa.
-  const sabeValorAtual = !!_avSelecionado && "valor" in _avSelecionado;
+  const sabeValorAtual = !!sel && "valor" in sel;
   if (!sabeValorAtual) {
     console.warn("[orçamento] registro sem a chave `valor` — o total manual não será enviado neste salvamento.");
   }
   const valorManualRaw = document.getElementById("avInputValorManual")?.value;
   const isAvulso = !!document.getElementById("avToggleAvulso")?.checked;
-  const body = {
+  return {
     tipo:            document.getElementById("avInputTipo")?.value || "pecas",
     constatacao:     document.getElementById("avInputConstatacao")?.value.trim() || null,
     forma_pagamento: document.getElementById("avInputPagamento")?.value.trim() || null,
@@ -14720,7 +14990,7 @@ async function _avAcao(acao) {
       : {}),
     // Desconto (105). Mesma guarda do `valor`: só manda se o registro trouxe
     // a chave, para um payload antigo não apagar o desconto gravado.
-    ...("desconto_tipo" in _avSelecionado
+    ...("desconto_tipo" in sel
       ? (document.getElementById("avToggleDesconto")?.checked && _avParseMoeda(document.getElementById("avDescValor")?.value) > 0
           ? { desconto_tipo: document.getElementById("avDescTipo")?.value === "valor" ? "valor" : "percentual",
               desconto_valor: _avParseMoeda(document.getElementById("avDescValor")?.value) }
@@ -14745,35 +15015,6 @@ async function _avAcao(acao) {
           cliente_email:     null,
         }),
   };
-  try {
-    const r = await fetch(`/admin/orcamentos/avulsos/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify(body),
-    });
-    const j = await r.json();
-    if (!r.ok) { if (msg) msg.textContent = j.error || "Erro"; return; }
-    _avSujo = false;   // acabou de salvar
-    const idx = _avData.findIndex(o => o.id === id);
-    if (idx !== -1) {
-      Object.assign(_avData[idx], j);
-      // Nome exibido/agrupado: condomínio cadastrado usa o nome do condo;
-      // cliente avulso usa o nome digitado.
-      if (body.condominio_id) {
-        const c = _avCondos.find(c => String(c.id) === String(body.condominio_id));
-        if (c) _avData[idx].condominio_nome = c.nome;
-      } else {
-        _avData[idx].condominio_nome = body.cliente_nome || null;
-      }
-    }
-    _avSelecionado = _avData[idx] || _avSelecionado;
-    if (msg) msg.textContent = "✓ Salvo";
-    setTimeout(() => { if (msg) msg.textContent = ""; }, 2000);
-    // Salvou: o orçamento enviado volta a aparecer como documento (admin-orc-doc.js).
-    if (typeof _odAposSalvar === "function") _odAposSalvar();
-    _avRenderTudo();
-    _avRenderPainel();
-  } catch (e) { if (msg) msg.textContent = "Erro: " + e.message; }
 }
 
 async function _avRemoverLinha(linhaId) {
@@ -14813,15 +15054,105 @@ function _avBindEventos() {
   // O documento (modal e página do orçamento). A lista é a do molde.
   document.getElementById("avModalBackdrop")?.addEventListener("click", () => _avTentarFechar());
 
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-av-menu], [data-av-menu-de]")) return;
+    document.querySelectorAll("#avModalBody [data-av-menu-de]").forEach(m => { m.hidden = true; });
+  });
+
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && !_avNaPagina() && document.getElementById("avModal")?.style.display === "flex") {
       _avTentarFechar();
     }
   });
 
+  // ── Estrutura nova da página (26/11/2026) ──────────────────────────────
+  // Salvar sozinho: qualquer campo do formulário, menos os que gravam por
+  // conta própria (itens, item novo, fotos) e a situação à mão.
+  const _AV_NAO_AGENDA = new Set(["avNewDesc", "avNewQtd", "avNewVal", "avNewFicha", "avInputStatus"]);
+  const agendar = e => {
+    const t = e.target;
+    if (!t || !t.closest || !t.closest("#avModalBody .av-layout")) return;
+    if (!t.matches("input, select, textarea")) return;
+    if (_AV_NAO_AGENDA.has(t.id) || t.closest("[data-av-linha-field], #avFotos, .av-pc")) return;
+    if (t.matches("[data-av-linha-field]")) return;
+    _avAgendarSalvar();
+  };
+  document.getElementById("avModal")?.addEventListener("input", agendar);
+  document.getElementById("avModal")?.addEventListener("change", e => {
+    if (e.target?.id === "avInputStatus") { _avSujo = true; _avAcao("salvar"); return; }
+    agendar(e);
+  });
+  // Enter no item novo adiciona e volta para a descrição (sem botão
+  // "+ Adicionar" no caminho). Com a lista do Omie aberta, o Enter é dela
+  // (admin-orc-pecas.js para o evento antes de chegar aqui).
+  document.getElementById("avModal")?.addEventListener("keydown", async e => {
+    if (e.key === "Escape" && _avItemAberto != null && e.target.closest?.("tr.is-aberto")) {
+      _avItemAberto = null; _avRenderLinhas(); return;
+    }
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.("tr.av-it[data-av-abrir-item]")) {
+      e.preventDefault();
+      _avAbrirItem(Number(e.target.dataset.avAbrirItem));
+      return;
+    }
+    if (e.key !== "Enter" || e.shiftKey || !["avNewDesc", "avNewQtd", "avNewVal"].includes(e.target.id)) return;
+    e.preventDefault();
+    if (!document.getElementById("avNewDesc")?.value.trim()) { document.getElementById("avNewDesc")?.focus(); return; }
+    await _avAcao("add-linha");
+    document.getElementById("avNewDesc")?.focus();
+  });
+
   document.getElementById("avModal")?.addEventListener("click", e => {
     const delBtn = e.target.closest("[data-av-del-linha]");
     if (delBtn) { _avRemoverLinha(Number(delBtn.dataset.avDelLinha)); return; }
+
+    // "trocar" o cliente: abre/fecha o bloco do cliente e do tipo.
+    if (e.target.closest("[data-av-cliente-abrir]")) {
+      const painel = document.getElementById("avClientePainel");
+      if (!painel || !_avSelecionado) return;
+      const abrir = painel.hidden;
+      painel.hidden = !abrir;
+      _avClienteAberto = abrir ? (_avSelecionado.id ?? "novo") : null;
+      const bt = e.target.closest("[data-av-cliente-abrir]");
+      bt.setAttribute("aria-expanded", String(abrir));
+      bt.textContent = abrir ? "fechar" : "trocar";
+      if (abrir) document.getElementById("avInputCondo")?.focus();
+      return;
+    }
+    // Menu "Registrar resposta" (enviado → aprovado / recusado).
+    const menuBt = e.target.closest("[data-av-menu]");
+    if (menuBt) {
+      const m = document.querySelector(`[data-av-menu-de="${menuBt.dataset.avMenu}"]`);
+      if (m) { m.hidden = !m.hidden; menuBt.setAttribute("aria-expanded", String(!m.hidden)); }
+      return;
+    }
+    const resp = e.target.closest("[data-av-resposta]");
+    if (resp) {
+      const sel = document.getElementById("avInputStatus");
+      if (!sel) return;
+      sel.value = resp.dataset.avResposta;
+      _avSujo = true;
+      _avAcao("salvar");
+      return;
+    }
+    if (e.target.closest("[data-av-situacao-mao]")) {
+      const box = document.getElementById("avSituacaoMao");
+      if (box) { box.hidden = !box.hidden; if (!box.hidden) document.getElementById("avInputStatus")?.focus(); }
+      return;
+    }
+    // Total manual e desconto mudam o que vai gravado: entram no salvar sozinho.
+    if (e.target.closest("[data-av-desconto], [data-av-total-manual]")) setTimeout(_avAgendarSalvar, 0);
+    // Abrir um item (a linha fechada inteira é clicável; botões e links dela não).
+    const itFechado = e.target.closest("tr.av-it[data-av-abrir-item]");
+    if (itFechado && !e.target.closest("button, a, input")) {
+      _avAbrirItem(Number(itFechado.dataset.avAbrirItem));
+      return;
+    }
+    const escolher = e.target.closest("[data-av-escolher-produto]");
+    if (escolher) {
+      _avAbrirItem(Number(escolher.dataset.avEscolherProduto), { buscar: true });
+      return;
+    }
+    if (e.target.closest("[data-av-fechar-item]")) { _avItemAberto = null; _avRenderLinhas(); return; }
 
     const btn = e.target.closest("[data-av-action]");
     if (!btn) return;

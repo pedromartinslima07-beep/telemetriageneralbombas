@@ -514,3 +514,8 @@ boleto em produção é acompanhada no Omie.
 Relacionados: [orcamentos-envio.md](orcamentos-envio.md) ·
 [ordens-servico.md](ordens-servico.md) · [../banco-de-dados.md](../banco-de-dados.md) ·
 [../api.md](../api.md)
+
+## A página nova (26/11/2026)
+
+A estrutura da página do nota mudou (maquete aprovada pelo Pedro):
+ver [redesenho-admin.md](redesenho-admin.md#orçamento-e-nota-a-estrutura-nova-26112026).

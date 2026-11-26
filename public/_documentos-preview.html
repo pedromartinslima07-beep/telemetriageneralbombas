@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GENERAL • Orçamento e nota (maquete)</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="stylesheet" href="/static/_documentos-preview.css?v=4">
+<script src="/static/lucide.min.js" defer></script>
+<script src="/static/_documentos-preview.js?v=1" defer></script>
+</head>
+<body>
+<!-- ⚠️ MAQUETE ESTÁTICA (26/11/2026), sem sessão e sem API: dados de exemplo.
+     Proposta de estrutura nova para a página do orçamento e a da nota fiscal,
+     para o Pedro aprovar ANTES de mexer no admin.js. Aberta em
+     /dev/_documentos-preview.html (só fora de produção). Ver
+     docs/modulos/redesenho-admin.md, seção "Maquete: orçamento e nota". -->
+
+<div class="mq-barra">
+  <b>Maquete · dados de exemplo</b>
+  <div class="mq-seg" role="tablist" aria-label="Tela">
+    <button type="button" role="tab" data-tela="orc" aria-selected="true">Orçamento</button>
+    <button type="button" role="tab" data-tela="nf" aria-selected="false">Nota fiscal</button>
+  </div>
+  <div class="mq-seg" role="tablist" aria-label="Situação do orçamento" data-so-tela="orc">
+    <button type="button" role="tab" data-orc="rascunho" aria-selected="true">Rascunho</button>
+    <button type="button" role="tab" data-orc="enviado" aria-selected="false">Enviado</button>
+    <button type="button" role="tab" data-orc="aprovado" aria-selected="false">Aprovado</button>
+  </div>
+  <div class="mq-seg" role="tablist" aria-label="Situação da nota" data-so-tela="nf" hidden>
+    <button type="button" role="tab" data-nf="falta" aria-selected="true">Falta resolver</button>
+    <button type="button" role="tab" data-nf="pronta" aria-selected="false">Pronta</button>
+    <button type="button" role="tab" data-nf="emitida" aria-selected="false">Emitida</button>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sb" aria-hidden="true">
+    <div class="sb-logo">GENERAL</div>
+    <div class="sb-i">Hoje</div><div class="sb-i">Monitoramento</div><div class="sb-i">Atendimento</div><div class="sb-i">Agenda</div>
+    <div class="sb-g">Documentos</div>
+    <div class="sb-i">Ordens de serviço</div><div class="sb-i is-on">Orçamentos</div><div class="sb-i">Financeiro</div>
+    <div class="sb-g">Carteira</div>
+    <div class="sb-i">Condomínios</div><div class="sb-i">Contratos</div><div class="sb-i">Preventivas</div>
+  </aside>
+
+  <main class="main">
+    <div class="topo"><span class="topo-t" data-so-tela="orc">Orçamento</span><span class="topo-t" data-so-tela="nf" hidden>Nota fiscal</span></div>
+
+    <!-- ═══════════════════════════ ORÇAMENTO ═══════════════════════════ -->
+    <div class="pagina" data-so-tela="orc">
+      <button type="button" class="pg-voltar"><i data-lucide="arrow-left"></i><span>Residencial Ipê</span></button>
+
+      <article class="caixa">
+        <header class="cab">
+          <div class="cab-txt">
+            <h1>OR-000056
+              <span class="selo is-rasc" data-so-orc="rascunho">Rascunho</span>
+              <span class="selo is-proc" data-so-orc="enviado" hidden>Esperando o cliente</span>
+              <span class="selo is-ok" data-so-orc="aprovado" hidden>Aprovado</span>
+            </h1>
+            <!-- O cliente cabe numa linha: quase todo orçamento nasce de um
+                 chamado ou de uma O.S., com o prédio já sabido. Trocar (ou
+                 virar avulso) é exceção e abre a escolha. -->
+            <p class="cab-sub">
+              <a href="#" class="lk-forte">Residencial Ipê</a> · da <a href="#" class="lk">OS-2026-0001</a> · peças e serviço
+              <button type="button" class="lk-mudo" data-so-orc="rascunho">trocar</button>
+            </p>
+          </div>
+          <div class="cab-acoes">
+            <span class="salvo" data-so-orc="rascunho"><i data-lucide="check"></i>Salvo às 13:42</span>
+            <button type="button" class="bt"><i data-lucide="file-down"></i>PDF</button>
+            <button type="button" class="bt is-pri" data-so-orc="rascunho"><i data-lucide="send"></i>Enviar ao cliente</button>
+            <button type="button" class="bt" data-so-orc="enviado" hidden>Reenviar</button>
+            <div class="menu-wrap" data-so-orc="enviado" hidden>
+              <button type="button" class="bt is-pri" data-abre-menu="resp">Registrar resposta<i data-lucide="chevron-down"></i></button>
+              <div class="menu" data-menu="resp" hidden>
+                <button type="button"><i data-lucide="check"></i>Aprovado pelo cliente</button>
+                <button type="button"><i data-lucide="x"></i>Recusado</button>
+              </div>
+            </div>
+            <button type="button" class="bt is-pri" data-so-orc="aprovado" hidden><i data-lucide="receipt"></i>Preparar nota</button>
+          </div>
+        </header>
+
+        <ol class="tempo" style="--n:5" aria-label="Andamento do orçamento">
+          <li class="is-feito"><b>Criado</b><span>21/08 · Admin Teste</span></li>
+          <li data-classe-orc='{"rascunho":"is-atual","enviado":"is-feito","aprovado":"is-feito"}'><b>Enviado ao cliente</b>
+            <span data-so-orc="rascunho">a seguir</span><span data-so-orc="enviado" hidden>22/08 · sindico@ipe.com.br</span><span data-so-orc="aprovado" hidden>22/08 · sindico@ipe.com.br</span></li>
+          <li data-classe-orc='{"rascunho":"","enviado":"is-atual","aprovado":"is-feito"}'><b data-so-orc="rascunho">Resposta do cliente</b><b data-so-orc="enviado" hidden>Resposta do cliente</b><b data-so-orc="aprovado" hidden>Aprovado</b>
+            <span data-so-orc="enviado" hidden>vence em 12 dias</span><span data-so-orc="aprovado" hidden>24/08 · pelo painel do cliente</span></li>
+          <li data-classe-orc='{"rascunho":"","enviado":"","aprovado":"is-atual"}'><b>Serviço feito</b><span data-so-orc="aprovado" hidden>chamado #1320 aberto</span></li>
+          <li><b>Nota fiscal</b><span></span></li>
+        </ol>
+
+        <div class="corpo">
+          <div class="doc">
+
+            <section class="sec">
+              <h2>Constatação</h2>
+              <textarea class="campo" rows="2" data-edita>Bomba 2 do recalque com vazamento pelo selo. Rotor em bom estado, rolamentos com folga.</textarea>
+            </section>
+
+            <!-- ITENS: uma linha por item. Ficha técnica e produto do Omie
+                 abrem só no item clicado (o 3º está aberto de exemplo). O
+                 total fica no topo do trilho, como hoje (pedido do Pedro,
+                 26/11/2026: a primeira versão desta maquete fechava o total
+                 embaixo da tabela e ele preferiu o de hoje). -->
+            <section class="sec">
+              <div class="sec-cab">
+                <h2>Itens</h2>
+                <span class="fraco">clique num item para ver a ficha técnica e o produto do Omie</span>
+              </div>
+              <table class="itens">
+                <thead>
+                  <tr><th class="c-n">#</th><th>Descrição</th><th class="c-tipo">Tipo</th><th class="n c-q">Qtd</th><th class="n c-v">Unitário</th><th class="n c-v">Total</th><th class="c-x"><span class="sr">Remover</span></th></tr>
+                </thead>
+                <tbody>
+                  <tr class="it">
+                    <td class="c-n">1</td>
+                    <td><div class="it-desc">Selo mecânico 1.1/4" — bomba de recalque</div>
+                      <div class="it-sub"><i data-lucide="package"></i>Omie <span class="cod">00412</span> · SELO MEC 1.1/4 BUNA</div></td>
+                    <td class="c-tipo"><span class="tipo is-peca">Peça</span></td>
+                    <td class="n">1</td><td class="n">480,00</td><td class="n forte">480,00</td>
+                    <td class="c-x"><button type="button" class="ib" aria-label="Remover item"><i data-lucide="x"></i></button></td>
+                  </tr>
+                  <tr class="it">
+                    <td class="c-n">2</td>
+                    <td><div class="it-desc">Rolamento 6203 2RS</div>
+                      <div class="it-sub is-falta"><i data-lucide="circle-alert"></i>sem produto do Omie · <button type="button" class="lk">escolher</button></div></td>
+                    <td class="c-tipo"><span class="tipo is-peca">Peça</span></td>
+                    <td class="n">2</td><td class="n">38,50</td><td class="n forte">77,00</td>
+                    <td class="c-x"><button type="button" class="ib" aria-label="Remover item"><i data-lucide="x"></i></button></td>
+                  </tr>
+                  <tr class="it is-aberto" data-it="3">
+                    <td class="c-n">3</td>
+                    <td colspan="5" class="it-edit">
+                      <div class="it-linha">
+                        <input class="campo it-in-desc" value="Mão de obra — troca do selo e teste" aria-label="Descrição">
+                        <div class="seg-tipo" role="group" aria-label="Tipo"><button type="button">Peça</button><button type="button" class="is-on">Serviço</button></div>
+                        <input class="campo n it-in-q" value="1" aria-label="Quantidade">
+                        <input class="campo n it-in-v" value="320,00" aria-label="Valor unitário">
+                        <span class="n forte it-tot">320,00</span>
+                      </div>
+                      <label class="it-ficha"><span>Ficha técnica <em>vai no PDF e no texto da NFS-e</em></span>
+                        <textarea class="campo" rows="2">Desmontagem do conjunto, troca do selo mecânico, montagem e teste de estanqueidade com a bomba em carga.</textarea></label>
+                    </td>
+                    <td class="c-x"><button type="button" class="ib" aria-label="Remover item"><i data-lucide="x"></i></button></td>
+                  </tr>
+                  <tr class="it">
+                    <td class="c-n">4</td>
+                    <td><div class="it-desc">Deslocamento técnico</div></td>
+                    <td class="c-tipo"><span class="tipo is-serv">Serviço</span></td>
+                    <td class="n">1</td><td class="n">60,00</td><td class="n forte">60,00</td>
+                    <td class="c-x"><button type="button" class="ib" aria-label="Remover item"><i data-lucide="x"></i></button></td>
+                  </tr>
+                  <!-- A linha vazia está sempre lá: digita, Enter adiciona e
+                       abre a próxima. Sem botão "+ Adicionar". -->
+                  <tr class="it-novo" data-so-orc="rascunho">
+                    <td class="c-n"><i data-lucide="plus"></i></td>
+                    <td colspan="5"><input class="campo campo-novo" placeholder="Adicionar item: digite a descrição ou busque no Omie"><kbd>Enter</kbd></td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+
+            <section class="sec">
+              <div class="sec-cab"><h2>Fotos <span class="fraco">vão no PDF e no painel do cliente</span></h2><button type="button" class="bt sm" data-so-orc="rascunho"><i data-lucide="image-plus"></i>Adicionar</button></div>
+              <div class="fotos">
+                <figure><div class="foto f1"></div><figcaption>Selo vazando</figcaption></figure>
+                <figure><div class="foto f2"></div><figcaption>Placa da bomba</figcaption></figure>
+              </div>
+            </section>
+          </div>
+
+          <!-- TRILHO: o que vale para o cliente e o que já aconteceu. A
+               situação não é mais um seletor: anda pelas ações do topo
+               (Enviar, Registrar resposta, Preparar nota). Correção à mão
+               fica escondida no pé, para exceção. -->
+          <aside class="lado">
+            <section class="lado-sec lado-total">
+              <h3>Total do orçamento</h3>
+              <div class="total"><span class="cifrao">R$</span>890,15</div>
+              <dl class="dl dl-total">
+                <dt>4 itens</dt><dd class="n">937,00</dd>
+                <dt>Desconto <span class="fraco">5%</span></dt><dd class="n is-desc">−46,85</dd>
+              </dl>
+              <p class="total-acoes" data-so-orc="rascunho"><button type="button" class="lk-mudo">alterar desconto</button> · <button type="button" class="lk-mudo">definir total à mão</button></p>
+            </section>
+            <section class="lado-sec">
+              <h3>Para o cliente</h3>
+              <dl class="dl">
+                <dt>Validade</dt><dd>15 dias <span class="fraco">até 06/09</span></dd>
+                <dt>Pagamento</dt><dd>Boleto · 5 dias úteis após aprovação</dd>
+                <dt>Garantia</dt><dd>90 dias peças e serviço</dd>
+              </dl>
+              <button type="button" class="lk" data-so-orc="rascunho">Editar condições</button>
+            </section>
+            <section class="lado-sec">
+              <h3>Envio</h3>
+              <p class="lado-txt" data-so-orc="rascunho">Vai para <b>sindico@ipe.com.br</b> e aparece no painel do cliente.</p>
+              <p class="lado-txt" data-so-orc="enviado" hidden>Enviado em 22/08 para <b>sindico@ipe.com.br</b>. <span class="ok-t">Aberto pelo cliente em 23/08.</span></p>
+              <p class="lado-txt" data-so-orc="aprovado" hidden>Aprovado em 24/08 por <b>Marta (síndica)</b> no painel do cliente.</p>
+            </section>
+            <section class="lado-sec">
+              <h3>Histórico</h3>
+              <ul class="hist">
+                <li data-so-orc="aprovado" hidden><b>Aprovado</b> pela síndica · 24/08 10:12</li>
+                <li data-so-orc="enviado aprovado" hidden><b>Enviado</b> por Admin Teste · 22/08 16:40</li>
+                <li><b>Itens alterados</b> · 21/08 14:05</li>
+                <li><b>Criado</b> da OS-2026-0001 · 21/08 13:58</li>
+              </ul>
+            </section>
+            <div class="lado-pe">
+              <button type="button" class="lk-mudo">Corrigir situação à mão</button>
+              <button type="button" class="lk-mudo is-perigo">Excluir orçamento</button>
+            </div>
+          </aside>
+        </div>
+      </article>
+    </div>
+
+    <!-- ═══════════════════════════ NOTA FISCAL ═══════════════════════════ -->
+    <div class="pagina" data-so-tela="nf" hidden>
+      <button type="button" class="pg-voltar"><i data-lucide="arrow-left"></i><span>OR-000058</span></button>
+
+      <article class="caixa">
+        <header class="cab">
+          <div class="cab-txt">
+            <h1>DANFE · NF-e de produto
+              <span class="selo is-rasc" data-so-nf="falta pronta">Rascunho</span>
+              <span class="selo is-ok" data-so-nf="emitida" hidden>Autorizada</span>
+            </h1>
+            <p class="cab-sub" data-so-nf="falta pronta">Do <a href="#" class="lk">OR-000058</a> · Residencial Ipê · rascunho salvo às 13:51</p>
+            <p class="cab-sub" data-so-nf="emitida" hidden>Nº 1.284 · autorizada pela SEFAZ em 26/11 14:02 · pedida por Admin Teste</p>
+          </div>
+          <!-- O motivo do botão apagado fica AO LADO dele, e leva à lista. -->
+          <div class="cab-acoes">
+            <a href="#emitir" class="falta" data-so-nf="falta"><i data-lucide="circle-alert"></i>Faltam 2 coisas</a>
+            <button type="button" class="bt is-pri" data-so-nf="falta" disabled>Emitir DANFE</button>
+            <button type="button" class="bt is-pri" data-so-nf="pronta" hidden><i data-lucide="send"></i>Emitir DANFE</button>
+            <button type="button" class="bt" data-so-nf="emitida" hidden><i data-lucide="file-down"></i>DANFE (PDF)</button>
+            <button type="button" class="bt" data-so-nf="emitida" hidden><i data-lucide="barcode"></i>Boleto</button>
+          </div>
+        </header>
+
+        <ol class="tempo" style="--n:4" aria-label="Situação da nota">
+          <li class="is-feito"><b>Rascunho</b><span>salvo às 13:51</span></li>
+          <li data-classe-nf='{"falta":"is-atual","pronta":"is-feito","emitida":"is-feito"}'><b>Impostos conferidos</b>
+            <span data-so-nf="falta">a seguir</span><span data-so-nf="pronta emitida" hidden>simulados no Omie</span></li>
+          <li data-classe-nf='{"falta":"","pronta":"is-atual","emitida":"is-feito"}'><b>Autorizada pela SEFAZ</b>
+            <span data-so-nf="pronta" hidden>a seguir</span><span data-so-nf="emitida" hidden>nº 1.284</span></li>
+          <li data-classe-nf='{"falta":"","pronta":"","emitida":"is-feito"}'><b>Boletos gerados</b><span data-so-nf="emitida" hidden>1 boleto · vence 01/12</span></li>
+        </ol>
+
+        <div class="corpo">
+          <!-- O DOCUMENTO É A PRÓPRIA NOTA: o espelho que hoje se esconde
+               atrás de um botão vira a coluna principal. O que falta
+               aparece marcado no lugar onde falta. -->
+          <div class="doc doc-nota">
+            <div class="papel">
+              <div class="pp-l pp-topo">
+                <div class="pp-c pp-emit"><span>Emitente</span><b>General Engenharia da Manutenção</b><small>São Paulo/SP</small></div>
+                <div class="pp-c pp-tit"><b>DANFE</b><small>Documento auxiliar da NF-e · 1 - saída</small><small data-so-nf="falta pronta">Número na emissão</small><small data-so-nf="emitida" hidden class="mono">Nº 1.284 · série 1</small></div>
+              </div>
+              <div class="pp-l"><div class="pp-c pp-2"><span>Natureza da operação</span><b>Venda de mercadoria</b></div><div class="pp-c"><span>Emissão</span><b class="mono">26/11/2026</b></div></div>
+
+              <h4 class="pp-h">Destinatário <button type="button" class="lk" data-so-nf="falta pronta">abrir o cadastro</button></h4>
+              <div class="pp-l">
+                <div class="pp-c pp-2"><span>Razão social</span><b>Condomínio Residencial Ipê</b></div>
+                <div class="pp-c is-falta" data-so-nf="falta"><span>CNPJ</span><b>falta no cadastro</b></div>
+                <div class="pp-c" data-so-nf="pronta emitida" hidden><span>CNPJ</span><b class="mono">12.345.678/0001-90</b></div>
+              </div>
+              <div class="pp-l"><div class="pp-c pp-3"><span>Endereço</span><b>Rua das Palmeiras, 1200 · Centro · São Paulo/SP · 01010-000</b></div></div>
+
+              <h4 class="pp-h">Itens <button type="button" class="lk" data-so-nf="falta pronta">editar no orçamento</button></h4>
+              <table class="pp-tab">
+                <thead><tr><th>Código</th><th>Descrição</th><th>NCM</th><th>CFOP</th><th class="n">Qtd</th><th class="n">Unitário</th><th class="n">Total</th></tr></thead>
+                <tbody>
+                  <tr><td class="cod">00218</td><td>Bomba centrífuga BC-92 S 1 CV</td><td class="cod">8413.70.10</td><td class="cod">5.102</td><td class="n">1</td><td class="n">3.890,00</td><td class="n">3.890,00</td></tr>
+                  <tr><td class="cod">00301</td><td>Quadro de comando 1 CV</td><td class="cod">8537.10.90</td><td class="cod">5.102</td><td class="n">1</td><td class="n">1.250,00</td><td class="n">1.250,00</td></tr>
+                  <tr data-so-nf="falta" class="is-falta"><td class="cod">—</td><td>Boia elétrica <span class="marca"><i data-lucide="circle-alert"></i>sem produto do Omie</span></td><td class="cod">—</td><td class="cod">5.102</td><td class="n">2</td><td class="n">89,00</td><td class="n">178,00</td></tr>
+                  <tr data-so-nf="pronta emitida" hidden><td class="cod">00377</td><td>Boia elétrica</td><td class="cod">8536.50.90</td><td class="cod">5.102</td><td class="n">2</td><td class="n">89,00</td><td class="n">178,00</td></tr>
+                </tbody>
+              </table>
+
+              <div class="pp-l pp-tot">
+                <div class="pp-c"><span>Base ICMS</span><b class="mono" data-so-nf="falta">—</b><b class="mono" data-so-nf="pronta emitida" hidden>5.318,00</b></div>
+                <div class="pp-c"><span>ICMS</span><b class="mono" data-so-nf="falta">simular</b><b class="mono" data-so-nf="pronta emitida" hidden>957,24</b></div>
+                <div class="pp-c"><span>Frete</span><b class="mono">0,00</b></div>
+                <div class="pp-c pp-total"><span>Total da nota</span><b class="mono">R$ 5.318,00</b></div>
+              </div>
+
+              <h4 class="pp-h">Informações adicionais</h4>
+              <textarea class="campo pp-info" rows="2" data-edita>Orçamento OR-000058. Garantia de 90 dias para peças e serviço.</textarea>
+            </div>
+          </div>
+
+          <!-- TRILHO CURTO: o que falta (só antes de emitir), depois as duas
+               decisões da nota. Resumo e impostos moram no papel. Cabe na
+               altura da tela, então o sticky não esconde o fim. -->
+          <aside class="lado">
+            <section class="lado-sec" id="emitir" data-so-nf="falta pronta">
+              <h3>Para emitir</h3>
+              <ul class="check">
+                <li class="is-ok"><i data-lucide="circle-check"></i><span>Itens marcados como peça</span></li>
+                <li class="is-ok" data-so-nf="pronta" hidden><i data-lucide="circle-check"></i><span>CNPJ do condomínio</span></li>
+                <li class="is-ok" data-so-nf="pronta" hidden><i data-lucide="circle-check"></i><span>Produto do Omie em todos os itens</span></li>
+                <li class="is-ok" data-so-nf="pronta" hidden><i data-lucide="circle-check"></i><span>Impostos simulados no Omie</span></li>
+                <li class="is-falta" data-so-nf="falta"><i data-lucide="circle-alert"></i><span>CNPJ do condomínio <button type="button" class="lk">abrir o cadastro</button></span></li>
+                <li class="is-falta" data-so-nf="falta"><i data-lucide="circle-alert"></i><span>Produto do Omie na boia elétrica <button type="button" class="lk">escolher</button></span></li>
+                <li class="is-espera" data-so-nf="falta"><i data-lucide="circle-dashed"></i><span>Impostos: simulam sozinhos quando os dois acima estiverem feitos</span></li>
+              </ul>
+            </section>
+            <section class="lado-sec" data-so-nf="emitida" hidden>
+              <h3>Emitida</h3>
+              <p class="lado-txt">O Omie mandou a nota e o boleto para <b>sindico@ipe.com.br</b> em 26/11 14:03.</p>
+              <p class="lado-txt fraco">Carta de correção e cancelamento são feitos no Omie.</p>
+            </section>
+            <section class="lado-sec">
+              <h3>Cobrança</h3>
+              <div class="f2">
+                <label class="f"><span>Condição</span><select class="campo" data-edita><option>À vista</option><option>30 dias</option></select></label>
+                <label class="f"><span>Vencimento</span><input class="campo mono" value="01/12/2026" data-edita></label>
+              </div>
+              <label class="f"><span>Banco do boleto</span><select class="campo" data-edita><option>Bradesco</option></select></label>
+            </section>
+            <section class="lado-sec">
+              <h3>Envio</h3>
+              <label class="f"><span>O Omie manda a nota e o boleto para</span><input class="campo" value="sindico@ipe.com.br" data-edita></label>
+            </section>
+          </aside>
+        </div>
+      </article>
+    </div>
+
+    <section class="mq-notas">
+      <h2>O que muda em relação à tela de hoje</h2>
+      <div class="mq-col" data-so-tela="orc">
+        <ul>
+          <li><b>Uma linha por item.</b> Hoje cada item ocupa três (descrição, Peça/Serviço com o Omie, ficha técnica). A ficha e o produto abrem só no item clicado.</li>
+          <li><b>O total continua no topo do trilho</b>, como hoje, agora com o subtotal e o desconto logo abaixo dele.</li>
+          <li><b>Sem "+ Adicionar":</b> a última linha está sempre vazia; Enter adiciona e abre a próxima.</li>
+          <li><b>O cliente numa linha</b> ("Residencial Ipê · da OS-2026-0001 · trocar") no lugar do bloco Cadastrado/Avulso, condomínio e O.S.</li>
+          <li><b>A situação anda pelas ações do topo</b> (Enviar, Registrar resposta, Preparar nota). O seletor de situação vira "Corrigir à mão", no pé.</li>
+          <li><b>Salva sozinho</b>, como a nota já faz ("Salvo às 13:42"). Some o "Salvar orçamento" e o aviso de alteração não salva.</li>
+        </ul>
+      </div>
+      <div class="mq-col" data-so-tela="nf" hidden>
+        <ul>
+          <li><b>O motivo do Emitir apagado fica ao lado dele</b> ("Faltam 2 coisas"), e leva à lista do trilho.</li>
+          <li><b>A coluna principal é a própria nota</b> (o espelho que hoje fica atrás de um botão). O que falta aparece marcado onde falta: o CNPJ, o item sem produto.</li>
+          <li><b>"Para emitir" é uma lista que vai se completando</b> até o botão acender. Some depois de emitida.</li>
+          <li><b>O trilho encolhe</b> para o que se decide (cobrança, envio): resumo e impostos já estão no papel. Cabe na tela, então o fim não fica escondido.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

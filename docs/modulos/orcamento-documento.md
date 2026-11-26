@@ -108,3 +108,8 @@ existiam passam: `pecas-da-os` 26/26, `orcamento-linha-produto` 21/21,
 ⚠️ O primeiro teste pela rota pegou um `42P18` (parâmetro sem tipo): o `$` do
 `$N` sumiu na hora de escrever o código. Só apareceu exercitando o `PATCH` —
 mais um caso do aviso do [CLAUDE.md](../../CLAUDE.md) sobre rota que grava.
+
+## A página nova (26/11/2026)
+
+A estrutura da página do orçamento mudou (maquete aprovada pelo Pedro):
+ver [redesenho-admin.md](redesenho-admin.md#orçamento-e-nota-a-estrutura-nova-26112026).

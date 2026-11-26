@@ -18923,3 +18923,21 @@ nota) mostra a mesma caixa (`_pgVazioHtml`). Conferido em 1440×900 e
 1920×1080. `admin.css?v=392`, `admin.js?v=433`, `admin-condominio.js?v=18`,
 `admin-nota.js?v=5`, `admin-monitoramento.js?v=7`, `operador.js?v=88`,
 `operador-preventivas.js?v=14`.
+
+## 2026-11-26 — Orçamento e nota com estrutura nova
+
+Pedido do Pedro, a partir de uma maquete aprovada
+(`/dev/_documentos-preview.html`). **Orçamento:** uma linha por item (abre
+ao clicar, com ficha técnica e produto do Omie), Enter adiciona item, cliente
+numa linha no cabeçalho ("trocar" abre o bloco do cliente e do tipo), a ação
+da vez no topo (Enviar / Registrar resposta / Preparar a nota) no lugar do
+seletor de situação (que virou "Corrigir situação à mão"), **salva sozinho**
+("Salvo às", sem botão Salvar), condições comerciais no trilho em "Para o
+cliente". O total continua no topo do trilho, como antes. **Nota:** a nota é
+a coluna principal, com o que falta marcado onde falta; "Faltam N coisas" ao
+lado do Emitir; "Para emitir" no trilho junta bloqueio, pendências e
+impostos; o trilho rola com a página. Antes disso, no mesmo dia, o
+acabamento das duas: página branca no orçamento, selo e títulos em frase,
+números à direita, um amarelo só, a linha do tempo da nota igual à das
+outras páginas. Sem migration, sem endpoint novo. Ver
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#orçamento-e-nota-a-estrutura-nova-26112026).

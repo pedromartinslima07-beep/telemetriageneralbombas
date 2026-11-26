@@ -365,7 +365,7 @@
       inp.insertAdjacentHTML("afterend", chipLinha(l));
     }
     const nova = document.getElementById("avNewDesc");
-    if (nova) { nova.setAttribute("autocomplete", "off"); nova.placeholder = "Descrição do novo item * (digite para buscar no Omie)"; }
+    if (nova) { nova.setAttribute("autocomplete", "off"); nova.placeholder = "Adicionar item: digite a descrição ou busque no Omie"; }
     const velho = wrap.querySelector(".av-pc-nota");
     if (velho) velho.remove();
     const form = document.getElementById("avAddLinhaForm");
