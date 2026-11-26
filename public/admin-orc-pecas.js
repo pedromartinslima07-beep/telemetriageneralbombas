@@ -13,8 +13,9 @@
 //     aprovado). O produto "usado da última vez" para aquele texto vem em
 //     cima. ↑/↓ e Enter escolhem; Esc fecha e deixa como texto;
 //   - escolher liga a linha (omie_produto_codigo, natureza = peça) e preenche
-//     o valor unitário SÓ se estiver vazio. A descrição fica a digitada (é o
-//     que o síndico lê no PDF); o nome do Omie aparece embaixo;
+//     o valor unitário SÓ se estiver vazio. Desde 26/11/2026 o nome do Omie
+//     também vai para a descrição (continua editável: é o que o síndico lê
+//     no PDF);
 //   - em cada linha: Peça | Serviço, o produto com "trocar" e "tirar", ou
 //     "sem produto do Omie · escolher";
 //   - embaixo da tabela: qual nota vai sair (DANFE com peça, NFS-e só com
@@ -147,18 +148,28 @@
     if (!p || !input) return;
     const linhaId = drop.linhaId;
     fechar();
+    // ⚠️ ESCOLHER ESCREVE O NOME DO OMIE NA DESCRIÇÃO (26/11/2026, pedido do
+    // Pedro: "qnd eu clicasse ja escrevesse por mim o nome, eu ainda poderia
+    // alterar"). Até aqui a descrição ficava a digitada e o nome do Omie só
+    // aparecia embaixo, com "usar o nome do Omie" para trocar à mão. O campo
+    // continua editável depois: o que a pessoa mudar é o que vai no PDF.
+    const nomeOmie = String(p.descricao || "").trim().slice(0, 500);
     if (!linhaId) {
       pendente = p;
+      if (nomeOmie) input.value = nomeOmie;
       const val = document.getElementById("avNewVal");
       const sug = precoSugerido(p);
       if (val && val.value === "" && sug != null) val.value = sug;
       desenharPendente();
       input.focus();
+      // Cursor no fim, pronto para completar ou ajustar o nome.
+      try { input.setSelectionRange(input.value.length, input.value.length); } catch (_) {}
       return;
     }
     const l = linhas().find(x => x.id === linhaId);
     const corpo = { omie_produto_codigo: p.codigo_produto, natureza: "peca" };
-    const desc = input.value.trim();
+    const desc = nomeOmie || input.value.trim();
+    if (nomeOmie) input.value = nomeOmie;
     if (desc && l && desc !== l.descricao) corpo.descricao = desc;
     if (l && (l.valor_unitario == null || l.valor_unitario === "")) {
       const sug = precoSugerido(p);

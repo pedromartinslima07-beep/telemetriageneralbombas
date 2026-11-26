@@ -433,3 +433,14 @@ Ver também: [nota-fiscal.md](nota-fiscal.md),
 [ordens-servico.md](ordens-servico.md),
 [redesenho-admin.md](redesenho-admin.md),
 [../banco-de-dados.md](../banco-de-dados.md).
+
+## Escolher no Omie escreve o nome (26/11/2026)
+
+Pedido do Pedro: *"qnd eu escrevesse o nome da peça e aparecesse a opção do
+omie, qnd eu clicasse ja escrevesse por mim o nome, eu ainda poderia alterar"*.
+Escolher um produto na lista agora põe o nome do Omie no campo da descrição,
+no item novo e no item que já existe (que grava junto com o produto). O campo
+continua editável: o que for mudado depois é o que vai no PDF. Antes a
+descrição ficava a digitada e o nome do Omie só aparecia embaixo, com
+"usar o nome do Omie" (que continua lá). Em `escolher()` de
+`public/admin-orc-pecas.js` (`?v=8`). Conferido no banco de teste.

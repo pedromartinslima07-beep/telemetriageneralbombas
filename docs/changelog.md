@@ -18941,3 +18941,10 @@ acabamento das duas: página branca no orçamento, selo e títulos em frase,
 números à direita, um amarelo só, a linha do tempo da nota igual à das
 outras páginas. Sem migration, sem endpoint novo. Ver
 [modulos/redesenho-admin.md](modulos/redesenho-admin.md#orçamento-e-nota-a-estrutura-nova-26112026).
+
+## 2026-11-26 — Escolher a peça no Omie escreve o nome na descrição
+
+Ao escolher um produto na lista do Omie (item novo ou item existente do
+orçamento), o nome dele entra no campo da descrição, que continua editável.
+Pedido do Pedro. Só front (`admin-orc-pecas.js?v=8`). Ver
+[modulos/pecas-no-orcamento.md](modulos/pecas-no-orcamento.md#escolher-no-omie-escreve-o-nome-26112026).
