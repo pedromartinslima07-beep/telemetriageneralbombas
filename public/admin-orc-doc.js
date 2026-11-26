@@ -282,7 +282,9 @@
       if (!box) {
         box = document.createElement("div");
         box.className = "av-head-acoes";
-        head.querySelector(".av-voltar")?.before(box);
+        // Fim do cabeçalho. Até 26/11/2026 entrava antes do "← Voltar", que
+        // saiu do cabeçalho e virou o .pg-voltar acima da caixa.
+        head.appendChild(box);
       }
       box.innerHTML = o.id == null || o.status === "rascunho" ? ""
         : doc

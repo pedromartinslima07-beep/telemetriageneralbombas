@@ -204,7 +204,8 @@ function abrirFichaCondominio(condoId, aba) {
   if (!id) return;
   const destino = `#/condominios/${id}${aba && aba !== "resumo" ? "/" + aba : ""}`;
   if (location.hash === destino) { _cfMostrar(id, aba || "resumo"); return; }
-  history.pushState(null, "", destino);
+  // De onde veio: o "voltar" da página diz e leva para lá (_pgVoltarHtml).
+  history.pushState(_pgEstado(_pgOrigemAtual()), "", destino);
   _cfMostrar(id, aba || "resumo");
 }
 
@@ -451,10 +452,7 @@ function _cfRender() {
   if (!root) return;
   const c = _cfCondo();
   if (!c) {
-    root.innerHTML = `<div class="cf-vazio-pagina">
-      <p>Este condomínio não está no cadastro, ou foi apagado.</p>
-      <button class="btn btn-sm" data-cf-acao="voltar-lista">Voltar para a lista</button>
-    </div>`;
+    root.innerHTML = `${_pgVoltarHtml("cf", _sectionTitles.cadastros)}${_pgVazioHtml("Condomínio não encontrado", "Ele não está no cadastro, ou foi apagado.")}`;
     return;
   }
   const d = _cfDados();
@@ -557,9 +555,7 @@ function _cfRenderCabecalho(c, d) {
     </div>`;
 
   return `<header class="cp-cab">
-    <nav class="cp-migalha" aria-label="Você está em">
-      <button type="button" class="ls-lk" data-cf-acao="voltar-lista">Condomínios</button>${_cfIco("chevron-right")}<span>${_cfEsc(nome)}</span>
-    </nav>
+    ${_pgVoltarHtml("cf", _sectionTitles.cadastros)}
     <div class="cp-tit">
       <span class="cp-av" aria-hidden="true">${_cfEsc(ini || "?")}</span>
       <div class="cp-tit-txt">
@@ -926,7 +922,7 @@ function _cfTrocarAba(aba) {
   const f = _CF_FILTROS.find(x => x.id === aba);
   _cfAba = f && _cfAbaVisivel(f) ? aba : "resumo";
   _cfHistMax = 30;
-  history.replaceState(null, "", `#/condominios/${_cfCondoId}${_cfAba !== "resumo" ? "/" + _cfAba : ""}`);
+  history.replaceState(history.state, "", `#/condominios/${_cfCondoId}${_cfAba !== "resumo" ? "/" + _cfAba : ""}`);
   _cfRender();
 }
 
@@ -957,7 +953,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ds.cfEq)       { window.open(`/e/${encodeURIComponent(ds.cfEq)}`, "_blank", "noopener"); return; }
     if (ds.cfConversa) { showSection("whatsapp"); return; }
     switch (ds.cfAcao) {
-      case "voltar-lista":   showSection("cadastros"); return;
+      case "voltar-lista":   _pgVoltarOuIr(() => showSection("cadastros")); return;
       case "ir-planos":      showSection("planos"); return;
       case "recarregar":     _cfGarantirDados({ forcar: true }); return;
       case "novo-contrato":  _ctrAbrirModal({ condoId: _cfCondoId }); return;

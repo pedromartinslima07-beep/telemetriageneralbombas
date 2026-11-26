@@ -250,6 +250,18 @@ QR lida no painel ao lado; o que se faz com a bomba segue na ficha).
 código; falta Relatórios (dashboard, a definir) e o teste com o operador.
 Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 
+**Padronização do voltar (26/11/2026):** chamado, O.S., orçamento, nota,
+contrato e condomínio voltam pelo mesmo componente (`.pg-voltar`, primeira
+linha da página, diz para onde leva: "← Hoje", "← Ed. Bosque Verde"). A
+origem fica no `history.state` (`{ pgDe }`). As páginas de chamado e contrato
+voltaram a ter caixa: o CSS delas tinha saído por engano na limpeza de 20/11.
+Na mesma data: páginas de registro em duas larguras centradas (1180 e 1320),
+número sem quebra nas listas, um amarelo só no chamado, "Cancelar" no lugar
+do "Voltar" que cancelava (admin e operador) e a mesma caixa para página que
+não abre (`_pgVazioHtml`).
+Ver a seção "O voltar das páginas de registro" em
+[`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
+
 O admin ganhou endereço por tela (`#/secao`, `#/condominios/ID/aba`) e uma
 **ficha do condomínio** que junta chamados, O.S., orçamentos, notas, contrato,
 planos, equipamentos e contatos do prédio, abrindo cada documento no modal que

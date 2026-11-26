@@ -9244,10 +9244,6 @@ body.role-viewer .viewer-only-hide-inline {
    Sem faixa de cor na borda (DESIGN.md): estado vai no selo e na caixa. */
 .main .nfp { padding: 4px 0 40px; max-width: 1280px; }
 .nfp-carregando { padding: 40px 0; color: var(--muted); }
-.nfp-migalha { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
-.nfp-migalha a { color: var(--muted); }
-.nfp-migalha a:hover { color: var(--text); }
-.nfp-migalha b { color: var(--text); font-weight: 600; }
 
 .nfp-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .nfp-cab-txt { min-width: 0; }
@@ -9842,8 +9838,6 @@ body.role-viewer .viewer-only-hide-inline {
 .cf { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 
 .cf-carregando,
-.cf-vazio-pagina { color: var(--muted); font-size: 13px; padding: 24px 0; }
-.cf-vazio-pagina { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 
 /* ----- cabeçalho ----- */
 .cf-head { display: flex; flex-direction: column; gap: 6px; }
@@ -11181,7 +11175,6 @@ a.os-link { color: var(--text); }
   padding: 14px 22px; align-items: center;
   border-radius: 10px 10px 0 0;
 }
-#avModal.is-pagina .av-voltar { flex-shrink: 0; }
 #avModal.is-pagina .av-modal-num { font-size: 19px; }
 #avModal.is-pagina .av-tempo { padding: 4px 22px 18px; border-bottom: 1px solid var(--border); }
 .av-tempo { grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); }
@@ -12618,9 +12611,6 @@ body.gb-cmdk-aberta { overflow: hidden; }
 /* a página */
 .cf > .cp { max-width: 1640px; }
 .cp-cab { display: flex; flex-direction: column; gap: 10px; }
-.cp-migalha { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ls-muted); min-width: 0; }
-.cp-migalha svg.lucide { width: 14px; height: 14px; }
-.cp-migalha > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cp-tit { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cp-av {
   width: 46px; height: 46px; border-radius: 11px; flex: none; display: grid; place-items: center;
@@ -13138,3 +13128,214 @@ a.ls-bt { text-decoration: none; }
 .ca-auto { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.4; color: var(--ls-tinta-2); }
 .ca-auto input { margin-top: 2px; }
 #caLsRoot .ls-tab tbody tr.is-inativo td b { color: var(--ls-muted); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PÁGINAS DE REGISTRO: CHAMADO, CONTRATO E A LISTA DE NOTAS (recuperado em
+   26/11/2026). Estes blocos saíram por engano na "limpeza de CSS morto" de
+   20/11 (commit 6d35b75): as classes nascem em template literal no JS, e a
+   varredura que procurava uso só no admin.html não as achou. Desde então as
+   páginas #/chamados/<id> e #/contratos/<id> estavam no ar sem caixa, sem
+   cabeçalho grudado e com a linha do tempo solta.
+   ⚠️ Antes de apagar CSS "morto", procure a classe também nos admin*.js.
+   ════════════════════════════════════════════════════════════════════════ */
+/* ── NOTAS FISCAIS NO MOLDE DA O.S. (18/11/2026) ────────────────────────── */
+.nf-card { padding: 0; }
+.nf-card .nf-resumo { padding: 0 18px 12px; }
+.nf-card .nf-barra { padding: 0 16px 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.nf-card .nf-barra .wa-tabs { margin-top: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.nf-card .nf-barra .wa-tab { flex: 0 0 auto; white-space: nowrap; }
+.nf-card .nf-busca { width: 280px; }
+.nf-card .cf-vazio { padding: 24px 18px; }
+.nf-card .nf-rodape { padding: 10px 18px 14px; margin: 0; }
+@media (max-width: 640px) { .nf-card .nf-busca { width: 100%; } }
+
+/* ── O CONTRATO COMO PÁGINA (#/contratos/<id>, 19/11/2026) ───────────────────
+   As duas caixas do antigo modal (#ctrBox editar, #ctrViewerBox assinado) são
+   movidas para cá por _ctrMontarPagina, com os mesmos ids. Aqui elas deixam
+   de flutuar: sem altura fixa, cabeçalho grudando ao rolar, a
+   linha do tempo embaixo dele e o rodapé de ações grudando embaixo. */
+.ctr-pagina { max-width: 1100px; width: 100%; margin: 0 auto; }
+.ctr-box:not(.is-pagina) .ctr-tempo-wrap { display: none; }
+.ctr-box.is-pagina {
+  width: 100%; max-width: none; max-height: none;
+  overflow: visible; clip-path: none;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.ctr-box.is-pagina .modalHead {
+  position: sticky; top: -22px; z-index: 5;
+  background: #fff;
+  box-shadow: none;
+  border-radius: 10px 10px 0 0;
+  padding: 14px 22px;
+  justify-content: flex-start;
+}
+.ctr-box.is-pagina .modalHead > div:not(:last-child) { flex: 1 1 auto; min-width: 0; }
+.ctr-box.is-pagina .modalTitle { font-size: 19px; }
+.ctr-box.is-pagina .modalSub .os-link { font-weight: 600; color: var(--tinta); }
+.ctr-box.is-pagina .ctr-tempo-wrap { padding: 6px 22px 18px; border-bottom: 1px solid var(--border); }
+.ctr-box.is-pagina .modalBody { overflow: visible; max-height: none; padding: 20px 22px 24px; }
+.ctr-box.is-pagina .modalFoot {
+  position: sticky; bottom: -22px; z-index: 4;
+  background: #fff;
+  border-radius: 0 0 10px 10px;
+  padding: 12px 22px;
+}
+.ctr-box.is-pagina #ctrViewerGrid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important; }
+.ctr-box.is-pagina #ctrAssinaturaPainel { background: #f4f6fa !important; }
+/* Na página quem volta é o .pg-voltar acima da caixa: os "Fechar" do
+   modal (cabeçalho e rodapé) saem. */
+.ctr-box.is-pagina :is(#ctrBtnFechar, #ctrViewerBtnFechar, #ctrViewerBtnFechar2) { display: none; }
+
+/* Etapa que pede atenção (venceu, vence em 30 dias, recusado). */
+.os-tempo li.is-alerta .os-tempo-em { color: var(--danger-t, #b42318); font-weight: 600; }
+.os-tempo li.is-alerta.is-atual::after { box-shadow: inset 0 0 0 2px var(--danger-t, #b42318); background: #fff; }
+
+@media (max-width: 640px) {
+  .ctr-box.is-pagina .modalHead { position: static; flex-wrap: wrap; padding: 12px 14px; }
+  .ctr-box.is-pagina .ctr-tempo-wrap { padding: 4px 14px 16px; }
+  .ctr-box.is-pagina .modalBody { padding: 16px 14px 20px; }
+  .ctr-box.is-pagina .modalFoot { position: static; padding: 12px 14px; }
+  .ctr-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+}
+
+/* ── O CHAMADO COMO PÁGINA (#/chamados/<id>, 19/11/2026) ─────────────────────
+   O mesmo desenho do painel de Chamados (renderChDetalhe), em duas colunas:
+   o atendimento à esquerda (descrição, o que está ligado, histórico), quem
+   está com ele e a telemetria à direita. A lista continua com o painel. */
+.ch-pagina { max-width: 1180px; width: 100%; margin: 0 auto; }
+.ch-pag {
+  padding: 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.ch-pag-head {
+  position: sticky; top: -22px; z-index: 5;
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 14px 22px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+}
+.ch-pag-tit { flex: 1 1 auto; min-width: 0; }
+.ch-pag .ch-det-head { display: flex; justify-content: flex-start; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.ch-pag .ch-det-id { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); }
+.ch-pag .ch-det-title { font-size: 19px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 2px; color: var(--tinta); }
+.ch-pag .ch-det-sub { margin-bottom: 0; }
+.ch-pag-head .ch-det-acoes-topo { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; border: 0; padding: 0; margin: 2px 0 0; }
+.ch-pag-tempo { padding: 6px 22px 18px; border-bottom: 1px solid var(--border); }
+.ch-pag .ch-tempo { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.ch-pag .ch-tempo li:nth-child(2)::before { right: 0; width: auto; }
+.ch-pag-corpo { padding: 20px 22px 26px; }
+.ch-pag .os-col-lado { background: #f4f6fa; }
+.ch-pag .ch-det-section { margin: 0; padding: 0; border: 0; }
+.ch-pag .os-col-lado .ch-det-section + .ch-det-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.ch-pag .ch-det-sec-title { font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 8px; font-family: var(--fonte); }
+.ch-pag .ch-met-lbl { color: var(--muted); }
+.ch-pag .ch-tel-btn { margin-top: 10px; }
+
+/* o que está ligado ao chamado */
+.ch-lig-lista { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.ch-lig {
+  display: grid; grid-template-columns: 92px auto 1fr; align-items: baseline; gap: 12px;
+  padding: 10px 14px; text-align: left;
+  background: #fff; border: 0; border-bottom: 1px solid var(--border);
+  font: inherit; color: var(--text); cursor: pointer;
+}
+.ch-lig:last-child { border-bottom: 0; }
+.ch-lig:hover { background: #f7f8fb; }
+.ch-lig:focus-visible { outline: 2px solid var(--atencao-t); outline-offset: -2px; }
+.ch-lig-tipo { font-size: 12px; color: var(--muted); }
+.ch-lig b { font-family: var(--mono); font-size: 12.5px; }
+.ch-lig-sit { font-size: 12.5px; color: var(--muted); text-align: right; }
+.ch-lig-vazio { font-size: 13px; color: var(--muted); }
+
+/* o atalho do painel para a página */
+.ch-abrir-pag { margin-left: auto; font-size: 12px; font-weight: 600; }
+
+@media (max-width: 900px) {
+  .ch-pag-head { flex-wrap: wrap; }
+  .ch-pag-head .ch-det-acoes-topo { width: 100%; justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+  .ch-pag-head { position: static; padding: 12px 14px; gap: 10px; }
+  .ch-pag-tempo { padding: 4px 14px 16px; }
+  .ch-pag .ch-tempo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ch-pag .ch-tempo li:nth-child(2)::before { right: auto; width: 12px; }
+  .ch-pag-corpo { padding: 16px 14px 20px; }
+  .ch-lig { grid-template-columns: 1fr auto; }
+  .ch-lig-sit { grid-column: 1 / -1; text-align: left; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   O "VOLTAR" DAS PÁGINAS DE REGISTRO (.pg-voltar, 26/11/2026)
+   Um só para chamado, O.S., orçamento, nota, contrato e condomínio: primeira
+   linha da página, ACIMA da caixa, alinhado à esquerda dela, dizendo para
+   onde leva ("← Hoje", "← Residencial Ipê"). Antes eram seis: botão com
+   borda no cabeçalho, "Voltar" no fim das ações da O.S., trilhas de texto.
+   Ver _pgVoltarHtml no admin.js.
+   ════════════════════════════════════════════════════════════════════════ */
+.pg-voltar {
+  display: flex; align-items: center; gap: 6px;
+  width: fit-content; max-width: min(100%, 44ch);
+  margin: 0 0 10px -8px; padding: 6px 10px 6px 8px;
+  border: 0; border-radius: 7px; background: none;
+  color: #0d2775; font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.2;
+  cursor: pointer; text-align: left;
+  transition: background-color .12s ease, color .12s ease;
+}
+.pg-voltar svg { flex: none; transition: transform .15s ease; }
+.pg-voltar span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-voltar:hover { background: rgba(13, 39, 117, .07); color: #071b5c; }
+.pg-voltar:hover svg { transform: translateX(-2px); }
+.pg-voltar:focus-visible { outline: 2px solid #0d2775; outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .pg-voltar, .pg-voltar svg { transition: none; } }
+/* A caixa de cada página já tem a sua largura; o voltar acompanha a borda. */
+.cp-cab > .pg-voltar { margin-bottom: 0; }
+/* O.S.: o "Voltar" do fim da fila de ações sai; o .pg-voltar faz o papel. */
+.os-pagina #osBtnFechar { display: none; }
+@media (max-width: 640px) {
+  .pg-voltar { margin: 0 0 8px -6px; font-size: 14px; padding: 8px 10px 8px 6px; }
+}
+
+/* Página que não abriu (_pgVazioHtml, 26/11/2026): a mesma caixa no chamado,
+   na O.S., na nota e no condomínio. Erro só pinta o título; o texto fica na
+   tinta de apoio para ser lido, não para assustar. */
+.pg-vazio {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 26px 24px; background: #fff;
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.pg-vazio b { font-size: 15px; font-weight: 700; color: var(--tinta); }
+.pg-vazio p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.pg-vazio.is-erro b { color: var(--risco-t, #8a1010); }
+.modalBody > .pg-vazio { border: 0; border-radius: 0; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PADRONIZAÇÃO, SEGUNDA RODADA (26/11/2026)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Número do documento não quebra. Com o painel lateral aberto a coluna
+   estreitava e "OS-2026-0001" / "OR-000059" iam para três linhas, justo o
+   que a pessoa procura com os olhos. Vale para todo .ls-mono da tabela
+   (valores em R$ também ficam inteiros). */
+.ls-tab .ls-mono { white-space: nowrap; }
+
+/* Duas larguras de página, centradas. Antes eram cinco (1100 contrato,
+   1180 O.S. e chamado, 1280 nota, 1320 orçamento, 1640 condomínio), e a
+   nota e o condomínio encostavam à esquerda enquanto as outras centravam:
+   de uma página para a outra a caixa pulava de tamanho e de lugar.
+   documento = chamado, O.S., contrato (uma coluna de trabalho + lado);
+   larga     = orçamento, nota, condomínio (tabela de itens, trilho, 3 colunas). */
+:root { --pg-documento: 1180px; --pg-larga: 1320px; }
+.os-pagina, .ch-pagina, .ctr-pagina { max-width: var(--pg-documento); width: 100%; margin-inline: auto; }
+.orc-pagina, .main .nfp, .cf > .cp { max-width: var(--pg-larga); width: 100%; margin-inline: auto; }
+
+/* Financeiro: a troca Notas | Em atraso | Avisos | Guias à esquerda, como a
+   troca No Omie | Assinados de Contratos (o mesmo .fn-seg); o mês vai para a
+   direita. No celular o .fn-esp some e a troca ocupa a linha inteira. */
+.fn-cab .fn-seg { order: -1; }
+.fn-cab .fn-mes { order: 1; }

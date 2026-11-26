@@ -176,7 +176,7 @@ feito nada, que foi exatamente o relato.
    |---|---|
    | Peça | Barra no pé, **nunca um segundo `<dialog>`** — modal sobre modal empilha dois `showModal()` e rouba o mapa da vista |
    | A linha | Fica **marcada** (material + chip preenchido) enquanto a pergunta está no pé: o erro a pegar é ter clicado no vizinho |
-   | Foco | Vai para **"Voltar"**. Enter armado no botão que grava devolveria o problema pelo teclado |
+   | Foco | Vai para **"Cancelar"** (era "Voltar" até 26/11/2026). Enter armado no botão que grava devolveria o problema pelo teclado |
    | Esc / clique no fundo | Cancelam **a pergunta**, não o diálogo — fecha-se de dentro para fora |
    | `[hidden]` | ⚠️ `.ficha-pe[hidden]{display:none}` é obrigatório: `display:flex` na classe ganha do `[hidden]` do navegador, e as duas barras apareciam juntas |
 
@@ -887,7 +887,7 @@ chamados do mês e grava histórico em cada um, tudo numa transação. Por isso 
 pergunta diz **quantas** e **para quem** — é o número que ninguém confere antes
 de clicar.
 
-⚠️ **"Voltar" repõe o técnico escolhido.** Devolver o HTML da barra recria o
+⚠️ **"Cancelar" (era "Voltar") repõe o técnico escolhido.** Devolver o HTML da barra recria o
 `<select>`, e este arquivo já avisava que isso "apagaria o técnico que a pessoa
 já escolheu" — o valor é reposto à mão logo depois.
 ⚠️ **Marcar outro prédio cancela a pergunta.** Ela diz "Enviar 24 para X?";

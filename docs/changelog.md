@@ -18878,3 +18878,48 @@ segunda porta, como antes. Pedido do Pedro. Sem migration, sem mudança no app.
 Teste `roteiro-competencia.test.js` **7/7** (caso novo: o ciclo do mês que vem
 não entra) e `preventivas-mes.test.js` 66/66. Ver
 [modulos/app-mobile.md](modulos/app-mobile.md#o-roteiro-não-mostra-o-mês-que-vem-24112026).
+
+## 2026-11-26 — Admin: um "voltar" só nas páginas de registro, e o CSS que tinha sumido
+
+Pedido do Pedro: varrer as telas atrás de inconsistência visual, a começar
+pelo botão de voltar, que mudava de uma tela para outra. Eram seis jeitos:
+"← Voltar" em botão com borda no cabeçalho (chamado, orçamento, contrato),
+"Voltar" no fim da fila de ações à direita (O.S.), trilha "Condomínios ›
+nome" (condomínio) e trilha de três níveis (nota fiscal). Agora é um
+componente só, `.pg-voltar` (`_pgVoltarHtml` em `public/admin.js`): primeira
+linha da página, acima da caixa e alinhado à borda dela, dizendo para onde
+leva ("← Hoje", "← Residencial Ipê", "← CH-1317"). A origem mora no
+`history.state` da entrada (`{ pgDe }`), então sobrevive a F5 e ao
+voltar/avançar; sem origem (link colado) leva à lista e diz o nome dela. O
+condomínio e a nota passaram a voltar para onde a pessoa estava (antes iam
+sempre para a lista).
+
+**Conserto junto:** a limpeza de CSS de 20/11 (`6d35b75`) tinha apagado o
+estilo das páginas de **chamado** e **contrato** e da lista de **Notas
+fiscais** do Financeiro (as classes nascem em template literal no JS, e não
+foram achadas). Os blocos voltaram, adaptados ao voltar novo. Títulos "Ordem
+de Serviço"/"Ordens de Serviço" passam para a caixa de frase das outras telas.
+
+Sem migration, sem endpoint novo. Conferido no banco de teste (1440×900 e
+375px): as seis páginas, rótulo pela origem e pelo link colado, clique
+voltando ao lugar certo. `admin.css?v=391`, `admin.js?v=432`,
+`admin-condominio.js?v=17`, `admin-nota.js?v=4`, `admin-orc-doc.js?v=3`. Ver
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#o-voltar-das-páginas-de-registro-26112026).
+
+**Segunda rodada, mesmo dia** (o Pedro pediu as outras melhorias da varredura):
+número do documento não quebra mais nas listas com o painel aberto
+(`.ls-tab .ls-mono` sem quebra); um botão amarelo só na página do chamado
+("Vincular condomínio" virou botão comum); o cifrão em caixinha saiu do
+cabeçalho do orçamento; as páginas de registro em **duas larguras centradas**
+(documento 1180 px: chamado, O.S., contrato; larga 1320 px: orçamento, nota,
+condomínio), no lugar de cinco, com nota e condomínio encostados à esquerda;
+no Financeiro a troca Notas | Em atraso | Avisos | Guias vai para a esquerda,
+como a de Contratos; o botão de comentários do Monitoramento ganhou
+`aria-label`; "Voltar" que era cancelar virou **"Cancelar"** (marcar para o
+turno no chamado, e as barras de confirmação do painel do operador e das
+Preventivas dele) e, no diálogo "Cancelar chamado", **"Manter chamado"**;
+página que não abre (chamado ou condomínio inexistente, erro na O.S. ou na
+nota) mostra a mesma caixa (`_pgVazioHtml`). Conferido em 1440×900 e
+1920×1080. `admin.css?v=392`, `admin.js?v=433`, `admin-condominio.js?v=18`,
+`admin-nota.js?v=5`, `admin-monitoramento.js?v=7`, `operador.js?v=88`,
+`operador-preventivas.js?v=14`.

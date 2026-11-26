@@ -49,13 +49,14 @@ async function _nfAbrirPagina(orcId, { daRota = false } = {}) {
   orcId = Number(orcId);
   if (!Number.isInteger(orcId) || orcId <= 0) return;
   const destino = `#/orcamentos/${orcId}/nota`;
+  const de = _pgOrigemAtual();
   if (!_nfpNaPagina()) {
     _rotaAplicando = true;
     try { showSection("nota-detalhe"); } finally { _rotaAplicando = false; }
     document.querySelector(".content")?.scrollTo?.(0, 0);
     window.scrollTo?.(0, 0);
   }
-  if (!daRota && location.hash !== destino) history.pushState(null, "", destino);
+  if (!daRota && location.hash !== destino) history.pushState(_pgEstado(de), "", destino);
   // O roteador pode chamar de novo para o mesmo endereço (boot, hashchange):
   // a mesma nota já aberta ou a caminho não é pedida outra vez.
   if (daRota && _nfpId === orcId && (_nfpDados || _nfpCarregando === orcId)) return;
@@ -81,7 +82,7 @@ async function _nfpCarregar() {
     _nfpConferirSozinho();
   } catch (e) {
     const raiz = document.getElementById("nfPagina");
-    if (raiz) raiz.innerHTML = `<div class="nfp-carregando nfp-erro">${_nfpEsc(e.message)} <a href="#/orcamentos/${id}">Voltar ao orçamento</a></div>`;
+    if (raiz) raiz.innerHTML = `${_pgVoltarHtml("nf", "Orçamento")}${_pgVazioHtml("Não consegui abrir a nota", e.message, true)}`;
   } finally { if (_nfpCarregando === id) _nfpCarregando = null; }
 }
 
@@ -166,9 +167,7 @@ function _nfpRender() {
   ];
 
   raiz.innerHTML = `
-    <nav class="nfp-migalha" aria-label="Caminho">
-      <a href="#/orcamentos">Orçamentos</a> › <a href="#/orcamentos/${_nfpId}">${_nfpEsc(orcNum)}</a> › <b>Nota fiscal</b>
-    </nav>
+    ${_pgVoltarHtml("nf", orcNum || "Orçamento")}
     <header class="nfp-cab">
       <div class="nfp-cab-txt">
         <h1 class="nfp-t">${tipoNome} <span class="nfp-selo ${stCls}">${_nfpEsc(stRot)}</span></h1>

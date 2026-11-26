@@ -2336,3 +2336,108 @@ abrindo por endereço, e os blocos movidos voltam para elas.
 - A ronda de UX de 19/11 foi toda feita, menos Relatórios (vai virar dashboard).
 - Testar as páginas de documento com o perfil operador (chamado sem "Ligado a
   este chamado"; `#/contratos/…` ignorado).
+
+## O voltar das páginas de registro (26/11/2026)
+
+Pedido do Pedro: *"varra as telas procurando melhorias visuais e de ux,
+padronize as coisas, por exemplo o botão de voltar muda muito de uma tela
+para outra"*.
+
+### Antes
+
+| Página | Voltar |
+|---|---|
+| Chamado | "← Voltar", botão com borda, à esquerda **dentro** do cabeçalho |
+| Orçamento | "← Voltar", botão com borda, à **direita** do cabeçalho |
+| Contrato | o "Fechar" do modal reescrito como "← Voltar" no cabeçalho |
+| O.S. | "Voltar", último da fila de ações, à direita |
+| Condomínio | trilha "Condomínios › nome", sempre para a lista |
+| Nota fiscal | trilha "Orçamentos › OR-… › Nota fiscal" em links |
+
+### Agora
+
+Um componente, `.pg-voltar`, gerado por `_pgVoltarHtml(qual, padrão)` em
+`public/admin.js` (bloco "O VOLTAR DAS PÁGINAS DE REGISTRO", logo antes do
+`showSection`):
+
+- **Onde:** primeira linha da página, acima da caixa, com a seta alinhada à
+  borda esquerda dela. Rola com a página (não gruda; o que gruda é o
+  cabeçalho da caixa, como antes).
+- **O que diz:** para onde leva. Aberta de uma tela, diz o título dela
+  ("← Hoje", "← Atendimento", "← Ed. Bosque Verde"); aberta de outra página
+  de registro, o número dela ("← CH-1317", "← OS-2026-0001"). Sem origem
+  (link colado, primeira tela da aba), o nome da lista ("← Chamados",
+  "← Ordens de serviço"); na nota, o número do orçamento.
+- **O que faz:** o mesmo de antes nas quatro páginas que já voltavam "para
+  onde a pessoa estava" (`_chFecharPagina`, `fecharOSModal`,
+  `_avTentarFechar`, `_ctrFecharModal`). Condomínio e nota passaram a fazer
+  o mesmo (antes iam sempre para a lista / para o orçamento).
+
+**A origem mora no `history.state`** (`{ pgDe: "<título>" }`), gravado por
+quem abre a página com `pushState` (`_pgOrigemAtual()` lido **antes** do
+`showSection`, que troca o título do topo). Por isso sobrevive a F5 e ao
+voltar/avançar do navegador, o que as flags `_xEmpurrouHistorico` não
+faziam: os fechamentos agora voltam no histórico com a flag **ou** com
+`_pgVeioDeDentro()`.
+
+⚠️ `replaceState` dentro da mesma página (abas do condomínio, orçamento novo
+que ganha número, contrato) passa `history.state` adiante. Com `null` o
+voltar esquece a origem e cai na lista.
+
+Nas três caixas que eram modal (O.S., orçamento, contrato) o botão é criado
+uma vez no contêiner da página (`_pgVoltarFixo`) e só o rótulo muda; os
+"Fechar"/"Voltar" antigos continuam no HTML (os ids têm ouvintes) e saem
+pelo CSS na página. O `admin-orc-doc.js` punha "Editar / Ver documento"
+antes do `.av-voltar`; agora acrescenta no fim do cabeçalho, que é o mesmo
+lugar.
+
+Os voltares das telas divididas no celular (`.ls-voltar`, `.mn-voltar`,
+`.at-voltar`: "← Lista", "← Fila") ficaram como estão: fecham um painel, não
+saem da página, e já eram iguais entre si.
+
+### O CSS que tinha sumido
+
+A "Limpeza dos blocos antigos escondidos" de 20/11 (`6d35b75`) apagou, como
+se fosse morto, o estilo das páginas de **chamado** e **contrato** (caixa,
+cabeçalho grudado, linha do tempo, "Ligado a este chamado") e da lista de
+**Notas fiscais** do Financeiro (`.nf-card`). As classes nascem em template
+literal nos `admin*.js`. Desde então as duas páginas estavam no ar sem
+moldura. Os blocos voltaram no fim do `admin.css`, adaptados.
+⚠️ Antes de apagar CSS "morto", procurar a classe também nos `admin*.js`.
+
+### Também
+
+Títulos "Ordem de Serviço"/"Ordens de Serviço" no topo passam para a caixa
+de frase das outras telas ("Ordem de serviço").
+
+### Testado (banco de teste, 26/11/2026)
+
+1440×900 e 375px. As seis páginas abertas do Hoje, da lista e de outra
+página: rótulo certo, uma seta só, alinhada à caixa, clique voltando ao
+lugar de onde veio; pelo link colado, rótulo e destino da lista. Chamado e
+contrato com caixa de novo. `node --check` nos quatro arquivos.
+`admin.css?v=391`, `admin.js?v=432`, `admin-condominio.js?v=17`,
+`admin-nota.js?v=4`, `admin-orc-doc.js?v=3`.
+
+### Segunda rodada da padronização (26/11/2026)
+
+Pedido do Pedro, depois de ver a lista de achados: *"pode fazer todos,
+inclusive o 4"*.
+
+| # | O que era | O que ficou |
+|---|---|---|
+| 1 | "OS-2026-0001" e "OR-000059" quebravam em três linhas com o painel lateral aberto | `.ls-tab .ls-mono { white-space: nowrap }` |
+| 2 | Página do chamado com dois amarelos ("Marcar como resolvido" e "Vincular condomínio") | Um primário por tela: "Vincular condomínio" é botão comum |
+| 3 | Cabeçalho do orçamento abria com um cifrão em caixinha | Saiu; abre no número e no selo, como chamado, O.S. e contrato |
+| 4 | Cinco larguras de página (1100/1180/1280/1320/1640), nota e condomínio à esquerda | Duas, centradas: `--pg-documento` 1180 (chamado, O.S., contrato) e `--pg-larga` 1320 (orçamento, nota, condomínio) |
+| 5 | Topo "Contratos" × título "Contratos no Omie" | **Sem mudança:** o h1 da lista é só para leitor de tela; quem vê lê "Contratos" no topo e "No Omie" na aba |
+| 6 | Financeiro com a troca de listas à direita, Contratos à esquerda (o mesmo `.fn-seg`) | À esquerda nas duas; o mês do Financeiro vai para a direita |
+| 7 | Botão de comentários do Monitoramento só com ícone | `aria-label` (o `title` já existia) |
+| 8 | "Voltar" usado como cancelar | "Cancelar" (marcar para o turno; barras de confirmação do operador e das Preventivas dele); no diálogo "Cancelar chamado", "Manter chamado", para não ficar "Cancelar × Cancelar chamado" |
+| 9 | Página que não abre: frase cinza solta (condomínio), "não encontrado" dentro da caixa (chamado), texto vermelho (nota), "Erro:" centralizado (O.S.) | Uma caixa só, `_pgVazioHtml(título, texto, erro)`, abaixo do `.pg-voltar` |
+
+Conferido no banco de teste em 1440×900 e 1920×1080 (onde as larguras
+aparecem: a seta do voltar cai na borda da caixa em todas). A diferença de
+5 px entre condomínio e orçamento a 1920 é a barra de rolagem da página
+mais alta, não o layout. O painel do operador não foi aberto no navegador:
+lá a mudança é só o texto do botão (`node --check` limpo).

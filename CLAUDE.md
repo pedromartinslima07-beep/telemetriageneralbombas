@@ -165,6 +165,17 @@ literal, nome de classe vai sem marcação nenhuma.
 
 ---
 
+## CSS "morto" no admin: procure a classe nos `.js` antes de apagar
+
+Quase todo o markup do admin nasce em template literal nos `public/admin*.js`,
+não no `admin.html`. A limpeza de CSS de 20/11/2026 (`6d35b75`) conferiu uso
+pelo HTML e apagou o estilo das páginas de chamado e contrato e da lista de
+Notas fiscais — ficaram seis dias no ar sem caixa nem cabeçalho, sem erro
+nenhum no console. Antes de remover uma regra, `grep` a classe em
+`public/admin*.js` também (inclusive montada por partes, `ch-pag-${x}`).
+
+---
+
 ## `$n` repetido em SQL precisa de cast explícito
 
 `42P08 — inconsistent types deduced for parameter $N` acontece quando o mesmo

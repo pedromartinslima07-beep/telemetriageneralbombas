@@ -130,7 +130,7 @@ const _sectionTitles = {
   monitoramento:    "Monitoramento",
   atendimento:      "Atendimento",
   financeiro:       "Financeiro",
-  "os-detalhe":     "Ordem de Serviço",
+  "os-detalhe":     "Ordem de serviço",
   "orcamento-detalhe": "Orçamento",
   "nota-detalhe":      "Nota fiscal",
   "contrato-detalhe":  "Contrato",
@@ -143,7 +143,7 @@ const _sectionTitles = {
   alertas:          "Alertas",
   whatsapp:         "Atendimento",
   chamados:         "Chamados",
-  "ordens-servico": "Ordens de Serviço",
+  "ordens-servico": "Ordens de serviço",
   orcamentos:       "Orçamentos",
   contratos:        "Contratos",
   cadastros:        "Condomínios",
@@ -154,6 +154,99 @@ const _sectionTitles = {
   config:           "Configurações",
   condominio:       "Condomínio",
 };
+
+// ===== O "VOLTAR" DAS PÁGINAS DE REGISTRO (26/11/2026) =====
+//
+// Chamado, O.S., orçamento, nota, contrato e condomínio tinham seis voltares
+// diferentes: "← Voltar" em botão com borda (chamado, orçamento, contrato),
+// "Voltar" no FIM da fila de ações à direita (O.S.), trilha "Condomínios ›
+// nome" (condomínio) e trilha com três níveis (nota). Agora é um componente
+// só, .pg-voltar, sempre na primeira linha da página, acima da caixa, à
+// esquerda, e dizendo PARA ONDE leva: "← Hoje", "← Residencial Ipê",
+// "← Orçamentos".
+//
+// De onde a pessoa veio mora no history.state da entrada da página
+// ({ pgDe: "<título da tela de origem>" }), gravado por quem abre a página
+// com pushState. Por isso sobrevive a F5 e ao voltar/avançar do navegador,
+// o que as flags _xEmpurrouHistorico não fazem. Sem pgDe (link colado,
+// primeira tela da aba), o voltar leva à lista e diz o nome dela.
+//
+// ⚠️ replaceState dentro da mesma página (abas do condomínio, orçamento novo
+// que ganha número) tem de passar history.state adiante, não null — senão o
+// voltar esquece a origem.
+function _pgOrigemAtual() {
+  const sec = document.querySelector(".section.is-active")?.dataset.section;
+  const doRegistro = {
+    "os-detalhe":        () => document.getElementById("osModalTitle")?.textContent,
+    "orcamento-detalhe": () => document.getElementById("avModalTitulo")?.textContent,
+    "chamado-detalhe":   () => document.querySelector("#chPagina .ch-det-id")?.textContent,
+  }[sec];
+  const t = (doRegistro?.() || document.getElementById("topbarTitleDesktop")?.textContent || "").trim();
+  return t.length > 60 ? t.slice(0, 59) + "…" : t;
+}
+
+function _pgEstado(de) { return { pgDe: typeof de === "string" ? de : "" }; }
+
+function _pgVeioDeDentro() {
+  const s = history.state;
+  return !!s && typeof s.pgDe === "string";
+}
+
+const _PG_SETA = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`;
+
+function _pgRotulo(padrao) {
+  return (_pgVeioDeDentro() && history.state.pgDe) || padrao || "Voltar";
+}
+
+// qual: os | av | ctr | ch | nf | cf (ver o clique logo abaixo).
+function _pgVoltarHtml(qual, padrao) {
+  const r = _pgRotulo(padrao);
+  return `<button type="button" class="pg-voltar" data-pg-voltar="${qual}" data-pg-padrao="${_waEscaparHtml(padrao || "")}" title="Voltar para ${_waEscaparHtml(r)}">${_PG_SETA}<span>${_waEscaparHtml(r)}</span></button>`;
+}
+
+// O.S., orçamento e contrato são caixas de modal movidas para a página: o
+// botão é criado uma vez e só o rótulo muda a cada abertura.
+function _pgVoltarFixo(pag, qual, padrao) {
+  if (!pag) return;
+  let b = pag.querySelector(":scope > .pg-voltar");
+  if (!b) {
+    pag.insertAdjacentHTML("afterbegin", _pgVoltarHtml(qual, padrao));
+    b = pag.firstElementChild;
+  }
+  _pgVoltarSincronizar(b);
+}
+
+function _pgVoltarSincronizar(b) {
+  const r = _pgRotulo(b.dataset.pgPadrao);
+  b.querySelector("span").textContent = r;
+  b.title = `Voltar para ${r}`;
+}
+
+// Página que não abriu (registro apagado, endereço errado, falha na rede):
+// a mesma caixa em todas, abaixo do .pg-voltar. Antes cada uma tinha a sua
+// (frase cinza solta, texto vermelho, "Erro:" centralizado).
+function _pgVazioHtml(titulo, texto, erro) {
+  return `<div class="pg-vazio${erro ? " is-erro" : ""}" role="${erro ? "alert" : "status"}"><b>${_waEscaparHtml(titulo)}</b>${texto ? `<p>${_waEscaparHtml(texto)}</p>` : ""}</div>`;
+}
+
+function _pgVoltarOuIr(semOrigem) {
+  if (_pgVeioDeDentro()) { history.back(); return; }
+  semOrigem();
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-pg-voltar]");
+  if (!b) return;
+  const acao = {
+    os:  () => fecharOSModal(),
+    av:  () => _avTentarFechar(),
+    ctr: () => _ctrFecharModal(),
+    ch:  () => _chFecharPagina(),
+    cf:  () => _pgVoltarOuIr(() => showSection("cadastros")),
+    nf:  () => _pgVoltarOuIr(() => { location.hash = `#/orcamentos/${typeof _nfpId !== "undefined" ? _nfpId : ""}`; }),
+  }[b.dataset.pgVoltar];
+  if (acao) { e.preventDefault(); acao(); }
+});
 
 function showSection(name) {
   document.querySelectorAll(".section").forEach(s => s.classList.remove("is-active"));
@@ -4502,7 +4595,7 @@ function _chRenderEscritorio(ch) {
       <div class="ch-esc-campo" hidden>
         <textarea class="input" rows="2" maxlength="300" placeholder="O que o turno precisa saber? Ex.: cliente reclamou, ir hoje"></textarea>
         <div class="ch-esc-acoes">
-          <button type="button" class="btn btn-sm" data-ch-esc="cancelar" data-ch-id="${ch.id}">Voltar</button>
+          <button type="button" class="btn btn-sm" data-ch-esc="cancelar" data-ch-id="${ch.id}">Cancelar</button>
           <button type="button" class="btn btn-sm btnAccent" data-ch-esc="marcar" data-ch-id="${ch.id}">Marcar</button>
         </div>
         <small class="ch-esc-nota">Aparece como selo no item e na ficha do painel do turno. Não muda a ordem da fila, que é pelo prazo.</small>
@@ -4691,7 +4784,7 @@ function renderChDetalhe(ch) {
                  ${_waEscaparHtml(ch.condominio_nome)}
                  <button class="btn btn-sm viewer-only-hide" data-action="vincular-ch-condo" data-ch-id="${ch.id}">Trocar</button>
                </span>`
-            : `<button class="btn btn-sm btnAccent viewer-only-hide" data-action="vincular-ch-condo" data-ch-id="${ch.id}">Vincular condomínio</button>`}
+            : `<button class="btn btn-sm viewer-only-hide" data-action="vincular-ch-condo" data-ch-id="${ch.id}">Vincular condomínio</button>`}
         </div>
         ${ch.responsavel_nome ? `<div class="ch-met-row"><span class="ch-met-lbl">Responsável</span><span>${_waEscaparHtml(ch.responsavel_nome)}</span></div>` : ""}
         ${ch.cliente_nome ? `<div class="ch-met-row"><span class="ch-met-lbl">Cliente (WhatsApp)</span><span>${_waEscaparHtml(ch.cliente_nome)}${ch.cliente_telefone ? " · "+_waEscaparHtml(ch.cliente_telefone) : ""}</span></div>` : ""}
@@ -4713,9 +4806,8 @@ function renderChDetalhe(ch) {
   const subHtml = `${condoHtml}${ch.categoria ? ` · ${_chCatNome[ch.categoria]||ch.categoria}` : ""}`;
 
   if (naPagina) {
-    col.innerHTML = `<div class="ch-detail ch-pag">
+    col.innerHTML = `${_pgVoltarHtml("ch", _sectionTitles.chamados)}<div class="ch-detail ch-pag">
       <div class="ch-pag-head">
-        <button type="button" class="btn btn-sm ch-voltar" data-ch-voltar>← Voltar</button>
         <div class="ch-pag-tit">
           <div class="ch-det-head"><span class="ch-det-id">${id4}</span>${selos}</div>
           <h2 class="ch-det-title">${_waEscaparHtml(ch.titulo || "Sem título")}</h2>
@@ -4798,6 +4890,7 @@ function _chNaPagina() {
 
 async function _chAbrirPagina(id, { daRota = false } = {}) {
   if (!id) return;
+  const de = _pgOrigemAtual();
   _chSelecionadoId = id;
   _chPaginaId = id;
   const painel = document.getElementById("chDetailCol");
@@ -4809,7 +4902,7 @@ async function _chAbrirPagina(id, { daRota = false } = {}) {
   }
   const destino = `#/chamados/${id}`;
   if (daRota) _chEmpurrouHistorico = false;
-  else if (location.hash !== destino) { history.pushState(null, "", destino); _chEmpurrouHistorico = true; }
+  else if (location.hash !== destino) { history.pushState(_pgEstado(de), "", destino); _chEmpurrouHistorico = true; }
 
   const pag = document.getElementById("chPagina");
   let ch = (_chamadosData || []).find(c => c.id === id);
@@ -4820,9 +4913,7 @@ async function _chAbrirPagina(id, { daRota = false } = {}) {
     ch = (_chamadosData || []).find(c => c.id === id);
   }
   if (!ch) {
-    if (pag) pag.innerHTML = `<div class="ch-pag ch-pag-vazio">
-      <button type="button" class="btn btn-sm ch-voltar" data-ch-voltar>← Voltar</button>
-      <p>Chamado CH-${String(id).padStart(4, "0")} não encontrado.</p></div>`;
+    if (pag) pag.innerHTML = `${_pgVoltarHtml("ch", _sectionTitles.chamados)}${_pgVazioHtml(`Chamado CH-${String(id).padStart(4, "0")} não encontrado`, "Ele pode ter sido apagado, ou o endereço está errado.")}`;
     return;
   }
   renderChDetalhe(ch);
@@ -4838,7 +4929,7 @@ async function _chAbrirPagina(id, { daRota = false } = {}) {
 
 function _chFecharPagina() {
   if (!_chNaPagina()) return;
-  if (_chEmpurrouHistorico) { _chEmpurrouHistorico = false; history.back(); return; }
+  if (_chEmpurrouHistorico || _pgVeioDeDentro()) { _chEmpurrouHistorico = false; history.back(); return; }
   showSection("chamados");
 }
 
@@ -5410,7 +5501,7 @@ function _ctrAbrirModal({ condoId, contratoId }) {
 function _ctrFecharModal() {
   _ctrEditando = null;
   if (!_ctrNaPagina()) return;
-  if (_ctrEmpurrouHistorico) { _ctrEmpurrouHistorico = false; history.back(); return; }
+  if (_ctrEmpurrouHistorico || _pgVeioDeDentro()) { _ctrEmpurrouHistorico = false; history.back(); return; }
   showSection("contratos");
 }
 
@@ -5438,24 +5529,20 @@ function _ctrNaPagina() {
 function _ctrMontarPagina() {
   const pag = document.getElementById("ctrPagina");
   if (!pag) return;
-  [["ctrBox", "ctrBtnFechar"], ["ctrViewerBox", "ctrViewerBtnFechar"]].forEach(([idBox, idFechar]) => {
+  // O "Fechar" do canto de cada caixa sai de cena (CSS .ctr-box.is-pagina):
+  // quem volta é o .pg-voltar acima da caixa, o mesmo das outras páginas.
+  // Até 26/11/2026 ele era movido para o cabeçalho como "← Voltar".
+  ["ctrBox", "ctrViewerBox"].forEach((idBox) => {
     const box = document.getElementById(idBox);
     if (!box || box.parentElement === pag) return;
     pag.appendChild(box);
     box.classList.add("is-pagina");
     box.style.maxWidth = "";
-    // O "Fechar" do canto vira o "← Voltar" do começo do cabeçalho.
-    const fechar = document.getElementById(idFechar);
-    const head = box.querySelector(".modalHead");
-    if (fechar && head) {
-      fechar.textContent = "← Voltar";
-      fechar.classList.add("ctr-voltar");
-      head.insertBefore(fechar, head.firstChild);
-    }
   });
 }
 
 function _ctrIrParaPagina(modo, id) {
+  const de = _pgOrigemAtual();
   _ctrMontarPagina();
   _ctrModoPagina = modo;
   _ctrIdPagina = id || null;
@@ -5469,10 +5556,13 @@ function _ctrIrParaPagina(modo, id) {
     document.querySelector(".content")?.scrollTo?.(0, 0);
   }
   const destino = `#/contratos/${id || "novo"}`;
-  if (_ctrAbrindoPelaRota) { _ctrEmpurrouHistorico = false; return; }
-  if (location.hash === destino) return;
-  if (location.hash.startsWith("#/contratos/")) history.replaceState(null, "", destino);
-  else { history.pushState(null, "", destino); _ctrEmpurrouHistorico = true; }
+  const pag = document.getElementById("ctrPagina");
+  if (_ctrAbrindoPelaRota) { _ctrEmpurrouHistorico = false; _pgVoltarFixo(pag, "ctr", _sectionTitles.contratos); return; }
+  if (location.hash !== destino) {
+    if (location.hash.startsWith("#/contratos/")) history.replaceState(history.state, "", destino);
+    else { history.pushState(_pgEstado(de), "", destino); _ctrEmpurrouHistorico = true; }
+  }
+  _pgVoltarFixo(pag, "ctr", _sectionTitles.contratos);
 }
 
 // Chegou pelo endereço (F5, voltar/avançar, link colado): o endereço só tem
@@ -11552,6 +11642,7 @@ function _osMontarPagina() {
 
 async function abrirOSDetalhe(id, { daRota = false } = {}) {
   if (!id) return;
+  const de = _pgOrigemAtual();
   _osBindEventos(); // a ficha pode abrir sem a lista nunca ter sido aberta
   const jaNaPagina = document.querySelector('.section[data-section="os-detalhe"].is-active');
   _osSelecionadaId = id;
@@ -11572,9 +11663,10 @@ async function abrirOSDetalhe(id, { daRota = false } = {}) {
   const destino = `#/os/${id}`;
   if (daRota) _osEmpurrouHistorico = false; // chegou pelo endereço (F5, voltar, link)
   else if (location.hash !== destino) {
-    history.pushState(null, "", destino);
+    history.pushState(_pgEstado(de), "", destino);
     _osEmpurrouHistorico = true;
   }
+  _pgVoltarFixo(document.getElementById("osPagina"), "os", _sectionTitles["ordens-servico"]);
 
   body.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;">Carregando…</div>`;
   if (sub) sub.textContent = "Carregando…";
@@ -11590,7 +11682,7 @@ async function abrirOSDetalhe(id, { daRota = false } = {}) {
     _osSelecionada = await r.json();
     _osRenderModal();
   } catch (err) {
-    body.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;color:var(--danger);">Erro: ${_waEscaparHtml(err.message)}</div>`;
+    body.innerHTML = _pgVazioHtml("Não consegui abrir a O.S.", err.message, true);
   }
 }
 
@@ -11603,7 +11695,7 @@ function fecharOSModal() {
   _osModoEdicao = false;
   _osEdits = null;
   if (!document.querySelector('.section[data-section="os-detalhe"].is-active')) return;
-  if (_osEmpurrouHistorico) { _osEmpurrouHistorico = false; history.back(); return; }
+  if (_osEmpurrouHistorico || _pgVeioDeDentro()) { _osEmpurrouHistorico = false; history.back(); return; }
   showSection("ordens-servico");
 }
 
@@ -12669,6 +12761,7 @@ function _avMontarPagina() {
 }
 
 function _avIrParaPagina(o) {
+  const de = _pgOrigemAtual();
   _avMontarPagina();
   if (!_avNaPagina()) {
     _rotaAplicando = true;
@@ -12677,10 +12770,13 @@ function _avIrParaPagina(o) {
     window.scrollTo?.(0, 0);
   }
   const destino = `#/orcamentos/${o.id ?? "novo"}`;
-  if (_avAbrindoPelaRota) { _avEmpurrouHistorico = false; return; }
-  if (location.hash === destino) return;
-  if (location.hash.startsWith("#/orcamentos/")) history.replaceState(null, "", destino);
-  else { history.pushState(null, "", destino); _avEmpurrouHistorico = true; }
+  const pag = document.getElementById("orcPagina");
+  if (_avAbrindoPelaRota) { _avEmpurrouHistorico = false; _pgVoltarFixo(pag, "av", _sectionTitles.orcamentos); return; }
+  if (location.hash !== destino) {
+    if (location.hash.startsWith("#/orcamentos/")) history.replaceState(history.state, "", destino);
+    else { history.pushState(_pgEstado(de), "", destino); _avEmpurrouHistorico = true; }
+  }
+  _pgVoltarFixo(pag, "av", _sectionTitles.orcamentos);
 }
 
 // Chegou pelo endereço (F5, voltar/avançar, link colado).
@@ -12774,7 +12870,7 @@ function _avFecharModal() {
   // "Voltar" devolve a pessoa de onde ela veio (lista, Solicitados, ficha do
   // condomínio, Início). Quem chegou pelo link cai na lista de orçamentos.
   if (_avNaPagina()) {
-    if (_avEmpurrouHistorico) { _avEmpurrouHistorico = false; history.back(); }
+    if (_avEmpurrouHistorico || _pgVeioDeDentro()) { _avEmpurrouHistorico = false; history.back(); }
     else showSection("orcamentos");
   }
   // ⚠️ A LISTA SE REDESENHA AO FECHAR (09/10/2026). Item adicionado ou
@@ -12854,9 +12950,8 @@ function _avRenderPainel() {
   wrap.innerHTML = `
     <div class="av-modal-head">
       <div class="av-modal-head-info">
-        <div class="av-modal-head-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
+        <!-- O cifrão em caixinha que abria este cabeçalho saiu em 26/11/2026:
+             chamado, O.S. e contrato abrem direto no número e no selo. -->
         <div>
           <div class="av-modal-num" id="avModalTitulo">${_waEscaparHtml(o.numero || "Novo orçamento")}</div>
           <div class="av-modal-meta">
@@ -12865,7 +12960,6 @@ function _avRenderPainel() {
           </div>
         </div>
       </div>
-      <button type="button" class="btn btn-sm av-voltar" data-av-action="fechar">← Voltar</button>
     </div>
     ${_avLinhaTempo(o)}
 

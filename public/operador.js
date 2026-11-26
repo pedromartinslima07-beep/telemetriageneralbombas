@@ -641,13 +641,14 @@ function confirmar({ pergunta, nota, rotulo, aoSim }) {
   el.innerHTML =
     `<p class="confirma-txt" role="alert">${pergunta}` +
     (nota ? `<span>${nota}</span>` : "") + `</p>` +
-    // "Voltar" antes de "Despachar" no DOM e o par encostado à direita: o
+    // "Cancelar" antes de "Despachar" no DOM (era "Voltar" até 26/11/2026;
+    // "voltar" no painel é sair da página, ver o .pg-voltar do admin) e o par encostado à direita: o
     // mesmo par de ações do pé de Aprovados e da barra de Preventivas.
-    `<button type="button" class="btn btn-fio" data-acao="confirma-nao">Voltar</button>` +
+    `<button type="button" class="btn btn-fio" data-acao="confirma-nao">Cancelar</button>` +
     `<button type="button" class="btn" data-acao="confirma-sim">${rotulo}</button>`;
   if (pe) pe.insertAdjacentElement("afterend", el); else cx.appendChild(el);
   _confirmaAtiva = { el, pe, aoSim, foco: document.activeElement };
-  // ⚠️ O FOCO VAI PARA "VOLTAR", a opção segura. Numa barra que existe porque
+  // ⚠️ O FOCO VAI PARA "CANCELAR", a opção segura. Numa barra que existe porque
   // alguém clicou sem querer, deixar o Enter armado no botão que grava seria
   // devolver o problema pelo teclado.
   el.querySelector('[data-acao="confirma-nao"]').focus();
@@ -1706,7 +1707,7 @@ function pedirEscritorio(id) {
     `<label class="confirma-txt" for="pedeMotivo">O que o escritório precisa resolver?` +
     `<span>Aparece no painel do escritório até alguém dar como resolvido.</span></label>` +
     `<textarea id="pedeMotivo" class="pede-campo" maxlength="300" rows="2" placeholder="Ex.: síndico quer orçamento antes do serviço"></textarea>` +
-    `<button type="button" class="btn btn-fio" data-acao="confirma-nao">Voltar</button>` +
+    `<button type="button" class="btn btn-fio" data-acao="confirma-nao">Cancelar</button>` +
     `<button type="button" class="btn" data-acao="pede-enviar" data-id="${id}">Mandar para o escritório</button>`;
   if (pe) pe.insertAdjacentElement("afterend", el); else cx.appendChild(el);
   _confirmaAtiva = { el, pe, aoSim: null, foco: document.activeElement };

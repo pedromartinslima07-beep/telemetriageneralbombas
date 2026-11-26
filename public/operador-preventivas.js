@@ -846,12 +846,12 @@ function pedirDespacho() {
   const n = SEL.size;
   // ⚠️ GUARDA O HTML E O TÉCNICO. Este arquivo já avisava que "recriar o
   // `<select>` apagaria o técnico que a pessoa já escolheu"; devolver o HTML
-  // no "Voltar" recria mesmo — então o valor é reposto à mão logo depois.
+  // no "Cancelar" recria mesmo — então o valor é reposto à mão logo depois.
   PV_CONFIRMA = { html: inn.innerHTML, tecnico: Number(tecnico), nome };
   inn.innerHTML =
     `<p class="pv-confirma" role="alert">Enviar <b>${n} ${n === 1 ? "preventiva" : "preventivas"}</b>` +
     ` para <b>${escapar(nome)}</b>?</p>` +
-    `<button type="button" class="pv-barra-limpa" data-acao="pv-nao">Voltar</button>` +
+    `<button type="button" class="pv-barra-limpa" data-acao="pv-nao">Cancelar</button>` +
     `<button type="button" class="btn" data-acao="pv-sim">Enviar</button>`;
   inn.querySelector('[data-acao="pv-nao"]').focus();
 }

@@ -347,7 +347,7 @@
           <div><b>${esc(tipoAlerta(a.tipo))}</b><small>aberto ${rel(a.criado_em)}</small></div>
           <div class="mn-alerta-acoes">
             <button type="button" class="mn-bt is-p" data-mn-resolver="${a.id}">Resolver</button>
-            <button type="button" class="mn-bt is-p is-ghost" data-mn-comentar="${a.id}" title="Comentários e análise por IA">${ico("message-square")}</button>
+            <button type="button" class="mn-bt is-p is-ghost" data-mn-comentar="${a.id}" title="Comentários e análise por IA" aria-label="Comentários e análise por IA">${ico("message-square")}</button>
           </div>
         </div>`).join("")
         : `<p class="mn-nada">Nenhum alerta aberto. Faixas: baixo abaixo de ${FAIXA.baixo}%, crítico abaixo de ${FAIXA.critico}%.</p>`}
