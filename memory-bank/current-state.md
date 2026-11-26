@@ -1622,3 +1622,10 @@ Commit `8f212a8` publicado, páginas de privacidade/exclusão HTTP 200 e links s
 janela de 7 dias para no fim do mês. Sem migration. Em produção, o roteiro do
 José Glebson cai de 22 para 3 prédios (os de novembro com chamado aberto).
 [Detalhe](../docs/modulos/app-mobile.md#o-roteiro-não-mostra-o-mês-que-vem-24112026).
+
+### App: O.S. sem perda de campo e com conferência da assinatura (26/11/2026)
+
+Corrente aceita vírgula (antes ia vazia); auto-save com um PATCH por vez e
+sem vazar pendente entre O.S.; `touchcancel` fecha o traço; antes de finalizar
+aparece a assinatura salva com "Está boa, finalizar" / "Assinar de novo". Só
+no APK novo. [Detalhe](../docs/modulos/app-mobile.md#preenchi-certo-e-gravou-só-uma-parte-26112026).

@@ -777,6 +777,71 @@ fica na tela e ele tenta de novo; não existe fila offline para isso.
 tudo isto só chega ao técnico com APK novo. Até lá, o backend segura o
 estrago — o `PATCH` grava quadro vazio como NULL e o `/finalizar` recusa.
 
+## "Preenchi certo e gravou só uma parte" (26/11/2026)
+
+Queixa do Pedro: técnico preenche e a O.S. chega incompleta; assinatura vem
+como um risco ou só a primeira letra. A auditoria em produção (277 O.S.
+finalizadas) achou **três defeitos do app** e confirmou que parte é
+comportamento (o mesmo cliente assina com um risco em O.S. diferentes).
+
+**1. Corrente com vírgula sumia.** O campo era `type="number"`. No Android, o
+"8,5" do teclado brasileiro aparece na tela, mas o `value` lido é `""` e a
+corrente ia como `null`. Em produção, **121 de 124 O.S. com tipo marcado
+(mono/tri) estavam com todos os valores vazios**; as 3 que sobraram eram
+inteiros ou com ponto (`2.2`, `10`, `11`). Agora o campo é texto com
+`inputmode="decimal"`, `bindCorrentes` troca vírgula por ponto, e valor que não
+é número fica marcado em vermelho (`.is-invalido`) em vez de sumir calado.
+
+**2. Envio antigo passava por cima do novo.** O auto-save mandava um PATCH a
+cada pausa de 600 ms sem esperar o anterior terminar. Dois envios no ar podem
+chegar ao servidor fora de ordem, e um envio velho que falhasse por rede
+**depois** de o novo ter passado voltava para a fila e subia por cima dele.
+Como o quadro grava a cada traço que passa na trava de tinta, o primeiro envio
+costuma levar **só a primeira letra** (reproduzido no teste: o "M" sozinho já
+foi gravado). Agora:
+
+- **Um PATCH por vez** (`OS.envio` + laço de espera em `_osEnviarPatchPendente`).
+  Quem chega com um envio no ar espera, e a ordem de chegada passa a ser a
+  ordem em que o técnico mexeu.
+- `api()` aceita `timeoutMs`; o PATCH da O.S. usa 30 s. Sem o corte, uma
+  conexão pendurada no subsolo travaria a fila inteira.
+- O rascunho em disco leva **o envio em voo por baixo do pendente**: antes ele
+  era regravado só com o pendente, e o campo que estava subindo sumia do
+  aparelho.
+- **Nada de uma O.S. atravessa para outra.** Sair da tela tira o pendente da
+  memória na hora (`_osEnviarAoSair`), e `abrirFormularioOS` zera
+  `OS.pendingPatch`. Antes, depois de finalizar sem sinal, o pendente ficava na
+  memória e ia no primeiro PATCH da O.S. seguinte. Envio que termina com a O.S.
+  já fora da tela só desconta do disco o que foi confirmado
+  (`_osDescontarConfirmado`).
+
+**3. Toque cancelado não gravava o traço.** `touchcancel` (palma encostando,
+gesto de borda) não fechava o traço: ele ficava desenhado na tela e fora da
+assinatura salva. Agora fecha, e o `finalizarOS` ainda chama
+`_osGravarQuadroSePendente` (mesmas travas do `end()`) antes de descarregar a
+fila.
+
+### Conferência da assinatura antes de finalizar
+
+Depois da pré-validação, `_osConfirmarFinalizacao` abre um bottom sheet com a
+**assinatura salva** (a mesma imagem que vai para o PDF, não o quadro), o nome
+e o tipo de quem recebeu, e pergunta se está boa:
+
+- **"Está boa, finalizar O.S."** segue o fluxo de sempre.
+- **"Assinar de novo"** leva à seção e abre a tela cheia **vazia**
+  (`abrirAssinaturaFullscreen({ limpo: true })`). Confirmar substitui a antiga;
+  Cancelar a mantém.
+- Tocar fora fecha sem finalizar.
+- Sem sinal e sem a imagem na memória, o sheet avisa que não dá para mostrar e
+  deixa finalizar mesmo assim.
+
+Testado no banco de teste (OS-2026-0057): correntes 8,5 / 12,3 / 10
+digitadas no campo → `[8.5, 12.3, 10]` no banco; com atraso de 1,5 s por PATCH,
+nunca houve dois envios no ar; com o primeiro envio falhando por rede no meio
+da digitação, a observação gravada foi a completa; e a conferência, o "Assinar
+de novo" e a finalização funcionaram. ⚠️ **Exige APK novo**, e o que já foi
+gravado errado não volta.
+
 ## A tela de fim de O.S. (01/09/2026)
 
 `mostrarOSSucesso()` (`app/public/app.js`) troca o conteúdo de `#osSections`

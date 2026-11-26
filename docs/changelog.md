@@ -18965,3 +18965,16 @@ no formato final no que falta, depois de 150 ms. O orçamento não mostra mais
 R$ 0,00 enquanto os itens não chegam; o "Editar" da O.S. fica desligado
 até carregar. Uma peça só (`_esq`). Só front. Ver
 [modulos/redesenho-admin.md](modulos/redesenho-admin.md#o-carregamento-das-páginas-de-registro-26112026).
+
+## 2026-11-26 — App: a O.S. para de perder campo e assinatura, e confere antes de fechar
+
+Três defeitos do app achados na auditoria das 277 O.S. de produção: a
+corrente com vírgula ia como vazia (121 de 124 O.S. com tipo marcado estavam
+sem valor); um envio antigo do auto-save podia passar por cima do novo (a
+assinatura ficava só com a primeira letra); e o toque cancelado pelo Android
+não gravava o último traço. Agora o campo de corrente aceita vírgula, o
+auto-save manda um PATCH por vez (com corte de 30 s), nenhum pendente passa
+de uma O.S. para outra, e o `touchcancel` fecha o traço. Antes de finalizar, o
+técnico vê a assinatura salva e escolhe entre finalizar e assinar de novo. Só
+app, sem migration. **Exige APK novo.** Ver
+[modulos/app-mobile.md](modulos/app-mobile.md#preenchi-certo-e-gravou-só-uma-parte-26112026).

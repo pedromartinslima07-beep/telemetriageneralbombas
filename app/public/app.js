@@ -57,11 +57,24 @@ async function api(path, opts = {}) {
     ...opts.headers,
   };
 
-  const r = await fetch(`${API_BASE}${path}`, {
-    ...opts,
-    headers,
-    body: opts.body && typeof opts.body === "object" ? JSON.stringify(opts.body) : opts.body,
-  });
+  // `timeoutMs` (opcional): corta a requisição que ficou pendurada. O sinal de
+  // subsolo não derruba a conexão — ela fica minutos sem resposta, e quem
+  // espera em fila (o auto-save da O.S.) ficaria travado junto. O corte cai no
+  // `catch` como falha de REDE (sem `httpStatus`), então volta para a fila.
+  const { timeoutMs, ...fetchOpts } = opts;
+  const ctrl = timeoutMs ? new AbortController() : null;
+  const corte = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  let r;
+  try {
+    r = await fetch(`${API_BASE}${path}`, {
+      ...fetchOpts,
+      headers,
+      body: opts.body && typeof opts.body === "object" ? JSON.stringify(opts.body) : opts.body,
+      ...(ctrl ? { signal: ctrl.signal } : {}),
+    });
+  } finally {
+    if (corte) clearTimeout(corte);
+  }
 
   if (r.status === 401 && token) {
     if (typeof gpsStop === "function") gpsStop();
@@ -2295,6 +2308,7 @@ const OS = {
   chamadoId: null, // pra voltar pra detalhe
   saveDebounce: null,
   pendingPatch: null, // campos alterados aguardando o debounce (ver salvarOSDebounced)
+  envio: null,        // o PATCH em voo: { osId, patch, promessa } — um por vez (ver _osEnviarPatchPendente)
   fotosPendentes: [], // fotos na fila do IndexedDB, ainda não enviadas
   timer: null,
   sign: { ctx: null, canvas: null, drawing: false, lastX: 0, lastY: 0, hasInk: false },
@@ -2345,6 +2359,12 @@ const OS_FOTO_TIPOS = ["antes", "depois", "geral"];
 // ---- Entrar/sair da tela ----
 async function abrirFormularioOS(chamadoId, osId) {
   OS.chamadoId = chamadoId;
+  // ⚠️ NADA DA O.S. ANTERIOR ATRAVESSA. Depois de uma finalização sem sinal o
+  // pendente dela continuava aqui, e o primeiro campo mexido NESTA O.S. o
+  // levava junto no PATCH — campos de um condomínio gravados no outro. O que
+  // era dela está no disco e na fila de finalização, não precisa da memória.
+  if (OS.saveDebounce) { clearTimeout(OS.saveDebounce); OS.saveDebounce = null; }
+  OS.pendingPatch = null;
   showScreen("tecnico-os");
 
   // ⚠️ Devolve o que a tela de sucesso da O.S. ANTERIOR escondeu. As duas peças
@@ -2486,7 +2506,7 @@ function sairFormularioOS() {
   // Antes o timer era simplesmente cancelado: sair da tela em menos de 600ms
   // depois de mexer num campo descartava a edição em silêncio. Agora ela vai
   // embora em background (não trava a navegação).
-  _osEnviarPatchPendente().catch(() => {});
+  _osEnviarAoSair();
   OS.data = null;
   showScreen("tecnico-detalhe");
 }
@@ -2841,6 +2861,26 @@ async function _osLerRascunhoCompleto(osId) {
   return Object.keys(patch).length ? patch : null;
 }
 
+// Tira do rascunho só os campos que o servidor confirmou com o MESMO valor. O
+// que mudou depois (ou nunca foi enviado) fica. Usado quando a O.S. já não está
+// na tela e não há `OS.pendingPatch` dela para comparar.
+function _osDescontarConfirmado(osId, enviado) {
+  const r = _osLerRascunho(osId);
+  if (r && r.patch) {
+    const resto = {};
+    for (const [k, v] of Object.entries(r.patch)) {
+      if (!(k in enviado) || JSON.stringify(enviado[k]) !== JSON.stringify(v)) resto[k] = v;
+    }
+    if (Object.keys(resto).length) _osSalvarRascunho(osId, resto);
+    else { try { localStorage.removeItem(_osChaveRascunho(osId)); } catch {} }
+  }
+  if (enviado.assinatura_b64 !== undefined) {
+    _osLerAssinatura(osId).then((a) => {
+      if (a === enviado.assinatura_b64) _osLimparAssinatura(osId);
+    });
+  }
+}
+
 function _osLimparRascunho(osId) {
   try { localStorage.removeItem(_osChaveRascunho(osId)); } catch {}
   _osLimparAssinatura(osId);
@@ -2987,7 +3027,18 @@ function salvarOSDebounced(patch) {
   Object.assign(OS.data, patch);
   OS.pendingPatch = { ...(OS.pendingPatch || {}), ...patch };
   // Grava ANTES de tentar a rede: é o disco que garante que nada se perde.
-  _osSalvarRascunho(OS.data.id, OS.pendingPatch);
+  // ⚠️ COM O QUE ESTÁ EM VOO POR BAIXO. O rascunho no disco é substituído
+  // inteiro a cada gravação; se levasse só o `pendingPatch`, o campo que está
+  // subindo agora sumiria do aparelho — e se esse envio falhar com o app morto
+  // pelo Android, não haveria de onde reenviar. A assinatura do voo fica de
+  // fora: ela já está no IndexedDB, e regravar 100 KB a cada tecla não serve.
+  const voo = OS.envio && OS.envio.osId === OS.data.id ? OS.envio.patch : null;
+  if (voo) {
+    const { assinatura_b64, ...vooCampos } = voo;
+    _osSalvarRascunho(OS.data.id, { ...vooCampos, ...OS.pendingPatch });
+  } else {
+    _osSalvarRascunho(OS.data.id, OS.pendingPatch);
+  }
   if (OS.saveDebounce) clearTimeout(OS.saveDebounce);
   // ⚠️ COM `.catch()`. `_osEnviarPatchPendente` relança de propósito, para o
   // `finalizarOS` poder abortar antes de fechar a O.S. — mas aqui não há quem
@@ -3001,27 +3052,99 @@ function salvarOSDebounced(patch) {
 // Manda agora o que estiver pendente. Chamado pelo debounce e, de propósito,
 // antes de finalizar: sem isso o PATCH atrasado caía numa O.S. já finalizada,
 // o backend recusava ("não pode ser editada") e a última edição se perdia.
+//
+// ⚠️ UM PATCH POR VEZ (26/11/2026). Antes, o debounce disparava um envio novo
+// mesmo com o anterior ainda no ar, e isso perdia dado de dois jeitos:
+//   1. Dois PATCH em paralelo podem chegar ao servidor fora de ordem — e o
+//      último a chegar vence, mesmo sendo o mais VELHO.
+//   2. Se o envio velho falhasse por rede depois de o novo ter passado, o
+//      `catch` devolvia o velho à fila, e ele subia depois, POR CIMA do novo.
+// Os dois produzem exatamente o "preenchi tudo e gravou só uma parte": a
+// observação cortada no meio, a assinatura com só a primeira letra (o quadro
+// grava a cada traço, então o primeiro envio leva só o começo do nome). Agora
+// quem chega com um envio no ar espera ele terminar e manda depois — a ordem
+// de chegada é a ordem em que o técnico mexeu.
 async function _osEnviarPatchPendente() {
   if (OS.saveDebounce) { clearTimeout(OS.saveDebounce); OS.saveDebounce = null; }
+  // Espera o envio em voo (de qualquer O.S.) terminar. Laço, e não `if`: outro
+  // que também esperava pode ter acordado antes e começado o envio seguinte.
+  while (OS.envio) await OS.envio.promessa.catch(() => {});
+
   const patch = OS.pendingPatch;
   if (!patch || IS_DEMO || !OS.data) return;
-  const osId = OS.data.id; // capturado agora: quem chama pode limpar OS.data em seguida
-
   // Zera para que o que for digitado DURANTE o envio se acumule à parte.
   OS.pendingPatch = null;
-  _osMostrarEstadoEnvio("enviando");
+  return _osDespachar(OS.data.id, patch);
+}
+
+// Sair da tela: o pendente sai da memória NA HORA, junto com o id dele, e sobe
+// pela mesma fila. Se ficasse em `OS.pendingPatch` esperando a vez, a próxima
+// O.S. aberta o herdaria — e o primeiro campo mexido nela levaria junto os
+// campos desta. O disco já tem tudo (ver `salvarOSDebounced`).
+function _osEnviarAoSair() {
+  if (OS.saveDebounce) { clearTimeout(OS.saveDebounce); OS.saveDebounce = null; }
+  const patch = OS.pendingPatch;
+  const osId = OS.data && OS.data.id;
+  OS.pendingPatch = null;
+  if (!patch || !osId || IS_DEMO) return;
+  (async () => {
+    while (OS.envio) await OS.envio.promessa.catch(() => {});
+    await _osDespachar(osId, patch);
+  })().catch(() => {});
+}
+
+function _osDespachar(osId, patch) {
+  const envio = { osId, patch };
+  envio.promessa = _osPatchUmaVez(envio).finally(() => {
+    if (OS.envio === envio) OS.envio = null;
+  });
+  OS.envio = envio;
+  return envio.promessa;
+}
+
+async function _osPatchUmaVez({ osId, patch }) {
+  // A tela pode ter mudado durante o voo (o técnico saiu, ou abriu outra O.S.).
+  // Daí em diante `OS.pendingPatch` é de OUTRA O.S. e não pode ser misturado a
+  // este — era assim que um campo da O.S. anterior ia parar na seguinte.
+  const aindaNaTela = () => !!OS.data && OS.data.id === osId;
+  if (aindaNaTela()) _osMostrarEstadoEnvio("enviando");
 
   try {
-    await api(`/ordens-servico/${osId}`, { method: "PATCH", body: patch });
+    // 30 s: a assinatura são ~100 KB, que no 3G fraco levam uns 20 s para subir.
+    await api(`/ordens-servico/${osId}`, { method: "PATCH", body: patch, timeoutMs: 30000 });
+    if (!aindaNaTela()) {
+      // Fora da tela, apagar o rascunho inteiro seria arriscado: pode haver um
+      // envio mais novo desta O.S. ainda na fila (o de `_osEnviarAoSair`), e o
+      // disco é a única cópia dele até confirmar. Sai só o que foi confirmado.
+      _osDescontarConfirmado(osId, patch);
+      return;
+    }
     // Confirmado. Se nada novo chegou durante o voo, o rascunho já não serve.
-    if (OS.pendingPatch) _osSalvarRascunho(osId, OS.pendingPatch);
-    else _osLimparRascunho(osId);
+    if (OS.pendingPatch) {
+      _osSalvarRascunho(osId, OS.pendingPatch);
+      // A assinatura confirmada não precisa mais ficar no aparelho (a não ser
+      // que uma nova tenha sido colhida durante o voo — aí ela está no patch).
+      if (patch.assinatura_b64 !== undefined && OS.pendingPatch.assinatura_b64 === undefined) {
+        _osLimparAssinatura(osId);
+      }
+    } else {
+      _osLimparRascunho(osId);
+    }
     _osAtualizarEstadoEnvio();
     // Se o campo passou, há rede: é a hora de tentar as fotos da fila também.
     _osEnviarFotosPendentes().catch(() => {});
   } catch (err) {
-    // ⚠️ DEVOLVE O PATCH EM VEZ DE DESCARTAR — é este o conserto. O que chegou
-    // durante o voo entra POR CIMA, porque é mais novo que o que voltou.
+    if (!aindaNaTela()) {
+      // Volta para o disco, por cima do que estiver lá (este envio é o mais
+      // novo desta O.S.), e sobe quando ela for reaberta ou finalizada.
+      const r = _osLerRascunho(osId);
+      _osSalvarRascunho(osId, { ...((r && r.patch) || {}), ...patch });
+      console.warn("[os] envio de O.S. fora da tela falhou; fica no aparelho:", err.message);
+      throw err;
+    }
+    // ⚠️ DEVOLVE O PATCH EM VEZ DE DESCARTAR. O que chegou durante o voo entra
+    // POR CIMA, porque é mais novo. Com um envio por vez isto é seguro: nada
+    // mais novo deste patch pode ter sido confirmado enquanto ele voava.
     OS.pendingPatch = { ...patch, ...(OS.pendingPatch || {}) };
     _osSalvarRascunho(osId, OS.pendingPatch);
 
@@ -3319,9 +3442,9 @@ function sectionCorrentes() {
       <div class="os-correntes-inputs" id="osCorVals">
         ${[0,1,2].map((i) => `
           <div>
-            <input type="number" step="0.1" class="input os-corrente-input"
-                   data-idx="${i}" placeholder="0.0"
-                   value="${v[i] != null ? v[i] : ""}">
+            <input type="text" inputmode="decimal" autocomplete="off" class="input os-corrente-input"
+                   data-idx="${i}" placeholder="0,0"
+                   value="${v[i] != null ? String(v[i]).replace(".", ",") : ""}">
           </div>`).join("")}
       </div>`,
   });
@@ -3338,7 +3461,20 @@ function bindCorrentes() {
       // desmarcado, dando a impressão de que a medição continua registrada.
       if (!tipo || i >= lim) inp.value = "";
     });
-    const valores = [...inputs].map((inp) => inp.value === "" ? null : Number(inp.value));
+    // ⚠️ VÍRGULA (26/11/2026). Era `type="number"`, e no Android o "8,5" que o
+    // técnico digita no teclado brasileiro APARECE no campo mas o `value` lido
+    // é "" — a corrente ia para o banco como null. Em produção, 121 de 124 O.S.
+    // com o tipo marcado (mono/tri) tinham TODOS os valores vazios; as 3 que
+    // sobreviveram eram inteiros ou com ponto. Agora é texto, com teclado
+    // numérico, e a vírgula vira ponto aqui. O que não for número fica marcado
+    // em vermelho em vez de sumir calado.
+    const valores = [...inputs].map((inp) => {
+      const s = inp.value.trim().replace(",", ".");
+      const n = s === "" ? null : Number(s);
+      const invalido = n !== null && !Number.isFinite(n);
+      inp.classList.toggle("is-invalido", invalido);
+      return invalido ? null : n;
+    });
     const correntes = tipo ? { tipo, valores: valores.slice(0, lim) } : null;
     salvarOSDebounced({ correntes });
     // atualiza subtitle + complete
@@ -3925,7 +4061,7 @@ function bindRecebidoAssinatura() {
   // Canvas: vincula eventos uma vez; dimensionamento ocorre ao abrir a seção
   bindCanvasAssinatura();
   document.getElementById("osSignClear")?.addEventListener("click", limparAssinatura);
-  document.getElementById("osSignExpand")?.addEventListener("click", abrirAssinaturaFullscreen);
+  document.getElementById("osSignExpand")?.addEventListener("click", () => abrirAssinaturaFullscreen());
 }
 
 function avaliarRecebidoComplete() {
@@ -4047,6 +4183,25 @@ function bindCanvasAssinatura() {
   canvas.addEventListener("touchstart", start, { passive: false });
   canvas.addEventListener("touchmove",  move,  { passive: false });
   canvas.addEventListener("touchend",   end);
+  // ⚠️ `touchcancel` TAMBÉM FECHA O TRAÇO. O Android cancela o toque quando o
+  // sistema toma o gesto (palma encostando, gesto de borda, notificação). Sem
+  // isto o traço ficava desenhado na tela e NÃO era gravado — se fosse o
+  // último, a assinatura salva era a de antes dele.
+  canvas.addEventListener("touchcancel", end);
+}
+
+// Grava o que está no quadro inline se ali há traço desta sessão que ainda não
+// virou assinatura salva. Chamado antes de finalizar: é a rede de segurança
+// para um último traço que, por qualquer motivo, não passou pelo `end()`.
+// Usa as mesmas travas do `end()` — só quem traçou, e só com tinta suficiente
+// — para não reabrir o defeito do quadro vazio gravado por cima (OS-2026-0139).
+function _osGravarQuadroSePendente() {
+  const { canvas, hasInk } = OS.sign;
+  if (!canvas || !hasInk || !_assinaturaTemTinta(canvas)) return;
+  const dataUrl = canvas.toDataURL("image/png");
+  if (dataUrl === OS.data.assinatura_b64) return;
+  OS.data.tem_assinatura = true;
+  salvarOSDebounced({ assinatura_b64: dataUrl });
 }
 
 function limparAssinatura() {
@@ -4159,6 +4314,7 @@ async function _quadroAssinaturaTelaCheia(overlay, { base } = {}) {
   canvas.addEventListener("touchstart", start, { passive: false });
   canvas.addEventListener("touchmove",  move,  { passive: false });
   canvas.addEventListener("touchend",   stop);
+  canvas.addEventListener("touchcancel", stop);
 
   q.limpar = () => {
     if (!q.ctx) return;
@@ -4186,11 +4342,14 @@ const _SIGN_FS_ROTATE_MSG = `
         <span>Vire o celular para o lado</span>
       </div>`;
 
-async function abrirAssinaturaFullscreen() {
+// `limpo`: abre o quadro vazio, sem desenhar a salva por baixo — é o "Assinar
+// de novo" da confirmação de finalizar, quando a salva não serviu. Confirmar
+// ali substitui a antiga; Cancelar a mantém.
+async function abrirAssinaturaFullscreen({ limpo = false } = {}) {
   const overlay = document.createElement("div");
   overlay.className = "sign-fs-overlay";
 
-  const jaTemAssinatura = !!OS.data.assinatura_b64 || !!OS.data.tem_assinatura;
+  const jaTemAssinatura = !limpo && (!!OS.data.assinatura_b64 || !!OS.data.tem_assinatura);
 
   overlay.innerHTML = `
     <div class="sign-fs-bar">
@@ -4210,7 +4369,7 @@ async function abrirAssinaturaFullscreen() {
   document.body.appendChild(overlay);
   // Baixa a salva se só o booleano estiver em memória — senão o técnico
   // completaria uma assinatura que não está na tela e gravaria só o pedaço.
-  const q = await _quadroAssinaturaTelaCheia(overlay, { base: _osObterAssinatura });
+  const q = await _quadroAssinaturaTelaCheia(overlay, limpo ? {} : { base: _osObterAssinatura });
 
   overlay.querySelector("#signFsClear").addEventListener("click", q.limpar);
   overlay.querySelector("#signFsCancel").addEventListener("click", q.fechar);
@@ -4393,6 +4552,9 @@ async function finalizarOS() {
   setBtnLoading(btn, true);
   hideAlert(document.getElementById("osAlert"));
   try {
+    // Traço no quadro que ainda não virou assinatura salva entra agora, antes
+    // de descarregar a fila — senão a confirmação mostraria a versão anterior.
+    _osGravarQuadroSePendente();
     // Descarrega o auto-save pendente ANTES de finalizar. Se o técnico clicou
     // menos de 600ms depois de mexer num campo, o PATCH atrasado chegaria com
     // a O.S. já fechada — erro na tela e edição perdida.
@@ -4418,6 +4580,20 @@ async function finalizarOS() {
       _osIrParaSecao(pendente.secao);
       throw new Error(pendente.msg);
     }
+
+    // Conferência da assinatura (26/11/2026): o técnico vê a imagem que VAI
+    // para o documento — a salva, não o quadro — e decide. É o que pega o
+    // risco, a inicial solta e qualquer assinatura que tenha gravado pela
+    // metade, enquanto o cliente ainda está ali para assinar de novo.
+    setBtnLoading(btn, false);
+    const escolha = await _osConfirmarFinalizacao();
+    if (escolha === "refazer") {
+      _osIrParaSecao("recebido");
+      abrirAssinaturaFullscreen({ limpo: true });
+      return;
+    }
+    if (escolha !== "finalizar") return;
+    setBtnLoading(btn, true);
 
     // GPS de saída: usa posição recente do watch se disponível (opcional — não bloqueia)
     const geo = (() => {
@@ -4452,6 +4628,12 @@ async function finalizarOS() {
         // do momento em que o técnico terminou — não o do envio. É ele que o
         // backend usa no `tempo_resolucao_seg`, ou seja, no SLA.
         await _osEnfileirarFinalizacao(OS.data.id, OS.chamadoId, geo, OS.data.numero);
+        // O pendente desta O.S. está no disco e sobe pela fila de finalização,
+        // na ordem certa (campos → fotos → finalizar). Se ficasse também na
+        // memória, o evento "online" o mandaria por fora, depois da O.S. já
+        // fechada — e o servidor recusaria com erro na tela.
+        if (OS.saveDebounce) { clearTimeout(OS.saveDebounce); OS.saveDebounce = null; }
+        OS.pendingPatch = null;
         mostrarOSSucesso({ pendente: true });
       }
     }
@@ -4460,6 +4642,50 @@ async function finalizarOS() {
   } finally {
     setBtnLoading(btn, false);
   }
+}
+
+// Conferência antes de finalizar (26/11/2026). Mostra a assinatura SALVA —
+// a mesma imagem que vai para o PDF — com o nome de quem recebeu, e pergunta.
+// Resolve com "finalizar", "refazer" ou null (fechou sem escolher).
+//
+// Sem sinal e sem a imagem na memória (a O.S. foi reaberta e o servidor só
+// devolve o booleano), não há o que mostrar: a tela diz isso e deixa finalizar
+// — travar aqui seria pior que a falta da conferência.
+async function _osConfirmarFinalizacao() {
+  document.getElementById("osConfFinalizar")?.remove();
+
+  let img = null;
+  try { img = await _osObterAssinatura(); } catch { img = null; }
+  const nome = (OS.data.recebido_nome || "").trim();
+  const tipoLbl = (OS_RECEBIDO_TIPOS.find(([k]) => k === OS.data.recebido_tipo) || [])[1] || "";
+
+  const sheet = document.createElement("div");
+  sheet.id = "osConfFinalizar";
+  sheet.className = "os-foto-src-sheet";
+  sheet.innerHTML = `
+    <div class="os-foto-src-backdrop"></div>
+    <div class="os-foto-src-body os-conf-body" role="dialog" aria-labelledby="osConfTitulo">
+      <div class="os-conf-titulo" id="osConfTitulo">A assinatura está boa assim?</div>
+      <div class="os-conf-sub">É esta imagem que vai no documento da O.S. Confira se está completa e legível antes de finalizar.</div>
+      <div class="os-conf-assin${img ? "" : " is-vazia"}">
+        ${img
+          ? `<img src="${img}" alt="Assinatura de ${escapeHtml(nome)}">`
+          : `<span>Sem sinal para mostrar a assinatura salva agora.</span>`}
+      </div>
+      <div class="os-conf-quem">
+        <strong>${escapeHtml(nome) || "Sem nome"}</strong>${tipoLbl ? ` · ${escapeHtml(tipoLbl)}` : ""}
+      </div>
+      <button type="button" class="btn btnAccent btn-lg" id="osConfSim">Está boa, finalizar O.S.</button>
+      <button type="button" class="btn btn-lg" id="osConfRefazer">Assinar de novo</button>
+    </div>`;
+  document.body.appendChild(sheet);
+
+  return new Promise((resolve) => {
+    const fechar = (escolha) => { sheet.remove(); resolve(escolha); };
+    sheet.querySelector(".os-foto-src-backdrop").addEventListener("click", () => fechar(null));
+    sheet.querySelector("#osConfSim").addEventListener("click", () => fechar("finalizar"));
+    sheet.querySelector("#osConfRefazer").addEventListener("click", () => fechar("refazer"));
+  });
 }
 
 // Tela de fim de atendimento. Uma saída só: voltar pra lista.

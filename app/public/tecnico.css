@@ -1420,6 +1420,11 @@ body::before { content: none !important; }
 [data-screen^="tecnico-"] .input::placeholder,
 [data-screen^="tecnico-"] .os-textarea::placeholder,
 [data-screen^="tecnico-"] .os-corrente-input::placeholder { color: #6b7693; }
+/* Valor que não é número: fica na tela, marcado, em vez de ir para o banco
+   como vazio sem ninguém saber (ver `bindCorrentes`). */
+[data-screen^="tecnico-"] .os-corrente-input.is-invalido {
+  box-shadow: inset 0 0 0 2.5px var(--vermelho);
+}
 
 /* ── Botões dentro da placa clara ─────────────────────────────────────
    O secundário some contra a própria placa se o anel for fraco: anel a 26%

@@ -1327,6 +1327,37 @@ body:has(.screen-auth[data-active])::before { display: none; }
 }
 .btn-devolver-confirm:active { filter: brightness(.9); }
 
+/* Conferência da assinatura antes de finalizar a O.S. (reusa o bottom sheet
+   .os-foto-src-sheet). O quadro é branco como o da assinatura: a imagem é
+   traço preto em fundo transparente e some num fundo escuro. */
+.os-conf-body { gap: 10px; }
+.os-conf-titulo { font-size: 16px; font-weight: 700; color: var(--text); }
+.os-conf-sub { font-size: 13px; color: var(--muted); margin-top: -4px; line-height: 1.4; }
+.os-conf-assin {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.os-conf-assin img {
+  display: block;
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+}
+.os-conf-assin.is-vazia span {
+  font-size: 13px;
+  color: #6b7693;
+  padding: 16px;
+  text-align: center;
+}
+.os-conf-quem { font-size: 14px; color: var(--text); }
+.os-conf-body .btn { width: 100%; }
+
 /* Header back button */
 .header-back {
   width: 38px;

@@ -1064,6 +1064,16 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 - [ ] Escala de dezembro: o José Glebson não responde por nenhuma zona; sem
   escala, o roteiro dele fica vazio em 01/12
 
+## O.S. do app sem perda de dado (26/11/2026)
+
+- [x] Corrente aceita vírgula ✅ (código e teste)
+- [x] Auto-save com um PATCH por vez, sem vazar entre O.S. ✅ (código e teste)
+- [x] Conferência da assinatura salva antes de finalizar ✅ (código e teste)
+- [ ] Gerar o APK novo e instalar nos celulares dos técnicos
+- [ ] Depois de umas semanas com o APK novo, refazer a auditoria (correntes
+  com valor, assinaturas fracas). Ver
+  [app-mobile.md](../docs/modulos/app-mobile.md#preenchi-certo-e-gravou-só-uma-parte-26112026)
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para
