@@ -1825,3 +1825,19 @@ número, situação, PDF, boletos e histórico na mesma página.
 - **Lição herdada do Petzu:** a sincronização de histórico/contatos só pode
   ser pedida uma vez e em 24 h. Os campos de webhook vão assinados **antes**
   da primeira conexão, não depois.
+
+## Vídeos da Análise do app: quem grava e o que trava (26/11/2026)
+
+- **O usuário grava e clica; o agente só orienta e edita.** Com o Chrome
+  controlado pela extensão, a aba mostra o grupo do agente e o cursor/os
+  campos se mexem sozinhos — o analista da Meta pode ler como automação
+  montada. Vídeo real, mas operado por pessoa.
+- **Legenda em inglês, áudio fora.** A análise é lida em inglês; a gravação
+  saiu muda. A edição também é a hora de **borrar o que vazou** (notificação
+  do Outlook com nome de cliente, no vídeo 2).
+- ❌ **Usar o texto de uso sugerido pela IA da Meta:** genérico e promete o
+  que o app não faz (relatórios ao cliente, QR codes). Resposta vaga ou
+  inexata pode custar o acesso à plataforma.
+- **O cartão não é a trava.** No Petzu a aprovação de Tech Provider saiu um
+  mês antes do cartão, e o vídeo 1 foi gravado com o cliente escrevendo
+  primeiro. Aqui a trava do vídeo 1 é o número seguir Pendente.

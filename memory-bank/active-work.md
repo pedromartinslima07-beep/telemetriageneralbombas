@@ -26,7 +26,11 @@ aliases:
 > **26/11:** conta de desenvolvedor destravada; `history`,
 > `smb_app_state_sync` e `smb_message_echoes` assinados no webhook do app.
 > Falta a configuração do cadastro incorporado (`config_id`), que espera a
-> verificação da empresa. Plano em fases no
+> verificação da empresa. **Vídeo 2 gravado e no rascunho da Análise do app**
+> (modelo `alerta_sensor_sem_comunicacao` Em análise); falta a chamada de
+> teste do `whatsapp_business_management` e o vídeo 1, que espera o número
+> sair de Pendente — **não** o cartão (no Petzu a aprovação saiu sem ele).
+> Plano em fases no
 > [roadmap](roadmap.md);
 > detalhes em [meta-tech-provider.md](../docs/modulos/meta-tech-provider.md).
 

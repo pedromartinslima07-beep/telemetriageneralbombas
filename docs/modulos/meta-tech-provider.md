@@ -222,6 +222,55 @@ painel de desenvolvedor.
   de mensagens" (modelos e pagamento). Usuário é o único administrador do
   portfólio.
 
+### Vídeo 2 gravado e Análise do app em rascunho (26/11/2026)
+
+- **Modelo criado de verdade:** `alerta_sensor_sem_comunicacao`, Utilidade,
+  **Portuguese (BR)**, corpo e exemplos fictícios do roteiro acima, na WABA
+  General Bombas. Status **Em análise**. Atenção: o formulário abre em
+  **English**; trocar o idioma antes de preencher (o backend manda `pt_BR`).
+  Aprovado → `WHATSAPP_TEMPLATE_SENSOR` e `WHATSAPP_TEMPLATE_IDIOMA=pt_BR` no
+  Railway. Regravar exige outro nome (não há dois modelos com o mesmo nome).
+- **Vídeo 2 gravado pelo usuário** (não pelo agente: o controle do Chrome pela
+  extensão aparece na tela e pode parecer automação montada). Original em
+  `Vídeos\Gravações de Tela\Gravação de Tela 2026-11-26 112413.mp4`; editado
+  em `Video 2 - whatsapp_business_management (editado).mp4` (1 min 40 s, mp4
+  H.264, sem áudio). Edição: abertura de 4 s, legendas em inglês por etapa,
+  etiqueta fixa com app e permissão, último quadro 5 s a mais e **notificação
+  do Outlook borrada** (~42–49 s, mostrava o assunto de um orçamento com nome
+  de condomínio cliente). Ferramenta: ffmpeg do pacote `imageio-ffmpeg`
+  (`pip install --user`), filtros `drawtext` com `textfile=` e `expansion=none`.
+- **Formulário da Análise do app (rascunho salvo, não enviado):**
+  `public_profile` concluído; `whatsapp_business_management` com descrição do
+  negócio, descrição de uso (escrita por nós, em inglês — a sugestão de IA da
+  Meta foi descartada por prometer relatórios e QR codes que o app não tem),
+  vídeo 2 e aceite de conformidade (marcados com autorização do usuário).
+  Falta nele: **chamada de teste da API, 0 de 1** (pode levar 24 h para
+  contar). `whatsapp_business_messaging` em branco (espera o vídeo 1).
+  Tratamento de dados e Instruções para o analista em branco. O upload só
+  aceita arquivo da pasta do projeto: copiar, subir e apagar a cópia.
+
+### O cartão não é pré-requisito da aprovação (Petzu)
+
+No Petzu a ordem foi: verificação da empresa → Tech Provider declarado e
+verificação de acesso enviada (02/10) → vídeos e Análise do app enviados
+(09/10) → Análise do app aprovada (23/10) → Tech Provider aprovado (26/10) →
+**cartão só em 19/11**, para o número de avisos iniciar conversa. Ou seja:
+
+- **Forma de pagamento não trava Tech Provider nem a Análise do app.** Ela só
+  é exigida para a **empresa iniciar** conversa (modelo, aviso de sensor,
+  `hello_world` pelo número real).
+- **Vídeo 1 sem cartão:** o cliente manda a mensagem primeiro (lá, pelo
+  WhatsApp Web pessoal) e o sistema responde dentro da janela de 24 h, pelo
+  número **já registrado**. Aqui a trava do vídeo 1 é o número
+  +55 11 92209-3834 seguir **Pendente** (Registrar desativado enquanto a WABA
+  está em análise), não o cartão.
+- **Análise do app aprovada não destravou o cadastro incorporado** no Petzu:
+  a janela seguiu "não pode integrar clientes no momento" e "Criar
+  configuração" só oferecia "Geral" até sair a verificação de acesso de Tech
+  Provider, três dias depois.
+- A verificação de acesso ficou "Em análise" por mais de três semanas; o
+  chamado no Suporte Direto (Dev: Onboarding) só teve resposta de robô.
+
 ### Regras (aprendidas no Petzu)
 
 1. **O número da coexistência NUNCA entra pela Etapa 2 ("Adicionar número").**
@@ -296,7 +345,7 @@ As páginas de privacidade e exclusão, o CSS, a fonte e o logo responderam HTTP
 - **Precedente no projeto do pet shop (Petzu):** o mesmo 130497 apareceu lá e foi atribuído ao **número de teste +1 555**. O caminho seguido foi cadastrar um **número brasileiro próprio (+55)** na Cloud API: Etapa 2 > Adicionar novo número, verificação por SMS, **Registrar** (com PIN) e acesso do usuário do sistema à WABA. Em 19/11 esse número estava CONNECTED e com modelo de Utilidade aprovado. Ponto de atenção: lá o botão **Registrar** ficou cinza enquanto a WABA estava em análise. Um número usado na Cloud API sai do app comum do WhatsApp; por isso o número precisa ser um chip separado do destinatário de teste.
 - **Número próprio adicionado (24/11, tarde):** com autorização do usuário, o +55 11 92209-3834 teve a conta do WhatsApp apagada no aparelho e foi adicionado pela Etapa 2 (verificação por SMS feita pelo usuário). A Meta criou a WABA **General Bombas** `3735152183305208` (categoria Serviços profissionais, site `https://telemetria.generalbombas.com/`, fuso America/Sao_Paulo), com o número `1447746398428187`. Estado: WABA **Pending review** e número **Não registrado**, com o botão **Registrar** desativado enquanto a análise não termina (mesmo comportamento visto no pet shop). Destinatário de teste combinado: o celular pessoal do usuário, +55 11 99270-0277. Falta: registrar com PIN, dar ao token acesso à WABA nova e enviar o `hello_world` para conferir se o 130497 some.
 - **Revisão do que falta na Meta (24/11, fim da tarde):**
-  - **Forma de pagamento: nenhuma.** O WhatsApp Manager avisa que, sem ela, só o cliente pode iniciar conversa. Bloqueia modelos, avisos e o `hello_world` pelo número real. Precisa ser cadastrada pelo usuário em Configurações de pagamento.
+  - **Forma de pagamento: nenhuma.** O WhatsApp Manager avisa que, sem ela, só o cliente pode iniciar conversa. Bloqueia o envio de modelos, avisos e o `hello_world` pelo número real (criar modelo funciona). Precisa ser cadastrada pelo usuário em Configurações de pagamento. **Não** trava a aprovação de Tech Provider nem a Análise do app (ver "O cartão não é pré-requisito da aprovação", 26/11).
   - **WABA General Bombas:** Pending review; número +55 11 92209-3834 com status **Pendente** e Registrar desativado. O `hello_world` (Utilidade, en_US) já veio ativo na WABA nova.
   - **Verificação da empresa:** Em análise. Limite atual de 250 conversas iniciadas pela empresa e 2 números.
   - **Usuário do sistema:** nenhum no portfólio. Sem ele não há token permanente para o servidor; o token de hoje é do API Setup e só enxerga a Test Messaging Account.

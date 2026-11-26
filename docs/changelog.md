@@ -18917,3 +18917,15 @@ ganhou `history`, `smb_app_state_sync` e `smb_message_echoes`, antes de
 conectar o número da equipe — a sincronização do histórico só pode ser pedida
 uma vez. Conferido recarregando o painel. Situação completa da Meta em
 [Meta Tech Provider](modulos/meta-tech-provider.md#situação-na-meta-conferida-no-painel-em-26112026).
+
+## 2026-11-26 — Vídeo 2 gravado e Análise do app em rascunho
+
+Só Meta e documentação, sem código nem migration. Modelo
+`alerta_sensor_sem_comunicacao` (Utilidade, Portuguese (BR)) criado no
+WhatsApp Manager, **Em análise**. Vídeo 2 gravado pelo usuário e editado
+(abertura, legendas em inglês, notificação com nome de cliente borrada) e
+anexado ao rascunho da Análise do app, com a descrição de uso do
+`whatsapp_business_management`; `public_profile` concluído. Não enviada: falta
+a chamada de teste da API, o vídeo 1 e a verificação da empresa. Registrado
+também que o cartão não é pré-requisito da aprovação (precedente do Petzu).
+Ver [Meta Tech Provider](modulos/meta-tech-provider.md#vídeo-2-gravado-e-análise-do-app-em-rascunho-26112026).
