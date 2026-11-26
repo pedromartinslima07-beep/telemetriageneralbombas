@@ -756,6 +756,8 @@ nessa conta: ali o serviço está andando e a rota recusa com 409.
 
 ## 108 — vários números de WhatsApp e coexistência (25/11/2026)
 
+✅ Aplicada em teste (25/11/2026) e em produção (26/11/2026).
+
 Fluxo em [WhatsApp e IA](modulos/whatsapp-ia.md#vários-números-e-coexistência-25112026)
 e [Meta Tech Provider](modulos/meta-tech-provider.md).
 

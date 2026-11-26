@@ -22,7 +22,7 @@ aliases:
 > (continua no WhatsApp Business do celular, IA pela API) — nunca pela
 > Etapa 2; integração de Tech Provider independente já iniciada. **Código
 > da Fase 3 feito em 25/11** na branch `feature/whatsapp-coexistencia`
-> (migration 108 só em teste, 33/33); falta a tela do cadastro e o deploy.
+> (migration 108 em teste e **em produção desde 26/11**, 33/33); falta a tela do cadastro e o deploy.
 > **26/11:** conta de desenvolvedor destravada; `history`,
 > `smb_app_state_sync` e `smb_message_echoes` assinados no webhook do app.
 > Falta a configuração do cadastro incorporado (`config_id`), que espera a

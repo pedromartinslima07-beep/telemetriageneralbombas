@@ -99,7 +99,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 102 | cobranca_avisos | `orcamentos.nota_emails`; tabelas **`omie_cliente_emails`** (para quem o Omie manda a nota de cada cliente), **`omie_receber_avencer`** (títulos do sistema a vencer) e **`cobranca_avisos`** (a fila e o histórico dos avisos, um por título/etapa/vencimento). **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Ver a entrada de 23/11/2026 abaixo |
 | 106 | reservatorio_extravasor | `reservatorios.altura_extravasor_m` (altura do ladrão, liga a detecção de extravasamento), `extravasor_desde` e `extravasor_bomba_desde` (o relógio da regra de tempo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
 | 107 | guias_emissores | `guias_tributos.emissor_chave` (quem cobra: `cnpj:` / `arr:` / `bol:`) e a tabela **`guias_emissores`** (fornecedor/categoria/conta do Omie por emissor, para conta que não é tributo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
-| 108 | whatsapp_contas | tabela **`whatsapp_contas`** (número conectado pelo cadastro incorporado, token cifrado, coexistência, sincronização), `conversas_whatsapp.phone_number_id` e `ia_pausada_ate`, `mensagens_whatsapp.origem`. ✅ **Aplicada em teste em 25/11/2026** · ⏳ produção. Ver a entrada de 25/11/2026 abaixo |
+| 108 | whatsapp_contas | tabela **`whatsapp_contas`** (número conectado pelo cadastro incorporado, token cifrado, coexistência, sincronização), `conversas_whatsapp.phone_number_id` e `ia_pausada_ate`, `mensagens_whatsapp.origem`. ✅ **Aplicada em teste em 25/11/2026 e em produção em 26/11/2026**, antes do merge (conferida no `information_schema`: colunas, 3 índices, `whatsapp_contas` vazia). Ver a entrada de 25/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
 | 092 | agenda | tabelas **`compromissos`** (agenda da empresa, com repetição semanal/mensal e `so_admin`), **`omie_contratos`** e **`omie_contrato_notas`** (cópia dos contratos de serviço do Omie e das NFS-e de cada um) e **`omie_sincronizacoes`**. **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push que levar a agenda** (a rota e o job leem as tabelas). Ver [agenda.md](modulos/agenda.md) |
@@ -18898,7 +18898,7 @@ Regras e situação do painel na seção "Coexistência" de
 ## 2026-11-25 — Vários números de WhatsApp e coexistência (migration 108)
 
 Base do Tech Provider e da coexistência, na branch `feature/whatsapp-coexistencia`.
-- Migration **108**: tabela `whatsapp_contas` (número conectado, token cifrado), `conversas_whatsapp.phone_number_id` e `ia_pausada_ate`, `mensagens_whatsapp.origem`. ✅ Teste em 25/11/2026 · ⏳ produção.
+- Migration **108**: tabela `whatsapp_contas` (número conectado, token cifrado), `conversas_whatsapp.phone_number_id` e `ia_pausada_ate`, `mensagens_whatsapp.origem`. ✅ Teste em 25/11/2026 · ✅ produção em 26/11/2026.
 - A conversa fica amarrada ao número da empresa por onde chegou, e toda resposta sai por ele: IA, central, avaliação, ação confirmada.
 - O aviso de sensor sai pelo número padrão.
 - Token por número em AES-256-GCM (`whatsapp-cofre.service.js`, `WHATSAPP_TOKENS_CHAVE`).
@@ -18938,3 +18938,12 @@ operadores, General Bombas como responsável) e Instruções para o analista
 preenchidos; plataforma **Site** adicionada ao app. Falta o vídeo 1 e a
 verificação da empresa para enviar. Ver
 [Meta Tech Provider](modulos/meta-tech-provider.md#vídeo-2-gravado-e-análise-do-app-em-rascunho-26112026).
+
+## 2026-11-26 — Migration 108 em produção
+
+Aplicada em produção antes do merge da branch `feature/whatsapp-coexistencia`
+(`node scripts/migrate.js <108> --prod`). Conferido no `information_schema`:
+`whatsapp_contas` (vazia), `conversas_whatsapp.phone_number_id` e
+`ia_pausada_ate`, `mensagens_whatsapp.origem` e os três índices. Sem efeito no
+que está no ar (o código da `main` não lê as colunas novas). Falta
+`WHATSAPP_APP_ID` e `WHATSAPP_TOKENS_CHAVE` no Railway antes do merge.

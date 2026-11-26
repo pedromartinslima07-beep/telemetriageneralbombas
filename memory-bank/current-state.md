@@ -84,7 +84,8 @@ ESP32 (sonda 4-20mA + SCT-013)
 ### 🟡 Vários números de WhatsApp e coexistência (25/11/2026, branch `feature/whatsapp-coexistencia`, NÃO no ar)
 
 Migration 108 (`whatsapp_contas`, `conversas_whatsapp.phone_number_id` /
-`ia_pausada_ate`, `mensagens_whatsapp.origem`) — aplicada só em **teste**.
+`ia_pausada_ate`, `mensagens_whatsapp.origem`) — aplicada em **teste** (25/11) e em
+**produção** (26/11, antes do merge; o código no ar não lê as colunas novas).
 Conversa amarrada ao número da empresa; token por número cifrado
 (`WHATSAPP_TOKENS_CHAVE`); eco do celular cala a IA; conectar/desconectar em
 `/whatsapp/contas` (admin master); ronda `whatsapp-sync.job.js`; Graph v27.0.
