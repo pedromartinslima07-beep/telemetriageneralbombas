@@ -2516,3 +2516,13 @@ Testes `trilho-os-vinculada` 13/13, `orcamento-vincula-os` 22/22,
 sandbox) e o envio por e-mail.
 `admin.css?v=397`, `admin.js?v=436`, `admin-nota.js?v=7`,
 `admin-orc-doc.js?v=5`, `admin-orc-pecas.js?v=7`.
+
+### Envio só quando tem o que dizer (26/11/2026)
+
+Pergunta do Pedro sobre o bloco Envio do trilho (*"pra q serve esse bloco"*):
+no rascunho com e-mail ele só dizia "Pelo botão Enviar ao cliente, no topo".
+Agora o bloco (`#avEnvioSec`) some nesse caso e aparece quando tem o que
+dizer: depois de enviado (data e "Visível no painel do cliente") e quando
+falta o e-mail, explicando o botão apagado. Quem decide é o
+`_avAtualizarDestinatario`, que já é chamado ao trocar o prédio ou o e-mail do
+avulso. Conferido nos três casos no banco de teste. `admin.js?v=437`.

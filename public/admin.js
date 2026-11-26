@@ -13207,14 +13207,18 @@ function _avRenderPainel() {
           ${_avCondicoesHtml(o, validadeVal, dataDocVal)}
         </section>
 
-        <section class="av-rail-sec">
+        <!-- ENVIO SÓ QUANDO TEM O QUE DIZER (26/11/2026, pergunta do Pedro:
+             "pra q serve esse bloco"). No rascunho com e-mail ele só apontava
+             para o botão do topo. Fica para o enviado (quando e "visível no
+             painel do cliente") e para a falta de e-mail, que explica o botão
+             apagado. Quem mostra ou esconde é o _avAtualizarDestinatario. -->
+        <section class="av-rail-sec" id="avEnvioSec">
           <div class="av-rail-h">Envio</div>
           ${o.enviado_em ? `<p class="av-rail-txt">Enviado em ${_orcFmtData(o.enviado_em)}.</p>` : ""}
           <div class="av-situacao-nota" id="avSituacaoNota"${o.status === "rascunho" ? " hidden" : ""}>
             Visível no painel do cliente.
           </div>
           <div class="av-envio-to" id="avEnvioDest"></div>
-          ${o.status === "rascunho" ? `<p class="av-rail-txt av-fraco">Pelo botão Enviar ao cliente, no topo.</p>` : ""}
         </section>
 
         ${o.respondido_em && (o.cliente_comentario || o.motivo_rejeicao) ? `
@@ -13550,6 +13554,11 @@ function _avAtualizarDestinatario() {
       ? "Preencha o e-mail do cliente para habilitar o envio."
       : "Este condomínio não tem e-mail cadastrado. Cadastre em Clientes para habilitar o envio.";
   }
+
+  // O bloco Envio do trilho: no rascunho com e-mail não tem o que dizer.
+  const sec = document.getElementById("avEnvioSec");
+  const st = document.getElementById("avInputStatus")?.value || _avSelecionado?.status || "rascunho";
+  if (sec) sec.hidden = st === "rascunho" && !!email && !_avSelecionado?.enviado_em;
 
   if (btn) {
     btn.disabled = !email;
