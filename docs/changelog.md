@@ -18908,3 +18908,12 @@ Base do Tech Provider e da coexistência, na branch `feature/whatsapp-coexistenc
 - Graph API de v20.0 para v27.0 (`WHATSAPP_GRAPH_VERSAO`).
 
 Testes: `whatsapp-coexistencia.test.js` **33/33**; assinatura 8/8, confirmação 41/41 e falhas 12/12 sem regressão. Falta a tela do cadastro incorporado no admin (depende do `config_id`). Ver [WhatsApp e IA](modulos/whatsapp-ia.md#vários-números-e-coexistência-25112026).
+
+## 2026-11-26 — Webhook assinado para a coexistência
+
+Só configuração na Meta, sem código nem migration. Com a conta de
+desenvolvedor destravada, o webhook do app (Whatsapp Business Account, v27.0)
+ganhou `history`, `smb_app_state_sync` e `smb_message_echoes`, antes de
+conectar o número da equipe — a sincronização do histórico só pode ser pedida
+uma vez. Conferido recarregando o painel. Situação completa da Meta em
+[Meta Tech Provider](modulos/meta-tech-provider.md#situação-na-meta-conferida-no-painel-em-26112026).

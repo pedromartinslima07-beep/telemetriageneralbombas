@@ -23,8 +23,10 @@ aliases:
 > Etapa 2; integração de Tech Provider independente já iniciada. **Código
 > da Fase 3 feito em 25/11** na branch `feature/whatsapp-coexistencia`
 > (migration 108 só em teste, 33/33); falta a tela do cadastro e o deploy.
-> ⚠️ Conta de desenvolvedor da Meta travada em "confirmar conta" (código vai
-> para o Plantão II, (11) 91609-0590). Plano em fases no
+> **26/11:** conta de desenvolvedor destravada; `history`,
+> `smb_app_state_sync` e `smb_message_echoes` assinados no webhook do app.
+> Falta a configuração do cadastro incorporado (`config_id`), que espera a
+> verificação da empresa. Plano em fases no
 > [roadmap](roadmap.md);
 > detalhes em [meta-tech-provider.md](../docs/modulos/meta-tech-provider.md).
 

@@ -196,6 +196,32 @@ painel de desenvolvedor.
   enviado** (as três permissões, uso permitido sem preencher). O que vale é a
   lista de envios.
 
+### Situação na Meta (conferida no painel em 26/11/2026)
+
+- **Conta de desenvolvedor destravada:** a tela "Confirmação de conta
+  necessária" (atividade incomum) foi resolvida pelo usuário e o painel do app
+  voltou a abrir.
+- **Webhook do app (Whatsapp Business Account, v27.0):** assinados em 26/11
+  **`history`**, **`smb_app_state_sync`** e **`smb_message_echoes`**, além dos
+  que já estavam (`messages`, `account_alerts`, `account_review_update`,
+  `account_update`). Conferido recarregando o painel. Regra 5 abaixo cumprida
+  antes de conectar o número. `message_echoes` (sem `smb_`) **não** foi
+  assinado: é outro campo, e o código trata o `smb_message_echoes`. Com o app
+  não publicado só chegam webhooks de teste do painel.
+- **Tech Provider:** continua 0 de 2 etapas (verificação da empresa em análise;
+  análise do app com envio **Não enviado**).
+- **Cadastro incorporado:** nenhuma configuração do Login do Facebook para
+  Empresas criada (sem `config_id`). O configurador avisa que não dá para
+  integrar clientes antes da verificação da empresa, nem em produção antes da
+  análise do app; a integridade está liberada ("Sua empresa foi autorizada a
+  continuar com a integração"). Lista de domínios do SDK do JavaScript ainda
+  sem `telemetria.generalbombas.com` (só precisa se for a janela própria).
+- **Business Suite:** WABA General Bombas em análise, número +55 11 92209-3834
+  **Pendente**, **nenhuma forma de pagamento**, moeda e endereço vazios na
+  conta de mensagens. A Meta separou "Conta do WhatsApp" (o número) de "Conta
+  de mensagens" (modelos e pagamento). Usuário é o único administrador do
+  portfólio.
+
 ### Regras (aprendidas no Petzu)
 
 1. **O número da coexistência NUNCA entra pela Etapa 2 ("Adicionar número").**

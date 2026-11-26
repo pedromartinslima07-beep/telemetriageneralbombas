@@ -1154,8 +1154,8 @@ pelo eco) na seção "Coexistência" da
 
 - [ ] **Login do Facebook para Empresas:** criar a configuração do cadastro incorporado (WhatsApp, permissões `whatsapp_business_management` + `whatsapp_business_messaging`) e anotar o `config_id`. Usar a variação **"Cadastro incorporado do WhatsApp"** com token que **nunca expira**; se só aparecer "Geral" ou token de 60 dias, parar e conferir.
 - [ ] Decidir entre a janela própria (SDK + `config_id`) e o **"Cadastro incorporado hospedado pela Meta — Gerar link"**, depois de ler como o token/WABA do cliente chegam no modo hospedado.
-- [ ] Conferir a divergência da Análise do app: a página de Tech Provider diz "Em análise", a lista de envios diz "Não enviado".
-- [ ] Assinar no webhook do app `smb_message_echoes`, `history` e `smb_app_state_sync` (além de `messages`) **antes** de conectar o número da coexistência: a sincronização só pode ser pedida uma vez.
+- [x] Conferir a divergência da Análise do app: reconferida em 26/11/2026, a lista de envios segue **Não enviado** (é o que vale); a página de Tech Provider continua dizendo "Em análise".
+- [x] Assinar no webhook do app `smb_message_echoes`, `history` e `smb_app_state_sync` (além de `messages`) **antes** de conectar o número da coexistência: a sincronização só pode ser pedida uma vez. ✅ **Assinados em 26/11/2026** (v27.0), conferido recarregando o painel.
 - [ ] **Vídeo 2 — `whatsapp_business_management`:** gravar a criação do modelo `alerta_sensor_sem_comunicacao` (Utilidade, pt_BR) no WhatsApp Manager. Roteiro na doc. Não depende do número registrado.
 
 ### Fase 2 — Depende da Meta / do usuário ⏳
