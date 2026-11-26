@@ -18956,3 +18956,12 @@ Modos em cartões que dizem o que fazem, rótulos em frase, assinatura com
 número, o condomínio, o valor e a validade; o padrão salvo de cada um guarda
 marcadores e serve para qualquer orçamento. Só front. Ver
 [modulos/orcamentos-envio.md](modulos/orcamentos-envio.md#o-modal-redesenhado-e-a-mensagem-com-os-dados-26112026).
+
+## 2026-11-26 — Páginas de registro sem tela em branco ao carregar
+
+Chamado, nota, O.S., orçamento e condomínio abrem com a estrutura na hora
+(voltar, caixa, cabeçalho com o que já se sabe, linha do tempo) e um esboço
+no formato final no que falta, depois de 150 ms. O orçamento não mostra mais
+R$ 0,00 enquanto os itens não chegam; o "Editar" da O.S. fica desligado
+até carregar. Uma peça só (`_esq`). Só front. Ver
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#o-carregamento-das-páginas-de-registro-26112026).

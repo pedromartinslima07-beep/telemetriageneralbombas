@@ -13686,3 +13686,45 @@ a.ls-bt { text-decoration: none; }
   .ae-bts { width: 100%; }
   .ae-bts .btn { flex: 1; justify-content: center; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   O ESBOÇO DE CARREGAMENTO (_esq, _esqTempo, _esqBloco no admin.js, 26/11/2026)
+   Uma peça para todas as páginas de registro: a mesma barra com brilho das
+   listas e do Hoje. O contêiner .esq-cx fica invisível nos primeiros 150 ms:
+   quando os dados chegam antes disso (quase sempre), o esboço nem aparece.
+   ════════════════════════════════════════════════════════════════════════ */
+.esq {
+  display: block; border-radius: 6px; max-width: 100%;
+  background: linear-gradient(90deg, #eef1f6 0%, #f6f8fb 40%, #eef1f6 80%); background-size: 300% 100%;
+  animation: hjBrilho 1.4s ease-in-out infinite;
+}
+span.esq-cx .esq, .cp-fato .esq { display: inline-block; vertical-align: middle; }
+.esq-mt { margin-top: 8px; }
+.esq-mt2 { margin-top: 20px; }
+.esq-cx { animation: esqAparece .18s ease-out .15s both; }
+@keyframes esqAparece { from { opacity: 0; } to { opacity: 1; } }
+
+.esq-bloco { padding: 4px 0 18px; }
+.esq-tempo li::after { box-shadow: inset 0 0 0 2px #dfe4ee !important; background: #fff !important; }
+.esq-tempo li::before { background: #eef1f6 !important; }
+.esq-colunas { margin-top: 18px; }
+.esq-linha { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* orçamento: as linhas de item em esboço */
+.esq-itens { padding: 6px 0; }
+.esq-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) 70px 90px; gap: 14px; align-items: center; padding: 14px 8px; border-bottom: 1px solid var(--border); }
+.esq-item .esq:nth-child(3), .esq-item .esq:nth-child(4) { justify-self: end; }
+#avRailTotal .esq { margin-top: 2px; }
+
+/* nota: o topo em esboço */
+.nfp-tempo-esq { padding: 16px 22px 18px; }
+
+/* condomínio: as três colunas em esboço */
+.esq-cp-grade { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 18px; margin-top: 18px; }
+.esq-cp-grade > div { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+
+/* O.S. carregando: o cabeçalho não oferece o que ainda não dá para fazer */
+#osFicha.is-carregando .modalHead .btn { pointer-events: none; opacity: .4; }
+
+@media (max-width: 900px) { .esq-cp-grade { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .esq, .esq-cx { animation: none; } }

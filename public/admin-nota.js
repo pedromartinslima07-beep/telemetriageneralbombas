@@ -63,7 +63,22 @@ async function _nfAbrirPagina(orcId, { daRota = false } = {}) {
   if (_nfpId !== orcId) { _nfpDados = null; _nfpPag = null; _nfpAviso = null; _nfpImpErro = null; _nfpSalvoEm = null; }
   _nfpId = orcId;
   const raiz = document.getElementById("nfPagina");
-  if (raiz && !_nfpDados) raiz.innerHTML = `<div class="nfp-carregando">Carregando a nota…</div>`;
+  // Esboço (26/11/2026): voltar, cabeçalho, linha do tempo, o papel e o
+  // trilho no lugar, no formato final (ver _esq no admin.js).
+  if (raiz && !_nfpDados) {
+    const num = (typeof _avData !== "undefined" ? _avData : []).find(o => o.id === orcId)?.numero;
+    raiz.innerHTML = `${_pgVoltarHtml("nf", num || "Orçamento")}
+      <div class="esq-cx" aria-busy="true" aria-label="Carregando a nota">
+        <section class="nfp-topo">
+          <header class="nfp-cab"><div class="nfp-cab-txt">${_esq("300px", 22)}${_esq("360px", 12, "esq-mt")}</div><div class="nfp-acoes">${_esq("130px", 34)}</div></header>
+          <div class="nfp-tempo-esq">${_esqTempo(4)}</div>
+        </section>
+        <div class="nfp-grade">
+          <div class="nfp-col"><article class="nfp-papel">${_esq("100%", 64)}${_esq("100%", 40, "esq-mt")}${_esq("30%", 13, "esq-mt2")}${_esq("100%", 46, "esq-mt")}${_esq("30%", 13, "esq-mt2")}${_esq("100%", 120, "esq-mt")}</article></div>
+          <aside class="nfp-trilho"><section class="card nfp-card">${_esqBloco(4)}</section><section class="card nfp-card">${_esqBloco(3)}</section></aside>
+        </div>
+      </div>`;
+  }
   await _nfpCarregar();
 }
 

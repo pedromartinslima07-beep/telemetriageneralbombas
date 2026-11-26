@@ -229,6 +229,27 @@ function _pgVazioHtml(titulo, texto, erro) {
   return `<div class="pg-vazio${erro ? " is-erro" : ""}" role="${erro ? "alert" : "status"}"><b>${_waEscaparHtml(titulo)}</b>${texto ? `<p>${_waEscaparHtml(texto)}</p>` : ""}</div>`;
 }
 
+// ── O ESBOÇO DE CARREGAMENTO DAS PÁGINAS (26/11/2026) ──────────────────────
+// Pedido do Pedro: "a forma q algumas paginas abre qnd n tem coisa carregadas
+// ainda me incomodam". Chamado e nota abriam em branco com um "Carregando…"
+// solto, a O.S. com o texto no meio e o "Editar" já clicável, o orçamento com
+// o total em R$ 0,00. Agora a estrutura aparece na hora (voltar, caixa,
+// cabeçalho com o que já se sabe, linha do tempo) e o que falta é um esboço
+// no formato final, com a mesma animação das listas e do Hoje.
+// O contêiner .esq-cx só aparece depois de 150 ms (CSS): carregamento rápido
+// vai direto ao conteúdo, sem piscar o esboço.
+function _esq(larg, alt, cls) {
+  return `<i class="esq${cls ? " " + cls : ""}" style="width:${larg};height:${alt}px" aria-hidden="true"></i>`;
+}
+function _esqTempo(n) {
+  return `<ol class="os-tempo av-tempo esq-tempo" style="--n:${n}" aria-hidden="true">${Array.from({ length: n }, () =>
+    `<li>${_esq("62%", 12)}${_esq("40%", 10, "esq-mt")}</li>`).join("")}</ol>`;
+}
+function _esqBloco(linhas = 3) {
+  const larg = ["92%", "78%", "64%", "84%", "55%"];
+  return `<div class="esq-bloco" aria-hidden="true">${_esq("34%", 13)}${Array.from({ length: linhas }, (_, i) => _esq(larg[i % larg.length], 11, "esq-mt")).join("")}</div>`;
+}
+
 function _pgVoltarOuIr(semOrigem) {
   if (_pgVeioDeDentro()) { history.back(); return; }
   semOrigem();
@@ -4907,7 +4928,18 @@ async function _chAbrirPagina(id, { daRota = false } = {}) {
   const pag = document.getElementById("chPagina");
   let ch = (_chamadosData || []).find(c => c.id === id);
   if (!ch) {
-    if (pag) pag.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;">Carregando…</div>`;
+    if (pag) pag.innerHTML = `${_pgVoltarHtml("ch", _sectionTitles.chamados)}
+      <div class="ch-detail ch-pag esq-cx" aria-busy="true" aria-label="Carregando o chamado">
+        <div class="ch-pag-head"><div class="ch-pag-tit">
+          <div class="ch-det-head"><span class="ch-det-id">CH-${String(id).padStart(4, "0")}</span></div>
+          ${_esq("52%", 20)}${_esq("30%", 12, "esq-mt")}
+        </div></div>
+        <div class="ch-pag-tempo">${_esqTempo(4)}</div>
+        <div class="os-colunas ch-pag-corpo">
+          <div class="os-col-trabalho">${_esqBloco(3)}${_esqBloco(2)}</div>
+          <div class="os-col-lado">${_esqBloco(3)}</div>
+        </div>
+      </div>`;
     try { await carregarChamados(); } catch (_) { /* cai no "não encontrado" */ }
     if (_chPaginaId !== id) return;
     ch = (_chamadosData || []).find(c => c.id === id);
@@ -11668,9 +11700,16 @@ async function abrirOSDetalhe(id, { daRota = false } = {}) {
   }
   _pgVoltarFixo(document.getElementById("osPagina"), "os", _sectionTitles["ordens-servico"]);
 
-  body.innerHTML = `<div class="mc-empty" style="padding:32px;text-align:center;">Carregando…</div>`;
-  if (sub) sub.textContent = "Carregando…";
-  if (tit) tit.textContent = "Ordem de Serviço";
+  // Esboço (26/11/2026): o número vem da lista, se ela já foi aberta; os
+  // botões do cabeçalho ficam desligados até os dados chegarem.
+  const daLista = (_osData || []).find(x => x.id === id);
+  body.innerHTML = `<div class="os-view-body esq-cx" aria-busy="true" aria-label="Carregando a O.S.">
+      ${_esqTempo(4)}
+      <div class="os-colunas esq-colunas"><div class="os-col-trabalho">${_esqBloco(3)}${_esqBloco(4)}</div><div class="os-col-lado">${_esqBloco(4)}</div></div>
+    </div>`;
+  if (sub) sub.innerHTML = _esq("260px", 12);
+  if (tit) tit.textContent = daLista?.numero || "Ordem de serviço";
+  document.getElementById("osFicha")?.classList.add("is-carregando");
   _osAtualizarBotoesHeader();
 
   try {
@@ -11680,8 +11719,10 @@ async function abrirOSDetalhe(id, { daRota = false } = {}) {
       throw new Error(e.error || ("HTTP " + r.status));
     }
     _osSelecionada = await r.json();
+    document.getElementById("osFicha")?.classList.remove("is-carregando");
     _osRenderModal();
   } catch (err) {
+    document.getElementById("osFicha")?.classList.remove("is-carregando");
     body.innerHTML = _pgVazioHtml("Não consegui abrir a O.S.", err.message, true);
   }
 }
@@ -13104,7 +13145,8 @@ function _avRenderPainel() {
           <div class="ap-section-title" id="avItensTitulo">${tipoAtivo !== "pecas" ? "Valores dos serviços" : "Itens"}</div>
           <div class="av-itens-scroll">
             <div id="avItensWrap">
-              <div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando…</div>
+              <div class="esq-cx esq-itens" aria-busy="true" aria-label="Carregando os itens">${Array.from({ length: 3 }, () =>
+                `<div class="esq-item">${_esq("18px", 11)}${_esq("58%", 13)}${_esq("54px", 18)}${_esq("70px", 13)}</div>`).join("")}</div>
             </div>
           </div>
         </div>
@@ -13693,6 +13735,16 @@ function _avAtualizarTotalRail() {
   const desc = comDesc ? _avDescontoCalc(soma, document.getElementById("avDescTipo")?.value,
     _avParseMoeda(document.getElementById("avDescValor")?.value)) : 0;
 
+  // ⚠️ SEM "R$ 0,00" ENQUANTO OS ITENS NÃO CHEGARAM (26/11/2026). A soma é
+  // zero porque as linhas ainda não vieram, não porque o orçamento é zero:
+  // o trilho mostrava R$ 0,00 e pulava para o valor um instante depois.
+  const linhasProntas = _avSelecionado?.id == null || _avLinhasId === _avSelecionado.id;
+  if (!linhasProntas && !usaManual) {
+    el.innerHTML = `<span class="esq-cx">${_esq("170px", 30)}</span>`;
+    el.classList.remove("is-manual");
+    if (sub) sub.innerHTML = `<span class="esq-cx">${_esq("120px", 11)}</span>`;
+    return;
+  }
   el.textContent = _orcFmtValor(usaManual ? _avParseMoeda(manualVal) : Math.max(0, soma - desc));
   el.classList.toggle("is-manual", usaManual);
 

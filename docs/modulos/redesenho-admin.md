@@ -2526,3 +2526,30 @@ dizer: depois de enviado (data e "Visível no painel do cliente") e quando
 falta o e-mail, explicando o botão apagado. Quem decide é o
 `_avAtualizarDestinatario`, que já é chamado ao trocar o prédio ou o e-mail do
 avulso. Conferido nos três casos no banco de teste. `admin.js?v=437`.
+
+## O carregamento das páginas de registro (26/11/2026)
+
+Pedido do Pedro: *"a forma q algumas paginas abre qnd n tem coisa carregadas
+ainda me incomodam"*. Medido com as respostas atrasadas 2,5 s no navegador:
+as listas, o Hoje, a Agenda e o Monitoramento já tinham esboço; as páginas
+de registro não.
+
+| Página | Antes | Agora |
+|---|---|---|
+| Chamado | página em branco, "Carregando…" no meio, sem voltar | voltar, a caixa com o número (CH-…), linha do tempo e as duas colunas em esboço |
+| Nota | página em branco, "Carregando a nota…" no canto | voltar, topo com título e linha do tempo, o papel e o trilho em esboço |
+| O.S. | "Carregando…" no meio da caixa, "Editar" clicável | número da lista no título, linha do tempo e colunas em esboço, botões do cabeçalho desligados (`#osFicha.is-carregando`) |
+| Orçamento | "Carregando…" nos itens e **total em R$ 0,00** até as linhas chegarem | itens em esboço; o total e a linha de baixo em esboço até as linhas chegarem (`_avAtualizarTotalRail`) |
+| Condomínio | "Carregando condomínio…" na primeira abertura; "Contrato: carregando…" | voltar, cabeçalho e as três colunas em esboço; o contrato em esboço |
+
+**Uma peça só:** `_esq(largura, altura)`, `_esqTempo(n)` e `_esqBloco(linhas)`
+no `admin.js` (bloco "O ESBOÇO DE CARREGAMENTO"), com a barra `.esq` no
+`admin.css` (o mesmo brilho `hjBrilho` do Hoje). O contêiner `.esq-cx` só
+aparece depois de **150 ms**: carregamento rápido vai direto ao conteúdo, sem
+piscar o esboço. Sem animação com `prefers-reduced-motion`.
+
+No banco de teste (remoto) a O.S. leva ~1,5 s e a nota ~2,1 s para
+responder: é justamente o intervalo que o esboço cobre. Conferido com e sem o
+atraso artificial; o conteúdo substitui o esboço sem pular de lugar.
+`admin.css?v=400`, `admin.js?v=439`, `admin-nota.js?v=8`,
+`admin-condominio.js?v=19`.

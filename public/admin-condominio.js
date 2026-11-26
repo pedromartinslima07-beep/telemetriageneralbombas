@@ -256,7 +256,17 @@ async function _cfMostrar(condoId, aba) {
   if (trocouPredio) {
     _cfExtra = null;
     _cfNotas = null;
-    document.getElementById("cfRoot").innerHTML = `<div class="cf-carregando">Carregando condomínio…</div>`;
+    // Esboço (26/11/2026) no lugar do "Carregando condomínio…": voltar,
+    // cabeçalho e as três colunas no formato da página.
+    document.getElementById("cfRoot").innerHTML = `<div class="ls cp esq-cx" aria-busy="true" aria-label="Carregando o condomínio">
+      <header class="cp-cab">${_pgVoltarHtml("cf", _sectionTitles.cadastros)}
+        <div class="cp-tit">${_esq("46px", 46)}<div class="cp-tit-txt">${_esq("280px", 24)}${_esq("220px", 12, "esq-mt")}</div></div>
+        <div class="esq-linha">${_esq("150px", 30)}${_esq("170px", 30)}${_esq("140px", 30)}</div>
+      </header>
+      <div class="esq-cp-grade">
+        <div>${_esqBloco(5)}${_esqBloco(2)}</div><div>${_esqBloco(4)}${_esqBloco(4)}</div><div>${_esqBloco(2)}${_esqBloco(3)}</div>
+      </div>
+    </div>`;
     document.querySelector(".main")?.scrollTo?.(0, 0);
   }
   await _cfEsperarCadastro();
@@ -521,7 +531,7 @@ function _cfRenderCabecalho(c, d) {
     `<button type="button" class="cp-fato" data-cf-aba="chamados">${_cfIco("inbox")}${abertos.length ? `<b>${abertos.length}</b> ${abertos.length === 1 ? "chamado aberto" : "chamados abertos"}${p1p2 ? ` · <b class="ls-txt-ri">${p1p2} urgente${p1p2 > 1 ? "s" : ""}</b>` : ""}` : "nenhum chamado aberto"}</button>`,
   ];
   if (_cfGestao()) {
-    let ctr = "Contrato: carregando…";
+    let ctr = `Contrato <span class="esq-cx">${_esq("90px", 10)}</span>`;
     if (d.extraCarregado) {
       const vig = d.contratos.find(x => x.ativo);
       // Sem contrato no sistema, vale o ativo do Omie (integração, fase 1).
