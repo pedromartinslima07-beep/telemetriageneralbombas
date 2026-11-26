@@ -13629,3 +13629,60 @@ a.ls-bt { text-decoration: none; }
   #avModal.is-pagina .av-it-novo [data-av-action="add-linha"] { grid-column: 3; }
   #avModal.is-pagina .av-itens-scroll .orc-add-item-row > * { margin: 0 4px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   ENVIAR ORÇAMENTO (modal, redesenhado em 26/11/2026)
+   Placa clara: tinta #061033 e #56648a, fio rgba(6,16,51,…). Os dois modos
+   são cartões que dizem o que fazem; o escolhido fica marinho (o amarelo é
+   só do Enviar). Rótulos em frase, sem a caixa alta do .f span.
+   ════════════════════════════════════════════════════════════════════════ */
+.modalBox.ae-box { max-width: 600px; width: min(600px, 96vw); background: #fff; }
+.ae-cab { align-items: flex-start; }
+.ae-cab .modalTitle { font-size: 18px; }
+.ae-x { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: none; color: #56648a; cursor: pointer; }
+.ae-x:hover { background: rgba(6,16,51,.06); color: #061033; }
+.ae-corpo { padding-top: 6px; }
+.ae-corpo form { display: flex; flex-direction: column; gap: 16px; }
+.ae-rot { display: block; font-size: 13px; font-weight: 700; color: #061033; text-transform: none; letter-spacing: 0; margin: 0 0 6px; padding: 0; }
+.ae-rot small { font-weight: 400; color: #56648a; margin-left: 6px; }
+.ae-rot-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ae-lk { border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; font-weight: 600; color: #0d2775; cursor: pointer; }
+.ae-lk:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.ae-modos { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ae-modos legend { grid-column: 1 / -1; }
+.ae-modo { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border: 1px solid rgba(6,16,51,.18); border-radius: 10px; background: #fff; color: #061033; font: inherit; cursor: pointer; transition: border-color .12s, background-color .12s; }
+.ae-modo b { font-size: 14px; }
+.ae-modo span { font-size: 12.5px; line-height: 1.45; color: #56648a; }
+.ae-modo:hover:not(:disabled):not(.is-on) { border-color: rgba(6,16,51,.4); }
+.ae-modo.is-on { background: #071b5c; border-color: #071b5c; color: #fff; }
+.ae-modo.is-on span { color: #c9d3ee; }
+.ae-modo:disabled { cursor: not-allowed; background: #f4f6fa; }
+.ae-modo:disabled b { color: #56648a; }
+.ae-modo:focus-visible { outline: 2px solid #0d2775; outline-offset: 2px; }
+
+.ae-campo { display: flex; flex-direction: column; gap: 0; margin-bottom: 14px; }
+.ae-campo .input { width: 100%; font-size: 14px; }
+.ae-campo textarea.input { resize: vertical; line-height: 1.55; min-height: 196px; }
+.ae-campo small { margin-top: 5px; font-size: 12px; color: #56648a; }
+.ae-dica { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: #56648a; }
+
+.ae-assin { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px dashed rgba(6,16,51,.2); border-radius: 10px; }
+.ae-assin img { max-height: 64px; max-width: 70%; object-fit: contain; border-radius: 6px; background: #fff; }
+.ae-assin-vazia { font-size: 13px; color: #56648a; }
+.ae-assin .btn { margin-left: auto; }
+
+.ae-chk { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #061033; cursor: pointer; }
+.ae-chk input { width: 16px; height: 16px; margin: 0; accent-color: #071b5c; }
+
+.ae-pe { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid rgba(6,16,51,.1); }
+.ae-resumo { font-size: 13px; color: #56648a; }
+.ae-msg { font-size: 13px; }
+.ae-msg:empty { display: none; }
+.ae-bts { display: flex; gap: 8px; margin-left: auto; }
+
+@media (max-width: 560px) {
+  .ae-modos { grid-template-columns: 1fr; }
+  .ae-bts { width: 100%; }
+  .ae-bts .btn { flex: 1; justify-content: center; }
+}

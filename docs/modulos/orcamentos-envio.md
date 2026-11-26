@@ -228,3 +228,33 @@ Relacionados: [autenticacao.md](autenticacao.md) ·
 [orcamentos-vencimento.md](orcamentos-vencimento.md) (quando a validade vence) ·
 [painel-cliente.md](painel-cliente.md) ·
 [ordens-servico.md](ordens-servico.md) · [../api.md](../api.md)
+
+## O modal redesenhado e a mensagem com os dados (26/11/2026)
+
+Pedido do Pedro: *"melhora essa tela e a mensagem tbm"*.
+
+- **Os dois modos viraram cartões** que dizem em uma linha o que fazem
+  ("Pelo painel": link para ler e aprovar, só para quem tem login; "Com o
+  PDF em anexo": vai para qualquer e-mail). Os parágrafos de explicação
+  embaixo saíram. O escolhido fica marinho; o amarelo continua só no Enviar.
+- **Rótulos em frase** (antes "PARA", "MENSAGEM" em caixa alta), a dica
+  "separe por vírgula" embaixo do campo, a **assinatura** como imagem com
+  "Trocar" (o campo de arquivo do navegador fica escondido), e o pé diz
+  **para quantos vai** ("Vai o PDF para 2 endereços").
+- **A mensagem sugerida usa os dados do orçamento**: "Segue em anexo o
+  orçamento OR-000056 para o condomínio Residencial Ipê, no valor de
+  R$ 800,00, válido até …", e fecha com "Para aprovar, é só responder este
+  e-mail…" e "Atenciosamente," (a assinatura em imagem vem logo depois).
+  Avulso de pessoa física fica sem o "para o condomínio".
+- **O padrão salvo guarda marcadores** (`{numero}`, `{condominio}`,
+  `{para_quem}`, `{valor}`, `{validade}`): ao abrir, viram os dados do
+  orçamento; ao marcar "Guardar como padrão", os dados voltam a ser
+  marcadores (`_avMensagemParaModelo`). Quem já tem um padrão salvo continua
+  vendo o seu, e o link **"usar o texto sugerido"** troca pelo novo.
+  ⚠️ O padrão salvo antes de hoje é texto fixo (sem marcadores): para
+  passar a usar o novo, é "usar o texto sugerido" + "Guardar como padrão"
+  uma vez.
+
+Sem mudança no servidor: ele recebe o texto final, como antes. Conferido no
+banco de teste (1440 e 375 px), sem enviar. `admin.js?v=438`,
+`admin.css?v=399`.

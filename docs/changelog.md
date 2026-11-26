@@ -18948,3 +18948,11 @@ Ao escolher um produto na lista do Omie (item novo ou item existente do
 orçamento), o nome dele entra no campo da descrição, que continua editável.
 Pedido do Pedro. Só front (`admin-orc-pecas.js?v=8`). Ver
 [modulos/pecas-no-orcamento.md](modulos/pecas-no-orcamento.md#escolher-no-omie-escreve-o-nome-26112026).
+
+## 2026-11-26 — Modal de envio do orçamento redesenhado, mensagem com os dados
+
+Modos em cartões que dizem o que fazem, rótulos em frase, assinatura com
+"Trocar", o pé dizendo para quantos vai. A mensagem sugerida já vem com o
+número, o condomínio, o valor e a validade; o padrão salvo de cada um guarda
+marcadores e serve para qualquer orçamento. Só front. Ver
+[modulos/orcamentos-envio.md](modulos/orcamentos-envio.md#o-modal-redesenhado-e-a-mensagem-com-os-dados-26112026).

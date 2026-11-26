@@ -14108,6 +14108,44 @@ function _avPrepararAssinatura(file) {
 // responder na tela, e carta reescrita a cada envio é carta que uma hora sai
 // errada para cliente real. As rotas `/admin/me/email-template` e
 // `/admin/me/assinatura` nunca foram removidas — só a interface tinha saído.
+// ── A mensagem do envio com anexo (26/11/2026) ───────────────────────────
+// O texto sugerido e o padrão salvo de cada operador usam marcadores, que
+// viram os dados do orçamento ao abrir o modal.
+const _AV_MSG_SUGERIDA =
+  "Prezado(a),\n\n" +
+  "Segue em anexo o orçamento {numero}{para_quem}, no valor de {valor}{validade}.\n\n" +
+  "Para aprovar, é só responder este e-mail. Se quiser conversar sobre algum item, estamos à disposição.\n\n" +
+  "Atenciosamente,";
+
+function _avMensagemDados(orc) {
+  const validade = orc.valido_ate ? _orcFmtDataSemFuso(String(orc.valido_ate).slice(0, 10)) : "";
+  return {
+    numero: orc.numero || "",
+    condominio: orc.condominio_nome || "",
+    // Avulso de pessoa física não é condomínio: a frase fica sem o "para".
+    para_quem: orc.condominio_id && orc.condominio_nome ? ` para o condomínio ${orc.condominio_nome}` : "",
+    valor: orc.valor_total != null ? _orcFmtValor(orc.valor_total) : "",
+    validade: validade ? `, válido até ${validade}` : "",
+  };
+}
+
+function _avMensagemPreencher(modelo, orc) {
+  const d = _avMensagemDados(orc);
+  return String(modelo || "").replace(/\{(numero|condominio|para_quem|valor|validade)\}/g, (_, k) => d[k] || "");
+}
+
+// O caminho de volta: os dados deste orçamento viram marcadores antes de
+// guardar como padrão. Do mais longo para o mais curto, para o nome do
+// condomínio não ser trocado dentro de "para o condomínio …".
+function _avMensagemParaModelo(texto, orc) {
+  const d = _avMensagemDados(orc);
+  let t = String(texto || "");
+  for (const k of ["para_quem", "validade", "valor", "numero", "condominio"]) {
+    if (d[k] && d[k].trim()) t = t.split(d[k]).join(`{${k}}`);
+  }
+  return t;
+}
+
 async function _avAbrirEnvioEmail() {
   if (!_avSelecionado) return;
   const orc = _avSelecionado;
@@ -14128,8 +14166,14 @@ async function _avAbrirEnvioEmail() {
 
   const temPainel = dest.tem_condominio && dest.usuarios.length > 0;
   const emailsCadastrados = (dest.cadastrados || []).join(", ");
-  const msgPadrao = tpl.email_mensagem
-    || `Prezado(a),\n\nSegue em anexo o orçamento ${orc.numero || ""} referente ao seu condomínio.\n\nQualquer dúvida, estamos à disposição.`;
+  // A MENSAGEM COM OS DADOS DO ORÇAMENTO (26/11/2026, pedido do Pedro:
+  // "melhora essa tela e a mensagem tbm"). O padrão salvo guarda marcadores
+  // ({numero}, {condominio}, {valor}, {validade}) que viram os dados de cada
+  // orçamento ao abrir; ao salvar como padrão, os dados voltam a ser
+  // marcadores (_avMensagemParaModelo). Assim o padrão serve para qualquer
+  // orçamento, em vez de repetir o número do primeiro que o salvou.
+  const sugerida = _avMensagemPreencher(_AV_MSG_SUGERIDA, orc);
+  const msgPadrao = tpl.email_mensagem ? _avMensagemPreencher(tpl.email_mensagem, orc) : sugerida;
   const assinaturaAtual = tpl.assinatura_email_url || "";
 
   // O modo abre no que faz sentido para este orçamento: com gente no painel,
@@ -14155,97 +14199,89 @@ async function _avAbrirEnvioEmail() {
         </li>`).join("")
     : "";
 
+  // ⚠️ O MODAL FOI REDESENHADO EM 26/11/2026 (pedido do Pedro). Os dois
+  // modos viraram cartões que dizem em uma linha o que fazem (os parágrafos
+  // de explicação embaixo saíram), os rótulos saíram da caixa alta, a
+  // assinatura é a imagem com "Trocar" (o campo de arquivo fica escondido) e o
+  // pé diz para quantos vai. Os ids são os de antes: os ouvintes abaixo não
+  // mudaram. O que continua valendo das decisões antigas: o modo ativo é
+  // marinho, não amarelo (o amarelo é do Enviar); o modo painel não lista
+  // condominios.email (quem não tem login não recebe por ali, e mostrar os
+  // endereços fazia parecer que recebia).
   const ov = document.createElement("div");
   ov.className = "modalOverlay";
   ov.style.display = "flex";
   ov.innerHTML = `
-    <div class="modalBox" style="max-width:560px;">
-      <div class="modalHead">
+    <div class="modalBox ae-box" role="dialog" aria-modal="true" aria-labelledby="aeTitulo">
+      <div class="modalHead ae-cab">
         <div>
-          <div class="modalTitle">Enviar orçamento por e-mail</div>
-          <div class="modalSub">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(orc.condominio_nome || "—")}</div>
+          <div class="modalTitle" id="aeTitulo">Enviar orçamento</div>
+          <div class="modalSub">${_waEscaparHtml(orc.numero || "")} · ${_waEscaparHtml(orc.condominio_nome || "—")}${orc.valor_total != null ? " · " + _orcFmtValor(orc.valor_total) : ""}</div>
         </div>
-        <button class="btn btn-sm" id="avEnvioFechar">Fechar</button>
+        <button type="button" class="ae-x" id="avEnvioFechar" aria-label="Fechar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <div class="modalBody">
-        <div class="modalTools"><div class="modalCount" id="avEnvioMsg"></div></div>
-        <form class="formGrid" style="grid-template-columns:1fr;" data-sem-envio>
+      <div class="modalBody ae-corpo">
+        <form data-sem-envio>
+          <fieldset class="ae-modos">
+            <legend class="ae-rot">Como enviar</legend>
+            <button type="button" class="ae-modo" id="avModoPainel" ${temPainel ? "" : "disabled"}>
+              <b>Pelo painel</b>
+              <span>${temPainel
+                ? "Link para ler e aprovar no painel. A resposta fica registrada. Só para quem tem login."
+                : dest.tem_condominio ? "Ninguém deste prédio tem acesso ao painel ainda." : "Cliente avulso não tem painel."}</span>
+            </button>
+            <button type="button" class="ae-modo" id="avModoCarta">
+              <b>Com o PDF em anexo</b>
+              <span>Sua mensagem com o orçamento anexado. Vai para qualquer e-mail.</span>
+            </button>
+          </fieldset>
 
-          <div class="f">
-            <span>Como enviar</span>
-            <div class="avModos">
-              <button type="button" class="avModo" id="avModoPainel" ${temPainel ? "" : "disabled"}>Pelo painel</button>
-              <button type="button" class="avModo" id="avModoCarta">Com carta e anexo</button>
-            </div>
-          </div>
-
-          <!-- ── Pelo painel ─────────────────────────────────────────── -->
+          <!-- ── Pelo painel ── -->
           <div id="avBlocoPainel">
             ${temPainel ? `
-              <div class="f">
-                <span>Vai para quem tem acesso ao painel</span>
-                <ul class="avDest">${listaUsuarios}</ul>
-              </div>
-              <!-- ⚠️ AQUI NAO SE LISTA condominios.email (25/08/2026).
-                   A versao anterior avisava "o condominio tem sindico@...,
-                   portaria@... no cadastro", e o Pedro pegou: mostrar
-                   enderecos do cadastro dentro do modo em que eles NAO recebem
-                   faz a pessoa ler uma lista e entender que o envio vai para
-                   ela. O que importa e a REGRA — quem nao tem login nao recebe
-                   por aqui —, nao os enderecos. Quem precisa alcancar todos
-                   troca de modo, e la eles aparecem no campo "Para", que e
-                   onde de fato valem.
-                   (Sem crase neste comentario: ele vive dentro de um template
-                    literal, e crase aqui FECHA o template.) -->
-              <div class="hint" style="line-height:1.6;margin-top:8px;">
-                O e-mail leva o <b>link para ler e responder no painel</b>, sem
-                anexo — é lá que a aprovação fica registrada. A lista vem do
-                cadastro de usuários e não é editável aqui.
-                <br /><br />Quem não tem login <b>não recebe</b> por este
-                caminho — use "Com carta e anexo" para alcançar todos.
-              </div>`
-            : `
-              <div class="hint" style="line-height:1.6;">
-                Nenhum usuário com acesso ao painel neste
-                ${dest.tem_condominio ? "condomínio" : "orçamento"}.
-                ${dest.tem_condominio
-                  ? "Crie o acesso em Clientes para poder enviar por aqui — ou envie com carta e anexo."
-                  : "Orçamento avulso de pessoa física não tem painel."}
-              </div>`}
+              <div class="ae-rot">Vai para quem tem acesso ao painel</div>
+              <ul class="avDest">${listaUsuarios}</ul>
+              <p class="ae-dica">A lista vem do cadastro de usuários do prédio. Quem não tem login não recebe por aqui: use "Com o PDF em anexo".</p>`
+            : dest.tem_condominio
+              ? `<p class="ae-dica">Crie o acesso do síndico em Clientes para poder enviar pelo painel.</p>` : ""}
           </div>
 
-          <!-- ── Carta e anexo ───────────────────────────────────────── -->
+          <!-- ── Com o PDF em anexo ── -->
           <div id="avBlocoCarta" style="display:none;">
-            <label class="f">
-              <span>Para <small style="font-weight:400;color:var(--muted);">(separe vários por vírgula)</small></span>
-              <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailsCadastrados)}" placeholder="cliente@email.com" />
+            <label class="ae-campo">
+              <span class="ae-rot">Para</span>
+              <input id="avEnvioPara" class="input" type="text" value="${_waEscaparHtml(emailsCadastrados)}" placeholder="sindico@condominio.com.br" autocomplete="off" />
+              <small>Separe vários e-mails por vírgula.</small>
             </label>
-            <label class="f">
-              <span>Mensagem</span>
-              <textarea id="avEnvioMsgTexto" class="input" rows="5" style="resize:vertical;">${_waEscaparHtml(msgPadrao)}</textarea>
-            </label>
-            <label class="f">
-              <span>Assinatura <small style="font-weight:400;color:var(--muted);">(PNG ou JPG — em branco mantém a atual)</small></span>
-              <input id="avEnvioAssinaturaFile" type="file" accept="image/png,image/jpeg,image/jpg" class="input" style="padding:6px;" />
-            </label>
-            <img id="avEnvioAssinaturaPreview" alt="Assinatura"
-                 src="${_waEscaparHtml(assinaturaAtual)}"
-                 style="${assinaturaAtual ? "" : "display:none;"}max-height:70px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:6px;background:#fff;" />
-            <label class="f" style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">
-              <input id="avEnvioSalvarPadrao" type="checkbox" style="width:auto;margin:0;" />
-              <span class="avOpt">Salvar mensagem e assinatura como padrão</span>
-            </label>
-            <div class="hint" style="line-height:1.6;">
-              O e-mail vai com o <b>PDF em anexo</b> e a sua mensagem, para
-              todos os endereços acima — inclusive quem não tem login. Não leva
-              o link do painel: quem não consegue entrar ficaria sem o
-              documento.
+            <div class="ae-campo">
+              <div class="ae-rot-linha">
+                <label class="ae-rot" for="avEnvioMsgTexto">Mensagem</label>
+                <button type="button" class="ae-lk" id="avEnvioSugerida">usar o texto sugerido</button>
+              </div>
+              <textarea id="avEnvioMsgTexto" class="input" rows="8">${_waEscaparHtml(msgPadrao)}</textarea>
             </div>
+            <div class="ae-campo">
+              <span class="ae-rot">Assinatura <small>vai no fim do e-mail</small></span>
+              <div class="ae-assin">
+                <img id="avEnvioAssinaturaPreview" alt="Assinatura atual" src="${_waEscaparHtml(assinaturaAtual)}"${assinaturaAtual ? "" : " hidden"} />
+                <span class="ae-assin-vazia" id="avEnvioAssinaturaVazia"${assinaturaAtual ? " hidden" : ""}>Sem assinatura</span>
+                <button type="button" class="btn btn-sm" id="avEnvioAssinaturaTrocar">${assinaturaAtual ? "Trocar" : "Escolher imagem"}</button>
+                <input id="avEnvioAssinaturaFile" type="file" accept="image/png,image/jpeg,image/jpg" hidden />
+              </div>
+            </div>
+            <label class="ae-chk">
+              <input id="avEnvioSalvarPadrao" type="checkbox" />
+              <span>Guardar esta mensagem e a assinatura como padrão</span>
+            </label>
           </div>
 
-          <div class="formActions">
-            <button class="btn" type="button" id="avEnvioCancelar">Cancelar</button>
-            <button class="btn btnAccent" type="button" id="avEnvioConfirmar">Enviar</button>
+          <div class="ae-pe">
+            <span class="ae-resumo" id="avEnvioResumo" aria-live="polite"></span>
+            <div class="modalCount ae-msg" id="avEnvioMsg" role="status"></div>
+            <div class="ae-bts">
+              <button class="btn" type="button" id="avEnvioCancelar">Cancelar</button>
+              <button class="btn btnAccent" type="button" id="avEnvioConfirmar">Enviar</button>
+            </div>
           </div>
         </form>
       </div>
@@ -14278,7 +14314,26 @@ async function _avAbrirEnvioEmail() {
     btnCarta.setAttribute("aria-pressed", String(modo === "carta"));
     // Sem gente no painel, mandar por ali não é opção — e o botão diz isso.
     document.getElementById("avEnvioConfirmar").disabled = (modo === "painel" && !temPainel);
+    resumir();
   }
+  // O pé diz para quantos vai, no modo escolhido.
+  function resumir() {
+    const el = document.getElementById("avEnvioResumo");
+    if (!el) return;
+    if (modo === "painel") {
+      const n = dest.usuarios.length;
+      el.textContent = n ? `Vai o link do painel para ${n} ${n === 1 ? "pessoa" : "pessoas"}.` : "";
+    } else {
+      const n = (document.getElementById("avEnvioPara")?.value || "").split(",").filter(x => x.trim()).length;
+      el.textContent = n ? `Vai o PDF para ${n} ${n === 1 ? "endereço" : "endereços"}.` : "Falta o e-mail de quem recebe.";
+    }
+  }
+  document.getElementById("avEnvioPara")?.addEventListener("input", resumir);
+  document.getElementById("avEnvioSugerida")?.addEventListener("click", () => {
+    const t = document.getElementById("avEnvioMsgTexto");
+    if (t) { t.value = sugerida; t.focus(); }
+  });
+  document.getElementById("avEnvioAssinaturaTrocar")?.addEventListener("click", () => document.getElementById("avEnvioAssinaturaFile")?.click());
   btnPainel.addEventListener("click", () => { if (!temPainel) return; modo = "painel"; aplicarModo(); });
   btnCarta.addEventListener("click", () => { modo = "carta"; aplicarModo(); });
   aplicarModo();
@@ -14293,7 +14348,9 @@ async function _avAbrirEnvioEmail() {
     try {
       assinaturaNovaB64 = await _avPrepararAssinatura(file);
       const prev = document.getElementById("avEnvioAssinaturaPreview");
-      if (prev) { prev.src = assinaturaNovaB64; prev.style.display = "block"; }
+      if (prev) { prev.src = assinaturaNovaB64; prev.hidden = false; }
+      const vazia = document.getElementById("avEnvioAssinaturaVazia");
+      if (vazia) vazia.hidden = true;
     } catch (err) {
       const msg = document.getElementById("avEnvioMsg");
       if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "Erro na imagem: " + err.message; }
@@ -14325,7 +14382,7 @@ async function _avAbrirEnvioEmail() {
         await fetch("/admin/me/email-template", {
           method: "PATCH",
           headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ email_mensagem: mensagem }),
+          body: JSON.stringify({ email_mensagem: _avMensagemParaModelo(mensagem, orc) }),
         });
       }
 
