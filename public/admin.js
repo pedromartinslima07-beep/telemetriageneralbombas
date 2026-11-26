@@ -13091,6 +13091,14 @@ function _avRenderPainel() {
                   <option value="limpeza_dedetizacao" ${tipoAtivo==="limpeza_dedetizacao"?"selected":""}>Limpeza + dedetização</option>
                 </select>
               </label>
+              <!-- Metodo da limpeza (migration 108). Mesmo servico, outras
+                   clausulas no PDF; so aparece nos tipos com reservatorio. -->
+              <label class="orc-form-label av-tipo-campo av-rail-tipo" id="avMetodoCampo"${_avTemReservatorio(tipoAtivo) ? "" : " hidden"}>Método da limpeza
+                <select id="avInputMetodo" class="select">
+                  <option value="manual" ${o.metodo_reservatorio !== "robo" ? "selected" : ""}>Manual</option>
+                  <option value="robo" ${o.metodo_reservatorio === "robo" ? "selected" : ""}>Robô aspirador</option>
+                </select>
+              </label>
               <div class="av-seg">
                 <button type="button" class="${avulso ? "" : "is-on"}" data-av-cliente="cadastrado">Cadastrado</button>
                 <button type="button" class="${avulso ? "is-on" : ""}" data-av-cliente="avulso">Avulso (pessoa física)</button>
@@ -13618,7 +13626,15 @@ function _avAtualizarDestinatario() {
 //
 // A limpeza das linhas do tipo antigo é do `_avLimparServicosForaDoTipo`,
 // chamado pelo listener de `change` do select oculto.
+// Tipos cujo PDF tem a limpeza de reservatório — são os que oferecem o método
+// (manual ou robô aspirador, migration 108).
+function _avTemReservatorio(tipo) {
+  return tipo === "limpeza_reservatorio" || tipo === "limpeza_dedetizacao";
+}
+
 function _avRefletirTipo(tipo, rotulo) {
+  const metodo = document.getElementById("avMetodoCampo");
+  if (metodo) metodo.hidden = !_avTemReservatorio(tipo);
   const titulo = document.getElementById("avItensTitulo");
   if (titulo) titulo.textContent = tipo !== "pecas" ? "Valores dos serviços" : "Itens";
 
@@ -15094,6 +15110,11 @@ function _avCorpoSalvar(sel) {
   const isAvulso = !!document.getElementById("avToggleAvulso")?.checked;
   return {
     tipo:            document.getElementById("avInputTipo")?.value || "pecas",
+    // Método (108): mesma guarda do `valor` — registro sem a chave não manda,
+    // para o select nascido em "Manual" não apagar um "Robô" gravado.
+    ...(sel && "metodo_reservatorio" in sel && document.getElementById("avInputMetodo")
+      ? { metodo_reservatorio: document.getElementById("avInputMetodo").value === "robo" ? "robo" : "manual" }
+      : {}),
     constatacao:     document.getElementById("avInputConstatacao")?.value.trim() || null,
     forma_pagamento: document.getElementById("avInputPagamento")?.value.trim() || null,
     prazo_entrega:   document.getElementById("avInputPrazo")?.value.trim() || null,

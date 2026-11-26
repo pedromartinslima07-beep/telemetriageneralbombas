@@ -193,6 +193,10 @@ vencimento e tipo do texto), conferido e lançado no contas a pagar do Omie
 com o PDF anexado (`guias.service.js`, travas contra conta em dobro,
 `OMIE_EMISSAO=1`). Migration 100 (✅ produção, 23/11/2026). Ver
 [`../docs/modulos/guias-tributos.md`](../docs/modulos/guias-tributos.md).
+**Limpeza de reservatório com robô (26/11, no ar):** o orçamento de
+limpeza de reservatório (sozinho ou com dedetização) ganhou "Método da
+limpeza" — Manual ou Robô aspirador — e o PDF sai com as cláusulas de cada
+um. Migration 108 (✅ produção, 26/11/2026).
 **Guias para qualquer conta a pagar (24/11, commitado, sem push):** boleto de
 fornecedor, água, luz e telefone entram na mesma tela. O destino no Omie sai de
 quem cobra (`emissor_chave`: CNPJ do beneficiário, empresa Febraban ou

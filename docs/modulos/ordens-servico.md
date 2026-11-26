@@ -379,6 +379,14 @@ mesmo timbrado (`papel-timbrado.png`) e mesmo fluxo do admin (avulso).
   final, seção **"Valores dos Serviços"** lista cada `orcamento_linha`
   (descrição + valor) e soma o total — os valores continuam separados, não
   viram texto de cláusula.
+  - **Método da limpeza** (migration 108, `orcamentos.metodo_reservatorio`,
+    `manual` default | `robo`, 26/11/2026): nos tipos com reservatório, o
+    select "Método da limpeza" abaixo do tipo troca as cláusulas do
+    reservatório pelas do robô aspirador
+    (`clausulasLimpezaReservatorioRobo()`; quem escolhe é
+    `_clausulasReservatorio(os, itens)`). A especificação da linha entra igual
+    nas duas versões. O front só manda o campo quando o registro trouxe a
+    chave, para um select nascido em "Manual" não apagar um "Robô" gravado.
   - **Data do orçamento editável** (migration 061, `orcamentos.data_documento
     DATE`, nullable): a "Data" mostrada no PDF sempre veio de `criado_em`
     (timestamp automático, sem forma de ajustar). Agora tem um campo "Data do

@@ -1731,7 +1731,7 @@ router.get("/orcamentos/avulsos", authRequired, gestaoOnly, async (req, res) => 
               -- e o proximo "Salvar" manda valor: null e APAGA o total manual
               -- - o PDF continuava certo ate alguem salvar, e foi assim que
               -- OR-000170, OR-000169 e OR-000105 chegaram a R$ 0,00 em producao.
-              o.valor, o.desconto_tipo, o.desconto_valor,
+              o.valor, o.desconto_tipo, o.desconto_valor, o.metodo_reservatorio,
               COALESCE(
                 o.valor,
                 (SELECT SUM(l.quantidade * l.valor_unitario)
@@ -1843,7 +1843,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
 
-  const fields = ["numero","condominio_id","os_id","status","tipo","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento","valor","cliente_nome","cliente_documento","cliente_endereco","cliente_email"];
+  const fields = ["numero","condominio_id","os_id","status","tipo","metodo_reservatorio","constatacao","forma_pagamento","prazo_entrega","garantia","disponibilidade","valido_ate","data_documento","valor","cliente_nome","cliente_documento","cliente_endereco","cliente_email"];
   const sets = []; const vals = [id];
 
   // DESCONTO (migration 105). Com desconto, o total (`valor`) é calculado no
@@ -1890,6 +1890,12 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
       if (!["pecas","limpeza_reservatorio","dedetizacao","limpeza_dedetizacao"].includes(v)) return res.status(400).json({ error: "tipo inválido" });
       vals.push(v); sets.push(`tipo = $${vals.length}`);
     }
+    else if (f === "metodo_reservatorio") {
+      // Migration 108: manual ou robô aspirador. Só muda o PDF dos tipos com
+      // limpeza de reservatório; nos outros fica gravado e é ignorado.
+      if (!["manual","robo"].includes(v)) return res.status(400).json({ error: "método inválido" });
+      vals.push(v); sets.push(`metodo_reservatorio = $${vals.length}::varchar`);
+    }
     else if (f === "valor") {
       // Override manual do valor total exibido no PDF — vazio/null volta a
       // usar a soma automática dos itens (útil quando algum item não tem
@@ -1913,7 +1919,7 @@ router.patch("/orcamentos/avulsos/:id", authRequired, gestaoOnly, async (req, re
   try {
     const r = await pool.query(
       `UPDATE orcamentos SET ${sets.join(",")} WHERE id = $1
-       RETURNING id, numero, status, condominio_id, os_id, tipo, constatacao,
+       RETURNING id, numero, status, condominio_id, os_id, tipo, metodo_reservatorio, constatacao,
                  forma_pagamento, prazo_entrega, garantia, disponibilidade, valido_ate, data_documento, valor,
                  cliente_nome, cliente_documento, cliente_endereco, cliente_email, desconto_tipo, desconto_valor`,
       vals

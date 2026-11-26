@@ -98,6 +98,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 103 | orcamento_vencido_arquivado | `orcamentos.arquivado_em`/`arquivado_por` (o enviado vencido sem resposta sai da fila; status continua `enviado`) e a tabela **`orcamento_lembretes`** (o lembrete antes de vencer, um por orçamento/validade). ✅ **Aplicada em teste e em produção em 23/11/2026**; os 111 vencidos de produção arquivados no mesmo dia. Ver a entrada de 23/11/2026 abaixo |
 | 102 | cobranca_avisos | `orcamentos.nota_emails`; tabelas **`omie_cliente_emails`** (para quem o Omie manda a nota de cada cliente), **`omie_receber_avencer`** (títulos do sistema a vencer) e **`cobranca_avisos`** (a fila e o histórico dos avisos, um por título/etapa/vencimento). **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Ver a entrada de 23/11/2026 abaixo |
 | 106 | reservatorio_extravasor | `reservatorios.altura_extravasor_m` (altura do ladrão, liga a detecção de extravasamento), `extravasor_desde` e `extravasor_bomba_desde` (o relógio da regra de tempo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
+| 108 | orcamento_metodo_reservatorio | `orcamentos.metodo_reservatorio` (`manual` \| `robo`, default `manual`): a limpeza de reservatório com robô aspirador, com cláusulas próprias no PDF. ✅ **Aplicada em teste e em produção em 26/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 26/11/2026 abaixo |
 | 107 | guias_emissores | `guias_tributos.emissor_chave` (quem cobra: `cnpj:` / `arr:` / `bol:`) e a tabela **`guias_emissores`** (fornecedor/categoria/conta do Omie por emissor, para conta que não é tributo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
@@ -18992,3 +18993,16 @@ diferentes, botão vazio enquanto carrega. Backend: campos novos em
 `GET /chamados/meus`, `/meus/:id` e `/planos-manutencao/meu-roteiro`, sem
 migration. **Exige APK novo.** Ver
 [modulos/app-mobile.md](modulos/app-mobile.md#a-estrutura-nova-do-app-26112026).
+
+## 2026-11-26 — Orçamento de limpeza de reservatório com robô aspirador
+
+O modelo de limpeza de reservatório só descrevia a limpeza manual. No
+orçamento de "Limpeza de reservatório" e de "Limpeza + dedetização" entrou o
+campo **Método da limpeza** (Manual | Robô aspirador), logo abaixo do tipo.
+Com robô, o PDF troca as três cláusulas do reservatório: limpeza por sistema
+robotizado de aspiração subaquática, sem esvaziamento e sem interromper o
+abastecimento; escopo com inspeção, aspiração, descarte do material e
+desinfecção; mesmas normas, periodicidade e laudo com ART. No combo, o
+cabeçalho vira "Limpeza de Reservatório de Água Potável (Robô Aspirador)".
+Migration 108 (`orcamentos.metodo_reservatorio`). Ver
+[modulos/ordens-servico.md](modulos/ordens-servico.md).

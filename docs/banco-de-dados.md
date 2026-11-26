@@ -754,6 +754,20 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 108 — orçamento: limpeza de reservatório com robô aspirador (26/11/2026)
+
+Fluxo em [ordens-servico.md](modulos/ordens-servico.md) (orçamento de serviço).
+
+- **`orcamentos.metodo_reservatorio`** VARCHAR(10) NOT NULL DEFAULT `'manual'`,
+  CHECK `manual` | `robo`. Escolhe as cláusulas da limpeza de reservatório no
+  PDF: manual (esvaziamento e escovação) ou robô aspirador subaquático (sem
+  esvaziar, sem cortar o abastecimento). Vale nos tipos `limpeza_reservatorio`
+  e `limpeza_dedetizacao`; nos outros fica gravada e é ignorada.
+- Não é tipo novo de orçamento de propósito: o serviço é o mesmo, muda o
+  método, e assim o combo com dedetização já sai com as duas versões.
+
+✅ Teste e ✅ **produção** (26/11/2026, conferida no `information_schema`, antes do push).
+
 ## 107 — guias: a regra pelo emissor (24/11/2026)
 
 Fluxo em [guias-tributos.md](modulos/guias-tributos.md#conta-que-não-é-tributo-a-regra-pelo-emissor-24112026).

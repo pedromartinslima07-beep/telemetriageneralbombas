@@ -275,7 +275,7 @@
     // O cabeçalho e o trilho também precisam saber (26/11/2026): "trocar" o
     // cliente, "Editar condições" e a situação à mão só valem no formulário.
     document.getElementById("avModalBody")?.classList.toggle("is-doc-modo", doc);
-    for (const id of ["avInputStatus", "avInputTipo"]) {
+    for (const id of ["avInputStatus", "avInputTipo", "avInputMetodo"]) {
       const s = document.getElementById(id);
       if (s) s.disabled = doc;
     }

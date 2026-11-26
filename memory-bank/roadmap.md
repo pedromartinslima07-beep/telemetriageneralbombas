@@ -1086,6 +1086,15 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 - [ ] Escritório ver a versão do app de cada técnico (gravar no backend)
 - Ver [app-mobile.md](../docs/modulos/app-mobile.md#a-estrutura-nova-do-app-26112026)
 
+## Orçamento de limpeza com robô aspirador (26/11/2026)
+
+- [x] Método da limpeza (Manual | Robô aspirador) no orçamento de limpeza e
+  no combo com dedetização; cláusulas próprias no PDF ✅ (teste)
+- [x] Migration 108 em produção (26/11/2026) e push ✅
+- [ ] Conferir o texto das cláusulas com quem faz o serviço (robô limpa
+  paredes? laudo leva fotos/vídeo?)
+- Ver [ordens-servico.md](../docs/modulos/ordens-servico.md)
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para

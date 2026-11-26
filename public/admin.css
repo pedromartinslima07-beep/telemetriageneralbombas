@@ -13445,6 +13445,7 @@ a.ls-bt { text-decoration: none; }
 #avModal.is-pagina .av-cliente-painel { padding: 14px 16px; margin-top: 4px; border: 1px solid var(--border); border-radius: 10px; background: #f8faff; }
 #avModal.is-pagina .av-cliente-painel .ap-section-title { border: 0; padding: 0; margin-bottom: 10px; }
 .av-tipo-campo { display: block; max-width: 320px; margin-bottom: 12px; }
+.av-tipo-campo[hidden] { display: none; }
 
 /* ── itens: uma linha por item ── */
 #avModal.is-pagina .orc-itens-table td { vertical-align: top; }

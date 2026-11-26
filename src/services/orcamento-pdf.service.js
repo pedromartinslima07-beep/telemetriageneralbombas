@@ -127,6 +127,7 @@ async function buscarDadosAvulso(orcamentoId) {
        o.numero,
        o.status,
        o.tipo,
+       o.metodo_reservatorio,
        o.constatacao,
        o.forma_pagamento,
        o.prazo_entrega,
@@ -743,6 +744,37 @@ function clausulasLimpezaReservatorio(especificacao) {
 </div>`;
 }
 
+// Mesma limpeza, feita com robô aspirador subaquático (migration 108,
+// `orcamentos.metodo_reservatorio = 'robo'`). Não esvazia o reservatório nem
+// corta o abastecimento — é justamente o que o cliente compra nesta versão,
+// então a frase aparece já no Objeto.
+function clausulasLimpezaReservatorioRobo(especificacao) {
+  const espHtml = especificacao
+    ? `<p><strong>Especificação:</strong> ${escapeHtml(especificacao)}.</p>`
+    : "";
+  return `
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Primeira – Objeto</div>
+  <p>O presente orçamento tem por objeto a prestação de serviços de limpeza e higienização de reservatório(s) de água potável (caixa d'água) do condomínio acima identificado por sistema robotizado de aspiração subaquática, sem necessidade de esvaziamento e sem interrupção do abastecimento de água, com mão de obra especializada e produtos saneantes registrados nos órgãos competentes.</p>
+  ${espHtml}
+</div>
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Segunda – Escopo dos Serviços</div>
+  <p>Inspeção do(s) reservatório(s); aspiração robotizada de sedimentos, lodo e materiais depositados; descarte do material aspirado; desinfecção com hipoclorito de sódio em dosagem técnica adequada; verificação da vedação da tampa de acesso.</p>
+</div>
+<div class="clausula">
+  <div class="clausula-titulo">Cláusula Terceira – Normas, Periodicidade e Garantia</div>
+  <p>Serviço executado em conformidade com a NBR 5626 (instalações prediais de água fria) e normas da Vigilância Sanitária. Periodicidade recomendada: a cada 6 (seis) meses. Será emitido Laudo Técnico de Limpeza com ART (Anotação de Responsabilidade Técnica) ao final do serviço.</p>
+</div>`;
+}
+
+function _clausulasReservatorio(os, itens) {
+  const esp = acharEspecificacaoReservatorio(itens);
+  return os.metodo_reservatorio === "robo"
+    ? clausulasLimpezaReservatorioRobo(esp)
+    : clausulasLimpezaReservatorio(esp);
+}
+
 // Recebe especificação pelo mesmo caminho da limpeza. Antes não recebia nada,
 // e o campo que o admin oferecia para dedetização não aparecia em lugar nenhum
 // do documento — o texto ia pro banco e morria ali.
@@ -797,11 +829,11 @@ function acharEspecificacaoDedetizacao(itens) {
 }
 
 const CLAUSULAS_POR_TIPO = {
-  limpeza_reservatorio: (itens) => clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens)),
+  limpeza_reservatorio: (itens, semGar, os) => _clausulasReservatorio(os, itens),
   dedetizacao: (itens, semGar) => clausulasDedetizacao(acharEspecificacaoDedetizacao(itens), semGar),
-  limpeza_dedetizacao: (itens, semGar) => `
-<div class="servico-header">Serviço 1 – Limpeza de Reservatório de Água Potável</div>
-${clausulasLimpezaReservatorio(acharEspecificacaoReservatorio(itens))}
+  limpeza_dedetizacao: (itens, semGar, os) => `
+<div class="servico-header">Serviço 1 – Limpeza de Reservatório de Água Potável${os.metodo_reservatorio === "robo" ? " (Robô Aspirador)" : ""}</div>
+${_clausulasReservatorio(os, itens)}
 <div class="servico-header">Serviço 2 – Dedetização</div>
 ${clausulasDedetizacao(acharEspecificacaoDedetizacao(itens), semGar)}`,
 };
@@ -812,7 +844,7 @@ function renderHTMLServico({ os, itens, fotos }, timbrado) {
   const endParts      = [os.endereco, os.bairro, os.cidade && os.uf ? `${os.cidade}/${os.uf}` : (os.cidade || ""), os.cep ? `CEP ${os.cep}` : ""].filter(Boolean);
   const enderecoStr   = endParts.join(" – ");
   const tipoSubtitulo = TIPO_SUBTITULO[os.tipo] || "";
-  const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens, semGarantia(os));
+  const clausulasHtml = (CLAUSULAS_POR_TIPO[os.tipo] || (() => ""))(itens, semGarantia(os), os);
   const validadeStr   = validadeTexto(os);
   const totalGeral    = os.valor != null
     ? Number(os.valor)
