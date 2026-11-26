@@ -33,7 +33,7 @@ async function jobFecharConversasInativas() {
           (SELECT MAX(m.criado_em) FROM mensagens_whatsapp m WHERE m.conversa_id = cw.id),
           cw.criado_em
         ) < NOW() - make_interval(hours => $1)
-      RETURNING cw.id, cw.cliente_whatsapp_id, cw.aguardando_avaliacao`,
+      RETURNING cw.id, cw.cliente_whatsapp_id, cw.aguardando_avaliacao, cw.phone_number_id`,
     [horas]
   );
 
@@ -50,7 +50,7 @@ async function jobFecharConversasInativas() {
       );
       const telefone = cRes.rows[0]?.telefone;
       if (telefone) {
-        await enviarMensagem(telefone, MSG_AVALIACAO);
+        await enviarMensagem(telefone, MSG_AVALIACAO, row.phone_number_id);
         avaliacoes++;
       }
     } catch (_) {

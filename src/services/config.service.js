@@ -65,6 +65,8 @@ const CHAVES = {
   "preventivas.dia_meta":           { tipo: "int", min: 1, max: 28 }, // default 10
   "planos.roteiro_antecedencia_dias": { tipo: "int", min: 0, max: 60 }, // janela do roteiro do técnico no app: planos vencendo em até N dias (default 7)
   "whatsapp.sessao_timeout_horas":  { tipo: "int", min: 1, max: 72 }, // inatividade que encerra a sessão e abre nova na próxima msg (default 8h)
+  "whatsapp.sync_intervalo_min":    { tipo: "int", min: 5, max: 120 }, // ronda que refaz a sincronização da coexistência (default 15 min)
+  "whatsapp.coexistencia_pausa_horas": { tipo: "int", min: 1, max: 72 }, // equipe respondeu pelo celular (eco): IA quieta na conversa por N horas, renovadas a cada eco (default 12h)
 };
 
 function chaveValida(chave) {

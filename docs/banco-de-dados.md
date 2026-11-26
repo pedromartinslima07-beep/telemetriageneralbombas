@@ -754,6 +754,34 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 108 — vários números de WhatsApp e coexistência (25/11/2026)
+
+Fluxo em [WhatsApp e IA](modulos/whatsapp-ia.md#vários-números-e-coexistência-25112026)
+e [Meta Tech Provider](modulos/meta-tech-provider.md).
+
+**`whatsapp_contas`** — cada número conectado pelo cadastro incorporado.
+`waba_id`, `phone_number_id` (único), `nome`, `telefone_exibicao`,
+`coexistencia` (segue no WhatsApp Business do celular), `padrao` (o número
+que fala quando ninguém escolheu; índice único parcial: no máximo um ativo),
+`status` (`ativa` · `desconectada`), `segredo_cifrado` (token e PIN em
+AES-256-GCM com `WHATSAPP_TOKENS_CHAVE`, o `phone_number_id` como dado
+autenticado; NULL depois de desconectar), `conectado_em`, `conectado_por_id`,
+`desconectado_em`, `sync_contatos_em`, `sync_historico_em`,
+`sync_tentativas`, `ultimo_erro`.
+
+⚠️ **O token nunca fica em claro**, nem sai pela API (`GET /whatsapp/contas`
+devolve só `tem_token`). Perdida a chave, os números reconectam.
+
+**`conversas_whatsapp.phone_number_id`** — por qual número da empresa a
+conversa acontece; a resposta sai por ele. NULL = conversa de antes da 108.
+**`conversas_whatsapp.ia_pausada_ate`** — a equipe respondeu pelo celular
+(eco): a IA fica quieta ali até esse instante.
+**`mensagens_whatsapp.origem`** — NULL = sistema/IA/central; `celular` = eco.
+
+Aplicada em **teste** em 25/11/2026. ⏳ **Falta produção** (rodar antes do
+deploy desta branch: o webhook passa a filtrar conversa por
+`phone_number_id`).
+
 ## 107 — guias: a regra pelo emissor (24/11/2026)
 
 Fluxo em [guias-tributos.md](modulos/guias-tributos.md#conta-que-não-é-tributo-a-regra-pelo-emissor-24112026).

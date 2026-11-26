@@ -57,6 +57,7 @@ const { startLeiturasCleanupScheduler } = require("./jobs/leituras-cleanup.job")
 const { startAlertasCleanupScheduler } = require("./jobs/alertas-cleanup.job");
 const { startConversasCleanupScheduler } = require("./jobs/conversas-cleanup.job");
 const { startConversasTimeoutScheduler } = require("./jobs/conversas-timeout.job");
+const { startWhatsappSyncScheduler } = require("./jobs/whatsapp-sync.job");
 
 const app = express();
 
@@ -603,5 +604,6 @@ startAlertasCleanupScheduler();
 startConversasCleanupScheduler();
 startPlanosManutencaoScheduler();
 startConversasTimeoutScheduler();
+startWhatsappSyncScheduler(); // coexistência: sincronização de contatos/histórico em 24h (migration 108)
 
 module.exports = { app };

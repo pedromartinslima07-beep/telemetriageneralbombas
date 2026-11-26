@@ -81,6 +81,16 @@ ESP32 (sonda 4-20mA + SCT-013)
 | **status / leituras / jobs** | Endpoints auxiliares e disparo manual de jobs |
 | **leads** | Contatos da landing pública. `POST /leads` é público (rate limit + honeypot `site` + truncagem); leitura e funil exigem `gestaoOnly`. Fluxo em [landing-publica.md](../docs/modulos/landing-publica.md) |
 
+### 🟡 Vários números de WhatsApp e coexistência (25/11/2026, branch `feature/whatsapp-coexistencia`, NÃO no ar)
+
+Migration 108 (`whatsapp_contas`, `conversas_whatsapp.phone_number_id` /
+`ia_pausada_ate`, `mensagens_whatsapp.origem`) — aplicada só em **teste**.
+Conversa amarrada ao número da empresa; token por número cifrado
+(`WHATSAPP_TOKENS_CHAVE`); eco do celular cala a IA; conectar/desconectar em
+`/whatsapp/contas` (admin master); ronda `whatsapp-sync.job.js`; Graph v27.0.
+Falta a tela do cadastro incorporado no admin. Ver
+[WhatsApp e IA](../docs/modulos/whatsapp-ia.md#vários-números-e-coexistência-25112026).
+
 ### ⚠️ Webhook do WhatsApp assinado (24/11/2026, no ar em cbb0b8b; `WHATSAPP_APP_SECRET` no serviço web — teste da Meta 200, POST sem/falsa assinatura 403)
 
 `POST /whatsapp/webhook` só processa com `X-Hub-Signature-256` válida

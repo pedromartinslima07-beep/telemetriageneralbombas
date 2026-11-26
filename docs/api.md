@@ -74,7 +74,7 @@ segue no comportamento padrão do Express.
 | POST | `/auth/verify-otp` | valida OTP → JWT + cookie trusted device. **Serve aos dois caminhos** |
 | POST | `/telemetria` | ingestão de leitura (auth via header `X-Device-Key`) |
 | GET | `/whatsapp/webhook` | verificação do webhook da Meta (`hub.challenge`) |
-| POST | `/whatsapp/webhook` | recebe eventos da Meta API; exige `X-Hub-Signature-256` válida com `WHATSAPP_APP_SECRET`, senão 403 |
+| POST | `/whatsapp/webhook` | recebe eventos da Meta API; exige `X-Hub-Signature-256` válida com `WHATSAPP_APP_SECRET`, senão 403. Além de `messages`: `smb_message_echoes` (eco do celular, pausa a IA), `history`/`smb_app_state_sync` (só contados) e `account_update` `PARTNER_REMOVED` (desconecta o número) |
 | GET | `/tiles/:z/:x/:y.png` | proxy de tiles do mapa (Carto), cache em memória |
 | GET | `/` `/login` `/admin/painel` `/cliente/painel` `/operador/painel` | páginas HTML (no-cache) |
 | GET | `/admin/reset-cache`, `/reset-cache` | limpa SW/caches do PWA |
@@ -143,6 +143,11 @@ Webhook em **Públicas**. Demais exigem admin:
 | PATCH | `/conversas/:id/qualidade` | adminOnly (curadoria) |
 | GET | `/conversas/curadoria/stats` | adminOnly |
 | GET | `/conversas/export` | **gestao** (NDJSON + PII scrubbing) |
+| GET | `/whatsapp/contas/config` | **masterAdmin** — o que a tela precisa para abrir o cadastro incorporado (`appId`, `configId`, `graphVersao`) e `faltando` (variáveis não configuradas); sem segredo |
+| GET | `/whatsapp/contas` | **masterAdmin** — números conectados (migration 108), sem o token (`tem_token`) |
+| POST | `/whatsapp/contas/conectar` | **masterAdmin** — `{ code, waba_id, phone_number_id?, coexistencia, padrao? }` do cadastro incorporado. Troca o code pelo token da empresa, inscreve o app na WABA, registra (número novo) ou pede a sincronização (coexistência). 201 · 400 dado inválido · 502 Meta recusou · 503 falta configuração |
+| POST | `/whatsapp/contas/:id/desconectar` | **masterAdmin** — tira o app da WABA e apaga o token |
+| PATCH | `/whatsapp/contas/:id/padrao` | **masterAdmin** — número padrão (aviso de sensor); 404 se não estiver ativo |
 | DELETE | `/conversas/:id` | adminOnly |
 
 ---

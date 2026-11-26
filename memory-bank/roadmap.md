@@ -1169,15 +1169,20 @@ pelo eco) na seção "Coexistência" da
 Reaproveitar o desenho do projeto do pet shop (cofre cifrado `src/cofre.js`,
 "coexistência parte B" com cadastro incorporado pronto).
 
-- [ ] Tela no admin que abre o cadastro incorporado (SDK do Facebook + `config_id`) e recebe o código de volta.
-- [ ] Trocar o código pelo token do cliente; guardar **cifrado no banco** (migration nova), com WABA e `phone_number_id` de cada cliente; inscrever o app na WABA do cliente.
-- [ ] Webhook separa por `phone_number_id` → cliente/condomínio certo; conversas e chamados ficam do cliente.
-- [ ] Envio (`evolution.service.js`) com o número e o token do cliente certo; o número da General Bombas vira só mais um.
-- [ ] Conferir a versão da Graph API (gateway em v20.0; webhooks em v27.0).
-- [ ] Testes de rota (Express + JWT) para cada caminho que grava.
-- [ ] **Coexistência:** número conectado por coexistência **não** passa pelo `/register`; na conexão, pedir `smb_app_state_sync` e `history` em até 24 h (ronda que refaz a que falhou, como no Petzu) e virar ocorrência se não sair.
-- [ ] **Eco pausa a IA:** `smb_message_echoes` (humano respondeu pelo celular) grava a mensagem na conversa como da equipe e pausa a IA naquela conversa; resposta da IA pronta depois disso é descartada. No Petzu: 12 h, renovadas a cada eco.
-- [ ] `account_update` com `PARTNER_REMOVED` (desconectado pelo celular) solta o cliente.
+Feito em 25/11/2026 na branch `feature/whatsapp-coexistencia` (migration 108,
+só em teste; teste `whatsapp-coexistencia.test.js` 33/33). Detalhes em
+[WhatsApp e IA](../docs/modulos/whatsapp-ia.md#vários-números-e-coexistência-25112026).
+
+- [ ] Tela no admin que abre o cadastro incorporado (SDK do Facebook + `config_id`) e manda o código para `POST /whatsapp/contas/conectar`. Depende do `config_id` (Fase 1).
+- [x] Trocar o código pelo token do cliente; guardar **cifrado no banco** (`whatsapp_contas`, AES-256-GCM, `WHATSAPP_TOKENS_CHAVE`), com WABA e `phone_number_id`; inscrever o app na WABA.
+- [x] Webhook separa por `phone_number_id`: a conversa é do número e a resposta sai por ele. ⏳ Ligar o número ao **condomínio/cliente dono** (hoje a conversa sabe o número, não de quem ele é) — só quando houver cliente de fora.
+- [x] Envio (`evolution.service.js`) com o número e o token certos; conta `padrao` para o aviso de sensor; o número do Railway vira reserva.
+- [x] Graph API em v27.0 (`WHATSAPP_GRAPH_VERSAO`).
+- [x] Testes de rota (Express + JWT) para os caminhos que gravam.
+- [x] **Coexistência:** sem `/register`; sincronização pedida na conexão e refeita pela ronda `whatsapp-sync.job.js` (5 tentativas em 24 h); vencido, `ultimo_erro` pede reconexão. ⏳ Virar aviso na tela/e-mail.
+- [x] **Eco pausa a IA:** `origem = 'celular'`, `ia_pausada_ate` (12 h, `whatsapp.coexistencia_pausa_horas`), conferida antes e depois da IA. ⏳ A central mostrar a mensagem como "pelo celular".
+- [x] `account_update` com `PARTNER_REMOVED` desconecta e apaga o token.
+- [ ] **Antes do deploy:** migration 108 em produção; `WHATSAPP_APP_ID`, `WHATSAPP_TOKENS_CHAVE` (cópia fora do Railway) no serviço web.
 
 ### Fase 4 — Análise do app 📋
 

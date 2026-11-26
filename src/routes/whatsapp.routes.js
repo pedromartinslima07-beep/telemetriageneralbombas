@@ -5,6 +5,8 @@ const { receberWebhook, verificarWebhook } = require("../controllers/whatsapp.co
 const { enviarMensagem } = require("../services/evolution.service");
 const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
+const { masterAdminOnly } = require("../middleware/masterAdminOnly");
+const cadastroWa = require("../services/whatsapp-cadastro.service");
 
 let _openai = null;
 function getOpenAI() {
@@ -31,6 +33,82 @@ const router = express.Router();
 
 router.get("/webhook", verificarWebhook);   // verificação da Meta
 router.post("/webhook", receberWebhook);    // receber mensagens
+
+// ── Números conectados (Tech Provider / coexistência — migration 108) ──────
+// Conectar e desconectar número é configuração de alto impacto: só o admin
+// master. A config pública (app id, config id) é o que a tela precisa para
+// abrir a janela da Meta; não tem segredo.
+function _erroCadastro(res, err, onde) {
+  if (err instanceof cadastroWa.ErroCadastro) return res.status(err.status).json({ error: err.message });
+  console.error(`[whatsapp] ${onde}:`, err.message);
+  return res.status(500).json({ error: "Erro ao falar com a Meta" });
+}
+
+router.get("/contas/config", authRequired, masterAdminOnly, (_req, res) => {
+  res.json(cadastroWa.configuracaoPublica());
+});
+
+router.get("/contas", authRequired, masterAdminOnly, async (_req, res) => {
+  try {
+    res.json({ contas: await cadastroWa.listar() });
+  } catch (err) {
+    return _erroCadastro(res, err, "GET /contas");
+  }
+});
+
+// Corpo: { code, waba_id, phone_number_id?, coexistencia, padrao? } — o que a
+// janela do cadastro incorporado devolveu no navegador. O code vale ~30 s.
+router.post("/contas/conectar", authRequired, masterAdminOnly, async (req, res) => {
+  const b = req.body || {};
+  try {
+    const conta = await cadastroWa.conectar({
+      code: b.code ? String(b.code) : null,
+      wabaId: b.waba_id ? String(b.waba_id) : null,
+      phoneNumberId: b.phone_number_id ? String(b.phone_number_id) : null,
+      coexistencia: b.coexistencia === true,
+      padrao: b.padrao === true,
+      usuarioId: req.user?.id ?? null,
+    });
+    res.status(201).json({ ok: true, conta });
+  } catch (err) {
+    return _erroCadastro(res, err, "POST /contas/conectar");
+  }
+});
+
+router.post("/contas/:id/desconectar", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  try {
+    res.json({ ok: true, conta: await cadastroWa.desconectar(id) });
+  } catch (err) {
+    return _erroCadastro(res, err, "POST /contas/:id/desconectar");
+  }
+});
+
+// Marca o número que fala quando ninguém escolheu (aviso de sensor). Um só.
+router.patch("/contas/:id/padrao", authRequired, masterAdminOnly, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "id inválido" });
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const alvo = await cliente.query(`SELECT id FROM whatsapp_contas WHERE id = $1 AND status = 'ativa' FOR UPDATE`, [id]);
+    if (!alvo.rows.length) {
+      await cliente.query("ROLLBACK");
+      return res.status(404).json({ error: "Número ativo não encontrado" });
+    }
+    await cliente.query(`UPDATE whatsapp_contas SET padrao = FALSE, atualizado_em = NOW() WHERE padrao AND id <> $1`, [id]);
+    await cliente.query(`UPDATE whatsapp_contas SET padrao = TRUE, atualizado_em = NOW() WHERE id = $1`, [id]);
+    await cliente.query("COMMIT");
+    res.json({ ok: true });
+  } catch (err) {
+    await cliente.query("ROLLBACK").catch(() => {});
+    console.error("[whatsapp] PATCH /contas/:id/padrao:", err.message);
+    res.status(500).json({ error: "Erro ao marcar o número padrão" });
+  } finally {
+    cliente.release();
+  }
+});
 
 // GET /whatsapp/conversas
 router.get("/conversas", authRequired, gestaoOnly, async (req, res) => {
@@ -258,7 +336,7 @@ router.post("/conversas/:id/responder", authRequired, gestaoOnly, async (req, re
   try {
     // Busca a conversa + telefone do cliente
     const cvRes = await pool.query(
-      `SELECT cv.id, cv.assumida_por_id, cv.status, cw.telefone
+      `SELECT cv.id, cv.assumida_por_id, cv.status, cv.phone_number_id, cw.telefone
        FROM conversas_whatsapp cv
        JOIN clientes_whatsapp cw ON cw.id = cv.cliente_whatsapp_id
        WHERE cv.id = $1`,
@@ -278,7 +356,7 @@ router.post("/conversas/:id/responder", authRequired, gestaoOnly, async (req, re
 
     // Envia via Evolution API (não bloqueia a resposta se falhar)
     try {
-      await enviarMensagem(conv.telefone, texto);
+      await enviarMensagem(conv.telefone, texto, conv.phone_number_id);
     } catch (evErr) {
       console.error("[whatsapp] erro ao enviar via Evolution:", evErr.message);
     }

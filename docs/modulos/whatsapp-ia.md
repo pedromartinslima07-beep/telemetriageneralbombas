@@ -157,12 +157,54 @@ funções devolvem `{ ok, http }`.
   scrubbing** (CPF, CNPJ, telefone, email, CEP, RG → tokens) — dataset pronto
   para fine-tuning futuro (Fase 10).
 
+## Vários números e coexistência (25/11/2026)
+
+Migration 108. Base do Tech Provider: cada empresa conecta o próprio número
+pelo cadastro incorporado e ganha um token próprio, guardado cifrado em
+`whatsapp_contas` (`src/services/whatsapp-cofre.service.js`). Plano e regras
+da Meta em [Meta Tech Provider](meta-tech-provider.md).
+
+- **A conversa é do número.** O webhook lê `metadata.phone_number_id` e a
+  conversa aberta é procurada por cliente **e** número; a resposta (IA,
+  central, avaliação, ação confirmada) sai pelo mesmo número. O mesmo cliente
+  em dois números são duas conversas.
+- **Credenciais** (`_credenciais` em `evolution.service.js`): número
+  conectado → o token dele; número do Railway → o do Railway; sem número → a
+  conta `padrao`, senão o Railway. Número desconhecido **não** cai no token de
+  ninguém: a mensagem não sai e o log diz.
+- **Aviso de sensor** sai pelo número padrão (`numeroPadrao()`), e a janela de
+  24 h é contada nesse número. Modelo é da WABA: o `WHATSAPP_TEMPLATE_SENSOR`
+  precisa existir na WABA do número padrão.
+- **Coexistência — eco cala a IA.** `smb_message_echoes` é a equipe
+  respondendo pelo WhatsApp Business do celular: a mensagem entra na conversa
+  como saída com `origem = 'celular'`, a ação pendente cai, e a IA fica quieta
+  por `whatsapp.coexistencia_pausa_horas` (padrão 12 h), renovadas a cada eco.
+  A pausa é conferida antes da IA **e de novo depois**: resposta pronta de uma
+  conversa que alguém assumiu nesse meio tempo vai para o lixo.
+- **Conectar** (`POST /whatsapp/contas/conectar`,
+  `whatsapp-cadastro.service.js`): troca o `code` pelo token, acha o número na
+  WABA, `subscribed_apps`, e então `register` com PIN nosso (número novo) **ou**
+  — em coexistência — **nada de register** e o pedido de sincronização
+  (`smb_app_state_sync` e `history`).
+- **Ronda** (`jobs/whatsapp-sync.job.js`, a cada `whatsapp.sync_intervalo_min`,
+  padrão 15): refaz a sincronização que falhou, até 5 tentativas em 24 h.
+  Passou disso, `ultimo_erro` diz para reconectar pela janela da Meta.
+- **`PARTNER_REMOVED`** (a empresa tirou o app pelo celular): os números da
+  WABA viram `desconectada` e o token é apagado.
+- `history` e `smb_app_state_sync` são só contados no log, como no Petzu.
+- **Graph em v27.0** (`WHATSAPP_GRAPH_VERSAO`); era v20.0 fixo.
+
+Teste: `scripts/testes/whatsapp-coexistencia.test.js` (33 casos: cofre,
+separação do webhook, eco, dois números, credenciais, PARTNER_REMOVED, ronda,
+rotas). ⏳ **Falta:** a tela no admin que abre a janela da Meta (depende do
+`config_id`), e a central mostrar o eco como "pelo celular".
+
 ## Tabelas envolvidas
 
 `clientes_whatsapp` (telefone→condomínio/usuário, tipo B2B/PF),
 `conversas_whatsapp` (estado, assumida, aguardando, qualidade, canal),
-`mensagens_whatsapp` (direção, ia_categoria, ia_urgencia p1-p4, lida_em),
-`chamados`.
+`mensagens_whatsapp` (direção, ia_categoria, ia_urgencia p1-p4, lida_em, origem),
+`whatsapp_contas` (números conectados, migration 108), `chamados`.
 
 ## Status atual
 

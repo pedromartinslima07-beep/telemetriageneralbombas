@@ -185,7 +185,7 @@ Leaflet, Lucide) — sem CDN, sem npm no frontend.
 | Integração | Onde | Variáveis de ambiente | Notas |
 |---|---|---|---|
 | **OpenAI** | `ia.service.js`, `/alertas/analisar-ia` | `OPENAI_API_KEY` | gpt-4o-mini, function calling, `response_format: json_object` na análise |
-| **Meta WhatsApp Business API** | `evolution.service.js`, `whatsapp.controller.js` | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` | `POST graph.facebook.com/v.../{phone_id}/messages`; webhook verificado por GET |
+| **Meta WhatsApp Business API** | `evolution.service.js`, `whatsapp.controller.js` | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` | `POST graph.facebook.com/v27.0/{phone_id}/messages` (versão em `WHATSAPP_GRAPH_VERSAO`); token **por número** em `whatsapp_contas` (migration 108, cifrado), o do Railway como reserva; webhook verificado por GET e assinado no POST |
 | **Resend** | `email.js` | `RESEND_API_KEY`, `SMTP_FROM` | OTP de login + email de alerta crítico |
 | **Nominatim (OSM)** | `/admin/geocode`, `/admin/reverse-geocode` | — | proxy server-side, fila 1 req/s (ToS) |
 | **ViaCEP / BrasilAPI / AwesomeAPI** | frontend (CEP → endereço/coords) | — | liberados na CSP (`connect-src`) |
@@ -206,7 +206,9 @@ JWT_SECRET (obrigatório em prod) · OTP_DISABLED (dev) · CORS_ORIGINS (obrigat
 OFFLINE_MINUTES · TELEMETRIA_PCT_THRESHOLD · TELEMETRIA_HEARTBEAT_MIN
 # Integrações
 OPENAI_API_KEY · RESEND_API_KEY · SMTP_FROM
-WHATSAPP_ACCESS_TOKEN · WHATSAPP_PHONE_NUMBER_ID · WHATSAPP_VERIFY_TOKEN
+WHATSAPP_ACCESS_TOKEN · WHATSAPP_PHONE_NUMBER_ID · WHATSAPP_VERIFY_TOKEN · WHATSAPP_APP_SECRET
+WHATSAPP_APP_ID · WHATSAPP_TOKENS_CHAVE (32 bytes base64) · WHATSAPP_CADASTRO_CONFIG · WHATSAPP_GRAPH_VERSAO (padrão v27.0)
+WHATSAPP_TEMPLATE_SENSOR · WHATSAPP_TEMPLATE_IDIOMA
 ```
 
 `JWT_SECRET` e `CORS_ORIGINS` ausentes em produção → `process.exit(1)`.

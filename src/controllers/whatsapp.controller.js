@@ -17,7 +17,8 @@ const MSG_FALHA_IA = "Desculpe, tive um problema para responder agora. Pode repe
 const _RE_SAUDACAO = /^(oi+|ol[aá]|opa|e\s?a[ií]|al[oô]|hello|hi)\W*$/i;
 
 // Executa a ação pendente quando o cliente confirma (backend como juiz final — P3)
-async function _executarAcaoPendente(conversaId, pendente, telefone) {
+// `pnid`: o número da empresa por onde a conversa acontece (a resposta sai por ele).
+async function _executarAcaoPendente(conversaId, pendente, telefone, pnid = null) {
   const { tipo, params } = pendente;
 
   if (tipo === "abrir_chamado") {
@@ -80,7 +81,7 @@ async function _executarAcaoPendente(conversaId, pendente, telefone) {
       `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo) VALUES ($1, 'saida', 'text', $2)`,
       [conversaId, msg]
     );
-    await enviarMensagem(telefone, msg);
+    await enviarMensagem(telefone, msg, pnid);
     console.log(`[whatsapp] ação pendente executada: chamado CH-${r.rows[0].id} aberto`);
 
   } else if (tipo === "criar_solicitacao_orcamento") {
@@ -98,7 +99,7 @@ async function _executarAcaoPendente(conversaId, pendente, telefone) {
       `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo) VALUES ($1, 'saida', 'text', $2)`,
       [conversaId, msg]
     );
-    await enviarMensagem(telefone, msg);
+    await enviarMensagem(telefone, msg, pnid);
     console.log(`[whatsapp] ação pendente executada: orçamento ${resultado.numero} criado`);
   }
 }
@@ -117,42 +118,155 @@ function verificarWebhook(req, res) {
   return res.sendStatus(403);
 }
 
-// Extrai mensagens do payload da Meta (pode vir em lote)
-function _extrairMensagens(payload) {
-  const mensagens = [];
+// Separa o payload da Meta (pode vir em lote) por tipo. Com a coexistência
+// chegam campos novos além de "messages"; separar aqui é o que impede um deles
+// de cair por engano no caminho que chama a IA. Formatos (doc da Meta, mesmos
+// do Petzu):
+//   messages            value.messages[] (e statuses[], ignorados aqui)
+//   smb_message_echoes  value.message_echoes[]: o que a equipe mandou PELO
+//                       CELULAR. `from` é o número da empresa; o cliente está
+//                       em `to`. Mensagem enviada pela API não gera eco.
+//   history             value.history[]: conversa antiga, logo depois de conectar
+//   smb_app_state_sync  value.state_sync[]: contatos da agenda do celular
+//   account_update      value.event = 'PARTNER_REMOVED': a empresa tirou o app
+//                       pelo celular. O entry.id é a WABA.
+// Em todos, value.metadata.phone_number_id é o número da empresa.
+function _extrairEventos(payload) {
+  const mensagens = [], ecos = [], parceiroRemovido = [];
+  let historico = 0, estadoApp = 0;
   for (const entry of payload?.entry || []) {
     for (const change of entry?.changes || []) {
-      if (change.field !== "messages") continue;
-      const value = change.value;
-      for (const msg of value?.messages || []) {
-        mensagens.push({
-          telefone:    msg.from,
-          messageId:   msg.id,
-          tipo:        msg.type,                          // text | image | audio | document | video
-          conteudo:    msg.text?.body || null,
-          nomeContato: value.contacts?.[0]?.profile?.name || null,
-        });
+      const value = change.value || {};
+      const pnid = value.metadata?.phone_number_id ? String(value.metadata.phone_number_id) : null;
+      if (change.field === "messages") {
+        for (const msg of value.messages || []) {
+          mensagens.push({
+            telefone:      msg.from,
+            messageId:     msg.id,
+            tipo:          msg.type,                        // text | image | audio | document | video
+            conteudo:      msg.text?.body || null,
+            nomeContato:   value.contacts?.[0]?.profile?.name || null,
+            phoneNumberId: pnid,
+          });
+        }
+      } else if (change.field === "smb_message_echoes") {
+        for (const eco of value.message_echoes || []) {
+          ecos.push({
+            telefone:      eco.to,
+            messageId:     eco.id,
+            tipo:          eco.type,
+            conteudo:      eco.text?.body || null,
+            phoneNumberId: pnid,
+          });
+        }
+      } else if (change.field === "history") {
+        historico += (value.history || []).length;
+      } else if (change.field === "smb_app_state_sync") {
+        estadoApp += (value.state_sync || []).length;
+      } else if (change.field === "account_update" && value.event === "PARTNER_REMOVED") {
+        const waba = value.waba_info?.waba_id || entry.id;
+        if (waba) parceiroRemovido.push(String(waba));
       }
     }
   }
-  return mensagens;
+  return { mensagens, ecos, parceiroRemovido, historico, estadoApp };
+}
+
+// Mantido para quem só quer as mensagens de cliente.
+const _extrairMensagens = (payload) => _extrairEventos(payload).mensagens;
+
+// A conversa aberta (dentro do tempo de sessão) daquele cliente NAQUELE número
+// da empresa, ou uma nova. O mesmo cliente falando com dois números são duas
+// conversas: a resposta tem de sair por onde ele escreveu.
+async function _conversaAberta(clienteId, pnid) {
+  const timeoutHoras = await getConfigInt("whatsapp.sessao_timeout_horas", 8);
+  const existente = await pool.query(
+    `SELECT cw.id FROM conversas_whatsapp cw
+     WHERE cw.cliente_whatsapp_id = $1
+       AND cw.status IN ('aberta','em_atendimento')
+       AND NOT (cw.aguardando_atendente = TRUE AND cw.assumida_por_id IS NULL)
+       AND cw.phone_number_id IS NOT DISTINCT FROM $3::varchar
+       AND COALESCE(
+         (SELECT MAX(m.criado_em) FROM mensagens_whatsapp m WHERE m.conversa_id = cw.id),
+         cw.criado_em
+       ) > NOW() - make_interval(hours => $2)
+     ORDER BY cw.criado_em DESC LIMIT 1`,
+    [clienteId, timeoutHoras, pnid]
+  );
+  if (existente.rows.length) return existente.rows[0].id;
+  const nova = await pool.query(
+    `INSERT INTO conversas_whatsapp (cliente_whatsapp_id, phone_number_id) VALUES ($1, $2::varchar) RETURNING id`,
+    [clienteId, pnid]
+  );
+  return nova.rows[0].id;
+}
+
+async function _clienteDoTelefone(telefone, nome = null) {
+  const r = await pool.query(
+    `INSERT INTO clientes_whatsapp (telefone, nome)
+     VALUES ($1, $2)
+     ON CONFLICT (telefone)
+     DO UPDATE SET nome = COALESCE(EXCLUDED.nome, clientes_whatsapp.nome)
+     RETURNING id`,
+    [telefone, nome]
+  );
+  return r.rows[0].id;
+}
+
+// A IA está quieta nesta conversa? Assumida pela central, esperando
+// atendente, ou alguém da equipe respondeu pelo celular há pouco (eco).
+async function _iaCalada(conversaId) {
+  const r = await pool.query(
+    `SELECT assumida_por_id, aguardando_atendente, (ia_pausada_ate > NOW()) AS pausada
+       FROM conversas_whatsapp WHERE id = $1`,
+    [conversaId]
+  );
+  const c = r.rows[0] || {};
+  if (c.assumida_por_id) return "assumida por humano";
+  if (c.aguardando_atendente) return "aguardando atendente";
+  if (c.pausada) return "equipe respondendo pelo celular";
+  return null;
+}
+
+// Eco da coexistência: alguém da equipe respondeu pelo WhatsApp Business do
+// celular. Grava na conversa como saída da equipe e cala a IA ali por
+// `whatsapp.coexistencia_pausa_horas` (padrão 12 h); cada eco renova o prazo.
+// Sem isso, a IA e a pessoa respondem o mesmo cliente ao mesmo tempo.
+async function processarEco(eco) {
+  try {
+    const { telefone, messageId, tipo, conteudo, phoneNumberId } = eco;
+    if (!telefone) return;
+    const clienteId = await _clienteDoTelefone(telefone);
+    const conversaId = await _conversaAberta(clienteId, phoneNumberId || null);
+    await pool.query(
+      `INSERT INTO mensagens_whatsapp (conversa_id, evolution_message_id, direcao, tipo, conteudo, origem)
+       VALUES ($1, $2, 'saida', $3, $4, 'celular')
+       ON CONFLICT (evolution_message_id) DO NOTHING`,
+      [conversaId, messageId || null, tipo || "text", conteudo]
+    );
+    const horas = await getConfigInt("whatsapp.coexistencia_pausa_horas", 12);
+    await pool.query(
+      `UPDATE conversas_whatsapp
+          SET ia_pausada_ate = NOW() + make_interval(hours => $2),
+              pendente_acao  = NULL,
+              estado_conversa = CASE WHEN estado_conversa = 'aguardando_confirmacao' THEN 'triagem' ELSE estado_conversa END
+        WHERE id = $1`,
+      [conversaId, horas]
+    );
+    console.log(`[whatsapp] eco do celular → conversa ${conversaId}: IA pausada por ${horas}h`);
+  } catch (err) {
+    console.error("[whatsapp] erro ao processar eco:", err);
+  }
 }
 
 async function processarMensagem(msg) {
   try {
     const { telefone, messageId, tipo, conteudo, nomeContato } = msg;
+    const pnid = msg.phoneNumberId || null;
     if (!telefone) return;
 
     // Cria ou atualiza cliente
-    const clienteResult = await pool.query(
-      `INSERT INTO clientes_whatsapp (telefone, nome)
-       VALUES ($1, $2)
-       ON CONFLICT (telefone)
-       DO UPDATE SET nome = COALESCE(EXCLUDED.nome, clientes_whatsapp.nome)
-       RETURNING id`,
-      [telefone, nomeContato]
-    );
-    const clienteId = clienteResult.rows[0].id;
+    const clienteId = await _clienteDoTelefone(telefone, nomeContato);
 
     // Captura avaliação pendente (resposta 1-4 após fechamento por timeout)
     if (conteudo && /^[1-4]$/.test(conteudo.trim())) {
@@ -173,7 +287,7 @@ async function processarMensagem(msg) {
             WHERE id = $2`,
           [qualidade, pendente.rows[0].id]
         );
-        await enviarMensagem(telefone, "Obrigado pela avaliação! Se precisar de mais alguma coisa, é só chamar.");
+        await enviarMensagem(telefone, "Obrigado pela avaliação! Se precisar de mais alguma coisa, é só chamar.", pnid);
         console.log(`[whatsapp] avaliação "${qualidade}" salva na conversa ${pendente.rows[0].id}`);
         return;
       }
@@ -186,31 +300,8 @@ async function processarMensagem(msg) {
       [clienteId]
     );
 
-    // Busca conversa aberta dentro do timeout de sessão
-    const timeoutHoras = await getConfigInt("whatsapp.sessao_timeout_horas", 8);
-    const conversaExistente = await pool.query(
-      `SELECT cw.id FROM conversas_whatsapp cw
-       WHERE cw.cliente_whatsapp_id = $1
-         AND cw.status IN ('aberta','em_atendimento')
-         AND NOT (cw.aguardando_atendente = TRUE AND cw.assumida_por_id IS NULL)
-         AND COALESCE(
-           (SELECT MAX(m.criado_em) FROM mensagens_whatsapp m WHERE m.conversa_id = cw.id),
-           cw.criado_em
-         ) > NOW() - make_interval(hours => $2)
-       ORDER BY cw.criado_em DESC LIMIT 1`,
-      [clienteId, timeoutHoras]
-    );
-
-    let conversaId;
-    if (conversaExistente.rows.length > 0) {
-      conversaId = conversaExistente.rows[0].id;
-    } else {
-      const nova = await pool.query(
-        `INSERT INTO conversas_whatsapp (cliente_whatsapp_id) VALUES ($1) RETURNING id`,
-        [clienteId]
-      );
-      conversaId = nova.rows[0].id;
-    }
+    // Busca conversa aberta dentro do timeout de sessão, neste número
+    const conversaId = await _conversaAberta(clienteId, pnid);
 
     // Salva mensagem — ON CONFLICT garante idempotência
     await pool.query(
@@ -227,22 +318,18 @@ async function processarMensagem(msg) {
     if (tipo !== "text") return;
     if (!conteudo || !conteudo.trim()) return;
 
-    // Checa estado da conversa (assumida, aguardando atendente, ação pendente)
+    // Checa estado da conversa (assumida, aguardando atendente, equipe no
+    // celular, ação pendente)
+    const calada = await _iaCalada(conversaId);
+    if (calada) {
+      console.log(`[whatsapp] conversa ${conversaId}: ${calada} — IA não responde`);
+      return;
+    }
     const convRes = await pool.query(
-      `SELECT assumida_por_id, aguardando_atendente, estado_conversa, pendente_acao
-         FROM conversas_whatsapp WHERE id = $1`,
+      `SELECT estado_conversa, pendente_acao FROM conversas_whatsapp WHERE id = $1`,
       [conversaId]
     );
     const convData = convRes.rows[0] || {};
-
-    if (convData.assumida_por_id) {
-      console.log(`[whatsapp] conversa ${conversaId} assumida por humano — IA não responde`);
-      return;
-    }
-    if (convData.aguardando_atendente) {
-      console.log(`[whatsapp] conversa ${conversaId} aguardando atendente — IA não responde`);
-      return;
-    }
 
     // State machine: ação pendente aguardando confirmação do cliente (Prioridade 3)
     //
@@ -252,7 +339,7 @@ async function processarMensagem(msg) {
     if (convData.estado_conversa === "aguardando_confirmacao" && convData.pendente_acao) {
       const respostaCliente = classificarResposta(conteudo);
       if (respostaCliente === "aceite") {
-        await _executarAcaoPendente(conversaId, convData.pendente_acao, telefone);
+        await _executarAcaoPendente(conversaId, convData.pendente_acao, telefone, pnid);
         return;
       }
       if (respostaCliente === "recusa") {
@@ -267,7 +354,7 @@ async function processarMensagem(msg) {
           `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo) VALUES ($1, 'saida', 'text', $2)`,
           [conversaId, msg]
         );
-        await enviarMensagem(telefone, msg);
+        await enviarMensagem(telefone, msg, pnid);
         return;
       }
       // Cliente mandou outra coisa — deixa a IA responder mantendo o estado
@@ -325,6 +412,14 @@ async function processarMensagem(msg) {
     }
 
     if (!resultado) return; // IA desligada em Configurações: silêncio é o combinado
+
+    // A IA leva segundos. Se nesse meio tempo alguém assumiu a conversa (pela
+    // central ou respondendo pelo celular), a resposta dela vai para o lixo.
+    const caladaDepois = await _iaCalada(conversaId);
+    if (caladaDepois) {
+      console.log(`[whatsapp] conversa ${conversaId}: ${caladaDepois} enquanto a IA pensava — resposta descartada`);
+      return;
+    }
     const { progresso } = resultado;
     let respostaIA = resultado.resposta;
     if (!respostaIA || !String(respostaIA).trim()) {
@@ -358,7 +453,7 @@ async function processarMensagem(msg) {
            VALUES ($1, 'saida', 'text', $2)`,
           [conversaId, msgEscalacao]
         );
-        await enviarMensagem(telefone, msgEscalacao);
+        await enviarMensagem(telefone, msgEscalacao, pnid);
         console.log(`[whatsapp] anti-loop: conversa ${conversaId} escalada após 3 trocas sem progresso`);
         return;
       }
@@ -370,7 +465,7 @@ async function processarMensagem(msg) {
       [conversaId, respostaIA]
     );
 
-    await enviarMensagem(telefone, respostaIA);
+    await enviarMensagem(telefone, respostaIA, pnid);
 
   } catch (err) {
     console.error("[whatsapp] erro ao processar mensagem:", err);
@@ -404,10 +499,28 @@ async function receberWebhook(req, res) {
   // Meta exige 200 imediato, senão reenvia
   res.sendStatus(200);
 
-  const mensagens = _extrairMensagens(req.body);
-  for (const msg of mensagens) {
-    setImmediate(() => processarMensagem(msg));
+  const ev = _extrairEventos(req.body);
+  for (const msg of ev.mensagens) setImmediate(() => processarMensagem(msg));
+  for (const eco of ev.ecos) setImmediate(() => processarEco(eco));
+  for (const waba of ev.parceiroRemovido) {
+    setImmediate(async () => {
+      try {
+        const n = await require("../services/whatsapp-cadastro.service").soltarPorWaba(waba);
+        console.log(`[whatsapp] PARTNER_REMOVED na WABA ${waba}: ${n} número(s) desconectado(s)`);
+      } catch (err) {
+        console.error(`[whatsapp] PARTNER_REMOVED na WABA ${waba}:`, err.message);
+      }
+    });
+  }
+  // Histórico e contatos da coexistência: a Meta manda logo depois de
+  // conectar. Por ora só confirmamos o recebimento (como no Petzu); o que
+  // importa é que a sincronização foi pedida, senão a Meta desconecta.
+  if (ev.historico || ev.estadoApp) {
+    console.log(`[whatsapp] coexistência: ${ev.historico} lote(s) de histórico e ${ev.estadoApp} de contatos recebidos (descartados)`);
   }
 }
 
-module.exports = { receberWebhook, verificarWebhook, _processarMensagem: processarMensagem };
+module.exports = {
+  receberWebhook, verificarWebhook,
+  _processarMensagem: processarMensagem, _processarEco: processarEco, _extrairEventos, _extrairMensagens,
+};

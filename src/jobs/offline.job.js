@@ -1,7 +1,7 @@
 // src/jobs/offline.job.js
 const { pool } = require("../db");
 const { upsertAlertaAberto } = require("../services/alertas.service");
-const { enviarMensagem, enviarTemplate } = require("../services/evolution.service");
+const { enviarMensagem, enviarTemplate, numeroPadrao } = require("../services/evolution.service");
 const { sendAlertaEmail } = require("../services/email");
 const { OFFLINE_MINUTES } = require("../config");
 const { getConfigInt } = require("../services/config.service");
@@ -22,19 +22,25 @@ const { abrirChamadoAuto } = require("../services/chamados.service");
 const JANELA_WHATSAPP_HORAS = 24;
 
 async function _notificarClienteWhatsApp(condominio_id, mensagem, { condominioNome, reservatorioNome } = {}) {
+  // O aviso sai pelo número padrão (migration 108: a conta marcada como padrão,
+  // senão o do Railway). A janela de 24h e o modelo são DESSE número: conversa
+  // e última fala são procuradas nele.
+  const pnid = await numeroPadrao();
   // Busca cliente + conversa aberta do condomínio + última fala DELE (a janela)
   const r = await pool.query(
     `SELECT cw.telefone, cw.id AS cliente_id,
             (SELECT id FROM conversas_whatsapp
              WHERE cliente_whatsapp_id = cw.id AND status IN ('aberta','em_atendimento')
+               AND phone_number_id IS NOT DISTINCT FROM $2::varchar
              ORDER BY criado_em DESC LIMIT 1) AS conversa_id,
             (SELECT MAX(m.criado_em) FROM mensagens_whatsapp m
                JOIN conversas_whatsapp c2 ON c2.id = m.conversa_id
-              WHERE c2.cliente_whatsapp_id = cw.id AND m.direcao = 'entrada') AS ultima_entrada
+              WHERE c2.cliente_whatsapp_id = cw.id AND m.direcao = 'entrada'
+                AND c2.phone_number_id IS NOT DISTINCT FROM $2::varchar) AS ultima_entrada
      FROM clientes_whatsapp cw
      WHERE cw.condominio_id = $1
      LIMIT 1`,
-    [condominio_id]
+    [condominio_id, pnid]
   );
   if (!r.rows.length || !r.rows[0].telefone) return { enviado: false, motivo: "sem contato" };
 
@@ -52,8 +58,8 @@ async function _notificarClienteWhatsApp(condominio_id, mensagem, { condominioNo
   let convId = conversa_id;
   if (!convId) {
     const nova = await pool.query(
-      `INSERT INTO conversas_whatsapp (cliente_whatsapp_id) VALUES ($1) RETURNING id`,
-      [cliente_id]
+      `INSERT INTO conversas_whatsapp (cliente_whatsapp_id, phone_number_id) VALUES ($1, $2::varchar) RETURNING id`,
+      [cliente_id, pnid]
     );
     convId = nova.rows[0].id;
   }
@@ -63,9 +69,9 @@ async function _notificarClienteWhatsApp(condominio_id, mensagem, { condominioNo
   let envio = null;
   try {
     envio = dentroDaJanela
-      ? await enviarMensagem(telefone, mensagem)
+      ? await enviarMensagem(telefone, mensagem, pnid)
       : await enviarTemplate(telefone, modelo, process.env.WHATSAPP_TEMPLATE_IDIOMA || "pt_BR",
-          [condominioNome || "seu condomínio", reservatorioNome || "reservatório"]);
+          [condominioNome || "seu condomínio", reservatorioNome || "reservatório"], pnid);
   } catch (e) {
     console.error("[offline.job] erro ao enviar WhatsApp:", e.message);
   }
