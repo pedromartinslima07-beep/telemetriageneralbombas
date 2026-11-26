@@ -18929,3 +18929,12 @@ anexado ao rascunho da Análise do app, com a descrição de uso do
 a chamada de teste da API, o vídeo 1 e a verificação da empresa. Registrado
 também que o cartão não é pré-requisito da aprovação (precedente do Petzu).
 Ver [Meta Tech Provider](modulos/meta-tech-provider.md#vídeo-2-gravado-e-análise-do-app-em-rascunho-26112026).
+
+## 2026-11-26 — Análise do app: tratamento de dados e instruções
+
+Só Meta e documentação. Chamada de teste do `whatsapp_business_management`
+feita pelo Explorador da Graph API; Tratamento de dados (OpenAI e Railway como
+operadores, General Bombas como responsável) e Instruções para o analista
+preenchidos; plataforma **Site** adicionada ao app. Falta o vídeo 1 e a
+verificação da empresa para enviar. Ver
+[Meta Tech Provider](modulos/meta-tech-provider.md#vídeo-2-gravado-e-análise-do-app-em-rascunho-26112026).

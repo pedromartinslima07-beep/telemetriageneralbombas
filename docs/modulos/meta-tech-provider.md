@@ -244,10 +244,27 @@ painel de desenvolvedor.
   negócio, descrição de uso (escrita por nós, em inglês — a sugestão de IA da
   Meta foi descartada por prometer relatórios e QR codes que o app não tem),
   vídeo 2 e aceite de conformidade (marcados com autorização do usuário).
-  Falta nele: **chamada de teste da API, 0 de 1** (pode levar 24 h para
-  contar). `whatsapp_business_messaging` em branco (espera o vídeo 1).
-  Tratamento de dados e Instruções para o analista em branco. O upload só
-  aceita arquivo da pasta do projeto: copiar, subir e apagar a cópia.
+  Chamada de teste feita em 26/11 (`GET /2213340445927035/phone_numbers`
+  pelo Explorador da Graph API, token do app com as duas permissões; a WABA
+  General Bombas não responde a esse token, que só enxerga a conta de teste);
+  o formulário pode levar 24 h para sair de 0 de 1. `whatsapp_business_messaging`
+  em branco (espera o vídeo 1). O upload só aceita arquivo da pasta do
+  projeto: copiar, subir e apagar a cópia.
+- **Tratamento de dados (✅ 26/11):** operadores **OpenAI** e **Railway**
+  (serviços de TI/nuvem, Estados Unidos — região do Railway não conferida);
+  responsável GENERAL BOMBAS ENGENHARIA DA MANUTENCAO E SERVICOS LTDA, Brasil;
+  pedidos de segurança nacional em 12 meses: **Não**; processos: análise de
+  legitimidade, contestar pedidos ilegais e minimização (sem registro formal).
+  Respostas sobre autoridades dadas pelo usuário.
+- **Instruções para o analista (✅ 26/11):** exigiu plataforma no app —
+  adicionada **Site** `https://telemetria.generalbombas.com/` em Configurações
+  › Básico. Texto em inglês: painel interno com login próprio, sem Login do
+  Facebook (respondido **Não**); os vídeos mostram cada permissão; dados de
+  exemplo fictícios. O item 2 já descreve o vídeo 1 (cliente escreve, servidor
+  responde na janela de 24 h) — conferir se bate com a gravação quando existir.
+- **Visão geral do pedido em 26/11:** ✅ Configurações do app, Tratamento de
+  dados e Instruções; ⏳ Verificação (empresa em análise) e Uso permitido
+  (chamada de teste contando + bloco do messaging).
 
 ### O cartão não é pré-requisito da aprovação (Petzu)
 

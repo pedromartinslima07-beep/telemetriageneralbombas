@@ -1157,7 +1157,7 @@ pelo eco) na seção "Coexistência" da
 - [x] Conferir a divergência da Análise do app: reconferida em 26/11/2026, a lista de envios segue **Não enviado** (é o que vale); a página de Tech Provider continua dizendo "Em análise".
 - [x] Assinar no webhook do app `smb_message_echoes`, `history` e `smb_app_state_sync` (além de `messages`) **antes** de conectar o número da coexistência: a sincronização só pode ser pedida uma vez. ✅ **Assinados em 26/11/2026** (v27.0), conferido recarregando o painel.
 - [x] **Vídeo 2 — `whatsapp_business_management`:** criação do modelo `alerta_sensor_sem_comunicacao` (Utilidade, pt_BR) gravada em 26/11/2026, editada com legendas e anexada ao rascunho da Análise do app. Modelo **Em análise**.
-- [ ] **Chamada de teste da API do `whatsapp_business_management`** (0 de 1 no formulário; pode levar 24 h para contar). Ex.: `GET /3735152183305208/phone_numbers` pelo Explorador da Graph API.
+- [x] **Chamada de teste da API do `whatsapp_business_management`:** `GET /2213340445927035/phone_numbers` feita em 26/11/2026 pelo Explorador da Graph API (formulário pode levar 24 h para contar).
 
 ### Fase 2 — Depende da Meta / do usuário ⏳
 
@@ -1188,7 +1188,7 @@ só em teste; teste `whatsapp-coexistencia.test.js` 33/33). Detalhes em
 ### Fase 4 — Análise do app 📋
 
 - [ ] **Vídeo 1 — `whatsapp_business_messaging`:** mensagem real enviada e recebida. Depende do número registrado (Fase 2), **não** do cartão: o cliente escreve primeiro e o sistema responde na janela de 24 h, como no Petzu.
-- [ ] Enviar a Análise do app com os dois vídeos (depende da verificação da empresa). Rascunho de 26/11: `public_profile` ✅, `whatsapp_business_management` falta só a chamada de teste; faltam `whatsapp_business_messaging`, Tratamento de dados e Instruções para o analista.
+- [ ] Enviar a Análise do app com os dois vídeos (depende da verificação da empresa). Rascunho de 26/11: `public_profile`, `whatsapp_business_management`, Tratamento de dados e Instruções ✅ (plataforma Site adicionada); falta o `whatsapp_business_messaging` (vídeo 1) e a verificação da empresa.
 - [ ] Publicar o app ("Verifique se todos os requisitos…" no painel).
 - [ ] **Número da General Bombas conectado em coexistência** pela janela do cadastro incorporado (nunca pela Etapa 2), no WhatsApp Business 2.24.17+, com sincronização confirmada nas 24 h.
 - [ ] Primeiro cliente de fora conectado pelo cadastro incorporado.
