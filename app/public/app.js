@@ -14,6 +14,12 @@ const API_BASE = (() => {
 
 const IS_CAPACITOR = window.location.protocol === "capacitor:";
 
+// Versão do app, mostrada na Conta (26/11/2026). O APK é instalado à mão, e é
+// esta linha que diz se o celular já está na versão nova.
+// ⚠️ Ao gerar APK novo: suba este número E o `versionName`/`versionCode` de
+// `android/app/build.gradle`, juntos.
+const APP_VERSAO = "1.1";
+
 // ⚠️ "FORA DA FILA" SÃO DOIS ESTADOS DESDE A MIGRATION 083 (04/09/2026):
 // `fechado` (serviço feito) e `cancelado` (serviço desistido, cancelado no
 // painel do admin). Todo `status !== "fechado"` deste arquivo — as duas telas,
@@ -120,9 +126,28 @@ function showScreen(name) {
 }
 
 // ============== HELPERS UI ==============
-function setBtnLoading(btn, loading) {
+// ⚠️ O BOTÃO CARREGANDO DIZ O QUE ESTÁ FAZENDO (26/11/2026). O spinner do
+// `app.css` mora no `::after` do botão — e o `tecnico.css` usa o mesmo
+// `::after` para o efeito de toque, então no app do técnico o spinner nunca
+// aparecia: o rótulo ficava transparente e o botão virava um retângulo vazio
+// por até 15 s (o "Iniciar atendimento" esperando o GPS). Agora o rótulo troca
+// por um texto. Na volta, só restaura se ninguém trocou o rótulo no meio — o
+// `renderDetalhe` costuma escrever o rótulo da fase seguinte antes do `finally`.
+function setBtnLoading(btn, loading, texto) {
+  if (!btn) return;
   btn.disabled = loading;
   btn.classList.toggle("is-loading", loading);
+  const lbl = btn.querySelector(".btn-label");
+  if (!lbl) return;
+  if (loading) {
+    if (btn.dataset.rotulo == null) btn.dataset.rotulo = lbl.textContent;
+    btn.dataset.carregando = texto || "Aguarde…";
+    lbl.textContent = btn.dataset.carregando;
+  } else if (btn.dataset.rotulo != null) {
+    if (lbl.textContent === btn.dataset.carregando) lbl.textContent = btn.dataset.rotulo;
+    delete btn.dataset.rotulo;
+    delete btn.dataset.carregando;
+  }
 }
 
 function showAlert(el, msg, type = "error") {
@@ -293,9 +318,24 @@ const CAT_LABEL = {
   outro: "Outro",
 };
 
+// "Bom dia, Carlos" — o cabeçalho de Hoje (26/11/2026). Só o primeiro nome:
+// o nome completo não cabia ao lado do logo numa tela de 360.
+function saudacaoTecnico(nome) {
+  const h = new Date().getHours();
+  const oi = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  const primeiro = String(nome || "").trim().split(/\s+/)[0];
+  return primeiro ? `${oi}, ${primeiro}` : oi;
+}
+
+function dataPorExtenso(d = new Date()) {
+  const s = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  // "quarta-feira, 26 de novembro" → "Quarta, 26 de novembro"
+  return s.replace("-feira", "").replace(/^./, (c) => c.toUpperCase());
+}
+
 function abrirTelaTecnico(user) {
   TC.user = user;
-  document.getElementById("tcUserName").textContent = user.nome || "Técnico";
+  document.getElementById("tcUserName").textContent = saudacaoTecnico(user.nome);
   showScreen("tecnico-chamados");
   carregarMeusChamados();
   // Carrega o roteiro em silêncio já no login: é o que alimenta o badge da
@@ -305,7 +345,7 @@ function abrirTelaTecnico(user) {
   // Busca perfil completo (foto_url, especialidade) da tabela tecnicos
   api("/tecnicos/me").then(perfil => {
     TC.user = { ...TC.user, ...perfil };
-    document.getElementById("tcUserName").textContent = TC.user.nome || "Técnico";
+    document.getElementById("tcUserName").textContent = saudacaoTecnico(TC.user.nome);
   }).catch(() => {});
   // Busca config operacional (frequência do GPS) — não bloqueia o resto.
   // Se falhar, GPS usa o default de 60s já hardcoded no módulo.
@@ -450,15 +490,50 @@ async function carregarMeusChamados(silent = false) {
 
 function filtroDaTab(c) {
   // Hoje: ativos (não fechados) — chamado atual do técnico
-  // Próximos: por enquanto = mesmos que "Hoje" sem o em_atendimento, fica como placeholder
-  //           (Fase futura terá agendamento via campo agendado_para)
   // Histórico: fechados
   // + o chamado FECHADO cuja O.S. o escritório mandou reassinar: é trabalho
   // pendente dele, e no Histórico ninguém procura trabalho pendente.
+  //
+  // "Próximos" saiu em 26/11/2026: era um provisório que repetia os abertos de
+  // Hoje. O que vem pela frente é o roteiro de preventivas, na aba Mês.
   if (TC.tab === "hoje") return chEmAberto(c.status) || !!c.os_assinatura_refazer_em;
-  if (TC.tab === "proximos") return c.status === "aberto";
   if (TC.tab === "historico") return c.status === "fechado";
   return true;
+}
+
+// O chamado que está ANDANDO agora: em atendimento, ou de saída para o prédio.
+// É ele que vira a peça grande de Hoje. A finalização guardada no aparelho
+// não conta: para o técnico, aquele já acabou.
+function chamadoEmCurso() {
+  const pend = TC.finalizadasPendentes;
+  const andando = (TC.chamados || []).filter((c) => !(pend && pend.has(c.id)));
+  return andando.find((c) => c.status === "em_atendimento")
+      || andando.find((c) => c.status === "aberto" && c.tecnico_a_caminho_em)
+      || null;
+}
+
+// Tempo humano: "40 min", "3 h", "5 dias", "4 meses". Era "121d".
+function duracaoHumana(ms) {
+  const min = Math.max(0, Math.round(ms / 60000));
+  if (min < 60) return `${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `${h} h`;
+  const d = Math.round(h / 24);
+  if (d < 60) return `${d} dias`;
+  const m = Math.round(d / 30);
+  return m === 1 ? "1 mês" : `${m} meses`;
+}
+
+// O prazo do chamado: criado_em + o tempo de resolução da prioridade (a mesma
+// tabela `sla_definicoes` do painel). Sem SLA, diz há quanto tempo está aberto.
+function prazoDoChamado(c) {
+  const criado = new Date(c.criado_em).getTime();
+  if (c.sla_ttr_min && Number.isFinite(criado)) {
+    const falta = criado + Number(c.sla_ttr_min) * 60000 - Date.now();
+    if (falta < 0) return { txt: `Prazo vencido há ${duracaoHumana(-falta)}`, cls: "is-vencido" };
+    return { txt: `Prazo vence em ${duracaoHumana(falta)}`, cls: falta < 4 * 3600000 ? "is-perto" : "" };
+  }
+  return { txt: Number.isFinite(criado) ? `Aberto há ${duracaoHumana(Date.now() - criado)}` : "", cls: "" };
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -559,35 +634,40 @@ function renderTecnicoChamados() {
   // Aviso de críticos no topo da lista
   renderTecnicoCriticos();
 
-  // Contadores das tabs (independentes da tab atual)
-  const hoje      = TC.chamados.filter((c) => chEmAberto(c.status) || !!c.os_assinatura_refazer_em).length;
-  const proximos  = TC.chamados.filter((c) => c.status === "aberto").length;
-  const historico = TC.chamados.filter((c) => c.status === "fechado").length;
-  document.getElementById("tcCountHoje").textContent = hoje;
-  document.getElementById("tcCountProximos").textContent = proximos;
-  document.getElementById("tcCountHistorico").textContent = historico;
+  const ehHist = TC.tab === "historico";
 
   // Sync label
   document.getElementById("tcSync").textContent = syncLabel(TC.syncedAt);
 
-  // Status no header (em campo / sem chamados)
-  const emAtend = TC.chamados.some((c) => c.status === "em_atendimento");
+  // Cabeçalho: Hoje cumprimenta e diz a data; Histórico diz o que é.
+  const nomeEl = document.getElementById("tcUserName");
+  if (nomeEl) nomeEl.textContent = ehHist ? "Histórico" : saudacaoTecnico(TC.user?.nome);
   const txt = document.getElementById("tcStatusText");
-  const dot = document.getElementById("tcStatusDot");
-  if (emAtend) {
-    txt.textContent = "Em atendimento";
-    dot.style.background = "var(--warn)";
-    dot.style.boxShadow = "0 0 8px rgba(245,158,11,.6)";
-  } else if (hoje === 0) {
-    txt.textContent = "Em dia";
-    dot.style.background = "var(--ok)";
-  } else {
-    txt.textContent = "Em campo";
-    dot.style.background = "var(--ok)";
-  }
+  if (txt) txt.textContent = ehHist ? "Suas O.S. finalizadas" : dataPorExtenso();
+
+  // O menu de baixo desta tela serve duas abas: marca a certa.
+  document.querySelectorAll('[data-screen="tecnico-chamados"] [data-tec-tab]').forEach((b) => {
+    b.classList.toggle("active", b.dataset.tecTab === (ehHist ? "historico" : "chamados"));
+  });
+
+  // Peças que só existem numa das duas abas.
+  const sortbar = document.getElementById("tcSortbar");
+  if (sortbar) sortbar.hidden = ehHist;
+  const busca = document.getElementById("tcBuscaWrap");
+  if (busca) busca.hidden = !ehHist;
+
+  // Hoje: o atendimento em curso vira a peça grande, fora da fila.
+  const emCurso = ehHist ? null : chamadoEmCurso();
+  renderTecnicoEmCurso(emCurso);
 
   // Lista filtrada + ordenada
-  const filtrados = TC.chamados.filter(filtroDaTab);
+  let filtrados = TC.chamados.filter(filtroDaTab);
+  if (emCurso) filtrados = filtrados.filter((c) => c.id !== emCurso.id);
+
+  if (ehHist) {
+    renderTecnicoHistorico(filtrados);
+    return;
+  }
   const ordenados = ordenarChamados(filtrados);
   // ⚠️ DEPOIS do `ordenarChamados`, nunca antes: é ele que define
   // `TC.ordemReal`. Chamado no topo da função, o aviso mostraria o resultado do
@@ -600,31 +680,34 @@ function renderTecnicoChamados() {
   // Rodapé: total + GPS + relógio
   atualizarFooterTecnico(ordenados.length);
 
+  const filaTit = document.getElementById("tcFilaTit");
+  if (filaTit) {
+    filaTit.hidden = ordenados.length === 0;
+    filaTit.innerHTML = `<h4>Fila de hoje</h4><span>${ordenados.length} chamado${ordenados.length === 1 ? "" : "s"}</span>`;
+  }
+
   if (ordenados.length === 0) {
     list.innerHTML = "";
     const msg = document.getElementById("tcEmptyMsg");
     const sub = document.getElementById("tcEmptySub");
+    // Com um atendimento em curso a fila vazia não é "em dia": é só que não
+    // há mais nada depois dele. O destaque acima já diz o que fazer.
+    if (emCurso) { empty.hidden = true; return; }
     // A palavra em amarelo: o mesmo gesto da tela de orçamentos do cliente
     // ("2 orçamentos **aguardam** sua resposta"), que o Pedro mandou como
     // referência. UMA por tela, e só sobre o campo marinho — sobre placa clara
     // o amarelo não é tinta (Regra do Amarelo Cego). Este é o único lugar da
     // lista onde uma frase é o conteúdo, então é aqui que ela cabe.
     // Strings fixas, sem dado de usuário — `innerHTML` é seguro aqui.
-    if (msg) {
-      msg.innerHTML = TC.tab === "historico"
-        ? 'Nenhum chamado <span class="realce">resolvido</span> ainda'
-        : TC.tab === "proximos"
-          ? 'Nenhum chamado <span class="realce">aguardando</span>'
-          : 'Você está <span class="realce">em dia</span>';
-    }
+    if (msg) msg.innerHTML = 'Você está <span class="realce">em dia</span>';
     // Linha secundária: sem chamado, o trabalho do dia está no roteiro —
     // é a única pista na tela de que existe algo pendente em outro lugar.
     if (sub) {
       const pendentes = typeof RT !== "undefined"
         ? (RT.planos || []).filter(p => !p.chamado_aberto_id).length
         : 0;
-      sub.textContent = (TC.tab === "hoje" && pendentes > 0)
-        ? `${pendentes} preventiva${pendentes === 1 ? "" : "s"} esperando no roteiro`
+      sub.textContent = pendentes > 0
+        ? `${pendentes} preventiva${pendentes === 1 ? "" : "s"} esperando na aba Mês`
         : "";
     }
     empty.hidden = false;
@@ -633,6 +716,102 @@ function renderTecnicoChamados() {
   empty.hidden = true;
 
   list.innerHTML = ordenados.map(renderCardChamado).join("");
+}
+
+// O atendimento em curso, em destaque no topo de Hoje (26/11/2026). Antes ele
+// era só mais um cartão da lista, com um selo "Em atendimento" do mesmo tamanho
+// dos outros — e era a única coisa que importava naquela hora.
+function renderTecnicoEmCurso(c) {
+  const el = document.getElementById("tcEmCurso");
+  if (!el) return;
+  if (!c) { el.hidden = true; el.innerHTML = ""; return; }
+
+  const emAtend = c.status === "em_atendimento";
+  const desde = emAtend ? (c.tecnico_chegou_em || c.atualizado_em) : c.tecnico_a_caminho_em;
+  const ha = desde ? `há ${duracaoHumana(Date.now() - new Date(desde).getTime())}` : "";
+  el.innerHTML = `
+    <button type="button" class="tec-em-curso-card" data-em-curso="${c.id}">
+      <span class="tec-em-curso-rot">
+        <span>${emAtend ? "Em atendimento" : "A caminho"}</span>
+        <span>${escapeHtml(ha)}</span>
+      </span>
+      <strong class="tec-em-curso-nome">${escapeHtml(c.condominio_nome || "—")}</strong>
+      <span class="tec-em-curso-prob">${escapeHtml(c.titulo || c.descricao || "Sem descrição")}</span>
+      <span class="tec-em-curso-bt">${emAtend ? "Continuar a O.S." : "Abrir o chamado"}</span>
+    </button>`;
+  el.hidden = false;
+}
+
+// Histórico por dia, com busca (26/11/2026). A ordem por distância e o aviso
+// de GPS não servem para olhar o passado, então não aparecem aqui.
+function renderTecnicoHistorico(fechados) {
+  const list = document.getElementById("tcList");
+  const empty = document.getElementById("tcEmpty");
+  const filaTit = document.getElementById("tcFilaTit");
+  if (filaTit) filaTit.hidden = true;
+  const aviso = document.getElementById("tcAvisoOrdem");
+  if (aviso) aviso.hidden = true;
+  atualizarFooterTecnico();
+
+  const termo = (document.getElementById("tcBusca")?.value || "").trim().toLowerCase();
+  const quando = (c) => new Date(c.os_finalizada_em || c.fechado_em || c.atualizado_em || c.criado_em);
+  let linhas = fechados.slice().sort((a, b) => quando(b) - quando(a));
+  if (termo) {
+    linhas = linhas.filter((c) =>
+      [c.condominio_nome, c.os_numero, `ch-${c.id}`, String(c.id)]
+        .some((v) => String(v || "").toLowerCase().includes(termo)));
+  }
+
+  if (!linhas.length) {
+    list.innerHTML = "";
+    const msg = document.getElementById("tcEmptyMsg");
+    const sub = document.getElementById("tcEmptySub");
+    if (msg) msg.innerHTML = termo
+      ? 'Nada <span class="realce">encontrado</span>'
+      : 'Nenhuma O.S. <span class="realce">finalizada</span> ainda';
+    if (sub) sub.textContent = termo ? "Confira o nome do prédio ou o número da O.S." : "";
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+
+  const hojeIni = new Date(); hojeIni.setHours(0, 0, 0, 0);
+  const rotDia = (d) => {
+    const dia = new Date(d); dia.setHours(0, 0, 0, 0);
+    const diff = Math.round((hojeIni - dia) / 86400000);
+    if (diff === 0) return "Hoje";
+    if (diff === 1) return "Ontem";
+    return dataPorExtenso(d);
+  };
+  const RES = { resolvido: ["Resolvido", "is-ok"], paliativo: ["Paliativo", "is-pal"], agravado: ["Agravado", "is-agr"] };
+
+  let html = "";
+  let diaAtual = null;
+  for (const c of linhas) {
+    const d = quando(c);
+    const rot = rotDia(d);
+    if (rot !== diaAtual) {
+      if (diaAtual !== null) html += `</div>`;
+      html += `<div class="tec-hist-dia">${escapeHtml(rot)}</div><div class="tec-hist-grupo">`;
+      diaAtual = rot;
+    }
+    const res = RES[c.os_resultado];
+    const meta = [
+      c.os_numero || `Chamado ${c.id}`,
+      CAT_LABEL[c.categoria] || c.categoria,
+      d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    ].filter(Boolean).join(" · ");
+    html += `
+      <button type="button" class="tec-hist-linha" data-chamado="${c.id}">
+        <span class="tec-hist-txt">
+          <strong>${escapeHtml(c.condominio_nome || "—")}</strong>
+          <small>${escapeHtml(meta)}</small>
+        </span>
+        ${res ? `<span class="tec-hist-res ${res[1]}">${res[0]}</span>` : ""}
+      </button>`;
+  }
+  html += `</div>`;
+  list.innerHTML = html;
 }
 
 // A contagem de chamados saiu do rodapé (os contadores das tabs já dizem
@@ -701,6 +880,15 @@ function renderTecnicoAvisoOrdem(qtd) {
     return;
   }
 
+  // Com a faixa de localização no topo, este aviso seria a segunda mensagem
+  // sobre o mesmo GPS na mesma tela (26/11/2026). A faixa já diz e já tem o
+  // botão; a ordem por prioridade é consequência, não notícia.
+  const faixa = document.getElementById("gpsAviso");
+  if (faixa && !faixa.hidden) {
+    el.hidden = true;
+    return;
+  }
+
   // Fora do expediente o GPS não roda por decisão do backend (8h–18h), então
   // tocar não resolveria — o texto muda para não prometer o que não cumpre.
   const foraDoHorario = typeof gpsDentroDoHorario === "function" && !gpsDentroDoHorario();
@@ -729,11 +917,14 @@ function renderTecnicoAvisoOrdem(qtd) {
 //
 // ⚠️ O ícone de prédio saiu: toda linha é um condomínio, então ele não
 // distinguia nada e custava 44px de uma tela de 390.
+// ⚠️ 26/11/2026: o corpo do cartão passou a dizer O PROBLEMA e O PRAZO, no
+// lugar do endereço completo e do "há 121d". O endereço continua a um toque, no
+// chamado; o bairro fica na linha de baixo para dar a ideia de onde é.
 function renderCardChamado(c) {
   const condoNome = escapeHtml(c.condominio_nome || "—");
   const desc      = escapeHtml(c.titulo || c.descricao || "Sem descrição");
-  const endereco  = escapeHtml(enderecoLinha(c));
-  const tempo     = tempoAbertoLabel(c.criado_em);
+  const bairro    = escapeHtml(c.condominio_bairro || c.condominio_cidade || "");
+  const prazo     = prazoDoChamado(c);
   const dist      = distanciaParaChamado(c);
   const distLabel = dist != null
     ? (dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`)
@@ -759,19 +950,17 @@ function renderCardChamado(c) {
       <div class="ch-corpo">
         <div class="ch-row-mob-head">
           <span class="ch-row-mob-title">${condoNome}</span>
-          <span class="ch-id-cell">CH-${String(c.id).padStart(3,"0")}</span>
         </div>
-        <div class="ch-row-mob-desc" title="${desc}">
-          ${endereco ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${endereco}</span>` : `<span>${desc}</span>`}
-        </div>
+        <div class="ch-row-mob-prob">${desc}</div>
         <div class="ch-row-mob-pills">
-          <span class="ch-cat-badge">${escapeHtml(cat)}</span>
           ${aguardando
             ? `<span class="ch-st ch-st-aguardando">Aguardando envio</span>`
             : c.os_assinatura_refazer_em
               ? `<span class="ch-st ch-st-assinatura">Recolher assinatura</span>`
-              : `<span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>`}
-          <span class="ch-row-mob-meta">há ${tempo}</span>
+              : c.status === "aberto"
+                ? `<span class="ch-prazo ${prazo.cls}">${escapeHtml(prazo.txt)}</span>`
+                : `<span class="ch-st ch-st-${escapeHtml(c.status)}">${stLabel}</span>`}
+          <span class="ch-row-mob-meta">${[bairro, escapeHtml(cat)].filter(Boolean).join(" · ")}</span>
         </div>
       </div>
     </button>
@@ -807,23 +996,32 @@ async function obterGPS({ force = false } = {}) {
 }
 
 // Eventos da tela do técnico
-document.querySelectorAll('[data-screen="tecnico-chamados"] .tec-tab').forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll('[data-screen="tecnico-chamados"] .tec-tab')
-      .forEach((t) => t.classList.remove("is-active"));
-    tab.classList.add("is-active");
-    TC.tab = tab.dataset.tab;
-    renderTecnicoChamados();
-  });
-});
+// (As abas de cima Hoje · Próximos · Histórico saíram em 26/11/2026; quem
+// troca entre Hoje e Histórico agora é o menu de baixo — ver _bindTecnicoUI.)
 
-// Clique num card → abre tela de detalhe (delegação de evento)
+// Clique num cartão da fila ou numa linha do histórico → abre o chamado
 document.getElementById("tcList").addEventListener("click", (e) => {
-  const row = e.target.closest(".ch-row-mob[data-chamado]");
+  const row = e.target.closest("[data-chamado]");
   if (!row) return;
   const id = Number(row.dataset.chamado);
   if (Number.isFinite(id)) abrirDetalheChamado(id);
 });
+
+// O destaque do atendimento em curso vai direto para onde o trabalho está:
+// a O.S., se ela já existe; senão, o chamado.
+document.getElementById("tcEmCurso")?.addEventListener("click", (e) => {
+  const card = e.target.closest("[data-em-curso]");
+  if (!card) return;
+  const id = Number(card.dataset.emCurso);
+  const c = (TC.chamados || []).find((x) => x.id === id);
+  if (c && c.status === "em_atendimento" && c.ordem_servico_id) {
+    abrirFormularioOS(id, c.ordem_servico_id);
+  } else {
+    abrirDetalheChamado(id);
+  }
+});
+
+document.getElementById("tcBusca")?.addEventListener("input", () => renderTecnicoChamados());
 
 document.getElementById("tcSort").addEventListener("change", async (e) => {
   TC.sort = e.target.value;
@@ -967,6 +1165,20 @@ async function abrirDetalheChamado(id) {
     // fechado e reaberto), liga o GPS automaticamente.
     if (TD.chamado.status === "em_atendimento") gpsStart(TD.chamado.id);
     renderDetalhe();
+    // Equipamentos do prédio (26/11/2026): o técnico chega sabendo o que tem
+    // lá. Vem depois da tela pronta e sem travar nada — sem sinal ou sem bomba
+    // etiquetada, o bloco simplesmente não aparece.
+    TD.equipamentos = [];
+    if (TD.chamado.condominio_id) {
+      const pedido = TD.chamado.id;
+      apiComCache(`/equipamentos?condominio_id=${encodeURIComponent(TD.chamado.condominio_id)}`)
+        .then((r) => {
+          if (!TD.chamado || TD.chamado.id !== pedido) return;
+          TD.equipamentos = Array.isArray(r.dados) ? r.dados : [];
+          _tdRenderEquipamentos();
+        })
+        .catch(() => {});
+    }
   } catch (err) {
     showAlert(document.getElementById("tdAlert"), err.message, "error");
     document.getElementById("tdSkel").hidden = true;
@@ -1019,7 +1231,7 @@ function renderDetalhe() {
 
   // Header
   document.getElementById("tdCondoNome").textContent = c.condominio_nome || "Chamado";
-  document.getElementById("tdChamadoId").textContent = `CH-${String(c.id).padStart(3, "0")}`;
+  document.getElementById("tdChamadoId").textContent = `Chamado ${c.id}`;
   const pill = document.getElementById("tdStatusPill");
   pill.textContent = ST_LABEL[c.status] || c.status;
   pill.className = `td-status-pill td-status-${c.status}`;
@@ -1096,56 +1308,77 @@ function renderDetalhe() {
         </div>
       </div>` : "";
 
+  // ⚠️ A ORDEM DA TELA MUDOU (26/11/2026): primeiro O PROBLEMA, depois quem
+  // procurar e onde, depois o que já se sabe do prédio. Antes o endereço vinha
+  // no topo e a descrição era o terceiro cartão, com rótulo "Descrição".
+  const prazo = prazoDoChamado(c);
+  const telefone = c.condominio_telefone || c.cliente_telefone || "";
+  const contatoNome = c.condominio_responsavel || c.cliente_nome || "";
+  const telFmt = telefone.replace(/\D+/g, "").replace(/^55(?=\d{10,11}$)/, "")
+    .replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3");
+  const aberto = c.criado_em
+    ? new Date(c.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+    : "";
+  const uv = c.ultima_visita;
+  const RES_TXT = { resolvido: "Resolvido", paliativo: "Paliativo", agravado: "Agravado" };
+  const uvHtml = uv ? `
+      <div class="td-uv">
+        <div class="td-rot">Última visita aqui</div>
+        <p><b>${escapeHtml(new Date(uv.finalizada_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }))}${uv.tecnico_nome ? `, ${escapeHtml(String(uv.tecnico_nome).split(/\s+/)[0])}` : ""}:</b>
+          ${escapeHtml(uv.observacoes || (uv.tipos_servico || []).map((t) => (OS_TIPOS.find(([k]) => k === t) || [])[1] || t).join(", ") || uv.numero)}${uv.servico_realizado ? `. ${escapeHtml(RES_TXT[uv.servico_realizado] || uv.servico_realizado)}.` : ""}</p>
+      </div>` : "";
+
   content.innerHTML = `
-    <!-- Hero: endereço + ações Maps/Ligar -->
-    <div class="td-card">
-      <div class="td-hero">
-        <div class="td-addr">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-          <div class="td-addr-text">${escapeHtml(endereco)}</div>
+    <!-- O problema -->
+    <div class="td-card td-problema">
+      <div class="td-card-body">
+        <h3 class="td-prob-tit">${escapeHtml(c.titulo || c.descricao || "Sem descrição")}</h3>
+        ${(c.titulo && c.descricao && c.titulo !== c.descricao)
+          ? `<p class="td-prob-desc">${escapeHtml(c.descricao)}</p>`
+          : ""}
+        <div class="td-pills">
+          <span class="ch-prio ch-prio-${escapeHtml(c.prioridade)}">${escapeHtml(priLabel)}</span>
+          ${chEmAberto(c.status) && prazo.txt ? `<span class="ch-prazo ${prazo.cls}">${escapeHtml(prazo.txt)}</span>` : ""}
+          <span class="ch-cat-badge">${escapeHtml(catLabel)}</span>
+          ${aberto ? `<span class="td-aberto-em">aberto em ${aberto}</span>` : ""}
         </div>
-        <div class="td-hero-actions">
-          <button class="btn" id="tdBtnMaps">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-            </svg>
-            <span>Abrir no Maps</span>
-          </button>
-          <button class="btn" id="tdBtnLigar" ${c.condominio_telefone || c.cliente_telefone ? "" : "disabled"}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-            </svg>
-            <span>Ligar</span>
-          </button>
-        </div>
-      </div>
-      <div class="td-pills">
-        <span class="ch-cat-badge">${escapeHtml(catLabel)}</span>
-        <span class="ch-prio ch-prio-${escapeHtml(c.prioridade)}">${escapeHtml(priLabel)}</span>
       </div>
     </div>
 
     ${timerHtml}
 
-    <!-- Descrição -->
-    <div class="td-card">
-      <div class="cardHead">
-        <h2>
-          <svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-            <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-          </svg>
-          Descrição
-        </h2>
-      </div>
+    <!-- Quem procurar e onde -->
+    <div class="td-card td-contatos">
       <div class="td-card-body">
-        <div class="td-desc">${escapeHtml(c.titulo || c.descricao || "Sem descrição")}</div>
-        ${(c.titulo && c.descricao && c.titulo !== c.descricao)
-          ? `<div class="td-desc" style="color:var(--muted);font-size:12.5px;margin-top:4px">${escapeHtml(c.descricao)}</div>`
-          : ""}
+        <button type="button" class="td-contato" id="tdBtnLigar" ${telefone ? "" : "disabled"}>
+          <span class="td-contato-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </span>
+          <span class="td-contato-txt">
+            <strong>${escapeHtml(contatoNome || (telefone ? "Telefone do prédio" : "Sem telefone cadastrado"))}</strong>
+            <small>${escapeHtml(telefone ? telFmt : "Peça ao escritório o contato do prédio")}</small>
+          </span>
+          ${telefone ? `<span class="td-contato-acao">Ligar</span>` : ""}
+        </button>
+        <button type="button" class="td-contato" id="tdBtnMaps">
+          <span class="td-contato-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
+          <span class="td-contato-txt">
+            <strong>${escapeHtml(c.condominio_endereco || "Endereço não cadastrado")}</strong>
+            <small>${escapeHtml([c.condominio_bairro, [c.condominio_cidade, c.condominio_uf].filter(Boolean).join("/")].filter(Boolean).join(" — "))}</small>
+          </span>
+          <span class="td-contato-acao">Maps</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- O que já se sabe do prédio: a última visita e os equipamentos. O
+         bloco de equipamentos é preenchido depois (_tdRenderEquipamentos). -->
+    <div class="td-card td-predio" id="tdPredio" ${uv ? "" : "hidden"}>
+      <div class="td-card-body">
+        ${uvHtml}
+        <div class="td-equip" id="tdEquip" hidden></div>
       </div>
     </div>
 
@@ -1172,6 +1405,26 @@ function renderDetalhe() {
 
   // Thread de mensagens (Fase 7H — UI no técnico)
   if (chEmAberto(c.status)) tdBindMensagensForm();
+
+  // Equipamentos já carregados (o render pode rodar de novo depois do "A
+  // caminho"): redesenha o bloco sem esperar outra requisição.
+  _tdRenderEquipamentos();
+}
+
+// Equipamentos do prédio no detalhe do chamado (26/11/2026). São as bombas
+// etiquetadas do condomínio — o mesmo cadastro da seção "Bomba atendida" da O.S.
+function _tdRenderEquipamentos() {
+  const el = document.getElementById("tdEquip");
+  const card = document.getElementById("tdPredio");
+  if (!el || !card) return;
+  const eqs = TD.equipamentos || [];
+  if (!eqs.length) { el.hidden = true; card.hidden = !TD.chamado?.ultima_visita; return; }
+  el.innerHTML = `
+    <div class="td-rot">Equipamentos do prédio</div>
+    <div class="td-equip-lista">${eqs.map((eq) =>
+      `<span>${escapeHtml(_osNomeEquipamento(eq))}</span>`).join("")}</div>`;
+  el.hidden = false;
+  card.hidden = false;
 }
 
 // =====================================================================
@@ -1450,19 +1703,19 @@ function configurarCTA(c) {
       // mesmo papel: esta fase pesa MENOS que a seguinte ("Iniciar
       // atendimento", que é a amarela). Duas fases, dois pesos — só que agora
       // o peso mora no CSS.
-      lbl.textContent = "A caminho";
+      lbl.textContent = "Estou a caminho";
       btn.className = "btn btn-lg btn-caminho";
       btn.style = "";
       btn.onclick = () => registrarACaminho(c.id);
     } else {
       // Fase 2: a caminho → iniciar atendimento (registra chegada automaticamente)
-      lbl.textContent = "Iniciar atendimento";
+      lbl.textContent = "Cheguei, iniciar atendimento";
       btn.className = "btn btnAccent btn-lg";
       btn.style = "";
       btn.onclick = () => iniciarAtendimento(c.id);
     }
   } else if (c.status === "em_atendimento") {
-    lbl.textContent = "Preencher Ordem de Serviço";
+    lbl.textContent = "Preencher a O.S.";
     btn.className = "btn btnAccent btn-lg";
     btn.style = "";
     btn.onclick = () => abrirFormularioOS(c.id, c.ordem_servico?.id);
@@ -1483,7 +1736,7 @@ function configurarCTA(c) {
     sec.id = "tdCtaBtnSec";
     sec.className = "btn btn-devolver";
     sec.type = "button";
-    sec.textContent = "Devolver chamado";
+    sec.textContent = "Devolver para a fila";
     sec.onclick = () => abrirSheetDevolver(c);
     bar.appendChild(sec);
   }
@@ -1566,7 +1819,7 @@ async function devolverChamado(id) {
 
 async function registrarACaminho(id) {
   const btn = document.getElementById("tdCtaBtn");
-  setBtnLoading(btn, true);
+  setBtnLoading(btn, true, "Avisando o escritório…");
   try {
     if (!IS_DEMO) await api(`/chamados/${id}/a-caminho`, { method: "POST" });
     TD.chamado.tecnico_a_caminho_em = new Date().toISOString();
@@ -1595,7 +1848,8 @@ async function registrarChegou(id) {
 
 async function iniciarAtendimento(id) {
   const btn = document.getElementById("tdCtaBtn");
-  setBtnLoading(btn, true);
+  // Pode levar até 15 s esperando o GPS: o botão diz o que está acontecendo.
+  setBtnLoading(btn, true, "Pegando a localização…");
   hideAlert(document.getElementById("tdAlert"));
 
   try {
@@ -1640,6 +1894,9 @@ async function iniciarAtendimento(id) {
         );
       });
     })();
+
+    const lblIni = btn?.querySelector(".btn-label");
+    if (lblIni) { lblIni.textContent = "Abrindo a O.S.…"; btn.dataset.carregando = lblIni.textContent; }
 
     // Registra chegada para SLA se ainda não foi registrada
     if (!TD.chamado.tecnico_chegou_em && !IS_DEMO) {
@@ -2174,47 +2431,67 @@ async function gpsEnviar() {
 // Estado do GPS na linha de status do cabeçalho. Era um chip flutuante
 // (position:fixed) que pousava por cima dos KPIs e ainda repetia o que o
 // rodapé do card já dizia — agora é um lugar só.
+// ⚠️ UM ESTADO DE LOCALIZAÇÃO SÓ (26/11/2026). Com a permissão negada o app
+// dizia quatro coisas ao mesmo tempo: a faixa "permissão negada", o cabeçalho
+// "GPS ATIVO" (o `watch` abre mesmo sem permissão, então `GPS.active` era
+// true), a lista "sem GPS" e a Conta "Ativo — enviando posição". O técnico não
+// tinha em qual acreditar. Cabeçalho, Conta e faixa leem daqui.
+//
+// O ERRO VEM ANTES DO "ATIVO": `GPS.active` só diz que o rastreio foi pedido,
+// não que alguma posição chegou.
+function gpsEstado() {
+  const hh = (h) => `${h}h`;
+  if (IS_DEMO) return { texto: "Desligada no modo demo", cls: "is-off" };
+  if (!GPS.scheduled) return { texto: "Localização…", cls: "is-off" };
+  const e = GPS.lastError;
+  if (e === 1 || e === "no_secure_context") {
+    return { texto: "Localização desligada", cls: "is-bad" };
+  }
+  if (e === "sem_permissao_bg") {
+    return { texto: "Localização só com o app aberto", cls: "is-warn" };
+  }
+  if (!gpsDentroDoHorario()) {
+    return { texto: `Fora do expediente (${hh(GPS_HORA_INI)}–${hh(GPS_HORA_FIM)})`, cls: "is-off" };
+  }
+  if (e === 2 || e === 3) return { texto: "Sem sinal de GPS", cls: "is-warn" };
+  if (e === "low_accuracy") return { texto: "Sinal de GPS fraco", cls: "is-warn" };
+  if (GPS.active) {
+    // A idade da posição é o que importa quando o rastreio trava sem erro.
+    const idade = TC.geo ? Math.floor((Date.now() - TC.geo.capturada_em) / 60000) : null;
+    return {
+      texto: (idade && idade >= 1) ? `Localização ligada · há ${idade} min` : "Localização ligada",
+      cls: (idade && idade >= 10) ? "is-warn" : "is-on",
+    };
+  }
+  return { texto: "Procurando localização…", cls: "is-off" };
+}
+
 function gpsRenderChip() {
   const el = document.getElementById("tcHdrGps");
   if (!el) return;
-
-  // Sem usuário logado pedindo rastreio → não mostra nada
-  if (!GPS.scheduled) {
-    el.textContent = "";
-    el.className = "tec-hdr-gps is-off";
-    el.title = "";
-    return;
-  }
-
-  let texto, cls, dica;
-  if (GPS.active && GPS.lastError === "low_accuracy") {
-    texto = "Sinal fraco"; cls = "is-warn";
-    dica = "GPS ativo mas sinal fraco demais para o mapa";
-  } else if (GPS.active) {
-    // Com posição em mãos, mostra a idade dela — é o dado que importa quando
-    // o rastreio trava sem erro (a tela dizia "ativo" mesmo parado há minutos).
-    const idade = TC.geo ? Math.floor((Date.now() - TC.geo.capturada_em) / 60000) : null;
-    texto = (idade && idade >= 1) ? `GPS · há ${idade}m` : "GPS ativo";
-    cls = (idade && idade >= 10) ? "is-warn" : "is-on";
-    dica = "Localização ativa";
-  } else if (GPS.lastError === "sem_permissao_bg") {
-    // Antes caía no "GPS aguardando…" abaixo, que sugere problema de sinal —
-    // some sozinho em minutos. Aqui nada vai chegar até o técnico mexer na
-    // permissão, então o chip precisa dizer isso.
-    texto = "Sem permissão"; cls = "is-warn";
-    dica = "O app não tem permissão de localização em segundo plano";
-  } else if (!gpsDentroDoHorario()) {
-    texto = "Fora do expediente"; cls = "is-warn";
-    dica = `GPS opera apenas das ${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00`;
-  } else {
-    texto = "GPS aguardando…"; cls = "is-off";
-    dica = "Aguardando sinal de GPS…";
-  }
-
-  el.textContent = texto;
-  el.className = `tec-hdr-gps ${cls}`;
-  el.title = dica;
+  const st = gpsEstado();
+  el.textContent = st.texto;
+  el.className = `tec-hdr-gps ${st.cls}`;
+  // A Conta mostra o mesmo, se estiver aberta.
+  const conta = document.getElementById("tecContaGpsStatus");
+  if (conta) conta.textContent = gpsEstadoCurto();
 }
+
+// Na Conta a linha já se chama "Localização": "Localização desligada" ali
+// viraria "Localização: Localização desligada".
+function gpsEstadoCurto() {
+  return gpsEstado().texto.replace(/^Localizaçãos+/, "").replace(/^./, (c) => c.toUpperCase());
+}
+
+// ⚠️ A FAIXA ENTRA NO FLUXO, NÃO POR CIMA (26/11/2026). Ela é `fixed` no topo
+// e cobria o cabeçalho de todas as telas: no detalhe do chamado sumiam o nome
+// do prédio e a seta de voltar. Agora a altura dela vira `--gps-aviso-h`, que
+// empurra a tela e o cabeçalho grudado para baixo (ver o `tecnico.css`).
+function _gpsAjustarEspaco(aviso) {
+  const h = aviso && !aviso.hidden ? aviso.offsetHeight : 0;
+  document.documentElement.style.setProperty("--gps-aviso-h", `${h}px`);
+}
+window.addEventListener("resize", () => _gpsAjustarEspaco(document.getElementById("gpsAviso")));
 
 // Banner persistente quando o GPS está indisponível ou negado. Some
 // automaticamente quando o watch volta a receber posição.
@@ -2228,13 +2505,15 @@ function gpsRenderAviso() {
 
   if (!err || !visivelSomenteNoTecnico) {
     if (aviso) aviso.hidden = true;
+    _gpsAjustarEspaco(aviso);
+    gpsRenderChip();
     return;
   }
 
   let msg, cta;
   if (err === "low_accuracy") {
-    msg = "GPS com precisão baixa demais (sinal por IP). Ative o GPS do celular e vá para um local ao ar livre.";
-    cta = "Tentar novamente";
+    msg = "GPS com precisão baixa demais. Ligue o GPS do celular e vá para um lugar aberto.";
+    cta = "Tentar de novo";
   } else if (err === "sem_permissao_bg") {
     // Sem CTA de propósito: `getCurrentPosition` (o que o botão faz) pede
     // permissão de primeiro plano, que aqui já está concedida — ele voltaria
@@ -2244,14 +2523,14 @@ function gpsRenderAviso() {
           "a tela apaga — mude para “Permitir o tempo todo” nas permissões do aplicativo.";
     cta = null;
   } else if (err === 1) { // PERMISSION_DENIED
-    msg = "Permissão de localização negada. O escritório não consegue te localizar.";
-    cta = "Permitir GPS";
+    msg = "Localização desligada: o escritório não vê onde você está.";
+    cta = "Ligar";
   } else if (err === 2) { // POSITION_UNAVAILABLE
-    msg = "Sinal de GPS indisponível. Verifique se o GPS do celular está ligado.";
-    cta = "Tentar novamente";
+    msg = "Sem sinal de GPS. Confira se o GPS do celular está ligado.";
+    cta = "Tentar de novo";
   } else if (err === 3) { // TIMEOUT
-    msg = "GPS demorando pra responder. Tente novamente ao ar livre.";
-    cta = "Tentar novamente";
+    msg = "O GPS está demorando. Tente de novo num lugar aberto.";
+    cta = "Tentar de novo";
   } else if (err === "no_secure_context") {
     msg = "Este endereço não está em HTTPS — o navegador bloqueia o GPS.";
     cta = null;
@@ -2275,6 +2554,8 @@ function gpsRenderAviso() {
     </svg>
     <span class="gps-aviso-msg">${escapeHtml(msg)}</span>
     ${cta ? `<button class="gps-aviso-cta" id="gpsAvisoBtn">${escapeHtml(cta)}</button>` : ""}`;
+  _gpsAjustarEspaco(aviso);
+  gpsRenderChip();
 
   document.getElementById("gpsAvisoBtn")?.addEventListener("click", () => {
     // Re-tenta — chamada nova de getCurrentPosition vai disparar o prompt
@@ -2353,6 +2634,13 @@ const OS_RESOLUCAO = [
   ["paliativo", "Paliativo"],
   ["agravado",  "Agravado"],
 ];
+// O que cada resultado quer dizer (26/11/2026). Eram três palavras soltas, e
+// "paliativo" e "agravado" não são o vocabulário de todo técnico.
+const OS_RESOLUCAO_DICA = {
+  resolvido: "O problema acabou.",
+  paliativo: "Funciona por enquanto, precisa de outra visita.",
+  agravado:  "Achamos um problema maior que o do chamado.",
+};
 
 const OS_FOTO_TIPOS = ["antes", "depois", "geral"];
 
@@ -2374,8 +2662,28 @@ async function abrirFormularioOS(chamadoId, osId) {
   // saísse por ela abria a O.S. seguinte sem timer e sem o botão de finalizar.
   // (O card do timer não era restaurado em lugar nenhum: ele sumia para todas as
   // O.S. seguintes até o app ser reaberto.)
-  document.querySelector(".os-shell .td-card").style.display = "";
+  // (26/11/2026: o cartão do timer virou o relógio do cabeçalho, e a barra de
+  // progresso virou a barra de etapas — são essas as peças que voltam agora.)
+  ["osPassos", "osProblema", "osHdrRelogio"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "";
+  });
   document.getElementById("osCtaBar").style.display = "";
+  OS.etapa = null;
+  OS.fotoTipo = null;
+
+  // O prédio no título e o problema do chamado fixo no topo da O.S. — antes a
+  // descrição do problema sumia assim que o formulário abria.
+  const chOS = (TD.chamado && TD.chamado.id === chamadoId)
+    ? TD.chamado
+    : (TC.chamados || []).find((x) => x.id === chamadoId);
+  document.getElementById("osTitulo").textContent = chOS?.condominio_nome || "Ordem de Serviço";
+  const probEl = document.getElementById("osProblema");
+  if (probEl) {
+    const prob = chOS ? (chOS.titulo || chOS.descricao) : "";
+    probEl.innerHTML = prob ? `<b>Problema:</b> ${escapeHtml(prob)}` : "";
+    probEl.hidden = !prob;
+  }
 
   // ⚠️ A FINALIZAÇÃO GUARDADA É CONSULTADA ANTES DO `GET`, e isso é o que faz a
   // tela funcionar SEM SINAL. Se a checagem viesse depois de carregar a O.S., o
@@ -2458,6 +2766,7 @@ async function abrirFormularioOS(chamadoId, osId) {
     // Custa um round-trip a mais na abertura, mas o esqueleto já está na tela.
     await _osCarregarEquipamentos();
     renderOSSections();
+    osIrParaEtapa(_osEtapaInicial());
 
     // Chegou até aqui, então há rede: tenta subir o que estava guardado.
     if (OS.pendingPatch) _osEnviarPatchPendente().catch(() => {});
@@ -2508,7 +2817,13 @@ function sairFormularioOS() {
   // embora em background (não trava a navegação).
   _osEnviarAoSair();
   OS.data = null;
-  showScreen("tecnico-detalhe");
+  // Desde 26/11/2026 a O.S. também abre direto do destaque de Hoje, sem passar
+  // pelo chamado — então a tela de detalhe por baixo pode ser de outro chamado
+  // (ou de nenhum). Voltar recarrega o chamado DESTA O.S.; o cache garante
+  // que isso funciona sem sinal.
+  if (TD.chamado && TD.chamado.id === OS.chamadoId) showScreen("tecnico-detalhe");
+  else if (OS.chamadoId) abrirDetalheChamado(OS.chamadoId);
+  else showScreen("tecnico-chamados");
 }
 
 function iniciarTimerOS(chegadaIso) {
@@ -3008,7 +3323,8 @@ function _osRerenderFotos() {
   const aberta = sec.classList.contains("is-open");
   sec.outerHTML = sectionFotos();
   const nova = document.querySelector('[data-section="fotos"]');
-  if (aberta) nova.classList.add("is-open");
+  // Nas etapas toda seção fica aberta (não há sanfona).
+  if (aberta || nova.closest(".os-etapa")) nova.classList.add("is-open");
   nova.querySelector(".os-section-head").addEventListener("click", () =>
     nova.classList.toggle("is-open"));
   bindFotos();
@@ -3222,8 +3538,213 @@ function renderOSSections() {
   bindOrcamento();
   bindResolucao();
   bindRecebidoAssinatura();
+  _osMontarEtapas();
   atualizarProgresso();
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// A O.S. EM QUATRO ETAPAS (26/11/2026, maquete aprovada pelo Pedro)
+// ════════════════════════════════════════════════════════════════════════
+//
+// Eram nove sanfonas fechadas, opcional e obrigatório com o mesmo peso, e as
+// fotos no meio. Em produção, 37 de 209 O.S. saíram sem nenhuma foto. Agora o
+// formulário segue a ordem do trabalho no local.
+//
+// ⚠️ AS SEÇÕES SÃO AS MESMAS, COM OS MESMOS IDS E OS MESMOS BINDS. Tudo é
+// montado por `renderOSSections` como sempre e só DEPOIS distribuído nas
+// etapas (os nós são movidos, não recriados), então o auto-save, o rascunho, a
+// fila de fotos e a assinatura não sabem que as etapas existem.
+//
+// ⚠️ A FOTO MORA EM DUAS ETAPAS (Chegada e Resultado), e é UMA seção só: o
+// widget de foto usa ids fixos (`#osFotoTipo`, `#osFotos`…), então não dá para
+// ter dois. O nó muda de etapa junto com o técnico, e o tipo da próxima foto
+// segue a etapa — antes na Chegada, depois no Resultado.
+//
+// ⚠️ NADA TRAVA A NAVEGAÇÃO ENTRE ETAPAS. Quem confere o obrigatório é o
+// "Conferir e finalizar", que leva até a etapa do que falta.
+const OS_ETAPAS = [
+  { id: "chegada",   rot: "Chegada",   tit: "Como você encontrou",
+    sub: "Fotografe antes de mexer. É o que mostra ao cliente o antes e o depois.",
+    secoes: ["fotos"], prox: "Próximo: o serviço" },
+  { id: "servico",   rot: "Serviço",   tit: "O que você fez",
+    secoes: ["tipos", "bomba", "equipamentos", "correntes", "pecas", "observacoes"], prox: "Próximo: o resultado" },
+  { id: "resultado", rot: "Resultado", tit: "Como ficou",
+    secoes: ["resolucao", "orcamento", "fotos"], prox: "Próximo: a entrega" },
+  { id: "entrega",   rot: "Entrega",   tit: "Entregue ao cliente",
+    sub: "Confira o resumo e passe o celular para quem recebeu assinar.",
+    secoes: ["resumo", "recebido"] },
+];
+const OS_FOTO_TIPO_DA_ETAPA = { chegada: "antes", resultado: "depois" };
+
+function _osMontarEtapas() {
+  const wrap = document.getElementById("osSections");
+  if (!wrap) return;
+  const secoes = {};
+  wrap.querySelectorAll(":scope > .os-section").forEach((s) => { secoes[s.dataset.section] = s; });
+
+  // O resumo da entrega é uma peça desta tela, não um campo da O.S.
+  const resumo = document.createElement("div");
+  resumo.className = "os-section is-open os-resumo";
+  resumo.dataset.section = "resumo";
+  resumo.innerHTML = `<div class="os-section-body" id="osResumo"></div>`;
+  secoes.resumo = resumo;
+
+  const frag = document.createDocumentFragment();
+  for (const et of OS_ETAPAS) {
+    const box = document.createElement("div");
+    box.className = "os-etapa";
+    box.dataset.etapa = et.id;
+    box.hidden = true;
+    box.innerHTML = `
+      <div class="os-etapa-tit">
+        <h3>${escapeHtml(et.tit)}</h3>
+        ${et.sub ? `<p>${escapeHtml(et.sub)}</p>` : ""}
+      </div>`;
+    for (const id of et.secoes) {
+      // A foto entra só na Chegada; o `osIrParaEtapa` a leva ao Resultado.
+      if (id === "fotos" && et.id !== "chegada") continue;
+      const sec = secoes[id];
+      if (!sec) continue; // "bomba" não existe em prédio sem bomba etiquetada
+      sec.classList.add("is-open");
+      box.appendChild(sec);
+    }
+    frag.appendChild(box);
+  }
+  wrap.innerHTML = "";
+  wrap.appendChild(frag);
+  wrap.classList.add("os-em-etapas");
+}
+
+// Onde a O.S. abre: na primeira etapa que ainda não tem o essencial. Quem
+// volta para uma O.S. pela metade cai onde parou, não na Chegada de novo.
+function _osEtapaInicial() {
+  const d = OS.data || {};
+  if (!(d.fotos || []).length) return "chegada";
+  if (!(d.tipos_servico || []).length) return "servico";
+  if (!d.servico_realizado) return "resultado";
+  return "entrega";
+}
+
+function _osEtapaFeita(id) {
+  const d = OS.data || {};
+  if (id === "chegada")   return (d.fotos || []).some((f) => f.tipo === "antes") || (d.fotos || []).length > 0;
+  if (id === "servico")   return (d.tipos_servico || []).length > 0;
+  if (id === "resultado") return !!d.servico_realizado;
+  if (id === "entrega")   return !!(d.recebido_nome && (d.assinatura_b64 || d.tem_assinatura));
+  return false;
+}
+
+function _osRenderPassos() {
+  const el = document.getElementById("osPassos");
+  if (!el) return;
+  el.innerHTML = OS_ETAPAS.map((et) => {
+    const cls = et.id === OS.etapa ? "is-agora" : _osEtapaFeita(et.id) ? "is-feito" : "";
+    return `<button type="button" class="os-passo ${cls}" data-ir-etapa="${et.id}">${escapeHtml(et.rot)}</button>`;
+  }).join("");
+}
+
+function osIrParaEtapa(id) {
+  const et = OS_ETAPAS.find((e) => e.id === id) || OS_ETAPAS[0];
+  OS.etapa = et.id;
+  const wrap = document.getElementById("osSections");
+  if (!wrap) return;
+  // O aviso da etapa anterior ("Selecione pelo menos 1 tipo…") não vale mais
+  // aqui. O finalizar que manda o técnico até a etapa escreve o aviso DEPOIS
+  // desta chamada, então ele não é apagado.
+  const alerta = document.getElementById("osAlert");
+  if (alerta) hideAlert(alerta);
+
+  wrap.querySelectorAll(".os-etapa").forEach((b) => { b.hidden = b.dataset.etapa !== et.id; });
+
+  // A foto acompanha a etapa (ver o bloco acima de OS_ETAPAS).
+  const tipoFoto = OS_FOTO_TIPO_DA_ETAPA[et.id];
+  if (tipoFoto) {
+    OS.fotoTipo = tipoFoto;
+    const fotos = wrap.querySelector('[data-section="fotos"]');
+    const box = wrap.querySelector(`.os-etapa[data-etapa="${et.id}"]`);
+    if (fotos && box && fotos.parentElement !== box) box.appendChild(fotos);
+    document.querySelectorAll("#osFotoTipo .os-foto-tipo-opt").forEach((b) =>
+      b.classList.toggle("is-on", b.dataset.tipo === tipoFoto));
+  }
+
+  // O problema do chamado fica no topo, menos na entrega — lá quem olha a
+  // tela é o cliente, e o que ele precisa ver é o resumo.
+  const prob = document.getElementById("osProblema");
+  if (prob) prob.classList.toggle("is-escondido", et.id === "entrega");
+
+  if (et.id === "entrega") {
+    _osRenderResumo();
+    // O quadro da assinatura só mede certo quando está visível.
+    requestAnimationFrame(() => iniciarCanvasAssinatura());
+  }
+
+  // Barra de baixo: Voltar · Próximo, e na entrega Voltar · Conferir e finalizar.
+  const i = OS_ETAPAS.indexOf(et);
+  const voltar = document.getElementById("osEtapaVoltar");
+  const prox = document.getElementById("osEtapaProx");
+  const fin = document.getElementById("osFinalizar");
+  if (voltar) voltar.hidden = i === 0;
+  if (prox) {
+    prox.hidden = !et.prox;
+    const lbl = prox.querySelector(".btn-label");
+    if (lbl && et.prox) lbl.textContent = et.prox;
+  }
+  if (fin) fin.hidden = et.id !== "entrega";
+  document.getElementById("osCtaBar")?.classList.toggle("is-primeira", i === 0);
+
+  _osRenderPassos();
+  window.scrollTo(0, 0);
+}
+
+// O resumo da entrega: o que vai no documento, e o que falta em vermelho.
+// Tocar num item que falta leva até a etapa dele.
+function _osRenderResumo() {
+  const el = document.getElementById("osResumo");
+  if (!el || !OS.data) return;
+  const d = OS.data;
+  const fotos = d.fotos || [];
+  const antes = fotos.filter((f) => f.tipo === "antes").length;
+  const depois = fotos.filter((f) => f.tipo === "depois").length;
+  const outras = fotos.length - antes - depois;
+  const tipos = d.tipos_servico || [];
+  const itens = Object.values(d.itens_verificados || {}).filter(Boolean).length;
+  const res = (OS_RESOLUCAO.find(([k]) => k === d.servico_realizado) || [])[1];
+  const exigeFoto = tipos.includes("instalacao_pecas") || tipos.includes("chamado_emergencial");
+  const fotoTxt = fotos.length
+    ? [antes && `${antes} antes`, depois && `${depois} depois`, outras && `${outras} outra${outras > 1 ? "s" : ""}`].filter(Boolean).join(" · ")
+    : "Nenhuma";
+
+  const cel = (rot, val, falta, etapa) => `
+    <button type="button" class="os-resumo-cel${falta ? " is-falta" : ""}" data-ir-etapa="${etapa}">
+      <small>${rot}</small><b>${escapeHtml(val)}</b>
+    </button>`;
+  el.innerHTML = `
+    <div class="os-resumo-grade">
+      ${cel("Fotos", fotoTxt, exigeFoto && !fotos.length, "chegada")}
+      ${cel("Serviço", tipos.length ? `${tipos.length} tipo${tipos.length > 1 ? "s" : ""}` : "Falta marcar", !tipos.length, "servico")}
+      ${cel("Equipamentos", itens ? `${itens} verificado${itens > 1 ? "s" : ""}` : "Nenhum", false, "servico")}
+      ${cel("Resultado", res || "Falta marcar", !res, "resultado")}
+      ${cel("Peças", (d.pecas || []).length ? `${d.pecas.length}` : "Nenhuma", false, "servico")}
+      ${cel("Orçamento", d.orcamento_necessario ? "Sim" : "Não", false, "resultado")}
+    </div>`;
+}
+
+document.getElementById("osSections")?.addEventListener("click", (e) => {
+  const ir = e.target.closest("[data-ir-etapa]");
+  if (ir) osIrParaEtapa(ir.dataset.irEtapa);
+});
+document.getElementById("osPassos")?.addEventListener("click", (e) => {
+  const ir = e.target.closest("[data-ir-etapa]");
+  if (ir) osIrParaEtapa(ir.dataset.irEtapa);
+});
+document.getElementById("osEtapaProx")?.addEventListener("click", () => {
+  const i = OS_ETAPAS.findIndex((et) => et.id === OS.etapa);
+  if (i >= 0 && i < OS_ETAPAS.length - 1) osIrParaEtapa(OS_ETAPAS[i + 1].id);
+});
+document.getElementById("osEtapaVoltar")?.addEventListener("click", () => {
+  const i = OS_ETAPAS.findIndex((et) => et.id === OS.etapa);
+  if (i > 0) osIrParaEtapa(OS_ETAPAS[i - 1].id);
+});
 
 function sectionTemplate({ id, title, subtitle, required, complete, body, open }) {
   return `
@@ -3522,8 +4043,8 @@ function sectionFotos() {
     complete: fotos.length > 0,
     body: `
       <div class="os-foto-tipo-picker" id="osFotoTipo">
-        ${OS_FOTO_TIPOS.map((t, i) => `
-          <button type="button" class="os-foto-tipo-opt ${i === 2 ? "is-on" : ""}" data-tipo="${t}">${t}</button>
+        ${OS_FOTO_TIPOS.map((t) => `
+          <button type="button" class="os-foto-tipo-opt ${t === (OS.fotoTipo || "geral") ? "is-on" : ""}" data-tipo="${t}">${t}</button>
         `).join("")}
       </div>
       <div class="os-foto-list" id="osFotos">
@@ -3912,11 +4433,11 @@ function sectionResolucao() {
     required: true,
     complete: !!sr,
     body: `
-      <div class="os-radio-group" id="osResRadio">
+      <div class="os-radio-group os-radio-col" id="osResRadio">
         ${OS_RESOLUCAO.map(([k, lbl]) => `
           <label class="os-radio">
             <input type="radio" name="osRes" value="${k}" ${sr === k ? "checked" : ""}>
-            <span class="os-radio-label">${escapeHtml(lbl)}</span>
+            <span class="os-radio-label">${escapeHtml(lbl)}<small>${escapeHtml(OS_RESOLUCAO_DICA[k] || "")}</small></span>
           </label>`).join("")}
       </div>
       <label class="os-switch-row" style="margin-top:12px">
@@ -4478,24 +4999,17 @@ async function abrirRecolherAssinatura(c) {
 }
 
 // ---- Progresso geral ----
+// O progresso agora é a barra de etapas (26/11/2026). A barra "0 de 7 seções"
+// saiu: contava opcional junto com obrigatório e havia 9 seções, não 7.
+//
+// ⚠️ O "CONFERIR E FINALIZAR" NÃO FICA MAIS DESLIGADO. Desligado, ele não dizia
+// o que faltava; ligado, o toque cai em _osPrimeiroPendente, que leva até a
+// etapa do que falta e diz o quê.
 function atualizarProgresso() {
-  const requiredSections = ["tipos", "resolucao", "recebido"];
-  const completedRequired = requiredSections.filter((id) => {
-    const sec = document.querySelector(`[data-section="${id}"]`);
-    return sec?.classList.contains("is-complete");
-  }).length;
-  const allComplete = document.querySelectorAll(".os-section.is-complete").length;
-  const total = 7; // 7 seções com lógica de completude (peças é opcional, não marca)
-
-  const pct = Math.round((allComplete / total) * 100);
-  const bar = document.getElementById("osProgressBar");
-  if (bar) bar.style.width = `${Math.min(100, pct)}%`;
-  const txt = document.getElementById("osProgressText");
-  if (txt) txt.textContent = `${allComplete} de ${total} seções preenchidas`;
-
-  // Habilita botão finalizar só com obrigatórios prontos
+  _osRenderPassos();
   const btn = document.getElementById("osFinalizar");
-  if (btn) btn.disabled = completedRequired < requiredSections.length;
+  if (btn && !btn.classList.contains("is-loading")) btn.disabled = false;
+  if (OS.etapa === "entrega") _osRenderResumo();
 }
 
 // ---- Finalizar ----
@@ -4537,6 +5051,10 @@ function _osPrimeiroPendente() {
 // Abre a seção, rola até ela e pisca a borda. Sem isso a mensagem de erro fica
 // no rodapé e o campo que falta continua escondido dentro de uma sanfona.
 function _osIrParaSecao(id) {
+  // Primeiro a etapa onde a seção mora (a foto vai para a Chegada).
+  const etapa = id === "fotos" ? "chegada"
+    : (OS_ETAPAS.find((et) => et.secoes.includes(id)) || {}).id;
+  if (etapa && etapa !== OS.etapa) osIrParaEtapa(etapa);
   const sec = document.querySelector(`[data-section="${id}"]`);
   if (!sec) return;
   sec.classList.add("is-open");
@@ -4721,7 +5239,11 @@ function mostrarOSSucesso({ pendente = false } = {}) {
         <button class="btn btnAccent btn-lg" id="osVoltarLista">Voltar pra minha lista</button>
       </div>
     </div>`;
-  document.querySelector(".os-shell .td-card").style.display = "none"; // some o timer
+  // Some o relógio, as etapas e o problema — a O.S. acabou.
+  ["osPassos", "osProblema", "osHdrRelogio"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
   // ⚠️ POR ID. Era `querySelector(".td-cta-bar")`, que pega a PRIMEIRA do
   // documento — a da tela de detalhe do chamado (`#tdCtaBar`), não esta. E como
   // aquela já é `[hidden]`, e `[hidden]` é `!important`, a linha não fazia nada:
@@ -6403,17 +6925,10 @@ function renderContaTec() {
   const svgGps  = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
   const svgLock = `<svg class="head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 
-  // Estado do GPS — usa o módulo global GPS
-  let gpsStatus, gpsClass;
-  if (IS_DEMO) {
-    gpsStatus = "Desativado no modo demo"; gpsClass = "muted";
-  } else if (!GPS.scheduled) {
-    gpsStatus = "Aguardando login";        gpsClass = "muted";
-  } else if (GPS.active) {
-    gpsStatus = "Ativo — enviando posição";gpsClass = "ok";
-  } else {
-    gpsStatus = "Fora do expediente (08h–18h)"; gpsClass = "warn";
-  }
+  // Estado do GPS — o MESMO texto do cabeçalho e da faixa (ver gpsEstado).
+  // Antes a Conta tinha a régua dela, e dizia "Ativo — enviando posição" com a
+  // permissão negada.
+  const gpsStatus = gpsEstadoCurto();
 
   main.innerHTML = `
     <section class="card tec-card">
@@ -6440,23 +6955,32 @@ function renderContaTec() {
 
     <section class="card tec-card">
       <div class="cardHead">
-        <h2>${svgGps}Localização (GPS)</h2>
+        <h2>${svgGps}Este aparelho</h2>
       </div>
       <div class="cli-info-row">
-        <span class="cli-info-row-label">Status</span>
+        <span class="cli-info-row-label">Localização</span>
         <span class="cli-info-row-value" id="tecContaGpsStatus">${escapeHtml(gpsStatus)}</span>
       </div>
       <div class="cli-info-row">
-        <span class="cli-info-row-label">Janela ativa</span>
-        <span class="cli-info-row-value">${String(GPS_HORA_INI).padStart(2,"0")}:00 às ${String(GPS_HORA_FIM).padStart(2,"0")}:00</span>
+        <span class="cli-info-row-label">Expediente</span>
+        <span class="cli-info-row-value">${GPS_HORA_INI}h às ${GPS_HORA_FIM}h</span>
+      </div>
+      <!-- A versão do app (26/11/2026): o APK é instalado à mão, celular por
+           celular, e esta linha é como se confere quem já atualizou. -->
+      <div class="cli-info-row">
+        <span class="cli-info-row-label">Versão do app</span>
+        <span class="cli-info-row-value">${escapeHtml(APP_VERSAO)}</span>
       </div>
     </section>
 
-    <section class="card tec-card">
-      <div class="cardHead">
-        <h2>${svgLock}Alterar senha</h2>
-      </div>
-      <form id="tecSenhaForm" class="cli-form" novalidate autocomplete="off">
+    <!-- Trocar senha entra RECOLHIDO (26/11/2026): é coisa rara, e aberto ele
+         era a maior peça da tela, com o maior botão amarelo dela. -->
+    <section class="card tec-card tec-senha" id="tecSenhaCard">
+      <button type="button" class="tec-senha-abrir" id="tecSenhaAbrir" aria-expanded="false">
+        <span>${svgLock}Trocar senha</span>
+        <svg class="tec-senha-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <form id="tecSenhaForm" class="cli-form" novalidate autocomplete="off" hidden>
         <label class="cli-form-field">
           <span class="rc-label">Senha atual</span>
           <input class="input" type="password" id="tecSenhaAtual" autocomplete="current-password" required>
@@ -6491,6 +7015,14 @@ function renderContaTec() {
   document.getElementById("tecSenhaForm").addEventListener("submit", (e) => {
     e.preventDefault();
     submitTrocarSenhaTec();
+  });
+  document.getElementById("tecSenhaAbrir").addEventListener("click", (e) => {
+    const form = document.getElementById("tecSenhaForm");
+    const abrir = form.hidden;
+    form.hidden = !abrir;
+    e.currentTarget.setAttribute("aria-expanded", String(abrir));
+    document.getElementById("tecSenhaCard").classList.toggle("is-aberto", abrir);
+    if (abrir) document.getElementById("tecSenhaAtual")?.focus();
   });
   document.getElementById("tecBtnSair").addEventListener("click", () => {
     pararPollingTecnico();
@@ -6674,6 +7206,9 @@ async function carregarRoteiro(silent = false) {
     RT.planos       = Array.isArray(data?.planos) ? data.planos : [];
     RT.zonas        = Array.isArray(data?.zonas) ? data.zonas : [];
     RT.antecedencia = Number(data?.antecedencia_dias) || 7;
+    // Feitos do mês: backend de 26/11/2026 em diante. Servidor antigo não
+    // manda o campo, e a barra simplesmente não conta feitos.
+    RT.feitos       = Array.isArray(data?.feitos_mes) ? data.feitos_mes : [];
     RT.syncedAt     = new Date();
     renderRoteiro();
   } catch (err) {
@@ -6690,59 +7225,78 @@ function renderRoteiro() {
 
   const grupos = rtAgrupar();
 
-  // Cabeçalho: zonas do técnico + janela do roteiro
+  // Cabeçalho: as zonas do técnico. A janela de dias saiu do texto: desde
+  // 24/11 o roteiro é o mês atual, e é isso que o título já diz.
   const sub = document.getElementById("rtSub");
-  if (sub) {
-    const zonaTxt = RT.zonas.length ? RT.zonas.join(" · ") : "sem zona atribuída";
-    sub.textContent = `${zonaTxt} — próximos ${RT.antecedencia} dias`;
-  }
+  if (sub) sub.textContent = RT.zonas.length ? RT.zonas.join(" · ") : "Sem zona atribuída";
 
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   setTxt("rtSync", RT.syncedAt ? syncLabel(RT.syncedAt) : "—");
 
-  // Painel de números no topo — mesma faixa da home do técnico, pra as duas
-  // telas lerem como irmãs. Substituiu o rodapé de contagem do card antigo.
-  const strip = document.getElementById("rtKpiStrip");
-  if (strip) {
-    // ⚠️ EM MESES, não em dias — senão o número do topo contradiz a etiqueta do
-    // card logo abaixo, que já lê "este mês".
-    const atrasadas = RT.planos.filter(p => !p.chamado_aberto_id && rtMesesAte(p.proxima_em) < 0).length;
-    // ⚠️ "EM CURSO" CONTAVA CHAMADO EXISTENTE, NÃO SERVIÇO ANDANDO (14/09/2026).
-    // Como o job abre o chamado de toda preventiva do mês, o número marcava o
-    // roteiro inteiro como em curso já no dia 1 — e contradizia os próprios
-    // cards logo abaixo, que agora dizem "abrir #N". Em curso é quem saiu.
-    const emCurso   = RT.planos.filter(p => rtSituacao(p) === "andando").length;
-    // E o que sobra dele: o que ainda não existe mais o que é dele e está
-    // parado. É o número que responde "tenho trabalho aqui?".
-    const esperando = RT.planos.filter(p => {
-      const sit = rtSituacao(p);
-      return sit === "pendente" || sit === "meu_parado" || sit === "orfao";
-    }).length;
-    const cell = (val, label, cls) => `
-      <div class="tk-cell ${val > 0 ? cls : ""}">
-        <div class="tk-value">${val}</div>
-        <div class="tk-label">${label}</div>
-      </div>`;
-    strip.innerHTML =
-      cell(grupos.length,     "Prédios",   "is-neutral") +
-      cell(RT.planos.length,  "Serviços",  "is-neutral") +
-      cell(atrasadas,         "Atrasadas", "is-bad")     +
-      cell(esperando > 0 ? esperando : emCurso,
-           esperando > 0 ? "Esperando" : "Em curso",
-           esperando > 0 ? "is-neutral" : "is-ok");
+  // ⚠️ O PLACAR DE QUATRO NÚMEROS VIROU UMA FRASE E UMA BARRA (26/11/2026).
+  // "Prédios · Serviços · Atrasadas · Esperando" pedia que o técnico somasse
+  // de cabeça para saber como estava o mês. A pergunta dele é uma só: quanto
+  // falta. Feitos vêm do backend (`feitos_mes`); a fazer é o roteiro.
+  //
+  // ⚠️ ATRASADO É EM MESES, não em dias (ver rtPrazoLabel) — é o mesmo corte
+  // que separa a seção "Atrasados" logo abaixo, senão a barra e a lista
+  // contariam diferente.
+  const atrasado = (g) => {
+    const prox = g.planos.reduce((min, p) => (!min || p.proxima_em < min ? p.proxima_em : min), null);
+    return rtMesesAte(prox) < 0;
+  };
+  const atrasados = grupos.filter(atrasado);
+  const aFazer = grupos.filter((g) => !atrasado(g));
+  const feitos = RT.feitos || [];
+  const total = feitos.length + grupos.length;
+
+  const mesEl = document.getElementById("rtMes");
+  if (mesEl) {
+    const mesNome = RT_MESES[new Date().getMonth()];
+    const pct = (n) => (total ? (n / total) * 100 : 0).toFixed(1);
+    mesEl.innerHTML = `
+      <h3 class="rt-mes-nome">${mesNome.charAt(0).toUpperCase() + mesNome.slice(1)}</h3>
+      <p class="rt-mes-frase">${total
+        ? `${feitos.length} de ${total} prédio${total === 1 ? "" : "s"} feito${total === 1 ? "" : "s"}`
+        : "Nenhuma preventiva para você este mês"}</p>
+      ${total ? `
+        <div class="rt-barra" role="img" aria-label="${feitos.length} feitos, ${atrasados.length} atrasados, ${aFazer.length} a fazer">
+          <i class="f" style="width:${pct(feitos.length)}%"></i><i class="a" style="width:${pct(atrasados.length)}%"></i>
+        </div>
+        <div class="rt-legenda">
+          <span class="f">${feitos.length} feito${feitos.length === 1 ? "" : "s"}</span>
+          <span class="a">${atrasados.length} atrasado${atrasados.length === 1 ? "" : "s"}</span>
+          <span class="r">${aFazer.length} a fazer</span>
+        </div>` : ""}`;
   }
 
   rtRenderDesvio();
   rtAtualizarBadge();
 
-  if (!grupos.length) {
+  if (!grupos.length && !feitos.length) {
     lista.innerHTML = "";
     empty.hidden = false;
     return;
   }
   empty.hidden = true;
 
-  lista.innerHTML = grupos.map((g, i) => rtCardPredio(g, i + 1)).join("");
+  // A lista na ordem do que pede decisão: atrasados, a fazer, feitos. Dentro
+  // de cada seção continua valendo a ordenação escolhida (proximidade ou
+  // atraso), e o número do cartão segue a ordem da tela.
+  const tit = (txt, n) => `<div class="rt-sec-tit"><h4>${txt}</h4><span>${n}</span></div>`;
+  let n = 0;
+  let html = "";
+  if (atrasados.length) html += tit("Atrasados", atrasados.length) + atrasados.map((g) => rtCardPredio(g, ++n)).join("");
+  if (aFazer.length) html += tit("A fazer", aFazer.length) + aFazer.map((g) => rtCardPredio(g, ++n)).join("");
+  if (feitos.length) {
+    html += tit("Feitos", feitos.length) + `<div class="rt-feitos">${feitos.map((f) => `
+      <button type="button" class="rt-feito" data-chamado="${f.chamado_id}">
+        <span><strong>${escapeHtml(f.condominio_nome || "—")}</strong>
+          <small>${escapeHtml([f.os_numero, f.fechado_em ? new Date(f.fechado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : null].filter(Boolean).join(" · "))}</small></span>
+        <span class="rt-feito-selo">Feito</span>
+      </button>`).join("")}</div>`;
+  }
+  lista.innerHTML = html;
 }
 
 // ⚠️ UMA DEFINIÇÃO SÓ, lida pelo card, pelos números do topo e pelo badge da
@@ -6775,7 +7329,14 @@ function rtCardPredio(g, ordem) {
   const distLabel = rtDistLabel(g.dist);
   const endereco = escapeHtml([g.endereco, g.bairro].filter(Boolean).join(", ") || "Endereço não cadastrado");
   const proxima = g.planos.reduce((min, p) => (!min || p.proxima_em < min ? p.proxima_em : min), null);
-  const prazo = rtPrazoLabel(proxima);
+  // ⚠️ "EM DEZEMBRO" NUM SERVIÇO DE NOVEMBRO (26/11/2026). O job rola a
+  // proxima_em para o ciclo seguinte no instante em que abre o chamado do mês,
+  // então o prédio que entrou pela segunda porta do roteiro (chamado deste mês
+  // ainda aberto) mostrava a data do PRÓXIMO ciclo. Com chamado aberto, o
+  // trabalho é deste mês.
+  const prazo = (rtMesesAte(proxima) > 0 && g.planos.some((p) => p.chamado_aberto_id))
+    ? { txt: "este mês", cls: "is-hoje" }
+    : rtPrazoLabel(proxima);
 
   // ⚠️ TER CHAMADO NÃO É ESTAR EM ANDAMENTO (14/09/2026). Esta função lia só
   // `!!p.chamado_aberto_id` e carimbava o card inteiro como "em andamento" —
@@ -6994,8 +7555,13 @@ function _bindTecnicoUI() {
   ).forEach((b) => {
     b.addEventListener("click", () => {
       const tab = b.dataset.tecTab;
-      if (tab === "chamados") {
+      // Hoje e Histórico são a mesma tela com recortes diferentes da lista.
+      if (tab === "chamados" || tab === "historico") {
+        TC.tab = tab === "historico" ? "historico" : "hoje";
         showScreen("tecnico-chamados");
+        renderTecnicoChamados();
+        document.querySelector('[data-screen="tecnico-chamados"] .tec-content')?.scrollTo?.(0, 0);
+        window.scrollTo(0, 0);
       } else if (tab === "roteiro") {
         abrirTelaRoteiro();
       } else if (tab === "conta") {

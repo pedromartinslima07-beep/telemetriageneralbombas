@@ -1069,10 +1069,22 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 - [x] Corrente aceita vírgula ✅ (código e teste)
 - [x] Auto-save com um PATCH por vez, sem vazar entre O.S. ✅ (código e teste)
 - [x] Conferência da assinatura salva antes de finalizar ✅ (código e teste)
-- [ ] Gerar o APK novo e instalar nos celulares dos técnicos
+- [x] APK com essas correções gerado (26/11) — substituído pelo 1.1 abaixo
 - [ ] Depois de umas semanas com o APK novo, refazer a auditoria (correntes
   com valor, assinaturas fracas). Ver
   [app-mobile.md](../docs/modulos/app-mobile.md#preenchi-certo-e-gravou-só-uma-parte-26112026)
+
+## App do técnico com estrutura nova — versão 1.1 (26/11/2026)
+
+- [x] Maquete aprovada (`/dev/_maquete-app.html`) ✅
+- [x] Abas Hoje · Mês · Histórico · Conta; chamado pelo problema; O.S. em
+  quatro etapas ✅ (código e teste no banco de teste)
+- [ ] Push (o backend novo vai junto; APK antigo ignora os campos novos)
+- [ ] Gerar o APK 1.1 e instalar nos celulares
+- [ ] Corrente por bomba e equipamentos do prédio dentro da O.S. — pede
+  mudança no modelo de dado (`correntes`, `itens_verificados`)
+- [ ] Escritório ver a versão do app de cada técnico (gravar no backend)
+- Ver [app-mobile.md](../docs/modulos/app-mobile.md#a-estrutura-nova-do-app-26112026)
 
 ## Backlog futuro (ideias não-MVP já mapeadas)
 

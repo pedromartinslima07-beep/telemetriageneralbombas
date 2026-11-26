@@ -1916,3 +1916,459 @@ body::before { content: none !important; }
   border-radius: 0;
   opacity: 1;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   ESTRUTURA NOVA DO APP (26/11/2026) — maquete aprovada pelo Pedro
+   ────────────────────────────────────────────────────────────────────────
+   Abas Hoje · Mês · Histórico · Conta; o chamado com o problema primeiro; a
+   O.S. em quatro etapas. A roupa é a mesma de cima (marinho, placa clara,
+   amarelo, chanfro); estas regras só vestem as peças novas.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Menu de baixo: quatro abas nas três telas ────────────────────────── */
+[data-screen^="tecnico-"] .cli-nav.tec-nav { grid-template-columns: repeat(4, 1fr); }
+
+/* ── Botão carregando: o rótulo vira o texto do que está acontecendo ─────
+   O spinner do app.css mora no ::after, que aqui é o efeito de toque — por
+   isso o botão ficava vazio. Ver setBtnLoading. */
+[data-screen^="tecnico-"] .btn.is-loading .btn-label,
+.os-foto-src-sheet .btn.is-loading .btn-label { opacity: 1; }
+[data-screen^="tecnico-"] .btn.is-loading { cursor: progress; }
+
+/* ── A faixa de localização entra no fluxo ──────────────────────────────
+   A altura dela vem do JS em --gps-aviso-h (ver _gpsAjustarEspaco). A tela
+   desce, e o cabeçalho grudado passa a grudar logo abaixo da faixa. */
+.screen[data-screen^="tecnico-"][data-active] { padding-top: var(--gps-aviso-h, 0px); }
+[data-screen^="tecnico-"] .app-header { top: var(--gps-aviso-h, 0px); }
+.gps-aviso {
+  background: #3a0d14;
+  border-bottom: 1px solid rgba(255, 90, 77, .45);
+  box-shadow: none;
+  color: #ffd3cf;
+  font-family: var(--fonte);
+  font-size: 13px;
+  font-weight: 500;
+}
+.gps-aviso svg { color: var(--vermelho); }
+.gps-aviso-cta {
+  background: var(--vermelho);
+  border: 0;
+  color: var(--mar-900);
+  border-radius: 0;
+  clip-path: var(--corte-p);
+  font-family: var(--fonte);
+  font-size: 12.5px;
+  padding: 8px 12px;
+}
+[data-screen^="tecnico-"] .tec-hdr-gps.is-bad { color: var(--vermelho); }
+
+/* ── Hoje: o atendimento em curso ────────────────────────────────────── */
+.tec-em-curso { padding: 14px 14px 4px; }
+.tec-em-curso[hidden] { display: none; }
+.tec-em-curso-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  cursor: pointer;
+  background: var(--amarelo);
+  color: var(--mar-900);
+  padding: 16px 16px 14px;
+  --ch: 16px;
+  clip-path: var(--corte);
+  font-family: var(--fonte);
+}
+.tec-em-curso-card:active { background: var(--amarelo-cl); }
+.tec-em-curso-rot {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.tec-em-curso-nome {
+  display: block;
+  margin-top: 10px;
+  font-size: 21px;
+  font-weight: 850;
+  font-stretch: 108%;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+}
+.tec-em-curso-prob { display: block; margin-top: 4px; font-size: 14.5px; line-height: 1.4; color: #2a2208; }
+.tec-em-curso-bt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  min-height: 48px;
+  background: var(--mar-900);
+  color: var(--amarelo);
+  font-weight: 750;
+  font-size: 15.5px;
+  --ch-p: 9px;
+  clip-path: var(--corte-p);
+}
+
+.tec-fila-tit {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 16px 10px;
+}
+/* Sem posição não há distância: o traço "—" no lugar dela não dizia nada. */
+[data-screen^="tecnico-"] .ch-dist-vazio { display: none; }
+.tec-fila-tit[hidden] { display: none; }
+.tec-fila-tit h4 { font-size: 15.5px; font-weight: 750; color: var(--text); letter-spacing: -.01em; }
+.tec-fila-tit span { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* O problema, no lugar do endereço completo */
+.ch-row-mob-prob {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.ch-prazo { font-size: 12px; font-weight: 650; color: var(--text-dim); }
+.ch-prazo.is-perto { color: var(--atencao-t); font-weight: 750; }
+.ch-prazo.is-vencido { color: var(--risco-t); font-weight: 750; }
+
+/* ── Histórico ───────────────────────────────────────────────────────── */
+.tec-busca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 14px 0;
+  padding: 0 14px;
+  min-height: 48px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--muted);
+  --ch-p: 9px;
+  clip-path: var(--corte-p);
+}
+.tec-busca[hidden] { display: none; }
+.tec-busca svg { width: 18px; height: 18px; flex: none; }
+.tec-busca input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font-family: var(--fonte);
+  font-size: 15px;
+}
+.tec-busca input::placeholder { color: var(--muted); }
+.tec-busca:focus-within { box-shadow: inset 0 0 0 2px var(--amarelo); }
+[data-screen^="tecnico-"] .tec-sortbar[hidden] { display: none; }
+
+.tec-hist-dia {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 18px 4px 8px;
+}
+.tec-hist-dia { margin-left: 16px; margin-right: 16px; }
+.tec-hist-dia:first-child { margin-top: 14px; }
+.tec-hist-grupo { --ch: 14px; clip-path: var(--corte); margin: 0 14px; }
+.tec-hist-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  background: var(--chapa);
+  color: var(--tinta);
+  font-family: var(--fonte);
+}
+.tec-hist-linha + .tec-hist-linha { border-top: 1px solid rgba(6, 16, 51, .13); }
+.tec-hist-linha:active { background: var(--chapa-cl); }
+.tec-hist-txt strong { display: block; font-size: 15px; font-weight: 700; line-height: 1.25; }
+.tec-hist-txt small { display: block; font-size: 12.5px; color: var(--tinta-2); margin-top: 2px; }
+.tec-hist-res { font-size: 12.5px; font-weight: 750; }
+.tec-hist-res.is-ok  { color: var(--normal-t); }
+.tec-hist-res.is-pal { color: var(--atencao-t); }
+.tec-hist-res.is-agr { color: var(--risco-t); }
+
+/* ── Mês ─────────────────────────────────────────────────────────────── */
+.rt-mes { padding: 16px 16px 6px; }
+.rt-mes-nome { font-size: 24px; font-weight: 850; font-stretch: 108%; letter-spacing: -.02em; color: var(--text); }
+.rt-mes-frase { margin-top: 2px; font-size: 14.5px; color: var(--text-dim); }
+.rt-barra { display: flex; height: 8px; margin-top: 12px; background: var(--mar-700); }
+.rt-barra i { display: block; height: 100%; }
+.rt-barra .f { background: var(--verde); }
+.rt-barra .a { background: var(--vermelho); }
+.rt-legenda { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12.5px; color: var(--text-dim); }
+.rt-legenda span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; }
+.rt-legenda .f::before { background: var(--verde); }
+.rt-legenda .a::before { background: var(--vermelho); }
+.rt-legenda .r::before { background: var(--mar-500); }
+
+.rt-sec-tit {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 18px 4px 10px;
+}
+.rt-sec-tit:first-child { margin-top: 6px; }
+.rt-sec-tit h4 { font-size: 15.5px; font-weight: 750; color: var(--text); }
+.rt-sec-tit span { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.rt-feitos { --ch: 14px; clip-path: var(--corte); }
+.rt-feito {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  background: var(--chapa-es);
+  color: var(--tinta);
+  font-family: var(--fonte);
+}
+.rt-feito + .rt-feito { border-top: 1px solid rgba(6, 16, 51, .13); }
+.rt-feito strong { display: block; font-size: 14.5px; font-weight: 650; color: var(--tinta-2); }
+.rt-feito small { display: block; font-size: 12px; color: var(--tinta-2); margin-top: 1px; }
+.rt-feito-selo {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 4px 7px;
+  background: rgba(16, 92, 49, .12);
+  color: var(--normal-t);
+}
+
+/* ── Conta: trocar senha recolhido ────────────────────────────────────── */
+.tec-senha-abrir {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-family: var(--fonte);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tec-senha-abrir > span { display: flex; align-items: center; gap: 10px; }
+.tec-senha-abrir .head-icon { width: 16px; height: 16px; }
+.tec-senha-seta { width: 18px; height: 18px; transition: transform .2s var(--saida); }
+.tec-senha.is-aberto .tec-senha-seta { transform: rotate(90deg); }
+.tec-senha .cli-form { padding: 0 16px 16px; }
+.tec-senha .cli-form[hidden] { display: none; }
+
+/* ── O chamado ───────────────────────────────────────────────────────── */
+/* O nome do prédio inteiro, em duas linhas se precisar: o logo saiu daqui. */
+[data-screen="tecnico-detalhe"] .brand-name,
+[data-screen="tecnico-os"] .brand-name {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 16px;
+  line-height: 1.2;
+}
+/* O rótulo do botão pode ser longo ("Termine o atendimento em Edifício…"):
+   quebra em duas linhas em vez de sair cortado. */
+[data-screen="tecnico-detalhe"] .td-cta-bar .btn .btn-label {
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
+}
+.td-prob-tit { font-size: 18px; font-weight: 800; letter-spacing: -.015em; line-height: 1.25; color: var(--text); }
+.td-prob-desc { font-size: 14.5px; line-height: 1.45; color: var(--text-dim); margin-top: 6px; }
+.td-problema .td-pills { margin-top: 12px; flex-wrap: wrap; align-items: center; }
+.td-aberto-em { font-size: 12px; color: var(--text-dim); }
+
+.td-contatos .td-card-body { padding-top: 6px; padding-bottom: 6px; }
+.td-contato {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 0;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: var(--text);
+  font-family: var(--fonte);
+  cursor: pointer;
+}
+.td-contato + .td-contato { border-top: 1px solid var(--fio-fraco); }
+.td-contato:disabled { cursor: default; }
+.td-contato-ic {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  background: var(--mar-900);
+  color: var(--amarelo);
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+}
+.td-contato-ic svg { width: 18px; height: 18px; }
+.td-contato:disabled .td-contato-ic { background: var(--muted); color: var(--chapa); }
+.td-contato-txt strong { display: block; font-size: 15px; font-weight: 700; line-height: 1.25; }
+.td-contato-txt small { display: block; font-size: 13px; color: var(--text-dim); margin-top: 1px; }
+.td-contato-acao {
+  font-size: 14px;
+  font-weight: 750;
+  text-decoration: underline;
+  text-decoration-color: var(--amarelo-es);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.td-rot {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.td-predio[hidden] { display: none; }
+.td-uv p { font-size: 14.5px; line-height: 1.45; margin-top: 4px; color: var(--text); }
+.td-uv p b { font-weight: 700; }
+.td-uv + .td-equip { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--fio-fraco); }
+.td-equip[hidden] { display: none; }
+.td-equip-lista { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.td-equip-lista span {
+  font-size: 13px;
+  padding: 5px 9px;
+  box-shadow: inset 0 0 0 1px var(--fio);
+  color: var(--text);
+}
+
+/* ── A O.S. em etapas ────────────────────────────────────────────────── */
+.os-hdr-relogio {
+  margin-left: auto;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--amarelo);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  flex: none;
+}
+.os-hdr-relogio small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.os-passos {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 12px 14px 10px;
+}
+.os-passo {
+  background: transparent;
+  border: 0;
+  border-top: 3px solid var(--mar-600);
+  padding: 8px 0 2px;
+  text-align: left;
+  font-family: var(--fonte);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+  cursor: pointer;
+}
+.os-passo.is-feito { border-color: var(--verde); color: var(--text-dim); }
+.os-passo.is-agora { border-color: var(--amarelo); color: var(--amarelo); }
+
+.os-problema {
+  margin: 0 14px 4px;
+  padding: 10px 12px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--fio-fraco);
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  --ch-p: 8px;
+  clip-path: var(--corte-p);
+}
+.os-problema b { color: var(--text); font-weight: 650; }
+.os-problema.is-escondido,
+.os-problema[hidden] { display: none; }
+
+.os-etapa[hidden] { display: none; }
+.os-etapa-tit { padding: 12px 4px 12px; }
+.os-etapa-tit h3 { font-size: 22px; font-weight: 850; font-stretch: 106%; letter-spacing: -.02em; line-height: 1.15; color: var(--text); }
+.os-etapa-tit p { font-size: 14px; line-height: 1.45; color: var(--text-dim); margin-top: 4px; }
+
+/* Nas etapas não há sanfona: toda seção fica aberta, e o cabeçalho dela vira
+   só o título. */
+.os-em-etapas .os-section-head { pointer-events: none; }
+.os-em-etapas .os-section-chev { display: none; }
+/* O número da seção (1 a 8) era a ordem da sanfona; dentro das etapas ele não
+   diz nada. O selo "Obrig." continua. */
+.os-em-etapas .os-section-icon { display: none; }
+.os-em-etapas .os-section + .os-section { margin-top: 10px; }
+
+/* O resumo da entrega */
+.os-resumo .os-section-body { padding: 0; }
+.os-resumo-grade {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(6, 16, 51, .13);
+}
+.os-resumo-cel {
+  background: var(--chapa);
+  border: 0;
+  text-align: left;
+  padding: 10px 12px;
+  font-family: var(--fonte);
+  color: var(--tinta);
+  cursor: pointer;
+}
+.os-resumo-cel small { display: block; font-size: 11.5px; color: var(--tinta-2); }
+.os-resumo-cel b { font-size: 14.5px; font-weight: 750; }
+.os-resumo-cel.is-falta b { color: var(--risco-t); }
+
+/* Resolução: uma opção por linha, com a frase do que ela quer dizer */
+.os-radio-col { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.os-radio-col .os-radio-label small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Barra de baixo da O.S.: Voltar · Próximo (ou Conferir e finalizar) */
+.os-cta-etapas {
+  display: grid;
+  grid-template-columns: 1fr 1.7fr;
+  gap: 8px;
+}
+.os-cta-etapas > [hidden] { display: none; }
+.os-cta-etapas.is-primeira { grid-template-columns: 1fr; }
+[data-screen^="tecnico-"] .os-cta-etapas .os-etapa-voltar {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--fio);
+}

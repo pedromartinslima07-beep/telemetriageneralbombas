@@ -842,6 +842,95 @@ da digitação, a observação gravada foi a completa; e a conferência, o "Assi
 de novo" e a finalização funcionaram. ⚠️ **Exige APK novo**, e o que já foi
 gravado errado não volta.
 
+## A estrutura nova do app (26/11/2026)
+
+Revisão de UX do app inteiro, pedida pelo Pedro "igual fizemos com o novo
+painel": análise tela a tela, maquete (`public/_maquete-app.html`, em
+`/dev/_maquete-app.html`) e aprovação antes do código. O visual (Chapa) não
+mudou; mudou **onde cada coisa mora**. Versão do app: **1.1** (`APP_VERSAO` no
+`app.js` + `versionName`/`versionCode` do `build.gradle`, sempre juntos).
+
+### Os defeitos que vieram junto
+
+- **A faixa de localização cobria o cabeçalho** de todas as telas (no detalhe
+  sumiam o nome do prédio e a seta de voltar). Ela continua `fixed`, mas a
+  altura dela vira `--gps-aviso-h` (`_gpsAjustarEspaco`), que desce a tela e o
+  cabeçalho grudado.
+- **Quatro mensagens diferentes sobre o GPS** (faixa "negada", cabeçalho "GPS
+  ativo", lista "sem GPS", Conta "Ativo — enviando posição"). Agora há um
+  `gpsEstado()` só, lido pelo cabeçalho, pela Conta e pelo aviso de ordenação
+  (que some quando a faixa está na tela). O erro vem antes do "ativo":
+  `GPS.active` só diz que o rastreio foi pedido.
+- **Botão vazio enquanto carrega.** O spinner do `app.css` mora no `::after`, que
+  o `tecnico.css` usa para o efeito de toque. `setBtnLoading(btn, true, texto)`
+  agora troca o rótulo por um texto ("Pegando a localização…", "Abrindo a
+  O.S.…"), e na volta só restaura se ninguém escreveu o rótulo da fase seguinte.
+
+### Abas: Hoje · Mês · Histórico · Conta
+
+- As abas de cima (Hoje · Próximos · Histórico) saíram. **"Próximos" repetia os
+  abertos de Hoje** (estava marcado como provisório no código). Hoje e
+  Histórico são a mesma tela (`tecnico-chamados`) com `TC.tab` diferente, e o
+  menu de baixo marca a aba certa.
+- **Hoje**: "Bom dia, Carlos" + data · localização. O chamado em atendimento (ou
+  a caminho) vira o destaque amarelo (`chamadoEmCurso`/`renderTecnicoEmCurso`)
+  e "Continuar a O.S." abre a O.S. direto. A fila mostra **o problema e o
+  prazo** (`prazoDoChamado`: `criado_em + sla_ttr_min`) no lugar do endereço e
+  do "há 121d".
+- **Histórico**: por dia (Hoje, Ontem, data), com o número e o resultado da
+  O.S., e busca por prédio/número. Sem ordenação por distância.
+- **Mês** (era Roteiro): o placar de quatro números virou "14 de 22 prédios
+  feitos" + barra, e a lista vem em **Atrasados · A fazer · Feitos**. Os cartões
+  e as ações do roteiro (Iniciar, Ver chamado) são os mesmos. "Feitos" vem do
+  `feitos_mes` do backend. Prédio com chamado do mês aberto mostra "este mês"
+  (antes mostrava a data do ciclo seguinte, porque o job já rolou a
+  `proxima_em`).
+- **Conta**: localização, expediente ("8h às 18h") e **versão do app**; trocar
+  senha entra recolhido.
+
+### O chamado
+
+Ordem nova: **o problema** (título, descrição, prioridade, prazo), **quem
+procurar e onde** (`condominio_responsavel` + telefone formatado; endereço →
+Maps), **o que já se sabe do prédio** (`ultima_visita` do backend e as bombas
+etiquetadas de `/equipamentos`, carregadas depois da tela). O logo saiu do
+cabeçalho, e o nome do prédio quebra em duas linhas em vez de cortar. Botões:
+"Estou a caminho" → "Cheguei, iniciar atendimento" → "Preencher a O.S.";
+"Devolver para a fila".
+
+### A O.S. em quatro etapas
+
+**Chegada** (fotos de antes) → **Serviço** (tipos, bomba, equipamentos,
+correntes, peças, observação) → **Resultado** (resolução com a frase de cada
+opção, orçamento, fotos de depois) → **Entrega** (resumo + quem recebeu +
+assinatura). Barra de etapas no topo (toque leva à etapa), problema do chamado
+fixo (menos na Entrega), cronômetro no canto do cabeçalho.
+
+⚠️ **As seções são as mesmas, com os mesmos ids e binds.** `renderOSSections`
+monta tudo como antes e `_osMontarEtapas` só move os nós para dentro das
+etapas — auto-save, rascunho, fila de fotos e assinatura não mudaram.
+
+⚠️ **A foto é uma seção só em duas etapas.** O widget usa ids fixos; o nó muda
+de etapa com o técnico (`osIrParaEtapa`) e o tipo da próxima foto segue a
+etapa (`OS.fotoTipo`: antes/depois). `_osRerenderFotos` respeita isso.
+
+⚠️ **Nada trava a navegação.** "Conferir e finalizar" não fica mais desligado:
+o toque cai no `_osPrimeiroPendente`, e `_osIrParaSecao` leva à etapa do que
+falta. A O.S. reaberta começa na primeira etapa sem o essencial
+(`_osEtapaInicial`).
+
+**O que ficou de fora da maquete, de propósito:** a corrente medida dentro da
+bomba marcada e a lista de equipamentos "deste prédio" na O.S. Os dois pedem
+mudar o modelo de dado (`correntes` é um objeto só por O.S.; `itens_verificados`
+são tipos genéricos, não as bombas etiquetadas). A seção de correntes e a lista
+genérica continuam, agora dentro da etapa Serviço. O escritório ver a versão de
+cada celular também ficou para depois (precisa gravar a versão no backend).
+
+Testado no banco de teste: as quatro abas, o detalhe com contato e última
+visita, a O.S. pelas quatro etapas até finalizar (OS-2026-0058), o "conferir"
+com tipo faltando levando à etapa Serviço, e as três rotas por HTTP.
+⚠️ **Exige APK novo.**
+
 ## A tela de fim de O.S. (01/09/2026)
 
 `mostrarOSSucesso()` (`app/public/app.js`) troca o conteúdo de `#osSections`

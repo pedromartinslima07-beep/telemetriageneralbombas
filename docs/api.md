@@ -232,6 +232,23 @@ com assinatura em branco ou com pedido de nova assinatura aberto.
 traz `ordem_servico.assinatura_refazer_em` + `recebido_nome`: é o que põe o
 chamado fechado de volta na aba Hoje do técnico.
 
+**Estrutura nova do app (26/11/2026)** — campos acrescentados, todos ignorados
+pelo APK antigo:
+
+- `GET /chamados/meus`: `os_numero`, `os_resultado` (`servico_realizado`),
+  `os_finalizada_em` (o Histórico por dia) e `sla_ttr_min` (o prazo da fila:
+  `criado_em + ttr_min`, de `sla_definicoes`).
+- `GET /chamados/meus/:id`: `sla_ttr_min` e `ultima_visita` — a O.S.
+  finalizada mais recente do condomínio, de qualquer técnico, fora a do próprio
+  chamado (`numero`, `finalizada_em`, `servico_realizado`, `tipos_servico`,
+  `observacoes` cortada em 160, `tecnico_nome`), ou `null`.
+- `GET /planos-manutencao/meu-roteiro`: `feitos_mes` — os chamados de
+  preventiva que ESTE técnico fechou no mês corrente (`chamado_id`,
+  `fechado_em`, `condominio_nome`, `bairro`, `os_numero`). É o que dá o
+  progresso da aba Mês.
+
+Ver [app-mobile.md](modulos/app-mobile.md#a-estrutura-nova-do-app-26112026).
+
 ⚠️ **O envio por e-mail não tem dois modos, e o orçamento tem** — não é
 esquecimento. O orçamento oferece "pelo painel" porque existe uma tela onde o
 cliente aprova ou recusa; a O.S. não tem tela nenhuma no painel do cliente, só

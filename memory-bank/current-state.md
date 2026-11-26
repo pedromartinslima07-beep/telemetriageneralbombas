@@ -1629,3 +1629,9 @@ Corrente aceita vírgula (antes ia vazia); auto-save com um PATCH por vez e
 sem vazar pendente entre O.S.; `touchcancel` fecha o traço; antes de finalizar
 aparece a assinatura salva com "Está boa, finalizar" / "Assinar de novo". Só
 no APK novo. [Detalhe](../docs/modulos/app-mobile.md#preenchi-certo-e-gravou-só-uma-parte-26112026).
+
+### App do técnico com estrutura nova, versão 1.1 (26/11/2026)
+
+Abas Hoje · Mês · Histórico · Conta; chamado pelo problema com contato e última
+visita; O.S. em quatro etapas. Campos novos nas rotas do técnico, sem
+migration. Só no APK 1.1. [Detalhe](../docs/modulos/app-mobile.md#a-estrutura-nova-do-app-26112026).

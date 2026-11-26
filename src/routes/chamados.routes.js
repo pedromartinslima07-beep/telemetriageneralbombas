@@ -520,12 +520,20 @@ router.get("/meus", authRequired, async (req, res) => {
          -- O chamado esta fechado, mas volta para a aba Hoje do tecnico ate
          -- a assinatura chegar.
          os.id                    AS ordem_servico_id,
-         os.assinatura_refazer_em AS os_assinatura_refazer_em
+         os.assinatura_refazer_em AS os_assinatura_refazer_em,
+         -- O app novo (26/11/2026) mostra o Historico por dia, com o numero
+         -- e o resultado de cada O.S., e a fila de Hoje com o prazo. O APK
+         -- antigo ignora estes campos.
+         os.numero                AS os_numero,
+         os.servico_realizado     AS os_resultado,
+         os.finalizada_em         AS os_finalizada_em,
+         sd.ttr_min               AS sla_ttr_min
        FROM chamados ch
        LEFT JOIN condominios c ON c.id = ch.condominio_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
        LEFT JOIN ordens_servico os     ON os.chamado_id = ch.id
+       LEFT JOIN sla_definicoes sd     ON sd.prioridade = ch.prioridade
        ${where}
        ORDER BY
          CASE ch.status
@@ -593,12 +601,16 @@ router.get("/meus/:id", authRequired, async (req, res) => {
          c.telefone AS condominio_telefone,
          c.responsavel AS condominio_responsavel,
          cw.telefone AS cliente_telefone,
-         cw.nome     AS cliente_nome
+         cw.nome     AS cliente_nome,
+         -- O mesmo prazo da lista (26/11/2026), senão a lista diz "vence em
+         -- 45 h" e o chamado aberto diz outra coisa.
+         sd.ttr_min  AS sla_ttr_min
        FROM chamados ch
        LEFT JOIN condominios c ON c.id = ch.condominio_id
        LEFT JOIN conversas_whatsapp cv ON cv.id = ch.conversa_id
        LEFT JOIN clientes_whatsapp cw  ON cw.id = cv.cliente_whatsapp_id
        LEFT JOIN ordens_servico os     ON os.chamado_id = ch.id
+       LEFT JOIN sla_definicoes sd     ON sd.prioridade = ch.prioridade
        WHERE ch.id = $1 AND ch.tecnico_id = $2`,
       [id, tecnicoId]
     );
@@ -672,7 +684,31 @@ router.get("/meus/:id", authRequired, async (req, res) => {
       mensagens = m.rows.reverse();
     }
 
-    return res.json({ ...chamado, reservatorios, ordem_servico: ordemServico, mensagens });
+    // Última visita a este prédio (26/11/2026): a O.S. finalizada mais
+    // recente do condomínio, de qualquer técnico, fora a deste chamado. O
+    // técnico chega sabendo o que já foi feito lá.
+    let ultimaVisita = null;
+    if (chamado.condominio_id) {
+      const uv = await pool.query(
+        `SELECT os.numero, os.finalizada_em, os.servico_realizado,
+                os.tipos_servico, LEFT(os.observacoes, 160) AS observacoes,
+                t.nome AS tecnico_nome
+           FROM ordens_servico os
+           LEFT JOIN tecnicos t ON t.id = os.tecnico_id
+          WHERE os.condominio_id = $1
+            AND os.finalizada_em IS NOT NULL
+            AND os.chamado_id IS DISTINCT FROM $2
+          ORDER BY os.finalizada_em DESC
+          LIMIT 1`,
+        [chamado.condominio_id, chamado.id]
+      );
+      ultimaVisita = uv.rows[0] || null;
+    }
+
+    return res.json({
+      ...chamado, reservatorios, ordem_servico: ordemServico, mensagens,
+      ultima_visita: ultimaVisita,
+    });
   } catch (err) {
     console.error("[chamados] GET /chamados/meus/:id:", err);
     return res.status(500).json({ error: "Erro ao buscar chamado" });

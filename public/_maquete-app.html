@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquete — app do técnico, estrutura nova</title>
+<!-- Maquete estática, só em dev (/dev/_maquete-app.html). Não é carregada pelo
+     app. Aprovar a estrutura aqui antes de mexer no app/public/app.js. -->
+<link rel="stylesheet" href="/static/_maquete-app.css?v=1">
+</head>
+<body>
+
+<!-- Ícones desenhados uma vez e reusados (traço 2, mesma família do app) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-voltar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+    <symbol id="i-hoje" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+    <symbol id="i-mes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="0"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+    <symbol id="i-hist" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
+    <symbol id="i-conta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-fone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></symbol>
+    <symbol id="i-mapa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-6.5-8-12a8 8 0 0 1 16 0c0 5.5-8 12-8 12z"/><circle cx="12" cy="10" r="3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></symbol>
+    <symbol id="i-busca" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+    <symbol id="i-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></symbol>
+    <symbol id="i-chave" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
+  </defs>
+</svg>
+
+<header class="mq-topo">
+  <h1>App do técnico: a estrutura nova, antes de virar código</h1>
+  <p>Mesma roupa de hoje (marinho, placa clara, amarelo, chanfro). O que muda é
+  <strong>onde cada coisa mora</strong>: nenhuma informação aparece em dois
+  lugares, o problema do cliente acompanha o técnico até a assinatura, e a
+  O.S. segue a ordem do trabalho, da chegada à entrega. Dados de exemplo.</p>
+</header>
+
+<section class="mq-mapa" aria-label="Antes e depois da navegação">
+  <div><b>Hoje</b><span>O atendimento em curso no topo e a fila do dia embaixo. Absorve <s>Próximos</s>, que repetia esta lista.</span></div>
+  <div><b>Mês</b><span>O roteiro de preventivas, no lugar de <s>Próximos</s>. Progresso do mês em uma barra, não em quatro números.</span></div>
+  <div><b>Histórico</b><span>Por dia, com busca. Sai o filtro "mais próximos" e o aviso de GPS, que não servem para olhar o passado.</span></div>
+</section>
+
+<!-- ═══════════════════ 1. AS ABAS ═══════════════════ -->
+<section class="mq-grupo">
+  <h2>1. As abas</h2>
+  <p>Quatro abas embaixo, com nome e ícone. A localização vira uma linha só, dentro da tela, e diz a mesma coisa em todo lugar.</p>
+
+  <div class="mq-fila">
+
+    <!-- Hoje -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-cab-txt"><strong>Bom dia, Carlos</strong><small>Quarta, 26 de novembro</small></div>
+        </div>
+        <div class="gps desligado"><i></i>Localização desligada<a>Ligar</a></div>
+        <div class="cel-corpo">
+          <div class="ap-rolo">
+            <div class="em-curso">
+              <div class="rot"><span>Em atendimento</span><span>há 42 min</span></div>
+              <h3>Residencial Ipê</h3>
+              <p>Bomba de recalque 2 desarmando</p>
+              <div class="falta">
+                <span class="ok">Fotos de antes</span>
+                <span class="ok">Serviço</span>
+                <span>Resultado</span>
+                <span>Assinatura</span>
+              </div>
+              <div class="bt">Continuar a O.S.</div>
+            </div>
+
+            <div class="ap-titulo-sec"><h4>Fila de hoje</h4><span>2 CHAMADOS</span></div>
+            <div class="item">
+              <div class="pri p2">P2</div>
+              <div>
+                <h5>Edifício Sem Telemetria</h5>
+                <p>Infiltração na parede da caixa d'água</p>
+                <div class="meta"><span class="vence">Prazo vence em 3 h</span><span>Centro, Campinas</span></div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="pri">P4</div>
+              <div>
+                <h5>Ed. Aurora</h5>
+                <p>Preventiva de novembro</p>
+                <div class="meta"><span><b>3,2 km</b></span><span>Moema</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <nav class="ap-nav">
+          <span class="on"><svg><use href="#i-hoje"/></svg>Hoje</span>
+          <span><svg><use href="#i-mes"/></svg>Mês<b>4</b></span>
+          <span><svg><use href="#i-hist"/></svg>Histórico</span>
+          <span><svg><use href="#i-conta"/></svg>Conta</span>
+        </nav>
+      </div>
+      <div class="mq-nota">
+        <h3>Hoje: o que fazer agora</h3>
+        <ul>
+          <li>O atendimento em curso é a <em>maior coisa da tela</em>, com o que já foi feito na O.S. e o que falta.</li>
+          <li>Cada chamado diz <em>o problema</em> e <em>quando vence o prazo</em>, não "há 121d".</li>
+          <li>A localização desligada é uma faixa dentro da tela, com o botão de ligar. Não cobre mais o cabeçalho.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Mês -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-cab-txt"><strong>Preventivas do mês</strong><small>Zona Sul</small></div>
+        </div>
+        <div class="gps"><i></i>Localização ligada</div>
+        <div class="cel-corpo">
+          <div class="ap-rolo">
+            <div class="mes-cab">
+              <h3>Novembro</h3>
+              <p>14 de 22 prédios feitos · faltam 4 dias úteis</p>
+              <div class="barra"><i class="f" style="width:63%"></i><i class="a" style="width:9%"></i></div>
+              <div class="legenda"><span class="f">14 feitos</span><span class="a">2 atrasados</span><span class="r">6 a fazer</span></div>
+            </div>
+
+            <div class="ap-titulo-sec"><h4>Atrasados</h4><span>2</span></div>
+            <div class="lista-placa">
+              <div class="linha"><div><strong>Cond. Jardim das Flores</strong><small>Previsto para 18/11 · Santo Amaro</small></div><span class="selo atraso">8 dias</span></div>
+              <div class="linha"><div><strong>Ed. Bosque Verde</strong><small>Previsto para 21/11 · Campo Belo</small></div><span class="selo atraso">5 dias</span></div>
+            </div>
+
+            <div class="ap-titulo-sec"><h4>A fazer</h4><span>6</span></div>
+            <div class="lista-placa">
+              <div class="linha"><div><strong>Ed. Aurora</strong><small>Moema · chamado já aberto</small></div><span class="selo hoje">Hoje</span></div>
+              <div class="linha"><div><strong>Residencial Primavera</strong><small>Vila Mariana</small></div><span class="selo afazer">27/11</span></div>
+              <div class="linha"><div><strong>Ed. Porto Seguro</strong><small>Brooklin</small></div><span class="selo afazer">28/11</span></div>
+            </div>
+
+            <div class="ap-titulo-sec"><h4>Feitos</h4><span>14</span></div>
+            <div class="lista-placa">
+              <div class="linha feita"><div><strong>Ed. Monte Carlo</strong><small>OS-2026-0311 · 24/11</small></div><span class="selo feito">Feito</span></div>
+            </div>
+          </div>
+        </div>
+        <nav class="ap-nav">
+          <span><svg><use href="#i-hoje"/></svg>Hoje</span>
+          <span class="on"><svg><use href="#i-mes"/></svg>Mês</span>
+          <span><svg><use href="#i-hist"/></svg>Histórico</span>
+          <span><svg><use href="#i-conta"/></svg>Conta</span>
+        </nav>
+      </div>
+      <div class="mq-nota">
+        <h3>Mês: o roteiro, no lugar de "Próximos"</h3>
+        <ul>
+          <li>Os quatro números do topo (prédios, serviços, atrasados, esperando) viram <em>uma frase e uma barra</em>.</li>
+          <li>A lista é separada pelo que o técnico precisa decidir: <em>atrasados primeiro</em>, depois a fazer, depois feitos.</li>
+          <li>O número na aba Mês conta só o que está atrasado ou é para hoje.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Histórico -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-cab-txt"><strong>Histórico</strong><small>Suas O.S. finalizadas</small></div>
+        </div>
+        <div class="cel-corpo">
+          <div class="ap-rolo">
+            <div class="busca"><svg><use href="#i-busca"/></svg>Buscar prédio ou número da O.S.</div>
+
+            <div class="dia">Hoje</div>
+            <div class="lista-placa">
+              <div class="linha"><div><strong>Ed. Monte Carlo</strong><small>OS-2026-0316 · Preventiva · 10:40</small></div><span class="res ok">Resolvido</span></div>
+            </div>
+
+            <div class="dia">Ontem</div>
+            <div class="lista-placa">
+              <div class="linha"><div><strong>Residencial Ipê</strong><small>OS-2026-0312 · Manutenção · 16:05</small></div><span class="res pal">Paliativo</span></div>
+              <div class="linha"><div><strong>Ed. Bosque Verde</strong><small>OS-2026-0309 · Vazamento · 11:20</small></div><span class="res ok">Resolvido</span></div>
+            </div>
+
+            <div class="dia">Segunda, 24 de novembro</div>
+            <div class="lista-placa">
+              <div class="linha"><div><strong>Cond. Jardim das Flores</strong><small>OS-2026-0301 · Preventiva · 15:12</small></div><span class="res ok">Resolvido</span></div>
+              <div class="linha"><div><strong>Ed. Aurora</strong><small>OS-2026-0298 · Instalação · 09:30</small></div><span class="res ok">Resolvido</span></div>
+            </div>
+          </div>
+        </div>
+        <nav class="ap-nav">
+          <span><svg><use href="#i-hoje"/></svg>Hoje</span>
+          <span><svg><use href="#i-mes"/></svg>Mês</span>
+          <span class="on"><svg><use href="#i-hist"/></svg>Histórico</span>
+          <span><svg><use href="#i-conta"/></svg>Conta</span>
+        </nav>
+      </div>
+      <div class="mq-nota">
+        <h3>Histórico: por dia, com busca</h3>
+        <ul>
+          <li>Agrupado por dia, com o <em>resultado</em> de cada O.S. à direita.</li>
+          <li>Busca por prédio ou número: é o que ele faz quando o escritório liga perguntando de uma O.S.</li>
+          <li>Sem ordenação por distância e sem aviso de GPS: não servem para o passado.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Conta -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-cab-txt"><strong>Conta</strong><small>Seus dados e o aparelho</small></div>
+        </div>
+        <div class="cel-corpo">
+          <div class="ap-rolo">
+            <div class="placa">
+              <div class="perfil">
+                <div class="avatar">CT</div>
+                <div><strong>Carlos Técnico</strong><small>tecnico@generalbombas.com · Hidráulica</small></div>
+              </div>
+            </div>
+
+            <div class="placa">
+              <div class="par"><span>Localização</span><b>Desligada</b></div>
+              <div class="par"><span>Expediente</span><b>8h às 18h</b></div>
+              <div class="par"><span>Versão do app</span><b class="ok">1.4 · atualizado</b></div>
+            </div>
+
+            <div class="placa">
+              <div class="par"><span>Trocar senha</span><b class="vai"><svg><use href="#i-seta"/></svg></b></div>
+            </div>
+
+            <div class="bt fio sair">Sair da conta</div>
+          </div>
+        </div>
+        <nav class="ap-nav">
+          <span><svg><use href="#i-hoje"/></svg>Hoje</span>
+          <span><svg><use href="#i-mes"/></svg>Mês</span>
+          <span><svg><use href="#i-hist"/></svg>Histórico</span>
+          <span class="on"><svg><use href="#i-conta"/></svg>Conta</span>
+        </nav>
+      </div>
+      <div class="mq-nota">
+        <h3>Conta: curta, e com a versão</h3>
+        <ul>
+          <li><em>Versão do app</em> visível, e o escritório passa a ver quem ainda está no APK antigo.</li>
+          <li>Localização diz o <em>mesmo</em> que a faixa das outras telas. Hoje são quatro mensagens diferentes.</li>
+          <li>Trocar senha vira uma linha. O formulário só abre quando ele toca.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════ 2. O ATENDIMENTO ═══════════════════ -->
+<section class="mq-grupo">
+  <h2>2. O atendimento: uma tela só</h2>
+  <p>Hoje são duas telas, o detalhe do chamado e a O.S., que repetem cabeçalho e cronômetro, e a descrição do problema some quando a O.S. abre. Na nova, a tela do chamado é a porta de entrada e o problema vai junto para dentro da O.S.</p>
+
+  <div class="mq-fila">
+
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-voltar"><svg><use href="#i-voltar"/></svg></div>
+          <div class="ap-cab-txt"><strong>Edifício Sem Telemetria</strong><small>Chamado 014 · aberto</small></div>
+        </div>
+        <div class="cel-corpo">
+          <div class="ap-rolo">
+            <div class="placa at-problema">
+              <h3>Infiltração na parede da caixa d'água</h3>
+              <p>"Mancha aumentando na laje." Aberto pelo síndico em 27/07.</p>
+              <div class="at-tags"><span class="p2">P2 · Alta</span><span class="vence">Prazo vence em 3 h</span><span>Vazamento</span></div>
+            </div>
+
+            <div class="placa">
+              <div class="contato">
+                <div class="ic"><svg><use href="#i-fone"/></svg></div>
+                <div><strong>Sr. João</strong><small>Zelador · abre a casa de máquinas</small></div>
+                <span class="acao">Ligar</span>
+              </div>
+              <div class="sep"></div>
+              <div class="contato">
+                <div class="ic"><svg><use href="#i-mapa"/></svg></div>
+                <div><strong>Rua das Palmeiras, 1200</strong><small>Centro, Campinas</small></div>
+                <span class="acao">Maps</span>
+              </div>
+            </div>
+
+            <div class="placa ultimo">
+              <small>Última visita aqui</small>
+              <p><b>12/10, Alex:</b> troca do selo mecânico da bomba de recalque 2. Resolvido.</p>
+              <div class="sep"></div>
+              <small>Equipamentos do prédio</small>
+              <div class="equip"><span>Recalque 1</span><span>Recalque 2</span><span>Quadro de comando</span><span>Boia superior</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="ap-rodape">
+          <div class="bt">Estou a caminho</div>
+          <div class="bt fio">Devolver para a fila</div>
+        </div>
+      </div>
+      <div class="mq-nota">
+        <h3>O chamado: tudo o que ele precisa antes de sair</h3>
+        <ul>
+          <li>O nome do prédio <em>inteiro</em> no cabeçalho, sem o logo ocupando o lugar dele.</li>
+          <li>"Ligar" diz <em>para quem</em>: o contato cadastrado do prédio.</li>
+          <li>A <em>última visita</em> e os <em>equipamentos do prédio</em>: ele chega sabendo o que tem lá e o que já foi feito.</li>
+          <li>Os botões mudam com o passo: a caminho → cheguei → continuar a O.S. Enquanto carrega, o botão diz o que está fazendo ("Pegando localização…") em vez de ficar vazio.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════ 3. A O.S. EM ETAPAS ═══════════════════ -->
+<section class="mq-grupo">
+  <h2>3. A O.S. em quatro etapas, na ordem do trabalho</h2>
+  <p>Hoje são nove sanfonas fechadas, opcional e obrigatório com o mesmo peso, e as fotos no meio. Em produção, 37 de 209 O.S. saíram sem nenhuma foto. Nas etapas, cada passo pede o que faz sentido naquele momento do serviço, e o problema do cliente fica fixo no topo.</p>
+
+  <div class="mq-fila">
+
+    <!-- Etapa 1 -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-voltar"><svg><use href="#i-voltar"/></svg></div>
+          <div class="ap-cab-txt"><strong>Edifício Sem Telemetria</strong><small>OS-2026-0058</small></div>
+          <div class="ap-relogio">00:04<small>NO LOCAL</small></div>
+        </div>
+        <div class="passos"><span class="agora">Chegada</span><span>Serviço</span><span>Resultado</span><span>Entrega</span></div>
+        <div class="problema-fixo"><b>Problema:</b> Infiltração na parede da caixa d'água</div>
+        <div class="cel-corpo">
+          <div class="etapa-tit">
+            <h3>Como você encontrou</h3>
+            <p>Fotografe o problema antes de mexer. É o que mostra ao cliente o antes e o depois.</p>
+          </div>
+          <div class="ap-rolo" style="padding-top:8px">
+            <div class="placa">
+              <div class="campo-rot">Fotos de antes <span>pelo menos 1</span></div>
+              <div class="fotos">
+                <div class="foto"></div>
+                <div class="foto b"></div>
+                <div class="foto add"><div><svg><use href="#i-camera"/></svg>Tirar foto</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ap-rodape">
+          <div class="bt">Próximo: o serviço</div>
+        </div>
+      </div>
+      <div class="mq-nota">
+        <h3>1. Chegada</h3>
+        <ul>
+          <li>A primeira coisa que ele faz no local vira a primeira tela: <em>fotos de antes</em>.</li>
+          <li>O problema do chamado fica <em>fixo no topo</em> em todas as etapas.</li>
+          <li>O cronômetro encolhe para o canto do cabeçalho. Hoje ele ocupa um quarto da tela.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Etapa 2 -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-voltar"><svg><use href="#i-voltar"/></svg></div>
+          <div class="ap-cab-txt"><strong>Edifício Sem Telemetria</strong><small>OS-2026-0058</small></div>
+          <div class="ap-relogio">00:31<small>NO LOCAL</small></div>
+        </div>
+        <div class="passos"><span class="feito">Chegada</span><span class="agora">Serviço</span><span>Resultado</span><span>Entrega</span></div>
+        <div class="problema-fixo"><b>Problema:</b> Infiltração na parede da caixa d'água</div>
+        <div class="cel-corpo">
+          <div class="etapa-tit">
+            <h3>O que você fez</h3>
+          </div>
+          <div class="ap-rolo" style="padding-top:8px">
+            <div class="placa">
+              <div class="campo-rot">Tipo de serviço</div>
+              <div class="chips">
+                <span class="chip on">Visita técnica</span>
+                <span class="chip">Preventiva mensal</span>
+                <span class="chip">Instalação de peças</span>
+                <span class="chip">Outros…</span>
+              </div>
+            </div>
+            <div class="placa">
+              <div class="campo-rot">Equipamentos deste prédio <span>o que você verificou</span></div>
+              <div class="eq">
+                <div class="caixa on"><svg><use href="#i-check"/></svg></div>
+                <div>
+                  <strong>Bomba de recalque 2</strong>
+                  <small>Corrente medida (A)</small>
+                  <div class="fases"><div><small>R</small>8,5</div><div><small>S</small>12,3</div><div><small>T</small>10</div></div>
+                </div>
+              </div>
+              <div class="eq">
+                <div class="caixa"></div>
+                <div><strong>Bomba de recalque 1</strong></div>
+              </div>
+              <div class="eq">
+                <div class="caixa on"><svg><use href="#i-check"/></svg></div>
+                <div><strong>Quadro de comando</strong></div>
+              </div>
+              <div class="mais">+ Outro equipamento</div>
+            </div>
+          </div>
+        </div>
+        <div class="ap-rodape">
+          <div class="duo"><div class="bt claro-fio" style="color:var(--text);box-shadow:inset 0 0 0 1.5px var(--fio)">Voltar</div><div class="bt">Próximo</div></div>
+        </div>
+      </div>
+      <div class="mq-nota">
+        <h3>2. Serviço</h3>
+        <ul>
+          <li>Os 16 botões genéricos dão lugar aos <em>equipamentos daquele prédio</em>. Os outros ficam em "+ outro equipamento".</li>
+          <li>A corrente é medida <em>na bomba marcada</em>, e não numa seção separada: corrente sem bomba não diz nada.</li>
+          <li>Tipo de serviço mostra os mais usados primeiro. Os nove completos ficam em "Outros…".</li>
+          <li>Peças e observação continuam nesta etapa, mais abaixo.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Etapa 3 -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-voltar"><svg><use href="#i-voltar"/></svg></div>
+          <div class="ap-cab-txt"><strong>Edifício Sem Telemetria</strong><small>OS-2026-0058</small></div>
+          <div class="ap-relogio">00:52<small>NO LOCAL</small></div>
+        </div>
+        <div class="passos"><span class="feito">Chegada</span><span class="feito">Serviço</span><span class="agora">Resultado</span><span>Entrega</span></div>
+        <div class="problema-fixo"><b>Problema:</b> Infiltração na parede da caixa d'água</div>
+        <div class="cel-corpo">
+          <div class="etapa-tit">
+            <h3>Como ficou</h3>
+          </div>
+          <div class="ap-rolo" style="padding-top:8px">
+            <div class="placa">
+              <div class="opcao on"><div class="radio"></div><div><strong>Resolvido</strong><small>O problema acabou.</small></div></div>
+              <div class="opcao"><div class="radio"></div><div><strong>Paliativo</strong><small>Funciona por enquanto, precisa de outra visita.</small></div></div>
+              <div class="opcao"><div class="radio"></div><div><strong>Agravado</strong><small>Achamos um problema maior que o chamado.</small></div></div>
+            </div>
+            <div class="placa">
+              <div class="chave"><div><strong>Precisa voltar?</strong><small>O escritório agenda o retorno</small></div><div class="tog"></div></div>
+              <div class="chave"><div><strong>Precisa de orçamento?</strong><small>Peça ou serviço a cobrar</small></div><div class="tog on"></div></div>
+            </div>
+            <div class="placa">
+              <div class="campo-rot">Fotos de depois</div>
+              <div class="fotos">
+                <div class="foto c"></div>
+                <div class="foto add"><div><svg><use href="#i-camera"/></svg>Tirar foto</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ap-rodape">
+          <div class="duo"><div class="bt claro-fio" style="color:var(--text);box-shadow:inset 0 0 0 1.5px var(--fio)">Voltar</div><div class="bt">Próximo: entrega</div></div>
+        </div>
+      </div>
+      <div class="mq-nota">
+        <h3>3. Resultado</h3>
+        <ul>
+          <li>Resolvido, paliativo e agravado ganham <em>uma frase do que significam</em>. Hoje são três palavras soltas.</li>
+          <li>Retorno e orçamento ficam juntos, na hora em que ele decide como o serviço terminou.</li>
+          <li><em>Fotos de depois</em> ficam aqui, no fim do serviço, e não no meio do formulário.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Etapa 4 -->
+    <div class="mq-tela">
+      <div class="cel">
+        <div class="ap-cab">
+          <div class="ap-voltar"><svg><use href="#i-voltar"/></svg></div>
+          <div class="ap-cab-txt"><strong>Edifício Sem Telemetria</strong><small>OS-2026-0058</small></div>
+          <div class="ap-relogio">00:58<small>NO LOCAL</small></div>
+        </div>
+        <div class="passos"><span class="feito">Chegada</span><span class="feito">Serviço</span><span class="feito">Resultado</span><span class="agora">Entrega</span></div>
+        <div class="cel-corpo">
+          <div class="etapa-tit">
+            <h3>Entregue ao cliente</h3>
+            <p>Mostre o resumo e passe o celular para quem recebeu assinar.</p>
+          </div>
+          <div class="ap-rolo" style="padding-top:8px">
+            <div class="placa" style="padding:0">
+              <div class="resumo">
+                <div><small>Fotos</small><b>2 antes · 1 depois</b></div>
+                <div><small>Resultado</small><b>Resolvido</b></div>
+                <div><small>Equipamentos</small><b>2 verificados</b></div>
+                <div><small>Orçamento</small><b>Sim</b></div>
+              </div>
+            </div>
+            <div class="placa">
+              <div class="campo-rot">Quem recebeu</div>
+              <div class="input">Mariana Souza</div>
+              <div class="chips" style="margin-top:8px"><span class="chip on">Zelador</span><span class="chip">Síndico</span><span class="chip">Portaria</span></div>
+              <div class="campo-rot" style="margin-top:14px">Assinatura</div>
+              <div class="quadro">
+                <svg viewBox="0 0 300 110" fill="none" stroke="#061033" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 78c10-40 16-58 22-56s-6 52-2 54 18-50 26-48-8 46 0 46 14-22 22-26 6 18 14 16 14-24 22-22-4 20 6 20c14 0 18-26 30-26s0 24 12 24 22-18 34-22 10 16 22 14 16-10 26-14"/><path d="M40 92c60-6 150-8 230-12"/></svg>
+                <div class="linha-base"></div>
+              </div>
+              <div class="quadro-acoes"><span>Tela cheia</span><span>Limpar</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="ap-rodape">
+          <div class="bt">Conferir e finalizar</div>
+        </div>
+      </div>
+      <div class="mq-nota">
+        <h3>4. Entrega</h3>
+        <ul>
+          <li>Um <em>resumo</em> do que vai no documento: o técnico confere antes, e o cliente vê o que está assinando.</li>
+          <li>Nome, quem é e assinatura, e então a <em>conferência da assinatura</em> que já está no app.</li>
+          <li>Se faltar algo obrigatório, o resumo marca em vermelho e o toque leva à etapa certa.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer class="mq-pe">
+  Maquete estática para decidir a estrutura. Nada disso é código do app ainda, e qualquer mudança só chega aos técnicos com APK novo.
+  O que depende de dado novo: o contato do prédio ("Sr. João, zelador") e os equipamentos por prédio vêm do cadastro do condomínio e das bombas etiquetadas; onde não houver, a tela cai no que existe hoje.
+</footer>
+
+</body>
+</html>

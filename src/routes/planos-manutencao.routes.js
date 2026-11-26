@@ -434,7 +434,31 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
       chamado_meu: p.chamado_aberto_tecnico_id != null
         && p.chamado_aberto_tecnico_id === tecnicoId,
     }));
-    return res.json({ antecedencia_dias: antecedencia, zonas, planos: planosRoteiro });
+    // Feitos do mês (26/11/2026): as preventivas que ESTE técnico fechou na
+    // competência atual. O roteiro acima some com o prédio assim que o chamado
+    // fecha — certo para a lista de trabalho, mas sem isto a aba Mês do app não
+    // tem como mostrar o progresso ("14 de 22 feitos"). Conta pelo chamado
+    // fechado e pelo dono dele, não pela zona: é o que ele de fato fez.
+    const feitos = await pool.query(
+      `SELECT ch.id AS chamado_id, ch.fechado_em,
+              COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
+              c.bairro, os.numero AS os_numero
+         FROM chamados ch
+         JOIN condominios c ON c.id = ch.condominio_id
+         LEFT JOIN ordens_servico os ON os.chamado_id = ch.id
+        WHERE ch.plano_manutencao_id IS NOT NULL
+          AND ch.status = 'fechado'
+          AND ch.tecnico_id = $1
+          AND ch.fechado_em >= date_trunc('month', CURRENT_DATE)
+        ORDER BY ch.fechado_em DESC
+        LIMIT 200`,
+      [tecnicoId]
+    );
+
+    return res.json({
+      antecedencia_dias: antecedencia, zonas, planos: planosRoteiro,
+      feitos_mes: feitos.rows,
+    });
   } catch (err) {
     console.error("[planos-manutencao] GET /meu-roteiro:", err);
     return res.status(500).json({ error: "Erro ao montar roteiro" });

@@ -18978,3 +18978,17 @@ de uma O.S. para outra, e o `touchcancel` fecha o traço. Antes de finalizar, o
 técnico vê a assinatura salva e escolhe entre finalizar e assinar de novo. Só
 app, sem migration. **Exige APK novo.** Ver
 [modulos/app-mobile.md](modulos/app-mobile.md#preenchi-certo-e-gravou-só-uma-parte-26112026).
+
+## 2026-11-26 — App do técnico com estrutura nova (versão 1.1)
+
+Revisão de UX do app, com maquete aprovada. Abas Hoje · Mês · Histórico ·
+Conta (saiu "Próximos", que repetia Hoje); o atendimento em curso em destaque;
+fila com problema e prazo; Histórico por dia com busca; Mês com progresso e
+seções Atrasados · A fazer · Feitos; Conta com versão do app. O chamado abre
+pelo problema, com contato, última visita e equipamentos do prédio. A O.S.
+virou quatro etapas (Chegada, Serviço, Resultado, Entrega) sem mudar campos nem
+salvamento. Defeitos: faixa de GPS cobria o cabeçalho, quatro mensagens de GPS
+diferentes, botão vazio enquanto carrega. Backend: campos novos em
+`GET /chamados/meus`, `/meus/:id` e `/planos-manutencao/meu-roteiro`, sem
+migration. **Exige APK novo.** Ver
+[modulos/app-mobile.md](modulos/app-mobile.md#a-estrutura-nova-do-app-26112026).
