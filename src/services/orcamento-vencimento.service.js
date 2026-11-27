@@ -16,6 +16,10 @@
 //     verdade, e um `npm run dev` não pode escrever para eles.
 //     Não sai para orçamento enviado há menos de 2 dias: quem mandou ontem um
 //     orçamento de validade curta não quer um "vai vencer!" logo atrás.
+//     Leva o PDF do orçamento anexado (pedido do Pedro, 27/11/2026), gerado
+//     pelo mesmo `gerarPdfAvulso` do envio e com o mesmo nome de arquivo. Se o
+//     PDF falhar, o lembrete sai sem anexo e o log diz por quê — o lembrete é
+//     o que importa, o anexo é cortesia.
 //
 //  2. ARQUIVAR — enviado, sem resposta, validade já passou (dia de São Paulo):
 //     `arquivado_em = NOW()`. O status continua 'enviado' (ver a migration).
@@ -31,6 +35,7 @@
 const { pool } = require("../db");
 const email = require("./email");
 const { getConfigInt } = require("./config.service");
+const { gerarPdfAvulso } = require("./orcamento-pdf.service");
 
 const MAX_TENTATIVAS = 3;
 const _EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
@@ -164,8 +169,23 @@ async function _linkPara(o, para) {
   return u.rowCount ? `${base}/cliente/painel/orcamentos?orc=${o.id}` : null;
 }
 
-// Manda os lembretes devidos. `enviar` é injetável (o teste não manda nada).
-async function enviarLembretes({ hoje = _hojeSP(), dias, enviar = email.sendOrcamentoLembrete, forcar = false, soIds = null } = {}) {
+// O PDF do orçamento, como o envio gera (POST /admin/orcamentos/avulsos/:id/
+// enviar-email). Nunca lança: sem PDF o lembrete sai sem anexo.
+async function _pdfDoOrcamento(o, gerarPdf) {
+  try {
+    const { fpath } = await gerarPdf(o.id);
+    const fs = require("fs");
+    if (!fpath || !fs.existsSync(fpath)) throw new Error("PDF não encontrado após a geração");
+    return { pdfBuffer: fs.readFileSync(fpath), filename: `orcamento-${o.numero || o.id}.pdf` };
+  } catch (e) {
+    console.error(`[orcamento-lembrete] FALHA=pdf orcamento=${o.id} motivo=${e.message} — vai sem anexo`);
+    return { pdfBuffer: null, filename: null };
+  }
+}
+
+// Manda os lembretes devidos. `enviar` e `gerarPdf` são injetáveis (o teste
+// não manda nada e não precisa do Puppeteer).
+async function enviarLembretes({ hoje = _hojeSP(), dias, enviar = email.sendOrcamentoLembrete, gerarPdf = gerarPdfAvulso, forcar = false, soIds = null } = {}) {
   if (!forcar && !ligado()) return { enviados: 0, falhas: 0, sem_email: 0, desligado: true };
   const lista = await devidos({ hoje, dias, soIds });
   let enviados = 0, falhas = 0, semEmail = 0;
@@ -186,11 +206,14 @@ async function enviarLembretes({ hoje = _hojeSP(), dias, enviar = email.sendOrca
     const id = trava.rows[0].id;
     if (!para.length) { semEmail++; continue; }
     try {
+      const { pdfBuffer, filename } = await _pdfDoOrcamento(o, gerarPdf);
       const emailId = await enviar({
         to: para, numero: o.numero || `#${o.id}`, condominioNome: o.condominio_nome,
         validoAte: o.validade, enviadoEm: o.enviado_em, dias: o.faltam,
         linkPainel: await _linkPara(o, para),
+        pdfBuffer, filename,
       });
+      console.log(`[orcamento-lembrete] OK orcamento=${o.id} destinos=${para.length} anexo_kb=${pdfBuffer ? Math.round(pdfBuffer.length / 1024) : 0}`);
       await pool.query(
         `UPDATE orcamento_lembretes SET status = 'enviado', erro = NULL, email_id = $2, enviado_em = NOW() WHERE id = $1`,
         [id, emailId || null]);

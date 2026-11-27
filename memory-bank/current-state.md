@@ -230,7 +230,8 @@ No ar em 24/11; falta ver na primeira NFS-e real. Ver
 pelo job `orcamento-vencimento` (`orcamentos.arquivado_em`; o status continua
 `enviado`), vai para a visão "Arquivados" e volta com validade nova; lembrete
 "podemos seguir?" por e-mail `orcamento.lembrete_dias` (5) antes, para
-`enviado_para` (`ORCAMENTO_LEMBRETE_EMAIL=1`); o arquivado é apagado depois de
+`enviado_para` (`ORCAMENTO_LEMBRETE_EMAIL=1`), com o PDF do orçamento
+anexado desde 27/11 (sem anexo se o PDF falhar; ainda não commitado); o arquivado é apagado depois de
 `orcamento.apagar_dias` (90 dias; 0 = não apaga) com cópia na lixeira. Migration 103
 (✅ produção, 23/11/2026; os 111 vencidos já arquivados). Ver [`../docs/modulos/orcamentos-vencimento.md`](../docs/modulos/orcamentos-vencimento.md).
 **Etapa 2:** Monitoramento é uma tela só (`admin-monitoramento.js`):

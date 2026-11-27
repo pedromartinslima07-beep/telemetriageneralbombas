@@ -19150,3 +19150,23 @@ Detalhe em
   "R$ 1.000,00". Agora fica numa linha e a fonte desce conforme o número de
   caracteres até caber no trilho (`--av-total-n` + `cqi`, teto 34px).
   `admin.css?v=411`, `admin.js?v=449`.
+
+## 2026-11-27 — Lembrete do orçamento perto de vencer leva o PDF
+
+`src/services/orcamento-vencimento.service.js`, `src/services/email.js`;
+sem endpoint, sem migration, sem mexer no front. Pedido do Pedro: o aviso
+"podemos seguir?" precisa levar o orçamento junto. Detalhe em
+[modulos/orcamentos-vencimento.md](modulos/orcamentos-vencimento.md).
+
+- O lembrete gera o PDF com o mesmo `gerarPdfAvulso` do envio e anexa com o
+  mesmo nome de arquivo (`orcamento-<numero>.pdf`). O corpo ganha "O
+  orçamento segue em anexo." (texto e HTML).
+- Se o PDF falhar (Puppeteer), o lembrete sai **sem anexo** e o log diz
+  `[orcamento-lembrete] FALHA=pdf orcamento=<id> motivo=…`. Cada envio loga
+  `[orcamento-lembrete] OK … anexo_kb=N`.
+- Vale com ou sem o botão do painel — diferente do envio, que com painel não
+  anexa (25/08/2026).
+- `scripts/testes/orcamento-vencimento.test.js`: +4 conferências (anexo e
+  nome, PDF que falha, corpo com e sem anexo), 48 ✅. Ponta a ponta no banco
+  de teste com o Puppeteer de verdade e o Resend em dublê: PDF de 778 KB
+  anexado, HTML de 31 KB.

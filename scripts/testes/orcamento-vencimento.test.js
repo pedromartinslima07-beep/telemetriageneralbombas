@@ -128,6 +128,10 @@ const dia = (n) => new Date(Date.parse(hoje + "T12:00:00Z") + n * 86400e3).toISO
     // ── 3. Lembrete ─────────────────────────────────────────────────────────
     const chamadas = [];
     const dubleOk = async (d) => { chamadas.push(d); return "id-falso"; };
+    // Dublê do PDF: um arquivo de mentira no lugar do Puppeteer.
+    const pdfFalso = require("path").join(require("os").tmpdir(), `orc-lemb-teste-${Date.now()}.pdf`);
+    require("fs").writeFileSync(pdfFalso, Buffer.from("%PDF-1.4 teste"));
+    const pdfDub = async () => ({ fpath: pdfFalso });
     const lemb = await novo({ valido_ate: dia(5), enviado_dias: -10 });
     const recente = await novo({ valido_ate: dia(4), enviado_dias: -1 });
     const longe = await novo({ valido_ate: dia(6), enviado_dias: -10 });
@@ -139,11 +143,13 @@ const dia = (n) => new Date(Date.parse(hoje + "T12:00:00Z") + n * 86400e3).toISO
     ok("sem ORCAMENTO_LEMBRETE_EMAIL=1 não manda nada", desl.desligado && chamadas.length === 0, desl);
 
     const dub = async (d) => { if (d.numero === `T-${suf}-${criados.indexOf(falha)}`) throw new Error("falha de teste"); return dubleOk(d); };
-    const l1 = await venc.enviarLembretes({ soIds: amL, enviar: dub, forcar: true, dias: 5 });
+    const l1 = await venc.enviarLembretes({ soIds: amL, enviar: dub, gerarPdf: pdfDub, forcar: true, dias: 5 });
     ok("manda o lembrete do que vence em 5 dias", chamadas.some(c => c.numero === `T-${suf}-${criados.indexOf(lemb)}`), chamadas.map(c => c.numero));
     const c1 = chamadas.find(c => c.numero === `T-${suf}-${criados.indexOf(lemb)}`);
     ok("…para os mesmos e-mails do envio", c1 && c1.to.join(",") === "sindico-teste@example.com,adm-teste@example.com", c1 && c1.to);
     ok("…com dias = 5 e a validade certa", c1 && c1.dias === 5 && c1.validoAte === dia(5), c1);
+    ok("…com o PDF do orçamento e o nome de arquivo do envio",
+      c1 && Buffer.isBuffer(c1.pdfBuffer) && c1.filename === `orcamento-T-${suf}-${criados.indexOf(lemb)}.pdf`, c1 && c1.filename);
     ok("não manda o enviado há menos de 2 dias", !chamadas.some(c => c.numero === `T-${suf}-${criados.indexOf(recente)}`));
     ok("não manda o que vence em 6 dias", !chamadas.some(c => c.numero === `T-${suf}-${criados.indexOf(longe)}`));
     ok("conta 1 enviado, 1 falha, 1 sem e-mail", l1.enviados === 1 && l1.falhas === 1 && l1.sem_email === 1, l1);
@@ -153,24 +159,36 @@ const dia = (n) => new Date(Date.parse(hoje + "T12:00:00Z") + n * 86400e3).toISO
     ok("a falha fica 'erro'", (await st(falha))[0]?.status === "erro");
 
     const antes = chamadas.length;
-    await venc.enviarLembretes({ soIds: amL, enviar: dub, forcar: true, dias: 5 });
-    await venc.enviarLembretes({ soIds: amL, enviar: dub, forcar: true, dias: 5 });
-    await venc.enviarLembretes({ soIds: amL, enviar: dub, forcar: true, dias: 5 });
+    await venc.enviarLembretes({ soIds: amL, enviar: dub, gerarPdf: pdfDub, forcar: true, dias: 5 });
+    await venc.enviarLembretes({ soIds: amL, enviar: dub, gerarPdf: pdfDub, forcar: true, dias: 5 });
+    await venc.enviarLembretes({ soIds: amL, enviar: dub, gerarPdf: pdfDub, forcar: true, dias: 5 });
     ok("o mesmo lembrete nunca sai duas vezes", chamadas.filter(c => c.numero === `T-${suf}-${criados.indexOf(lemb)}`).length === 1);
     ok("o sem e-mail não é tentado de novo", chamadas.length === antes);
     ok("a falha é repetida até 3 tentativas e para", (await st(falha))[0]?.tentativas === 3, await st(falha));
+
+    // PDF que falha: o lembrete sai mesmo assim, sem anexo.
+    const semPdf = await novo({ valido_ate: dia(3), enviado_dias: -10 });
+    const lp = await venc.enviarLembretes({ soIds: [semPdf], enviar: dubleOk, forcar: true, dias: 5,
+      gerarPdf: async () => { throw new Error("puppeteer de teste caiu"); } });
+    const cS = chamadas.find(c => c.numero === `T-${suf}-${criados.indexOf(semPdf)}`);
+    ok("PDF falhou: o lembrete sai sem anexo e fica 'enviado'",
+      lp.enviados === 1 && cS && !cS.pdfBuffer && (await st(semPdf))[0]?.status === "enviado", { lp, cS: cS && cS.filename });
 
     const lista2 = await (await fetch(`${base}/admin/orcamentos/avulsos?limit=500`, { headers: H })).json();
     ok("a lista mostra quando o lembrete saiu", !!(lista2.find(x => x.id === lemb) || {}).lembrete_em);
 
     await pool.query(`UPDATE orcamentos SET valido_ate = $2::date WHERE id = $1`, [lemb, dia(4)]);
-    await venc.enviarLembretes({ soIds: amL, enviar: dub, forcar: true, dias: 5 });
+    await venc.enviarLembretes({ soIds: amL, enviar: dub, gerarPdf: pdfDub, forcar: true, dias: 5 });
     ok("validade nova ganha lembrete novo", chamadas.filter(c => c.numero === `T-${suf}-${criados.indexOf(lemb)}`).length === 2);
 
     const m = email.montarLembreteOrcamento({ numero: "OR-1", condominioNome: "Ed. Teste", validoAte: "2026-12-01", enviadoEm: new Date(), dias: 5, linkPainel: "https://x.test/cliente/painel/orcamentos?orc=1" });
     ok("o e-mail diz a validade e pergunta se podemos seguir", m.html.includes("01/12/2026") && /podemos seguir/.test(m.html) && /podemos seguir/.test(m.subject));
     ok("o e-mail com painel leva o botão; sem painel, não", m.html.includes("orc=1") && !email.montarLembreteOrcamento({ numero: "OR-1", validoAte: "2026-12-01", dias: 5 }).html.includes("Ver o orçamento e responder"));
     ok("o e-mail não traz valor", !/R\$/.test(m.html + m.text));
+    const mPdf = email.montarLembreteOrcamento({ numero: "OR-1", validoAte: "2026-12-01", dias: 5, pdfBuffer: Buffer.from("x"), filename: "orcamento-OR-1.pdf" });
+    ok("com PDF: anexo com o nome do envio e o corpo diz que segue em anexo",
+      mPdf.attachments.length === 1 && mPdf.attachments[0].filename === "orcamento-OR-1.pdf" && /em anexo/.test(mPdf.html) && /em anexo/.test(mPdf.text), mPdf.attachments);
+    ok("sem PDF: sem anexo e sem dizer que tem", m.attachments.length === 0 && !/em anexo/.test(m.html));
 
     // ── 4. Apagar ───────────────────────────────────────────────────────────
     const os2 = (await pool.query(

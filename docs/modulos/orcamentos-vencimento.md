@@ -109,8 +109,15 @@ continuar existindo.
   apagar não dependem dela).
 - **O e-mail:** moldura estruturada (a mesma do envio e da O.S.), sobrancelha
   "Orçamento perto de vencer", assunto *"Orçamento OR-… vence em dd/mm —
-  podemos seguir?"*. Sem valor no corpo (regra da moldura) e **sem anexo**: o
-  documento já foi no primeiro e-mail. Leva o botão "Ver o orçamento e
+  podemos seguir?"*. Sem valor no corpo (regra da moldura). **Leva o PDF do
+  orçamento anexado** (desde 27/11/2026, pedido do Pedro), gerado pelo mesmo
+  `gerarPdfAvulso` do envio e com o mesmo nome (`orcamento-<numero>.pdf`), e o
+  corpo diz "O orçamento segue em anexo.". Anexa com ou sem botão do painel —
+  diferente do envio, que com painel não anexa. Se o PDF falhar, o lembrete
+  sai **sem anexo** (o lembrete é o que importa) e o log registra
+  `[orcamento-lembrete] FALHA=pdf orcamento=<id> motivo=…`; o envio que dá
+  certo loga `[orcamento-lembrete] OK … anexo_kb=N`. O anexo não conta no
+  corte de ~102 KB do Gmail (só data URI conta). Leva o botão "Ver o orçamento e
   responder" **só** quando algum destinatário tem login no painel daquele
   prédio (a mesma regra do envio: botão que leva a um login onde ninguém
   entra é pior que nenhum) e `APP_URL`/`PUBLIC_BASE_URL` existe. `replyTo` é o

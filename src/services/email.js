@@ -764,12 +764,15 @@ async function sendCobrancaCliente(dados) {
 // Lembrete de orçamento perto de vencer (migration 103,
 // docs/modulos/orcamentos-vencimento.md). Vai para os MESMOS e-mails para os
 // quais o orçamento foi enviado (`orcamentos.enviado_para`). Moldura
-// estruturada, sem valor no corpo (regra da moldura) e sem anexo: o documento
-// já foi no primeiro e-mail, ou está no painel (linkPainel).
+// estruturada, sem valor no corpo (regra da moldura). Leva o PDF do orçamento
+// anexado (pedido do Pedro, 27/11/2026: quem recebe o lembrete muitas vezes
+// não acha mais o primeiro e-mail). Anexo não conta no corte do Gmail; o que
+// conta é imagem em data URI, e aqui não há nenhuma.
 //
 // dados: { numero, condominioNome, validoAte (DATE|'AAAA-MM-DD'), enviadoEm
-//          (timestamptz), dias (até vencer), linkPainel (string|null) }
-// Devolve { subject, html, text } — o teste e a prévia usam o mesmo.
+//          (timestamptz), dias (até vencer), linkPainel (string|null),
+//          pdfBuffer (Buffer|null — sem ele sai sem anexo), filename }
+// Devolve { subject, html, text, attachments } — o teste e a prévia usam o mesmo.
 function montarLembreteOrcamento(dados) {
   const E = _escaparHtml;
   const P = txt => `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#111827;">${txt}</p>`;
@@ -779,12 +782,16 @@ function montarLembreteOrcamento(dados) {
   const enviado = _fmtInstante(dados.enviadoEm);
   const link = dados.linkPainel && /^https?:\/\//i.test(dados.linkPainel) ? dados.linkPainel : null;
   const quando = dados.dias === 1 ? "amanhã" : `em ${validade}`;
+  const temPdf = !!dados.pdfBuffer;
+  const anexo = temPdf ? "O orçamento segue em anexo." : "";
 
   const abre = `${enviado ? `Em ${enviado} enviamos` : "Enviamos"} o orçamento <strong>${E(numero)}</strong>, de <strong>${E(condo)}</strong>, válido até <strong>${E(validade)}</strong>.`;
   const pergunta = `Como a validade termina ${E(quando)}, gostaríamos de saber se podemos seguir com o serviço.`;
   const comoResponder = link
     ? `Você pode aprovar ou recusar pelo painel, no botão abaixo, ou simplesmente responder este e-mail.`
-    : `Basta responder este e-mail. Se precisar do documento de novo, ou de algum ajuste, é só avisar.`;
+    : temPdf
+      ? `Basta responder este e-mail. Se precisar de algum ajuste, é só avisar.`
+      : `Basta responder este e-mail. Se precisar do documento de novo, ou de algum ajuste, é só avisar.`;
   const botao = link
     // O mesmo botão do e-mail de envio (`convite` em sendOrcamentoCliente).
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;"><tr><td style="background:#f0b014;">
@@ -794,17 +801,21 @@ function montarLembreteOrcamento(dados) {
 
   const html = _molduraEstruturada({
     sobrancelha: "Orçamento perto de vencer",
-    corpoHtml: [P("Prezado(a),"), P(abre), P(pergunta), P(comoResponder), botao,
+    corpoHtml: [P("Prezado(a),"), P(abre), anexo ? P(anexo) : "", P(pergunta), P(comoResponder), botao,
       P("Se já decidiu e nos avisou por outro canal, por favor desconsidere esta mensagem.")].filter(Boolean).join("\n        "),
     tituloInfos: "Informações do orçamento",
     infos: [["Número", numero], ["Cliente", condo], ["Enviado em", enviado], ["Válido até", validade]],
   });
   const desmarca = (s) => s.replace(/<[^>]+>/g, "");
-  const text = ["Prezado(a),", "", desmarca(abre), "", desmarca(pergunta), "", comoResponder,
+  const text = ["Prezado(a),", "", desmarca(abre), anexo ? "" : null, anexo || null, "", desmarca(pergunta), "", comoResponder,
     link ? `Ver o orçamento e responder: ${link}` : null, "",
     "Se já decidiu e nos avisou por outro canal, por favor desconsidere esta mensagem.", "",
     ..._FECHO_TEXTO].filter(l => l !== null).join("\n");
-  return { subject: `Orçamento ${numero} vence ${dados.dias === 1 ? "amanhã" : `em ${validade}`} — podemos seguir? — General Bombas`, html, text };
+  return {
+    subject: `Orçamento ${numero} vence ${dados.dias === 1 ? "amanhã" : `em ${validade}`} — podemos seguir? — General Bombas`, html, text,
+    // Mesmo nome de arquivo do envio (`orcamento-<numero>.pdf`), que o serviço já manda pronto.
+    attachments: temPdf ? [{ filename: dados.filename || `orcamento-${String(numero).replace(/^#/, "")}.pdf`, content: dados.pdfBuffer }] : [],
+  };
 }
 
 // dados: os de montarLembreteOrcamento + to (array). Devolve o id do Resend.
@@ -820,6 +831,8 @@ async function sendOrcamentoLembrete(dados) {
     subject: m.subject,
     text: m.text,
     html: m.html,
+    // `attachments` vazio não vai (mesma regra do envio do orçamento).
+    ...(m.attachments.length ? { attachments: m.attachments } : {}),
   }, "lembrete de orçamento");
   return r && r.id ? r.id : null;
 }
