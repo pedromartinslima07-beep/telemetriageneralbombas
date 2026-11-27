@@ -1651,6 +1651,30 @@ desenho em camadas original continua válido.
   de O.S., contrato e preventiva não são copiados para `compromissos`: copiar
   criaria duas verdades para manter em dia.
 
+### Concluir, "só esta" e a agenda do turno (27/11/2026, migration 111)
+
+- **Copiar das agendas profissionais, não inventar.** O Pedro pediu "veja como
+  agendas profissionais fazem pra gente copiar": o alcance da mudança numa
+  série é o do Google Agenda ("só esta / esta e as próximas / todas"), o
+  círculo de feito é o da visita do Jobber. Maquete aprovada antes do código.
+- **A série continua uma linha; a vez mudada é exceção pelo início original**
+  (o `RECURRENCE-ID` do iCalendar). Alternativa descartada: expandir a série em
+  linhas (uma por vez) — quebraria a repetição sem fim e o "todas".
+  "Esta e as próximas" corta a série e cria outra, como o Google faz.
+- **Marcar a visita feita não fecha o chamado.** O chamado fecha pela O.S.; a
+  visita é só o compromisso de ir. Ao contrário: a O.S. finalizada no dia
+  marca a visita sozinha, para o técnico não precisar de outro clique.
+- **Reunião não fica atrasada.** Reunião que passou aconteceu (evento, não
+  tarefa). Visto na tela de teste: a reunião semanal enchia a aba Atrasados.
+- **Agenda-se onde se despacha.** A primeira versão da agenda do turno tinha a
+  fila "A agendar" como caminho: o operador abria o chamado no Turno e ia à
+  Agenda marcar o dia. O Pedro apontou a redundância; "Quando: Agora / Outro
+  dia" no Despachar e no Novo chamado resolve no mesmo gesto (como Jobber e
+  Housecall: agenda-se no trabalho, o calendário é para ver).
+- **O operador tem a agenda, só com visitas e chamados** (decisão do Pedro em
+  27/11). A rota filtra; a tela do operador é própria, no painel do turno, e
+  não importa nada do admin (regra das telas do operador).
+
 ## Cobrança dos atrasados (23/11/2026)
 
 - **Só os títulos das notas que o sistema emitiu, de novo.** Eu tinha proposto

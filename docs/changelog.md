@@ -101,6 +101,7 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 108 | orcamento_metodo_reservatorio | `orcamentos.metodo_reservatorio` (`manual` \| `robo`, default `manual`): a limpeza de reservatório com robô aspirador, com cláusulas próprias no PDF. ✅ **Aplicada em teste e em produção em 26/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 26/11/2026 abaixo |
 | 109 | plano_contratos_omie | tabela **`plano_contratos_omie`** (qual preventiva o contrato do Omie paga, só a escolha à mão; `plano_id` nulo = "não é de preventiva"). ✅ **Aplicada em teste e em produção em 27/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 27/11/2026 abaixo |
 | 110 | plano_sistemas | `planos_manutencao.sistemas` TEXT[] (o que a visita cobre, chaves da lista fixa). ✅ **Aplicada em teste e em produção em 27/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 27/11/2026 abaixo |
+| 111 | agenda_ocorrencias | tabelas **`compromisso_ocorrencias`** (o que muda numa vez só da série, achada pelo início original, e o feito de qualquer compromisso) e **`agenda_feitos`** (feito do retorno de O.S. e do contrato). ✅ **Aplicada em teste e em produção em 27/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 27/11/2026 abaixo |
 | 107 | guias_emissores | `guias_tributos.emissor_chave` (quem cobra: `cnpj:` / `arr:` / `bol:`) e a tabela **`guias_emissores`** (fornecedor/categoria/conta do Omie por emissor, para conta que não é tributo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
@@ -19170,3 +19171,38 @@ sem endpoint, sem migration, sem mexer no front. Pedido do Pedro: o aviso
   nome, PDF que falha, corpo com e sem anexo), 48 ✅. Ponta a ponta no banco
   de teste com o Puppeteer de verdade e o Resend em dublê: PDF de 778 KB
   anexado, HTML de 31 KB.
+
+## 2026-11-27 — Agenda: concluir, "só esta" e a agenda do turno
+
+Migration 111. `src/routes/agenda.routes.js`, `src/routes/operador.routes.js`,
+`src/app.js`, `public/admin-agenda.js`, `public/admin-despacho.js`,
+`public/admin.css`, `public/operador-agenda.{html,js}`, `public/operador.css`,
+`public/operador.js` e as três páginas irmãs do operador. Pedido do Pedro:
+"não dá para editar as coisas, não dá para marcar que foi feito, veja como
+agendas profissionais fazem". Maquete aprovada antes (`/dev/_agenda-preview.html`).
+Detalhe em [modulos/agenda.md](modulos/agenda.md#concluir-e-mexer-numa-vez-só-27112026-migration-111).
+
+- **Feito:** círculo em todo item; a visita de chamado se marca sozinha com a
+  O.S. finalizada no dia. O que passou sem ser feito é ATRASADO (reunião não)
+  e vai para a aba Atrasados do Quadro e o "Passou da data" da Lista.
+- **Cartão** ao clicar no item: feito, editar, remarcar, abrir, apagar.
+- **"Só esta / esta e as próximas / todas"** ao mexer em compromisso que
+  repete. Rotas novas `POST /agenda/compromissos/:id/ocorrencia`,
+  `POST /agenda/compromissos/:id/dividir`, `POST /agenda/feitos`.
+- Criar rápido clicando no espaço vazio; Semana, Mês e Lista redesenhadas no
+  molde do Quadro.
+- **Operador:** a rota `/agenda` deixa o operador entrar só com visita de
+  chamado e retorno de O.S. Tela nova `/operador/painel/agenda` (Quadro com
+  arrastar no computador, lista no celular), link "Agenda" na barra do
+  operador e "Ver a semana" no trilho do Turno. `GET /operador/fila` passa a
+  mandar `usuario_id` de cada técnico; o "Hoje na agenda" respeita a vez
+  apagada ou remarcada.
+- **Agenda-se no Turno** (mesmo dia, pedido do Pedro: "não está meio
+  redundante?"): "Despachar" e "Novo chamado" ganharam **Quando: Agora /
+  Outro dia**; "Outro dia" atribui o técnico e cria a visita na agenda. O
+  item da fila mostra a visita marcada (`visita` no `GET /operador/fila`). A
+  fila da Agenda do turno virou "Esperando alguém" (sem técnico e sem visita).
+- `scripts/testes/agenda.test.js`: 49/49 no banco de teste.
+- `admin.css?v=414`, `admin-agenda.js?v=11`, `admin-despacho.js?v=5`,
+  `operador.css?v=118`, `operador.js?v=90`, `operador-agenda.js?v=6`. Sem
+  endpoint fora de `/agenda` (já é network-first no `sw.js`).

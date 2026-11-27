@@ -478,6 +478,12 @@ app.get("/operador/painel/orcamentos", _htmlNoCache, (req, res) =>
 app.get("/operador/painel/preventivas", _htmlNoCache, (req, res) =>
   enviarHtml(res, path.join(__dirname, "../public/operador-preventivas.html"))
 );
+// Agenda do turno (27/11/2026) — as visitas dos chamados na semana. A página é
+// `/operador/painel/agenda`; a API é a mesma `/agenda` do admin, que filtra
+// para o operador (só visita de chamado e retorno de O.S.).
+app.get("/operador/painel/agenda", _htmlNoCache, (req, res) =>
+  enviarHtml(res, path.join(__dirname, "../public/operador-agenda.html"))
+);
 // Orçamentos do síndico — página própria, não um modal do painel. É o destino
 // do link que vai no e-mail do orçamento, então a URL é pública e estável; o
 // login é pedido pelo JS num cartão SOBRE a própria página — nunca em /login,

@@ -56,7 +56,7 @@ const { OFFLINE_MINUTES } = require("../config");
    gravação recusa. */
 const SQL_EQUIPE = `
   SELECT
-    t.id, t.nome, t.disponivel,
+    t.id, t.nome, t.disponivel, t.usuario_id,
     tl.lat, tl.lng, tl.atualizada_em AS gps_em,
     COUNT(ch.id) FILTER (
       WHERE ch.status IN ('aberto','em_atendimento')
@@ -67,7 +67,7 @@ const SQL_EQUIPE = `
         AND tl.atualizada_em > NOW() - INTERVAL '30 minutes'
   LEFT JOIN chamados ch ON ch.tecnico_id = t.id
   WHERE t.ativo = true AND COALESCE(t.cargo, 'tecnico') = 'tecnico'
-  GROUP BY t.id, t.nome, t.disponivel, tl.lat, tl.lng, tl.atualizada_em
+  GROUP BY t.id, t.nome, t.disponivel, t.usuario_id, tl.lat, tl.lng, tl.atualizada_em
   ORDER BY t.disponivel DESC NULLS LAST, t.nome
 `;
 
@@ -98,12 +98,23 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
             (SELECT nome FROM usuarios WHERE id = ch.pede_escritorio_por) AS pede_escritorio_por_nome,
             c.nome, c.nome_fantasia, c.bairro, c.cidade, c.lat, c.lng,
             t.id AS tecnico_id, t.nome AS tecnico_nome,
+            vis.visita_em, vis.visita_dia_inteiro,
             sd.ttfr_min, sd.ttr_min, sd.sla_chegada_min,
             ROUND(EXTRACT(EPOCH FROM (NOW() - ch.criado_em)) / 60.0)::int AS minutos_abertos
           FROM chamados ch
           LEFT JOIN condominios    c  ON c.id  = ch.condominio_id
           LEFT JOIN tecnicos       t  ON t.id  = ch.tecnico_id
           LEFT JOIN sla_definicoes sd ON sd.prioridade = ch.prioridade
+          -- A proxima visita marcada na agenda (27/11/2026): o item da fila
+          -- mostra "visita sex 28/11, 9h" sem o operador abrir a Agenda.
+          -- De hoje em diante, no relogio de Sao Paulo.
+          LEFT JOIN LATERAL (
+            SELECT cp.inicio AS visita_em, cp.dia_inteiro AS visita_dia_inteiro
+              FROM compromissos cp
+             WHERE cp.chamado_id = ch.id AND cp.apagado_em IS NULL
+               AND cp.inicio >= (date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')
+             ORDER BY cp.inicio LIMIT 1
+          ) vis ON TRUE
           WHERE ch.status IN ('aberto', 'em_atendimento')
             -- ⚠️ A PREVENTIVA SO ENTRA NA FILA QUANDO ALGUEM COMECA (04/09/2026).
             -- (Sem crase nos comentarios desta query: template literal. CLAUDE.md.)
@@ -249,6 +260,8 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
           lng: c.lng == null ? null : Number(c.lng),
         } : null,
         tecnico: c.tecnico_id ? { id: c.tecnico_id, nome: c.tecnico_nome } : null,
+        // A próxima visita marcada na agenda (null = nenhuma).
+        visita: c.visita_em ? { inicio: c.visita_em, dia_inteiro: !!c.visita_dia_inteiro } : null,
         // As marcas da migration 098. O pedido do escritório é só selo: não
         // entra na ordenação logo abaixo.
         escritorio: c.escritorio_motivo
@@ -282,6 +295,9 @@ router.get("/fila", authRequired, adminOnly, async (req, res) => {
         lng: t.lng == null ? null : Number(t.lng),
         gps_em: t.gps_em,
         abertos: Number(t.abertos) || 0,
+        // A Agenda do turno põe a visita na linha do técnico também pelo
+        // responsável do compromisso (usuário), como o Quadro do admin.
+        usuario_id: t.usuario_id ?? null,
       })),
       // O fundo do mapa. Nomes curtos porque a lista viaja a cada 30s: com a
       // carteira real (86 prédios) são ~4 KB por ciclo.
@@ -360,12 +376,26 @@ async function agendaDoDia() {
     ),
   ]);
   const itens = [];
+  // As exceções da série (migration 111, 27/11/2026): a vez apagada ou
+  // remarcada para outro dia some de hoje; a remarcada no próprio dia vem na
+  // hora nova. (A vez trazida de OUTRO dia para hoje não aparece aqui — a
+  // tela da Agenda do turno mostra; este é só o resumo do trilho.)
+  const ids = rc.rows.map((c) => c.id);
+  const rx = ids.length ? await pool.query(
+    `SELECT compromisso_id, ocorrencia_em, cancelada, inicio, fim, titulo
+       FROM compromisso_ocorrencias WHERE compromisso_id = ANY($1::int[])`, [ids]
+  ) : { rows: [] };
+  const exc = new Map(rx.rows.map((o) => [`${o.compromisso_id}|${new Date(o.ocorrencia_em).getTime()}`, o]));
   for (const c of rc.rows) {
     const dur = c.fim ? new Date(c.fim) - new Date(c.inicio) : 0;
-    for (const d of _ocorrencias(c, ini, fim)) {
+    for (const d0 of _ocorrencias(c, ini, fim)) {
+      const ex = exc.get(`${c.id}|${d0.getTime()}`);
+      if (ex?.cancelada) continue;
+      const d = ex?.inicio ? new Date(ex.inicio) : d0;
+      if (d < ini || d >= fim) continue;
       itens.push({
-        tipo: c.tipo, titulo: c.titulo, inicio: d.toISOString(),
-        fim: c.fim ? new Date(d.getTime() + dur).toISOString() : null,
+        tipo: c.tipo, titulo: ex?.titulo || c.titulo, inicio: d.toISOString(),
+        fim: ex?.fim ? new Date(ex.fim).toISOString() : c.fim ? new Date(d.getTime() + dur).toISOString() : null,
         dia_inteiro: !!c.dia_inteiro,
         condominio: c.condominio_id ? { id: c.condominio_id, nome: c.condominio_nome } : null,
         // Quem vai: o técnico do chamado ligado à visita; sem chamado, o

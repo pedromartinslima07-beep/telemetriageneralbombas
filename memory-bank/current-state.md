@@ -116,6 +116,16 @@ no cliente é o pior entre número e alerta aberto, e o extravasamento aparece.
 Faixas em `LIMIARES_NIVEL` (`src/config.js`). Ver
 [telemetria.md](../docs/modulos/telemetria.md#faixas-e-situação-na-tela-24112026).
 
+### 🟡 Agenda: concluir, "só esta" e a agenda do turno (27/11/2026, migration 111)
+
+No código e testado no banco de teste; 111 ✅ em produção (27/11). Todo item da agenda tem círculo de feito (a O.S.
+fechada no dia marca a visita sozinha); o que passou sem ser feito é atrasado
+(reunião não); clicar abre um cartão; mexer em série pergunta "só esta / esta e
+as próximas / todas" (exceções em `compromisso_ocorrencias`). O **operador**
+tem a agenda em `/operador/painel/agenda`, só com visitas de chamado e
+retornos de O.S. (a rota `/agenda` filtra). Ver
+[agenda.md](../docs/modulos/agenda.md#concluir-e-mexer-numa-vez-só-27112026-migration-111).
+
 ### ⚠️ Agenda: editar e apagar pelo quadro (23/11/2026)
 
 O menu do Quadro agora tem "Apagar"/"Apagar a série" para todo compromisso, e

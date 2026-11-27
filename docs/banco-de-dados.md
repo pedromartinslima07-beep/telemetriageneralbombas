@@ -756,6 +756,44 @@ chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que j
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
 
+## 111 — agenda: feito e exceção da série (27/11/2026)
+
+Fluxo em [agenda.md](modulos/agenda.md#concluir-e-mexer-numa-vez-só-27112026-migration-111).
+✅ Teste (27/11/2026). ✅ **Produção** (27/11/2026, antes do push; conferida no
+`information_schema`).
+
+**`compromisso_ocorrencias`** — o que muda numa vez só de um compromisso
+(e o feito de qualquer compromisso, que repita ou não). O desenho é o do
+`RECURRENCE-ID` do iCalendar: a vez é achada pelo início ORIGINAL dela.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `compromisso_id` | INTEGER | FK `compromissos`, ON DELETE CASCADE |
+| `ocorrencia_em` | TIMESTAMPTZ | início original da vez (a chave). `UNIQUE (compromisso_id, ocorrencia_em)` |
+| `cancelada` | BOOLEAN | "apagar só esta" |
+| `inicio` / `fim` | TIMESTAMPTZ | remarcada só nesta vez (NULL = como a série) |
+| `titulo` / `descricao` | VARCHAR(160) / TEXT | mudados só nesta vez |
+| `responsavel_id` | INTEGER | FK `usuarios`, SET NULL |
+| `concluido_em` / `concluido_por` | TIMESTAMPTZ / INTEGER | o feito (FK `usuarios`, SET NULL) |
+| `atualizado_em` | TIMESTAMPTZ | |
+
+⚠️ **A chave anda junto com a série.** Quando o `PATCH` muda o início do
+compromisso, `ocorrencia_em` recebe o mesmo deslocamento (compromisso que não
+repete, série semanal, ou só a hora mudou). Série mensal que troca de dia fica
+com as exceções antigas soltas: elas param de aparecer.
+
+**`agenda_feitos`** — o feito do que a agenda lê de outras tabelas.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `fonte` | VARCHAR(20) | `retorno` (`ordens_servico.id`) ou `contrato` (`contratos.id`) |
+| `ref_id` | INTEGER | PK com `fonte` |
+| `concluido_em` / `concluido_por` | TIMESTAMPTZ / INTEGER | |
+
+O feito da **visita de chamado** também sai sem gravar nada: a O.S. do chamado
+finalizada no mesmo dia (relógio de SP) marca a visita (`concluido_auto`).
+
 ## 110 — o que a preventiva cobre (27/11/2026)
 
 Fluxo em [omie-integracao.md](modulos/omie-integracao.md#2b-a-preventiva-de-cada-contrato-e-os-avisos-do-lote--no-código-27112026-migrations-109-e-110).

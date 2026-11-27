@@ -13,6 +13,14 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟡 **Agenda: concluir, "só esta" e a agenda do turno (27/11/2026) — no
+> código, SEM commit.** Migration **111 ✅ em produção** (27/11, conferida). `agenda.routes.js`, `operador.routes.js`, `app.js`,
+> `admin-agenda.js`, `admin-despacho.js`, `admin.css`, `operador-agenda.*`,
+> `operador.css`, `operador.js` e as páginas do operador. Teste 49/49 e tela
+> (admin e operador, computador e celular) no banco de teste. Falta: olhar com
+> agenda real depois do deploy. Maquete em `/dev/_agenda-preview.html`. Ver
+> [agenda.md](../docs/modulos/agenda.md#concluir-e-mexer-numa-vez-só-27112026-migration-111).
+
 > 🟢 **Hoje do admin revisado (27/11/2026) — na main e no ar** (`e146220`).
 > `admin-carteira.js`, `admin.css`, `admin.html` (barra de baixo do celular).
 > Sem migration. Só vale para os logins da `PAINEL_NOVO`. Não testado com

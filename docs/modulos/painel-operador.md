@@ -692,6 +692,11 @@ pelo mesmo motivo: no celular o nome é conferência, não operação. Fecha com
 **zero sobreposição de 360px para cima** nas três telas. 320px segue fora, limite
 conhecido.
 
+**27/11/2026 — o quarto link (Agenda).** A barra de cada tela lista as
+outras três. Medido no Turno a 375px: a nav vai de 10 a 281px (Aprovados ·
+Preventivas · Agenda · ?), sem estourar a página (`scrollWidth` = 375). Não
+foi medido a 320px.
+
 ### A marca volta à barra no celular (10/09/2026)
 
 Relato do Pedro, no PWA instalado: *"não está aparecendo a logo"* e
@@ -928,6 +933,23 @@ despacho mexe na fixture, então o ciclo inteiro (marcar → enviar → ver o es
 mudar) se testa ali.
 
 ---
+
+## A quarta tela: Agenda (`/operador/painel/agenda`, 27/11/2026)
+
+Pedido do Pedro: o operador pode ter a agenda, *"mas só com as visitas"* — e
+os chamados. É a mesma agenda do admin (`GET /agenda`), que a rota filtra para
+o operador: visita ligada a chamado e retorno de O.S. Quadro com arrastar no
+computador (técnicos × dias, fila "A agendar" e "Atrasados"), lista por dia no
+celular, círculo de feito, Desfazer em tudo. `operador-agenda.html` +
+`operador-agenda.js`, bloco `.oa-*` do `operador.css`; não importa nada do
+admin. O "Hoje na agenda" do trilho ganhou o link "Ver a semana".
+
+**Agenda-se no Turno** (27/11/2026): o "Despachar" e o "Novo chamado"
+perguntam **Quando: Agora / Outro dia**. "Outro dia" atribui o técnico e
+já põe a visita na agenda; o item da fila mostra "visita sex 28/11 às 09:00"
+(`visita` no `GET /operador/fila`). A Agenda do turno ficou para ver e
+ajustar; a fila dela é só "Esperando alguém" (sem técnico e sem visita). Detalhe em
+[agenda.md](agenda.md#agenda-do-turno-operador-27112026).
 
 ## A segunda tela: Aprovados (`/operador/painel/orcamentos`)
 

@@ -103,14 +103,90 @@ const T = "[TESTE agenda]";
     ok("fim antes do início dá 400", (await chama("POST", "/agenda/compromissos", GER,
       { titulo: `${T} ruim`, inicio: "2027-03-10T10:00:00-03:00", fim: "2027-03-10T09:00:00-03:00" })).s === 400);
     ok("período sem data dá 400", (await chama("GET", "/agenda?de=ontem&ate=hoje", GER)).s === 400);
-    ok("operador recebe 403", (await chama("GET", "/agenda?de=2027-03-01&ate=2027-03-31", OPE)).s === 403);
     ok("faturamento: gerente 403", (await chama("GET", "/agenda/faturamento?competencia=2026-11", GER)).s === 403);
     const fat = await chama("GET", "/agenda/faturamento?competencia=2026-11", ADM);
     ok("faturamento: admin 200", fat.s === 200 && typeof fat.j.esperados === "number", fat.s);
+    ok("faturamento: operador 403", (await chama("GET", "/agenda/faturamento?competencia=2026-11", OPE)).s === 403);
+
+    // ── 27/11/2026 (migration 111): operador só com as visitas, concluir,
+    //    "só esta", "esta e as próximas" e o feito do retorno.
+    const chId = (await pool.query("SELECT id FROM chamados ORDER BY id DESC LIMIT 1")).rows[0].id;
+    const vez = (its, dia) => its.filter(i => i.inicio.startsWith(dia));
+
+    // 8. Operador: entra, mas só vê e mexe nas visitas de chamado.
+    const visOpe = await chama("POST", "/agenda/compromissos", OPE,
+      { titulo: `${T} visita do turno`, tipo: "visita", inicio: "2027-03-12T09:00:00-03:00", chamado_id: chId });
+    ok("operador marca visita de chamado (201)", visOpe.s === 201, visOpe);
+    ok("operador NÃO cria reunião (403)", (await chama("POST", "/agenda/compromissos", OPE,
+      { titulo: `${T} reunião do turno`, tipo: "reuniao", inicio: "2027-03-12T09:00:00-03:00" })).s === 403);
+    const opeMar = await chama("GET", "/agenda?de=2027-03-01&ate=2027-03-31", OPE);
+    ok("operador lê a agenda (200)", opeMar.s === 200, opeMar.s);
+    const opeIts = meus(opeMar.j.itens || []);
+    ok("operador vê a visita", opeIts.some(i => i.titulo.endsWith("visita do turno")));
+    ok("operador NÃO vê reunião nem pagamento", !opeIts.some(i => !i.chamado_id));
+    ok("operador não vê contrato, preventiva nem Omie", !(opeMar.j.itens || []).some(i => ["contrato", "preventivas", "omie"].includes(i.fonte)));
+    ok("operador não alcança a reunião (404)", (await chama("PATCH", `/agenda/compromissos/${reu.j.id}`, OPE, { titulo: "x" })).s === 404);
+    ok("operador não tira o chamado da visita (403)", (await chama("PATCH", `/agenda/compromissos/${visOpe.j.id}`, OPE, { chamado_id: null })).s === 403);
+    ok("operador remarca a visita (200)", (await chama("PATCH", `/agenda/compromissos/${visOpe.j.id}`, OPE, { inicio: "2027-03-12T10:00:00-03:00" })).s === 200);
+
+    // 9. Série semanal de visitas, 4 terças de maio: feito e "só esta".
+    const sv = await chama("POST", "/agenda/compromissos", GER,
+      { titulo: `${T} visita semanal`, tipo: "visita", inicio: "2027-05-04T08:00:00-03:00", repeticao: "semanal", repete_ate: "2027-05-25", chamado_id: chId });
+    const svIts = async () => meus(await lista(GER, "2027-05-01", "2027-05-31")).filter(i => i.compromisso_id === sv.j.id);
+    let its = await svIts();
+    const seg = vez(its, "2027-05-11")[0];
+    const ck = await chama("POST", `/agenda/compromissos/${sv.j.id}/ocorrencia`, OPE, { ocorrencia: seg.ocorrencia, concluido: true });
+    ok("operador marca a 2ª vez como feita (200)", ck.s === 200, ck);
+    its = await svIts();
+    ok("só a 2ª fica feita", its.filter(i => i.concluido).length === 1 && vez(its, "2027-05-11")[0].concluido, its.map(i => [i.inicio, i.concluido]));
+    ok("feito sabe quem marcou", !!vez(its, "2027-05-11")[0].concluido_por_nome);
+    ok("vez que não existe dá 400", (await chama("POST", `/agenda/compromissos/${sv.j.id}/ocorrencia`, GER, { ocorrencia: "2027-05-12T11:00:00.000Z", concluido: true })).s === 400);
+    const ter = vez(its, "2027-05-18")[0];
+    await chama("POST", `/agenda/compromissos/${sv.j.id}/ocorrencia`, GER, { ocorrencia: ter.ocorrencia, inicio: "2027-05-19T14:00:00-03:00" });
+    const qua = vez(its, "2027-05-25")[0];
+    await chama("POST", `/agenda/compromissos/${sv.j.id}/ocorrencia`, GER, { ocorrencia: qua.ocorrencia, cancelada: true });
+    its = await svIts();
+    ok("só esta: a 3ª foi para quarta 19 às 14h", vez(its, "2027-05-18").length === 0 && vez(its, "2027-05-19")[0]?.inicio === "2027-05-19T17:00:00.000Z" && vez(its, "2027-05-19")[0]?.excecao, its.map(i => i.inicio));
+    ok("só esta: a 4ª foi apagada, a série continua com 3", its.length === 3, its.length);
+    const remarcadaFora = meus(await lista(GER, "2027-05-19", "2027-05-19")).filter(i => i.compromisso_id === sv.j.id);
+    ok("a vez remarcada aparece no dia novo mesmo pedindo só ele", remarcadaFora.length === 1);
+    // "Todas": a série passa para as 9h; o feito da 2ª acompanha.
+    await chama("PATCH", `/agenda/compromissos/${sv.j.id}`, GER, { inicio: "2027-05-04T09:00:00-03:00" });
+    its = await svIts();
+    ok("todas: série às 9h e o feito da 2ª continua nela", vez(its, "2027-05-11")[0]?.inicio === "2027-05-11T12:00:00.000Z" && vez(its, "2027-05-11")[0]?.concluido, its.map(i => [i.inicio, i.concluido]));
+    ok("todas: a vez remarcada à parte continua na quarta 14h", vez(its, "2027-05-19")[0]?.inicio === "2027-05-19T17:00:00.000Z");
+    // Desmarcar o feito.
+    await chama("POST", `/agenda/compromissos/${sv.j.id}/ocorrencia`, GER, { ocorrencia: vez(its, "2027-05-11")[0].ocorrencia, concluido: false });
+    ok("reabrir tira o feito", !(await svIts()).some(i => i.concluido));
+
+    // 10. "Esta e as próximas": reunião toda terça de junho (5 vezes).
+    const sr = await chama("POST", "/agenda/compromissos", GER,
+      { titulo: `${T} reunião semanal`, tipo: "reuniao", inicio: "2027-06-01T07:30:00-03:00", repeticao: "semanal", repete_ate: "2027-06-29" });
+    const jun = async () => meus(await lista(GER, "2027-06-01", "2027-06-30")).filter(i => i.titulo.includes("reunião semanal") || i.titulo.includes("reunião nova"));
+    let ji = await jun();
+    await chama("POST", `/agenda/compromissos/${sr.j.id}/ocorrencia`, GER, { ocorrencia: vez(ji, "2027-06-15")[0].ocorrencia, concluido: true });
+    const div = await chama("POST", `/agenda/compromissos/${sr.j.id}/dividir`, GER,
+      { ocorrencia: vez(ji, "2027-06-15")[0].ocorrencia, titulo: `${T} reunião nova`, inicio: "2027-06-15T08:00:00-03:00" });
+    ok("dividir cria a série nova (200)", div.s === 200 && div.j.id && div.j.id !== sr.j.id, div);
+    ji = await jun();
+    ok("próximas: 01 e 08 continuam com o título velho", vez(ji, "2027-06-01")[0]?.titulo.endsWith("reunião semanal") && vez(ji, "2027-06-08")[0]?.titulo.endsWith("reunião semanal"));
+    ok("próximas: 15, 22 e 29 com o título novo às 8h", ["2027-06-15", "2027-06-22", "2027-06-29"].every(d => vez(ji, d)[0]?.titulo.endsWith("reunião nova") && vez(ji, d)[0]?.inicio.endsWith("T11:00:00.000Z")), ji.map(i => [i.inicio, i.titulo]));
+    ok("próximas: o feito do dia 15 foi junto para a série nova", vez(ji, "2027-06-15")[0]?.concluido);
+    ok("próximas: 5 vezes no total, sem dobrar", ji.length === 5, ji.length);
+    const apg = await chama("POST", `/agenda/compromissos/${div.j.id}/dividir`, GER, { ocorrencia: vez(ji, "2027-06-22")[0].ocorrencia, apagar: true });
+    ji = await jun();
+    ok("apagar esta e as próximas: sobram 01, 08 e 15", apg.s === 200 && ji.length === 3 && !vez(ji, "2027-06-22").length, ji.map(i => i.inicio));
+
+    // 11. Feito do retorno de O.S. (e o operador não marca contrato).
+    const fr = await chama("POST", "/agenda/feitos", OPE, { fonte: "retorno", ref_id: 999999, concluido: true });
+    ok("operador marca retorno feito (200)", fr.s === 200 && fr.j.concluido, fr);
+    ok("operador NÃO marca contrato (403)", (await chama("POST", "/agenda/feitos", OPE, { fonte: "contrato", ref_id: 999999, concluido: true })).s === 403);
+    ok("reabrir o retorno (200)", (await chama("POST", "/agenda/feitos", GER, { fonte: "retorno", ref_id: 999999, concluido: false })).s === 200);
   } catch (e) {
     ok("sem exceção", false, e.message);
   } finally {
-    await pool.query(`DELETE FROM compromissos WHERE titulo LIKE $1`, [T + "%"]);
+    await pool.query(`DELETE FROM compromissos WHERE titulo LIKE $1`, [T + "%"]); // exceções vão junto (CASCADE)
+    await pool.query(`DELETE FROM agenda_feitos WHERE ref_id = 999999`);
     server.close();
     await pool.end();
     const falhas = r.filter(x => !x[1]);

@@ -267,11 +267,14 @@ function item(c, nova) {
   // botões iguais são duas perguntas.
   // A ficha continua a um clique — vira LINK, não botão. Nada foi removido:
   // mudou o peso, que é o que diz qual das duas coisas é a ação.
+  // A visita marcada na agenda (27/11/2026) aparece no próprio item: quem
+  // olha a fila sabe quando o técnico vai, sem abrir a Agenda.
   const acoes = c.tecnico
     ? `<span class="emrota">${I.rota}<span><b>${escapar(c.tecnico.nome)}</b>${
-         c.chegou_em ? " · no local" : c.a_caminho_em ? " · a caminho" : " · atribuído"}</span></span>
+         c.chegou_em ? " · no local" : c.a_caminho_em ? " · a caminho" : c.visita ? " · " + visitaTxt(c.visita) : " · atribuído"}</span></span>
        <button class="link-ficha" data-acao="ficha" data-id="${c.id}">Ver detalhes</button>`
-    : `<button class="btn" data-acao="despacho" data-id="${c.id}">Despachar</button>
+    : `${c.visita ? `<span class="emrota">${I.rota}<span>${visitaTxt(c.visita)}, sem técnico</span></span>` : ""}
+       <button class="btn" data-acao="despacho" data-id="${c.id}">Despachar</button>
        <button class="link-ficha" data-acao="ficha" data-id="${c.id}">Ver detalhes</button>`;
 
   return `
@@ -582,10 +585,13 @@ function trilho() {
    "quem já tem compromisso hoje", para não despachar quem tem visita marcada.
    null = a leitura falhou (dizer "nada marcado" seria afirmar calma que
    ninguém verificou); [] = nada marcado. */
+// Desde 27/11/2026 o turno tem a agenda da semana (/operador/painel/agenda):
+// o link fica embaixo do dia de hoje.
+const _agVer = `<a class="ag-ver" href="/operador/painel/agenda">Ver a semana</a>`;
 function agendaHtml() {
   const a = DADOS.agenda_hoje;
-  if (a == null) return `<p class="vazio-lado">Não consegui ler a agenda de hoje.</p>`;
-  if (!a.length) return `<p class="vazio-lado">Nada marcado para hoje.</p>`;
+  if (a == null) return `<p class="vazio-lado">Não consegui ler a agenda de hoje.</p>${_agVer}`;
+  if (!a.length) return `<p class="vazio-lado">Nada marcado para hoje.</p>${_agVer}`;
   return `<div class="chapa">${a.map((x) => {
     const quando = x.dia_inteiro ? "Dia todo" : hora(x.inicio);
     const sub = [x.condominio ? x.condominio.nome : "", x.quem ? primeiroNome(x.quem) : ""].filter(Boolean);
@@ -594,7 +600,7 @@ function agendaHtml() {
       <div class="tec-nome"><span class="ag-h">${quando}</span> ${escapar(x.titulo)}</div>
       ${sub.length ? `<div class="tec-est">${sub.map(escapar).join(" · ")}</div>` : ""}
     </div>`;
-  }).join("")}</div>`;
+  }).join("")}</div>${_agVer}`;
 }
 
 function iniciais(nome) {
@@ -704,6 +710,19 @@ function pedirDespacho(chamadoId, tecnicoId, linha) {
   // lá dentro vira no-op e a marca sobrevive.
   cancelarConfirma();
   if (linha) linha.dataset.sel = "1";
+  // Outro dia: atribui o técnico E põe a visita na agenda.
+  const q = quandoEscolhido("ds");
+  if (q) {
+    if (!q.dia) { avisar("Escolha o dia da visita."); return; }
+    const quando = `${_rotDiaVisita(q.dia)} às ${q.hora}`;
+    confirmar({
+      pergunta: `Agendar <b>${escapar(t ? t.nome : "este técnico")}</b> para ${escapar(quando)}?`,
+      nota: "O técnico fica com o chamado e a visita entra na agenda.",
+      rotulo: "Agendar",
+      aoSim: () => agendarDespacho(chamadoId, tecnicoId, q.dia, q.hora),
+    });
+    return;
+  }
   confirmar({
     pergunta: `Despachar <b>${escapar(t ? t.nome : "este técnico")}</b>?`,
     // A mesma frase que o rodapé escondido atrás desta barra já dizia — não é
@@ -815,6 +834,12 @@ function dlgDespacho(id) {
     <div class="ficha-corpo">
       <div class="mapa" id="mapa"></div>
       <div class="escolha">
+        <!-- QUANDO (27/11/2026): agora, ou outro dia, que já vai para a agenda.
+             Vem antes de quem vai porque muda o que o toque no técnico faz.
+             (Sem crase neste comentario: template literal. CLAUDE.md.) -->
+        <h3>Quando</h3>
+        ${quandoHtml("ds")}
+        ${c.visita ? `<p class="quando-ja">Já tem ${visitaTxt(c.visita)} na agenda.</p>` : ""}
         <h3>Quem pode ir</h3>
         <!-- ⚠️ UMA CHAPA, NÃO SEIS CARTÕES — o corte que o trilho recebeu em
              31/08 aplicado à MESMA LISTA DAS MESMAS PESSOAS. Aqui cada técnico
@@ -1573,6 +1598,42 @@ async function despachar(chamadoId, tecnicoId) {
   }
 }
 
+// Despachar para outro dia (27/11/2026): o técnico no chamado e a visita na
+// agenda. Se a visita falhar depois do técnico gravado, a faixa diz isso —
+// o chamado não fica com técnico "sem data" sem ninguém saber.
+async function agendarDespacho(chamadoId, tecnicoId, dia, hh) {
+  const c = DADOS.fila.find((x) => x.id === chamadoId);
+  const btn = document.querySelector(`[data-acao="escolher"][data-tec="${tecnicoId}"]`);
+  const chip = btn && btn.querySelector(".cand-chip");
+  if (btn) { btn.disabled = true; btn.dataset.ocupado = "1"; }
+  if (chip) chip.textContent = "Agendando…";
+  const tec = (DADOS.tecnicos || []).find((t) => t.id === tecnicoId);
+  try {
+    if (c?.tecnico?.id !== tecnicoId) {
+      const r = await fetch(`/chamados/${chamadoId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ tecnico_id: tecnicoId }),
+      });
+      const d = await lerJson(r, "Agendar");
+      if (!r.ok) throw new Error(d.error || "Erro ao atribuir o técnico");
+    }
+    try { await marcarVisita(c || { id: chamadoId }, dia, hh); }
+    catch (e) {
+      fechar(); await carregar();
+      avisar(`O técnico ficou com o #${chamadoId}, mas a visita não entrou na agenda: ${e.message}`);
+      return;
+    }
+    fechar();
+    await carregar();
+    avisar(`Chamado #${chamadoId} com ${tec ? tec.nome : "o técnico"}, visita ${_rotDiaVisita(dia)} às ${hh}. Está na agenda.`, true);
+  } catch (e) {
+    avisar(e.message);
+    if (btn) { btn.disabled = false; delete btn.dataset.ocupado; }
+    if (chip) chip.textContent = "Agendar";
+  }
+}
+
 // Ficha do chamado: a linha do tempo completa. É o que o operador lê antes
 // de ligar para o técnico — o que já foi tentado e por quem.
 async function dlgFicha(id) {
@@ -1772,6 +1833,74 @@ function hora(iso) {
   if (!iso) return "--:--";
   const d = new Date(iso);
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+/* ── AGENDAR NO MESMO LUGAR EM QUE SE DESPACHA (27/11/2026) ─────────────
+   Pedido do Pedro, olhando a Agenda do turno recém-feita: "ele teria que
+   abrir o chamado em outro lugar para depois ir para lá… não está meio
+   redundante?". Estava: quem vai e quando é UMA decisão, e ela ficava em
+   duas telas. Agora o "Despachar" e o "Novo chamado" perguntam QUANDO
+   (Agora / Outro dia); "Outro dia" atribui o técnico e já põe a visita na
+   agenda (POST /agenda/compromissos com chamado_id, a mesma visita que o
+   Quadro do admin cria). A Agenda do turno fica para VER a semana e ajustar.
+   ⚠️ Datas no relógio de São Paulo (-03:00 fixo), como a rota /agenda. */
+const _spDia = (d) => new Date(new Date(d).getTime() - 3 * 3600000).toISOString().slice(0, 10);
+const _spHora = (d) => new Date(new Date(d).getTime() - 3 * 3600000).toISOString().slice(11, 16);
+const _somaDiaIso = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+function _rotDiaVisita(iso) {
+  const hoje = _spDia(new Date());
+  if (iso === hoje) return "hoje";
+  if (iso === _somaDiaIso(hoje, 1)) return "amanhã";
+  return `${["dom", "seg", "ter", "qua", "qui", "sex", "sáb"][new Date(iso + "T12:00:00Z").getUTCDay()]} ${iso.slice(8)}/${iso.slice(5, 7)}`;
+}
+// "visita sex 28/11 às 09:00" — a visita marcada que viaja no item da fila.
+function visitaTxt(v) {
+  if (!v) return "";
+  return `visita ${_rotDiaVisita(_spDia(v.inicio))}${v.dia_inteiro ? "" : " às " + _spHora(v.inicio)}`;
+}
+// Grava a visita do chamado na agenda.
+async function marcarVisita(c, dia, hh) {
+  const r = await fetch("/agenda/compromissos", {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      titulo: `#${c.id} · ${c.titulo || "Chamado"}`.slice(0, 160), tipo: "visita",
+      inicio: new Date(`${dia}T${hh || "08:00"}:00-03:00`).toISOString(),
+      condominio_id: c.condominio_id || c.condominio?.id || null, chamado_id: c.id,
+      descricao: `Visita do chamado #${c.id}`,
+    }),
+  });
+  const d = await lerJson(r, "Agendar visita");
+  if (!r.ok) throw new Error(d.error || "Erro ao pôr a visita na agenda");
+  return d;
+}
+// O par "Quando: Agora / Outro dia" com o dia e a hora. Usado no despacho e
+// no novo chamado; `pref` separa os ids dos dois diálogos.
+function quandoHtml(pref) {
+  const amanha = _somaDiaIso(_spDia(new Date()), 1);
+  return `<div class="quando" role="group" aria-label="Quando a visita acontece">
+    <button type="button" class="quando-op" data-acao="quando" data-pref="${pref}" data-q="agora" aria-pressed="true">Agora</button>
+    <button type="button" class="quando-op" data-acao="quando" data-pref="${pref}" data-q="outro" aria-pressed="false">Outro dia</button>
+    <span class="quando-dia" id="${pref}Quando" hidden>
+      <input type="date" id="${pref}Dia" value="${amanha}" min="${_spDia(new Date())}" aria-label="Dia da visita">
+      <input type="time" id="${pref}Hora" value="08:00" step="900" aria-label="Hora da visita">
+    </span>
+  </div>`;
+}
+function quandoEscolhido(pref) {
+  const outro = document.querySelector(`[data-acao="quando"][data-pref="${pref}"][data-q="outro"]`)?.getAttribute("aria-pressed") === "true";
+  if (!outro) return null;
+  return { dia: document.getElementById(pref + "Dia")?.value || "", hora: document.getElementById(pref + "Hora")?.value || "08:00" };
+}
+function alternarQuando(b) {
+  const pref = b.dataset.pref;
+  document.querySelectorAll(`[data-acao="quando"][data-pref="${pref}"]`).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  const outro = b.dataset.q === "outro";
+  const caixa = document.getElementById(pref + "Quando");
+  if (caixa) caixa.hidden = !outro;
+  // No despacho, o chip de cada técnico diz o que o toque vai fazer.
+  if (pref === "ds") document.querySelectorAll(".cand .cand-chip").forEach((x) => { x.textContent = outro ? "Agendar" : "Despachar"; });
+  if (outro) document.getElementById(pref + "Dia")?.focus();
 }
 
 /* As opções do seletor de técnico, com o MESMO estado que o cartão do diálogo
@@ -1981,6 +2110,13 @@ function dlgNovo() {
         <label for="nvTec">Técnico</label>
         <select id="nvTec">${opcoesTecnico(DADOS.tecnicos)}</select>
       </div>
+      <!-- QUANDO (27/11/2026): com técnico escolhido, a visita pode ficar para
+           outro dia e já nascer na agenda. Sem técnico, vale o de sempre.
+           (Sem crase neste comentario: template literal. CLAUDE.md.) -->
+      <div class="campo largo">
+        <label>Visita</label>
+        ${quandoHtml("nv")}
+      </div>
       <!-- ⚠️ OS NÚMEROS SAÍRAM DAQUI (31/08). Esta dica dizia "P2 24–48h" e
            "P4 conforme agenda"; no banco, o ttr_min de P2 é 1440 (24h) e o de
            P4 é 14400 (10 dias). Eram prazos escritos à mão que envelheceram em
@@ -1993,7 +2129,7 @@ function dlgNovo() {
         prevalece o maior — e o botão <b>Ajuda</b>, no alto da tela, mostra a
         tabela completa de prazos. Escolher o técnico aqui já <b>para o relógio
         da primeira resposta</b>; sem ele, o chamado entra em “Esperando
-        alguém”.</p>
+        alguém”. Em <b>Outro dia</b>, a visita já entra na agenda.</p>
     </form>
     <div class="ficha-pe">
       <p id="nvMsg"></p>
@@ -2271,6 +2407,10 @@ async function salvarNovo() {
 
   if (!condominio_id) { if (msg) msg.textContent = "Escolha o prédio."; return; }
   if (!titulo) { if (msg) msg.textContent = "Escreva um título."; return; }
+  // Outro dia (27/11/2026): precisa de técnico e de dia.
+  const q = quandoEscolhido("nv");
+  if (q && !tecnico_id) { if (msg) msg.textContent = "Escolha o técnico para agendar a visita."; return; }
+  if (q && !q.dia) { if (msg) msg.textContent = "Escolha o dia da visita."; return; }
 
   try {
     const r = await fetch("/chamados", {
@@ -2280,6 +2420,17 @@ async function salvarNovo() {
     });
     const d = await lerJson(r, "Novo chamado");
     if (!r.ok) throw new Error(d.error || "Erro ao abrir o chamado");
+    if (q) {
+      let falhou = null;
+      try { await marcarVisita({ id: d.id, titulo, condominio_id }, q.dia, q.hora); } catch (e) { falhou = e.message; }
+      fechar();
+      await carregar();
+      const tq = (DADOS.tecnicos || []).find((t) => t.id === tecnico_id);
+      avisar(falhou
+        ? `Chamado #${d.id} aberto com ${tq ? tq.nome : "o técnico"}, mas a visita não entrou na agenda: ${falhou}`
+        : `Chamado #${d.id} aberto com ${tq ? tq.nome : "o técnico"}, visita ${_rotDiaVisita(q.dia)} às ${q.hora}. Está na agenda.`, !falhou);
+      return;
+    }
     fechar();
     await carregar();
     // ⚠️ A FAIXA DIZ PARA QUAL SEÇÃO O CHAMADO FOI, e é a mesma correção do
@@ -2569,6 +2720,7 @@ document.addEventListener("click", (e) => {
     if (a === "despacho") return dlgDespacho(Number(b.dataset.id));
     if (a === "salvar-novo") return salvarNovo();
     if (a === "escolher") return pedirDespacho(Number(b.dataset.chamado), Number(b.dataset.tec), b);
+    if (a === "quando") { cancelarConfirma(); return alternarQuando(b); }
     if (a === "mapa-fs") return mapaFs();
   }
   const prio = e.target.closest(".prio");

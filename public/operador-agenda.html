@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030a26">
+<link rel="manifest" href="/manifest.json?app=operador">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="General">
+<title>GENERAL • Agenda</title>
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preload" href="/static/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/martianmono.woff2" as="font" type="font/woff2" crossorigin>
+<!-- ⚠️ A MESMA FOLHA DAS IRMÃS. As três telas são a mesma superfície do
+     operador; só obloco `.oa-*` é exclusivo daqui, e ele mora no operador.css
+     junto com o resto. Ver o cabeçalho de `operador-orcamentos.html`. -->
+<link rel="stylesheet" href="/static/operador.css?v=118">
+</head>
+<body class="sem-trilho">
+
+<!-- DIREÇÃO — Agenda do turno · 27/11/2026
+
+     THESIS: a semana das visitas numa tela, respondendo "quem vai a qual
+     prédio em que dia, e o que ficou para trás". Pedido do Pedro: o turno
+     agenda os chamados nos técnicos — e para isso precisa da agenda, mas só
+     com as visitas e os chamados. Reunião, pagamento, Omie e contrato ficam
+     com a gestão (quem barra é a rota /agenda, não esta tela).
+     ⚠️ É A MESMA AGENDA DO ADMIN, NÃO OUTRA. Os dados vêm de GET /agenda
+     (filtrado para o operador no servidor) e a visita marcada aqui aparece
+     no Quadro do escritório na hora. Mesmas regras: círculo de feito, a O.S.
+     fechada no dia marca sozinha, o que passou sem ser feito é atrasado e
+     não some sozinho.
+     ⚠️ NÃO importa nada do admin (admin-agenda.js, admin-despacho.js): regra
+     das telas irmãs. O que se repete é o contrato com a rota, não o código.
+     OWN-WORLD: o mesmo Chapa das telas irmãs, em registro de operação. -->
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <!-- ⚠️ NO CELULAR A MARCA PERDE O WORDMARK (08/09/2026). A barra não tem
+           largura para os 138px do `logo-topo.png` ao lado de três links de
+           navegação e duas ações: medido, ele pintava 77px por cima de
+           "Aprovados" a 390px, e 101 a 320. O `operador.css` já dizia desde
+           03/09 que "a conta só fecha se alguma coisa sair da barra no
+           celular (a marca, ou os dois links de texto virando ícone)".
+           ⚠️ SAI A MARCA, NÃO AS PALAVRAS. Esta tela foi recalibrada em 28/08
+           para quem tem pouca familiaridade com computador; trocar
+           "Aprovados" e "Preventivas" por ícones mudos seria pagar a conta
+           com a única coisa que a calibragem existe para proteger. E a marca
+           não identifica nada que o operador logado no próprio turno já não
+           saiba — o admin, aliás, nem tem logo na topbar.
+           ⚠️ É `<picture>`, NÃO duas imagens com `display:none`: assim o
+           navegador baixa SÓ a que vai usar. O `logo-marca.png` (160x102,
+           11 KB) sai do `logo-menu.png` — o mesmo desenho que a sidebar
+           recolhida do admin usa — pelo `scripts/gerar-logo-marca.js`, que
+           apara o halo e reduz. O original tem 1,15 MB, e o alvo aqui é
+           justamente o celular. -->
+      <picture>
+        <source media="(max-width:760px)" srcset="/static/logo-marca.png" width="160" height="102">
+        <img src="/static/logo-topo.png" alt="GENERAL" width="826" height="180">
+      </picture>
+      <span>Agenda</span>
+    </div>
+  </div>
+  <div class="barra-acoes">
+    <nav class="barra-nav" aria-label="Telas do operador">
+      <a href="/operador/painel"><span class="nav-longo">A fila do turno</span><span class="nav-curto">Turno</span></a>
+      <a href="/operador/painel/orcamentos">Aprovados</a>
+      <a href="/operador/painel/preventivas">Preventivas</a>
+      <!-- ⚠️ NO CELULAR "AJUDA" É UM SÍMBOLO, e isto NÃO revoga a calibragem de
+           28/08 — ela protege "Aprovados" e "Preventivas", que são navegação
+           para quem tem pouca familiaridade com computador. Ajuda não leva a
+           outra tela: abre uma leitura, e a interrogação em círculo é o
+           desenho mais reconhecido da interface inteira.
+           O que a troca compra está medido: 18px, que é o que faz a LOGO
+           caber em 36px em vez de 30 sem espremer a barra (pedido do Pedro em
+           10/09, "da para deixar a logo um pouco maior?"). Autorizado por ele
+           na mesma conversa: "se quiser criar um simbolo pra ajuda inves da
+           palavra fica a vontade".
+           ⚠️ O `aria-label` fica no BOTÃO, não nas duas formas: assim o leitor
+           de tela lê "Ajuda" nas duas larguras, sem depender de qual filho
+           está visível. Por isso aqui NÃO se usa o par `.nav-longo`/
+           `.nav-curto` dos rótulos de tela — lá as duas formas são texto e a
+           regra é outra. -->
+      <button type="button" data-acao="ajuda" aria-label="Ajuda">
+        <span class="nav-rot">Ajuda</span>
+        <!-- interrogação em círculo, no traço da folha: ponta quadrada, junta
+             em esquadro. Nada de ícone de biblioteca. -->
+        <svg class="nav-sim" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4"/><path d="M12 17.4v.2"/></svg>
+      </button>
+    </nav>
+    <!-- ⚠️ A GAVETA DE CONTA, e ela chegou aqui em 04/09/2026 porque
+         "Trocar senha" era INALCANÇÁVEL nesta tela — só existia no Turno. O par
+         solto "nome (texto) + Sair" que estava aqui também não cabia no
+         celular: a 390px o wordmark pintava por cima da nav, e uma chapa só
+         devolve 50px (a tabela está no `operador.css`, em "CELULAR ESTREITO").
+         O comportamento vive no `operador-conta.js`, compartilhado pelas três
+         telas — o Turno tinha 187 linhas disto embutidas e as irmãs, nenhuma.
+         ⚠️ O id `btnSair` é o CONTRATO com o JS de cada tela: as três fazem o
+         logout por id, não por `data-acao`. -->
+    <div class="eu" id="eu">
+      <button class="conta conta-eu" id="btnEu" type="button"
+              aria-haspopup="true" aria-expanded="false" aria-controls="euGaveta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4.14 3.36-7.5 7.5-7.5s7.5 3.36 7.5 7.5"/></svg>
+        <span class="conta-rot" id="barraEu"></span>
+        <svg class="eu-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>
+      </button>
+      <div class="eu-gaveta" id="euGaveta" role="menu" aria-labelledby="btnEu" hidden>
+        <button class="eu-item" type="button" role="menuitem" data-acao="senha">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="7.5" cy="12" r="4.5"/><path d="M12 12h9M16.5 12v3.5M20 12v2.5"/></svg>
+          <span>Trocar senha</span>
+        </button>
+        <!-- ⚠️ O id `btnSair` é o CONTRATO com o front de cada tela: as três
+             fazem o logout por id, não por `data-acao`. Trocar o seletor aqui
+             quebraria o logout sem erro nenhum no console. -->
+        <button class="eu-item" id="btnSair" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H5v16h9"/><path d="M12 12h9M17.5 8l4 4-4 4"/></svg>
+          <span>Sair</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="tela">
+  <!-- O primeiro estado é "ainda não sei", nunca "está vazio" — mesma regra
+       das telas irmãs. -->
+  <div class="carregando" id="carregando">Carregando a agenda da semana…</div>
+</main>
+
+<script src="/static/operador-conta.js?v=1" defer></script>
+<script src="/static/inatividade.js?v=10" defer></script>
+<script src="/static/operador-agenda.js?v=6" defer></script>
+<script src="/static/register-sw.js?v=52" defer></script>
+</body>
+</html>

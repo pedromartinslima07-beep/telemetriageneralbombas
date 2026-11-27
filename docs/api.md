@@ -408,17 +408,24 @@ novo**, migration 102; [cobranca-avisos.md](modulos/cobranca-avisos.md)):
 
 ---
 
-## Agenda (`/agenda`) — gestão
+## Agenda (`/agenda`) — gestão, e o operador só nas visitas
 
-Ver [agenda.md](modulos/agenda.md). `authRequired` + `gestaoOnly` em tudo;
-faturamento só `masterAdminOnly`.
+Ver [agenda.md](modulos/agenda.md). `authRequired` + gestão (`admin`,
+`gerente`) em tudo; faturamento só `masterAdminOnly`. **Desde 27/11/2026 o
+`operador` também entra**, mas a rota só lhe mostra e deixa mexer em visita
+ligada a chamado (`chamado_id`) e retorno de O.S.: reunião, pagamento,
+contrato, preventivas e Omie não vêm, e mexer num compromisso sem chamado dá
+404 (403 ao tentar tirar o chamado da visita ou criar outra coisa).
 
 | Método | Rota | O quê |
 |---|---|---|
-| GET | `/agenda?de=&ate=` | itens do período (até 100 dias): compromissos expandidos, retornos de O.S., contratos terminando, preventivas, faturamento Omie (admin) |
-| POST | `/agenda/compromissos` | cria; `pagamento`/`financeiro` só admin |
-| PATCH | `/agenda/compromissos/:id` | edita |
+| GET | `/agenda?de=&ate=` | itens do período (até 100 dias): compromissos expandidos (com as exceções da série), retornos de O.S., contratos terminando, preventivas, faturamento Omie (admin). Cada item traz `concluido` (+ `concluido_em`, `concluido_por_nome`); a vez do compromisso traz `ocorrencia` (o início original, chave da exceção) e `excecao`; a visita de chamado com O.S. finalizada no mesmo dia vem `concluido_auto` com `concluido_os` |
+| POST | `/agenda/compromissos` | cria; `pagamento`/`financeiro` só admin; operador só `tipo: "visita"` com `chamado_id` |
+| PATCH | `/agenda/compromissos/:id` | edita a série toda ("todas"). Se o início anda, as exceções andam junto (não repete, semanal, ou só a hora) |
 | DELETE | `/agenda/compromissos/:id` | marca apagado |
+| POST | `/agenda/compromissos/:id/ocorrencia` | "só esta" (migration 111). `{ ocorrencia, concluido?, cancelada?, inicio?, fim?, titulo?, descricao?, responsavel_id? }`. É também o "feito" de qualquer compromisso. 400 se `ocorrencia` não é uma das vezes da série |
+| POST | `/agenda/compromissos/:id/dividir` | "esta e as próximas". `{ ocorrencia, apagar?, ...campos do PATCH }`: a série velha termina na véspera e nasce outra a partir desta vez, levando as exceções daqui em diante; com `apagar` só corta. Na primeira vez, é o mesmo que o PATCH/DELETE |
+| POST | `/agenda/feitos` | `{ fonte: "retorno"\|"contrato", ref_id, concluido }`: feito do retorno de O.S. e do contrato terminando. Operador só `retorno` |
 | GET | `/agenda/faturamento?competencia=AAAA-MM` | retrato do faturamento dos contratos do Omie |
 | POST | `/agenda/faturamento/atualizar` | copia de novo do Omie (intervalo mínimo 2 min) |
 | GET | `/agenda/faturamento/lote?competencia=AAAA-MM` | o lote do mês (migration 097): `itens` com `estado` (`entra`, `tirado`, `fora` + `motivo`/`motivo_tipo`, `enviando`, `faturado`, `erro`, `incerto`), `resumo`, `dia_proposto`, `dia_configurado`, `emissao_ligada`, `rodando` |
@@ -536,7 +543,7 @@ pendências em [painel-operador.md](modulos/painel-operador.md).
 
 | Método | Rota | Acesso / observação |
 |---|---|---|
-| GET | `/operador/fila` | adminOnly — **uma request monta a tela inteira**: chamados abertos (`aberto`, `em_atendimento`) com o SLA já resolvido, os reservatórios do condomínio de cada um e a equipe com posição atual. Desde 20/11/2026 cada item traz `escritorio` e `pede_escritorio` (`{ motivo, em, por }` ou `null`), e a resposta traz `agenda_hoje` (compromissos de hoje que não são `so_admin` e retornos de O.S.; `null` se a leitura falhou) |
+| GET | `/operador/fila` | adminOnly — **uma request monta a tela inteira**: chamados abertos (`aberto`, `em_atendimento`) com o SLA já resolvido, os reservatórios do condomínio de cada um e a equipe com posição atual. Desde 20/11/2026 cada item traz `escritorio` e `pede_escritorio` (`{ motivo, em, por }` ou `null`), e a resposta traz `agenda_hoje` (compromissos de hoje que não são `so_admin` e retornos de O.S.; `null` se a leitura falhou). Desde 27/11/2026 cada item traz `visita` (`{ inicio, dia_inteiro }` da próxima visita marcada de hoje em diante, ou `null`) e cada técnico traz `usuario_id` |
 | GET | `/operador/tecnicos` | adminOnly — a equipe que pode receber um chamado (id, nome, `disponivel`, `abertos`, GPS dos últimos 30 min). É a lista do seletor **Técnico** dos diálogos de abrir chamado |
 | GET | `/operador/prazos` | adminOnly — os prazos de `sla_definicoes` + as faixas de nível e a janela do sensor mudo. É o que a **Ajuda** das duas telas mostra |
 | GET | `/operador/preventivas?mes=YYYY-MM` | adminOnly — os planos de manutenção que vencem no mês (mais os **vencidos de meses anteriores**, com `atrasada`), cada um com `estado` (`a_fazer`/`escalada`/`em_campo`/`feita`), o responsável e a origem dele (`escala` ou `zona`), e a equipe para o diálogo de despacho. Desde 10/09/2026 traz também `baixa_manual_em`/`baixa_manual_por_nome` (a baixa dada à mão, migration 085) e `exec_os_id`/`exec_os_numero`/`exec_os_finalizada_em` — **a O.S. que executou a preventiva**, achada pelo chamado do plano que fechou. ⚠️ Não confundir com `baixa_os_id`/`baixa_os_numero`, que são a O.S. de OUTRO chamado que deu a baixa de carona (084): quando existem as duas, quem a placa mostra é a que executou. O `LEFT JOIN LATERAL` da O.S. depende do chamado fechado e tem de vir depois dele. Sem `mes`, o mês corrente. ⚠️ Lista **planos, não chamados**: o chamado P4 só nasce quando o serviço começa, e a tela precisa mostrar o que FALTA |

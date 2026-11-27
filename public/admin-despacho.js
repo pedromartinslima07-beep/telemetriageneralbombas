@@ -7,30 +7,35 @@
 // do Dispatch Board do ServiceTitan: técnicos nas linhas, dias da semana nas
 // colunas, uma linha "Empresa" para o que não é de técnico (reunião,
 // pagamento, faturamento do Omie, contrato terminando, retorno de O.S.), e à
-// esquerda a coluna "A agendar" com os chamados em aberto sem visita marcada.
-// As vistas Semana, Mês e Lista do admin-agenda.js continuam.
+// esquerda a fila com os chamados em aberto sem visita marcada.
 //
-// O QUE O ARRASTAR GRAVA (rotas de sempre, nenhuma nova):
+// O QUE O ARRASTAR GRAVA:
 //   · chamado → técnico num dia: cria um compromisso "visita" ligado ao
 //     chamado (POST /agenda/compromissos com chamado_id, migration 093) e
 //     atribui o técnico ao chamado (PATCH /chamados/:id), para ele ver no app;
 //   · visita → outra célula: muda o dia (mantém a hora) e o técnico
 //     (PATCH /agenda/compromissos/:id; e o chamado, se a visita tiver um);
-//   · visita → coluna "A agendar": desmarca (DELETE, que só marca apagado).
-// Toda ação mostra "Desfazer". Compromisso que se repete não arrasta (mexer
-// nele mudaria a série inteira): abre o formulário.
+//   · visita → fila: desmarca (DELETE, que só marca apagado).
+// Toda ação mostra "Desfazer".
+//
+// 27/11/2026 (migration 111): o item ganhou o círculo de feito e o CARTÃO
+// (admin-agenda.js, _agCartao) no lugar do menu; compromisso que repete
+// também arrasta, perguntando "só esta / esta e as próximas / todas"; a fila
+// ganhou a aba Atrasados; clicar no espaço vazio de uma célula cria ali.
 //
 // Sem mouse (celular, teclado): o botão "Agendar" de cada chamado e o
-// "Remarcar" da visita fazem o mesmo por um formulário curto.
+// "Remarcar" do cartão fazem o mesmo por um formulário curto.
 //
-// Roda depois do admin-agenda.js e usa o estado dele (_agVista, _agRef,
-// _agItens, _agCarregar, _agInvalidar, _agAbrirForm...).
+// Roda depois do admin-agenda.js e usa o estado e as peças dele (_agVista,
+// _agRef, _agItens, _agAtras, _agCarregar, _agInvalidar, _agCartao,
+// _agAlcance, _agMover, _agApagar, _agToast, _agItemGrade...).
 
 (function () {
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const ico = n => `<i data-lucide="${n}" aria-hidden="true"></i>`;
   const icones = raiz => window.lucide?.createIcons?.({ root: raiz });
   const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const toast = (...a) => _agToast(...a);
 
   // Abre no Quadro no computador; no celular continua a Lista.
   if (window.innerWidth >= 900 && typeof _agVista !== "undefined") _agVista = "quadro";
@@ -50,15 +55,7 @@
   };
   const origRender = window._agRender;
   window._agRender = function () {
-    if (_agVista !== "quadro") {
-      origRender();
-      // As outras vistas ganham o botão "Quadro" na troca de vistas.
-      const tabs = document.querySelector("#agRoot .ag-vistas");
-      if (tabs && !tabs.querySelector('[data-ag-vista="quadro"]')) {
-        tabs.insertAdjacentHTML("afterbegin", `<button type="button" class="wa-tab" data-ag-vista="quadro">Quadro</button>`);
-      }
-      return;
-    }
+    if (_agVista !== "quadro") return origRender();
     renderQuadro();
   };
 
@@ -105,7 +102,7 @@
   }
 
   // ===== desenho =====
-  let filaFiltro = "chamados"; // chamados | preventivas
+  let filaFiltro = "chamados"; // chamados | preventivas | atrasados
 
   function renderQuadro() {
     const root = document.getElementById("agRoot");
@@ -120,64 +117,55 @@
       if (!porCelula.has(k)) porCelula.set(k, []);
       porCelula.get(k).push(it);
     }
-    const semana = _agItens.filter(it => it.fonte === "compromisso");
     const fila = aAgendar();
     const filaPrev = fila.filter(ch => ch.plano_manutencao_id != null);
     const filaCh = fila.filter(ch => ch.plano_manutencao_id == null);
-    const mostrar = filaFiltro === "preventivas" ? filaPrev : filaCh;
+    const atras = _agAtras;
     const esperando = _agCarregando && !_agItens.length;
-    const vistas = [["quadro", "Quadro"], ["semana", "Semana"], ["mes", "Mês"], ["lista", "Lista"]];
+    const lista = filaFiltro === "atrasados" ? atras.map(cardAtrasado) : (filaFiltro === "preventivas" ? filaPrev : filaCh).map(cardFila);
+    const vazio = filaFiltro === "atrasados"
+      ? `<div class="dq-fila-vazia">${ico("circle-check")}<b>Nada atrasado.</b><span>Tudo o que passou foi feito ou remarcado.</span></div>`
+      : `<div class="dq-fila-vazia">${ico("circle-check")}<b>Nada a agendar.</b><span>${filaFiltro === "preventivas" ? "Toda preventiva em aberto já tem visita marcada." : "Todo chamado em aberto já tem visita marcada."}</span></div>`;
 
     root.innerHTML = `
       <div class="dq">
-        <header class="dq-cab">
-          <div class="dq-nav">
-            <button type="button" class="dq-bt" data-ag-nav="hoje">Hoje</button>
-            <button type="button" class="dq-ib" data-ag-nav="-1" aria-label="Semana anterior">${ico("chevron-left")}</button>
-            <button type="button" class="dq-ib" data-ag-nav="1" aria-label="Próxima semana">${ico("chevron-right")}</button>
-            <h2>${_agTituloPeriodo()}</h2>
-            ${_agCarregando ? `<span class="dq-sync" role="status">${_agItens.length ? "Atualizando…" : "Carregando…"}</span>` : ""}
-          </div>
-          <span class="dq-esp"></span>
-          <div class="dq-seg" role="group" aria-label="Vista">
-            ${vistas.map(([v, r]) => `<button type="button" data-ag-vista="${v}" class="${_agVista === v ? "is-on" : ""}" aria-pressed="${_agVista === v}">${r}</button>`).join("")}
-          </div>
-          <button type="button" class="dq-bt is-pri viewer-only-hide" data-ag-novo="${hoje}">${ico("plus")}Compromisso</button>
-        </header>
+        ${_agCabecalho()}
         <div class="dq-corpo">
-          <aside class="dq-fila" data-dq-drop="fila" aria-label="Chamados a agendar">
+          <aside class="dq-fila" data-dq-drop="fila" aria-label="${filaFiltro === "atrasados" ? "Passou da data" : "Chamados a agendar"}">
             <div class="dq-fila-cab">
-              <b>A agendar</b><span class="dq-n">${fila.length}</span>
+              <b>${filaFiltro === "atrasados" ? "Passou da data" : "A agendar"}</b><span class="dq-n">${filaFiltro === "atrasados" ? atras.length : fila.length}</span>
             </div>
             <div class="dq-fila-tabs" role="group">
               <button type="button" data-dq-fila="chamados" class="${filaFiltro === "chamados" ? "is-on" : ""}">Chamados <span>${filaCh.length}</span></button>
               <button type="button" data-dq-fila="preventivas" class="${filaFiltro === "preventivas" ? "is-on" : ""}">Preventivas <span>${filaPrev.length}</span></button>
+              <button type="button" data-dq-fila="atrasados" class="is-atr ${filaFiltro === "atrasados" ? "is-on" : ""}">Atrasados <span>${atras.length}</span></button>
             </div>
-            <p class="dq-dica">${ico("hand")}Arraste para um técnico e um dia. Solte uma visita aqui para desmarcar.</p>
-            <div class="dq-fila-lista">
-              ${mostrar.length ? mostrar.map(cardFila).join("") : `<div class="dq-fila-vazia">${ico("circle-check")}<b>Nada a agendar.</b><span>${filaFiltro === "preventivas" ? "Toda preventiva em aberto já tem visita marcada." : "Todo chamado em aberto já tem visita marcada."}</span></div>`}
-            </div>
+            <p class="dq-dica">${filaFiltro === "atrasados"
+              ? `${ico("alarm-clock")}O que passou do dia sem ser marcado como feito (últimos 30 dias). Marque ou remarque; nada some sozinho.`
+              : `${ico("hand")}Arraste para um técnico e um dia. Solte uma visita aqui para desmarcar.`}</p>
+            <div class="dq-fila-lista">${lista.length ? lista.join("") : vazio}</div>
           </aside>
           <div class="dq-grade-wrap${esperando ? " is-carregando" : ""}" aria-busy="${esperando}">
-            <div class="dq-grade" style="--dq-dias:${dias.length};grid-template-columns: 168px repeat(${dias.length}, minmax(108px, 1fr))">
+            <div class="dq-grade" style="--dq-dias:${dias.length};grid-template-columns: 168px repeat(${dias.length}, minmax(118px, 1fr))">
               <div class="dq-gcab dq-canto"></div>
               ${dias.map(d => {
                 const iso = _agIso(d);
                 return `<div class="dq-gcab${iso === hoje ? " is-hoje" : ""}"><span>${DIAS[d.getDay()]}</span><b>${d.getDate()}</b>${iso === hoje ? "<em>hoje</em>" : ""}</div>`;
               }).join("")}
               ${linhas.map(l => {
-                const n = semana.filter(it => linhaDe(it) === l.id && l.id).length;
+                const meus = l.id ? _agItens.filter(it => linhaDe(it) === l.id && it.fonte === "compromisso") : [];
+                const feitos = meus.filter(_agFeito).length;
                 const ini = String(l.nome || "?").split(/\s+/).slice(0, 2).map(p => p[0]).join("").toUpperCase();
                 return `
                 <div class="dq-tec${l.id ? "" : " is-empresa"}">
                   ${l.id ? `<span class="dq-av">${esc(ini)}</span>` : `<span class="dq-av is-emp">${ico("building")}</span>`}
-                  <span class="dq-tec-txt"><b>${esc(l.nome)}</b><small>${l.id ? `${n} visita${n === 1 ? "" : "s"} na semana` : esc(l.sub)}</small></span>
+                  <span class="dq-tec-txt"><b>${esc(l.nome)}</b><small>${l.id ? (meus.length ? `${feitos} de ${meus.length} feita${meus.length === 1 ? "" : "s"} na semana` : "nada na semana") : esc(l.sub)}</small></span>
                 </div>
                 ${dias.map(d => {
                   const iso = _agIso(d);
                   const its = (porCelula.get(`${l.id}|${iso}`) || []).sort((a, b) => (b.dia_inteiro - a.dia_inteiro) || new Date(a.inicio) - new Date(b.inicio));
                   return `<div class="dq-cel${iso === hoje ? " is-hoje" : ""}${l.id ? "" : " is-empresa"}" data-dq-drop="${l.id}|${iso}">
-                    ${its.map(cardGrade).join("")}
+                    ${its.map(it => _agItemGrade(it, { arrasta: it.fonte === "compromisso" })).join("")}<span class="dq-cel-mais viewer-only-hide">${ico("plus")}novo</span>
                   </div>`;
                 }).join("")}`;
               }).join("")}
@@ -200,25 +188,20 @@
     </div>`;
   }
 
-  function cardGrade(it) {
-    const tipo = it.chamado_id ? "chamado" : it.tipo;
-    const cls = { chamado: "is-ch", visita: "is-visita", reuniao: "is-reuniao", pagamento: "is-fin", financeiro: "is-fin", faturamento: "is-fin",
-      retorno: "is-retorno", contrato: "is-contrato", preventiva: "is-prev", outro: "is-outro" }[tipo] || "is-outro";
-    const arrasta = it.fonte === "compromisso" && it.repeticao === "nenhuma";
-    const resolvido = it.chamado_id && ["fechado", "cancelado"].includes(it.chamado_status);
-    const hora = it.dia_inteiro ? "" : `<span class="dq-hora">${_agHora(it.inicio)}</span>`;
-    const titulo = it.tipo === "contrato" && it.condominio_nome ? `Contrato de ${it.condominio_nome} termina` : it.titulo;
-    return `<button type="button" class="dq-ag ${cls}${resolvido ? " is-feito" : ""}${it.concluido ? " is-feito" : ""}" data-dq-item="${esc(it.id)}"
-        ${arrasta ? `draggable="true" data-dq-arrasta="cp:${it.compromisso_id}:${esc(it.id)}"` : ""}
-        title="${esc(titulo)}${arrasta ? " — arraste para remarcar" : ""}">
-      ${hora}<span class="dq-ag-tit">${esc(titulo)}</span>
-      ${it.condominio_nome && it.tipo !== "contrato" ? `<small>${esc(it.condominio_nome)}</small>` : ""}
-      ${it.repeticao && it.repeticao !== "nenhuma" ? `<i class="dq-rep" title="Repete">${ico("repeat")}</i>` : ""}
-    </button>`;
+  function cardAtrasado(it) {
+    const quem = _agQuem(it);
+    return `<div class="dq-card dq-card-atr" data-ag-item="${esc(it.id)}" role="button" tabindex="0">
+      <div class="dq-card-l1"><span class="dq-quando">${esc(_agRotDia(_agDia(it.inicio)))}${it.dia_inteiro ? "" : " · " + _agHora(it.inicio)}</span><span class="dq-esp"></span>${it.chamado_id ? `<span class="dq-num">#${it.chamado_id}</span>` : ""}</div>
+      <b>${esc(_agTitulo(it))}</b>
+      <small>${esc([it.tipo !== "contrato" ? it.condominio_nome : null, quem, _agRepete(it) ? _agRotRep(it) : null].filter(Boolean).join(" · ") || "Empresa")}</small>
+      <div class="dq-card-acoes viewer-only-hide">
+        ${_agMarcavel(it) ? `<button type="button" class="dq-bt is-p is-ok" data-ag-ck="${esc(it.id)}">${ico("check")}Feito</button>` : ""}
+        ${it.fonte === "compromisso" ? `<button type="button" class="dq-bt is-p" data-ag-remarcar="${esc(it.id)}">${ico("calendar-clock")}Remarcar</button>` : ""}
+      </div>
+    </div>`;
   }
 
   // ===== gravações =====
-  const hojeISO = () => _agIso(new Date());
   function horaLivre(tecId, dia) {
     // Primeira hora cheia livre do técnico no dia, das 8h às 17h.
     const usadas = new Set(_agItens.filter(it => !it.dia_inteiro && linhaDe(it) === tecId && _agDia(it.inicio) === dia)
@@ -227,18 +210,16 @@
     return "08:00";
   }
   const instante = (dia, hora) => new Date(`${dia}T${hora}:00-03:00`).toISOString();
-  async function req(url, metodo, corpo) {
-    const r = await fetch(url, { method: metodo, headers: { ...authHeaders(), "Content-Type": "application/json" }, body: corpo ? JSON.stringify(corpo) : undefined });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-    return j;
-  }
+  const req = (...a) => _agReq(...a);
   async function recarregar() {
     _agInvalidar();
     await Promise.all([_agCarregar(), typeof carregarChamados === "function" ? carregarChamados().catch(() => {}) : null]);
     if (typeof renderChamados === "function") renderChamados(); // a fila do Atendimento e o painel acompanham
     if (_agVista === "quadro") renderQuadro();
   }
+  // As gravações do admin-agenda.js (feito, cartão, formulário) recarregam
+  // também os chamados: a fila "a agendar" depende deles.
+  _agDepoisDeGravar = recarregar;
 
   async function agendarChamado(chId, tecId, dia, hora) {
     const ch = chamados().find(c => c.id === chId);
@@ -270,14 +251,17 @@
     });
   }
 
+  // Compromisso que NÃO repete: muda dia/hora/técnico na linha (e o técnico
+  // do chamado, se for visita de chamado).
   async function moverVisita(compId, itemId, tecId, dia, hora) {
-    const it = _agItens.find(x => x.id === itemId);
+    const it = _agAcharItem(itemId);
     if (!it) return;
     const tecNovo = tecId ? tecnicos().find(t => t.id === tecId) : null;
     if (it.chamado_id && !tecNovo) { toast("A visita de um chamado fica na linha de um técnico."); return; }
     const antes = { inicio: it.inicio, responsavel_id: it.responsavel_id ?? null, tecCh: it.chamado_tecnico_id ?? null };
     const h = hora || (it.dia_inteiro ? "08:00" : _agHora(it.inicio));
     const corpo = { inicio: it.dia_inteiro ? new Date(`${dia}T00:00:00-03:00`).toISOString() : instante(dia, h), responsavel_id: tecNovo ? (tecNovo.usuario_id || null) : null };
+    if (it.fim) corpo.fim = new Date(new Date(corpo.inicio).getTime() + (new Date(it.fim) - new Date(it.inicio))).toISOString();
     if (corpo.inicio === it.inicio && linhaDe(it) === (tecId || 0)) return;
     try {
       await req(`/agenda/compromissos/${compId}`, "PATCH", corpo);
@@ -290,101 +274,67 @@
     await recarregar();
     toast(`Remarcado: ${tecNovo ? tecNovo.nome.split(" ")[0] : "Empresa"}, ${rotDia(dia)}${it.dia_inteiro ? "" : " às " + h}`, async () => {
       try {
-        await req(`/agenda/compromissos/${compId}`, "PATCH", { inicio: antes.inicio, responsavel_id: antes.responsavel_id });
+        const volta = { inicio: antes.inicio, responsavel_id: antes.responsavel_id };
+        if (it.fim) volta.fim = it.fim;
+        await req(`/agenda/compromissos/${compId}`, "PATCH", volta);
         if (it.chamado_id && tecNovo && antes.tecCh !== tecNovo.id) await req(`/chamados/${it.chamado_id}`, "PATCH", { tecnico_id: antes.tecCh });
       } catch (e) { toast(`Não consegui desfazer: ${e.message}`); }
       await recarregar();
     });
   }
 
-  // Desmarca a visita de um chamado ou apaga um compromisso (23/11/2026: antes
-  // o menu do quadro só apagava visita avulsa; série e lembrete da Empresa
-  // ficavam sem jeito de sair dali). Compromisso que repete é uma linha só:
-  // apagar leva a série inteira, e o Desfazer recria a série desde o início.
-  async function desmarcar(compId, itemId) {
-    const it = _agItens.find(x => x.id === itemId);
-    if (!it) return;
-    const rep = it.repeticao && it.repeticao !== "nenhuma";
-    const visita = it.chamado_id && !rep;
-    if (rep && !confirm(`Apagar "${it.titulo}" e todas as repetições?`)) return;
-    try { await req(`/agenda/compromissos/${compId}`, "DELETE"); }
-    catch (e) { toast(`Não consegui apagar: ${e.message}`); return; }
-    await recarregar();
-    const msg = visita
-      ? `Visita desmarcada; o #${it.chamado_id} voltou para "a agendar"`
-      : `"${it.titulo}" apagado${rep ? " (a série toda)" : ""}`;
-    toast(msg, async () => {
-      try {
-        const inicio = rep && it.serie_inicio ? it.serie_inicio : it.inicio;
-        const dur = it.fim ? new Date(it.fim) - new Date(it.inicio) : 0;
-        await req("/agenda/compromissos", "POST", {
-          titulo: it.titulo, tipo: it.tipo, inicio, fim: it.fim ? new Date(new Date(inicio).getTime() + dur).toISOString() : null,
-          dia_inteiro: !!it.dia_inteiro, repeticao: it.repeticao || "nenhuma", repete_ate: it.repete_ate || null,
-          condominio_id: it.condominio_id || null, responsavel_id: it.responsavel_id || null, chamado_id: it.chamado_id || null,
-          descricao: it.descricao || null, so_admin: !!it.so_admin,
-        });
-      } catch (e) { toast(`Não consegui desfazer: ${e.message}`); }
-      await recarregar();
-    });
+  // Mover qualquer compromisso para (técnico, dia, hora). O que repete
+  // pergunta o alcance antes.
+  async function mover(it, tecId, dia, hora, ancora, alcance) {
+    if (!_agRepete(it)) return moverVisita(it.compromisso_id, it.id, tecId, dia, hora);
+    const alc = alcance || await _agAlcance(it, "Mover", ancora);
+    if (!alc) return;
+    const tecNovo = tecId ? tecnicos().find(t => t.id === tecId) : null;
+    const resp = linhaDe(it) === (tecId || 0) ? undefined : (tecNovo ? tecNovo.usuario_id || null : null);
+    return _agMover(it, alc, dia, it.dia_inteiro ? null : (hora || _agHora(it.inicio)), resp);
   }
-  const rotDia = iso => {
-    const d = new Date(iso + "T12:00:00");
-    return iso === hojeISO() ? "hoje" : `${DIAS[d.getDay()]} ${d.getDate()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
-  };
 
-  // ===== aviso com Desfazer =====
-  let toastT;
-  function toast(msg, desfazer) {
-    let el = document.getElementById("dqToast");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "dqToast";
-      el.className = "dq-toast";
-      el.setAttribute("role", "status");
-      el.setAttribute("aria-live", "polite");
-      document.body.appendChild(el);
-      el.addEventListener("click", (e) => {
-        if (e.target.closest("[data-dq-desfazer]")) { const f = el._desfazer; el.hidden = true; el._desfazer = null; f && f(); }
-        if (e.target.closest("[data-dq-fechar-toast]")) el.hidden = true;
-      });
-    }
-    el.innerHTML = `<span>${esc(msg)}</span>${desfazer ? `<button type="button" data-dq-desfazer>Desfazer</button>` : ""}<button type="button" class="dq-toast-x" data-dq-fechar-toast aria-label="Fechar">×</button>`;
-    el._desfazer = desfazer || null;
-    el.hidden = false;
-    clearTimeout(toastT);
-    toastT = setTimeout(() => { el.hidden = true; }, desfazer ? 8000 : 4500);
+  // Tirar uma visita do quadro (solta na fila). O que repete pergunta.
+  async function desmarcar(itemId, ancora) {
+    const it = _agAcharItem(itemId);
+    if (!it) return;
+    const alc = await _agAlcance(it, "Apagar", ancora);
+    if (!alc) return;
+    if (alc === "todas" && _agRepete(it) && !confirm(`Apagar "${it.titulo}" e todas as repetições?`)) return;
+    return _agApagar(it, alc);
   }
+  const rotDia = iso => _agRotDia(iso);
 
   // ===== formulário curto: agendar / remarcar sem arrastar =====
-  function abrirAgendar({ chId, compId, itemId }, ancora) {
-    document.getElementById("dqPop")?.remove();
-    const it = itemId ? _agItens.find(x => x.id === itemId) : null;
+  function abrirAgendar({ chId, itemId, alcance }, ancora) {
+    _agFecharPops();
+    const it = itemId ? _agAcharItem(itemId) : null;
     const ch = chId ? chamados().find(c => c.id === chId) : null;
     const tecs = tecnicos();
     const tecAtual = it ? linhaDe(it) : (ch?.tecnico_id || tecs[0]?.id || 0);
     const dia = it ? _agDia(it.inicio) : (_agIso(new Date()) < _agIso(_agPeriodo().ini) ? _agIso(_agPeriodo().ini) : _agIso(new Date()));
     const hora = it && !it.dia_inteiro ? _agHora(it.inicio) : horaLivre(tecAtual, dia);
     const pop = document.createElement("div");
-    pop.id = "dqPop";
     pop.className = "dq-pop";
     pop.setAttribute("role", "dialog");
     pop.setAttribute("aria-label", ch ? "Agendar visita" : "Remarcar");
     pop.innerHTML = `
-      <b class="dq-pop-tit">${ch ? `Agendar #${ch.id}` : "Remarcar"}</b>
-      <span class="dq-pop-sub">${esc(ch ? ch.titulo : it?.titulo)}</span>
+      <b class="dq-pop-tit">${ch ? `Agendar #${ch.id}` : "Remarcar"}${it && _agRepete(it) ? " · " + esc(_agRotAlc(alcance)) : ""}</b>
+      <span class="dq-pop-sub">${esc(ch ? ch.titulo : _agTitulo(it))}</span>
       <label>Técnico<select data-dq-f="tec">${tecs.map(t => `<option value="${t.id}" ${t.id === tecAtual ? "selected" : ""}>${esc(t.nome)}</option>`).join("")}${!it?.chamado_id && !ch ? `<option value="0" ${tecAtual === 0 ? "selected" : ""}>Empresa</option>` : ""}</select></label>
       <div class="dq-pop-2">
         <label>Dia<input type="date" data-dq-f="dia" value="${dia}"></label>
         <label>Hora<input type="time" data-dq-f="hora" value="${hora}" step="900" ${it?.dia_inteiro ? "disabled" : ""}></label>
       </div>
       <div class="dq-pop-acoes">
-        ${it ? `<button type="button" class="dq-bt is-p is-perigo" data-dq-pop="desmarcar">Desmarcar</button>` : ""}
         <span class="dq-esp"></span>
         <button type="button" class="dq-bt is-p" data-dq-pop="cancelar">Cancelar</button>
         <button type="button" class="dq-bt is-p is-pri" data-dq-pop="ok">${ch ? "Agendar" : "Salvar"}</button>
       </div>`;
     document.body.appendChild(pop);
-    const r = ancora.getBoundingClientRect();
+    // A grade pode ter sido redesenhada desde o clique (ver _agAncora).
+    const anc = _agAncora(ancora);
+    const r = anc ? anc.getBoundingClientRect() : { left: innerWidth / 2 - 150, top: innerHeight / 3, bottom: innerHeight / 3 };
     const w = pop.offsetWidth, h = pop.offsetHeight;
     pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
     pop.style.top = (r.bottom + 6 + h > innerHeight - 8 ? Math.max(8, r.top - h - 6) : r.bottom + 6) + "px";
@@ -392,82 +342,47 @@
     pop.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-dq-pop]");
       if (!b) return;
-      const acao = b.dataset.dqPop;
-      if (acao === "cancelar") return pop.remove();
-      if (acao === "desmarcar") { pop.remove(); return desmarcar(compId, itemId); }
+      if (b.dataset.dqPop === "cancelar") return pop.remove();
       const tecId = Number(pop.querySelector('[data-dq-f="tec"]').value);
       const d = pop.querySelector('[data-dq-f="dia"]').value;
       const hh = pop.querySelector('[data-dq-f="hora"]').value || "08:00";
       if (!d) return;
       pop.remove();
       if (ch) return agendarChamado(ch.id, tecId, d, hh);
-      return moverVisita(compId, itemId, tecId, d, hh);
+      return mover(it, tecId, d, hh, ancora, alcance);
     });
   }
-  document.addEventListener("mousedown", (e) => {
-    const pop = document.getElementById("dqPop");
-    if (pop && !pop.contains(e.target) && !e.target.closest("[data-dq-agendar],[data-dq-acao]")) pop.remove();
-    const m = document.getElementById("dqMenu");
-    if (m && !m.contains(e.target) && !e.target.closest("[data-dq-item]")) m.remove();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { document.getElementById("dqPop")?.remove(); document.getElementById("dqMenu")?.remove(); }
-  });
-
-  // Clique numa visita do quadro: um menu com o que dá para fazer com ela.
-  function menuItem(it, ancora) {
-    document.getElementById("dqMenu")?.remove();
-    const m = document.createElement("div");
-    m.id = "dqMenu";
-    m.className = "gb-menu dq-menu";
-    m.setAttribute("role", "menu");
-    const comp = it.fonte === "compromisso";
-    const rep = comp && it.repeticao !== "nenhuma";
-    m.innerHTML = `
-      <div class="dq-menu-cab"><b>${esc(it.titulo)}</b><small>${it.dia_inteiro ? "dia inteiro" : _agHora(it.inicio)}${it.condominio_nome ? " · " + esc(it.condominio_nome) : ""}</small></div>
-      ${it.chamado_id ? `<button type="button" role="menuitem" data-dq-acao="chamado">${ico("inbox")}Abrir o chamado #${it.chamado_id}</button>` : ""}
-      ${comp && !rep ? `<button type="button" role="menuitem" data-dq-acao="remarcar">${ico("calendar-clock")}Remarcar</button>` : ""}
-      ${comp ? `<button type="button" role="menuitem" data-dq-acao="editar">${ico("pencil")}${rep ? "Editar a série" : "Editar"}</button>` : ""}
-      ${!comp ? `<button type="button" role="menuitem" data-dq-acao="abrir">${ico("external-link")}Abrir</button>` : ""}
-      ${comp && it.chamado_id && !rep ? `<hr><button type="button" role="menuitem" data-dq-acao="desmarcar" class="is-perigo">${ico("calendar-x")}Desmarcar</button>` : ""}
-      ${comp && !(it.chamado_id && !rep) ? `<hr><button type="button" role="menuitem" data-dq-acao="desmarcar" class="is-perigo">${ico("trash-2")}${rep ? "Apagar a série" : "Apagar"}</button>` : ""}`;
-    document.body.appendChild(m);
-    const r = ancora.getBoundingClientRect();
-    m.style.position = "fixed";
-    m.style.left = Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8)) + "px";
-    m.style.top = (r.bottom + 4 + m.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - m.offsetHeight - 4) : r.bottom + 4) + "px";
-    icones(m);
-    m.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-dq-acao]");
-      if (!b) return;
-      const a = b.dataset.dqAcao;
-      m.remove();
-      if (a === "chamado") return typeof gbAtEscolher === "function" ? gbAtEscolher(it.chamado_id) : _chAbrirPagina(it.chamado_id);
-      if (a === "remarcar") return abrirAgendar({ compId: it.compromisso_id, itemId: it.id }, ancora);
-      if (a === "editar") return _agAbrirForm(null, it);
-      if (a === "desmarcar") return desmarcar(it.compromisso_id, it.id);
-      if (a === "abrir") {
-        if (it.fonte === "os") return abrirOSDetalhe(it.os_id);
-        if (it.fonte === "contrato" && it.condominio_id) return abrirFichaCondominio(it.condominio_id, "contrato");
-        if (it.fonte === "preventivas") return showSection("planos");
-        if (it.fonte === "omie") return _agAbrirFaturamento(it.competencia);
-      }
-    });
-  }
+  // O "Remarcar" do cartão, no Quadro, também escolhe o técnico.
+  window._dqRemarcar = (it, ancora, alcance) => {
+    if (_agVista !== "quadro") return _agRemarcar(it, ancora, alcance);
+    abrirAgendar({ itemId: it.id, alcance }, ancora);
+  };
 
   // ===== eventos =====
   // Os cliques de navegação (‹ › Hoje, vistas, Compromisso) usam os
   // data-ag-* que o admin-agenda.js já escuta no #agRoot.
-  document.addEventListener("click", (e) => {
+  document.addEventListener("click", async (e) => {
     if (_agVista !== "quadro" || !e.target.closest("#agRoot")) return;
     let el;
     if ((el = e.target.closest("[data-dq-fila]"))) { filaFiltro = el.dataset.dqFila; renderQuadro(); return; }
     if ((el = e.target.closest("[data-dq-agendar]"))) { e.stopPropagation(); abrirAgendar({ chId: Number(el.dataset.dqAgendar) }, el); return; }
-    if ((el = e.target.closest("[data-dq-item]"))) {
+    if ((el = e.target.closest("[data-ag-ck]"))) { e.stopPropagation(); _agFecharPops(); _agAlternarFeito(el.dataset.agCk); return; }
+    if ((el = e.target.closest("[data-ag-remarcar]"))) {
       e.stopPropagation();
-      const it = _agItens.find(x => x.id === el.dataset.dqItem);
-      if (it) menuItem(it, el);
+      const it = _agAcharItem(el.dataset.agRemarcar);
+      if (!it) return;
+      const alc = await _agAlcance(it, "Remarcar", el);
+      if (alc) abrirAgendar({ itemId: it.id, alcance: alc }, el);
       return;
+    }
+    if ((el = e.target.closest("[data-ag-item]"))) { e.stopPropagation(); _agCartao(el.dataset.agItem, el); return; }
+    // Espaço vazio de uma célula: criar ali (na linha de um técnico, já com
+    // ele como responsável).
+    if ((el = e.target.closest(".dq-cel[data-dq-drop]")) && !document.body.classList.contains("role-viewer")) {
+      e.stopPropagation();
+      const [tec, dia] = el.dataset.dqDrop.split("|");
+      const t = tecnicos().find(x => x.id === Number(tec));
+      _agNovoRapido(dia, el, t ? { responsavel_id: t.usuario_id || null, rotulo: t.nome.split(" ")[0], tipo: "visita" } : { rotulo: "Empresa" });
     }
   }, true);
 
@@ -480,7 +395,7 @@
     e.dataTransfer.setData("text/plain", arrastando);
     el.classList.add("is-arrastando");
     document.getElementById("agRoot")?.querySelector(".dq")?.classList.add("is-arrastando");
-    document.getElementById("dqMenu")?.remove();
+    _agFecharPops();
   });
   document.addEventListener("dragend", (e) => {
     e.target.closest?.("[data-dq-arrasta]")?.classList.remove("is-arrastando");
@@ -518,11 +433,14 @@
       const [tec, dia] = destino.split("|");
       return agendarChamado(Number(quem.slice(3)), Number(tec), dia);
     }
-    const [, compId, ...resto] = quem.split(":");
+    const [, , ...resto] = quem.split(":");
     const itemId = resto.join(":");
-    if (destino === "fila") return desmarcar(Number(compId), itemId);
+    if (destino === "fila") return desmarcar(itemId, alvo);
+    const it = _agAcharItem(itemId);
+    if (!it) return;
     const [tec, dia] = destino.split("|");
-    return moverVisita(Number(compId), itemId, Number(tec), dia);
+    if (dia === _agDia(it.inicio) && Number(tec) === linhaDe(it)) return;
+    return mover(it, Number(tec), dia, null, alvo);
   });
 
   // Gravou um chamado em outra tela: a fila "a agendar" acompanha.
