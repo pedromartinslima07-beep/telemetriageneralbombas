@@ -13,8 +13,8 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-> 🟡 **Agenda: concluir, "só esta" e a agenda do turno (27/11/2026) — no
-> código, SEM commit.** Migration **111 ✅ em produção** (27/11, conferida). `agenda.routes.js`, `operador.routes.js`, `app.js`,
+> 🟢 **Agenda: concluir, "só esta" e a agenda do turno (27/11/2026) — na
+> main e no ar** (`a7e2fbe`). Migration **111 ✅ em produção** (27/11, conferida). `agenda.routes.js`, `operador.routes.js`, `app.js`,
 > `admin-agenda.js`, `admin-despacho.js`, `admin.css`, `operador-agenda.*`,
 > `operador.css`, `operador.js` e as páginas do operador. Teste 49/49 e tela
 > (admin e operador, computador e celular) no banco de teste. Falta: olhar com

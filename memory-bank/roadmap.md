@@ -1218,7 +1218,7 @@ Pedido do Pedro em 18/11/2026. Ver [agenda.md](../docs/modulos/agenda.md).
 | Fase | O quê | Status |
 |---|---|---|
 | A | Agenda no painel: compromissos à mão com repetição, retornos de O.S., contratos, preventivas, faturamento dos contratos do Omie (só leitura, só admin) | ✅ 18/11 (✅ 092 em produção e na main, 20/11/2026) |
-| A2 | Concluir (círculo de feito, a O.S. marca a visita sozinha, atrasados), cartão do item, "só esta / esta e as próximas / todas", criar rápido, Semana/Mês/Lista no molde do Quadro; **agenda do turno** para o operador (só visitas e chamados) | 🟡 27/11 no código, testado no banco de teste (49/49 e na tela). ✅ 111 em produção 27/11. Falta: commit/push → olhar com agenda real |
+| A2 | Concluir (círculo de feito, a O.S. marca a visita sozinha, atrasados), cartão do item, "só esta / esta e as próximas / todas", criar rápido, Semana/Mês/Lista no molde do Quadro; **agenda do turno** para o operador (só visitas e chamados) | 🟡 27/11 no código, testado no banco de teste (49/49 e na tela). ✅ 111 em produção e no ar 27/11 (`a7e2fbe`). Falta: olhar com agenda real |
 | B | Dia e técnico marcados na preventiva e no chamado; técnico vê a semana no app | 📋 falta decidir se o técnico vê |
 | C | Contas a pagar e a receber do Omie | 📋 |
 | D | Emitir as notas das preventivas | ❌ descartada: o Omie já fatura os contratos (seria nota em dobro) |
