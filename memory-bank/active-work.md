@@ -26,8 +26,9 @@ aliases:
 > Avisos no lote (nota em dobro, sem preventiva), lista do mês em CSV e o que
 > a visita cobre. Testes 28/28 e 15/15. 109 e 110 em produção; escopo gravado
 > em 72 preventivas; 3 preventivas de contrato encerrado desativadas; Bem
-> Moema e Maison acertados. ⏳ **Falta:** segunda preventiva do Air Club e do
-> Atua; no Omie, encerrar o 2024/00099 (Bradesco JF) antes do lote de
+> Moema e Maison acertados. Regra: um prédio, uma preventiva (Air Club e Atua
+> ficam com uma só; For You, Nex One Vila Nova e Edge juntados). ⏳ **Falta:**
+> no Omie, encerrar o 2024/00099 (Bradesco JF) antes do lote de
 > dezembro (é o único aviso do lote hoje). Ver
 > [omie-integracao.md](../docs/modulos/omie-integracao.md).
 

@@ -238,7 +238,17 @@ Os testes de preventivas e do Omie que já existiam seguem passando. Na tela
 contrato gravando "Não é de preventiva" e voltando, o formulário com as 12
 caixas. ✅ **109 e 110 em produção (27/11/2026).** ✅ **Escopo gravado em
 produção** pelo script (72 preventivas; o Habitat Bradesco espera a primeira
-nota). ⏳ **Falta:** criar a segunda preventiva do Air Club e do Atua.
+nota).
+
+⚠️ **Um prédio, uma preventiva** (regra do Pedro, 27/11/2026: "o técnico vai
+uma vez e faz tudo"). Prédio com dois contratos de serviço (Air Club, Atua) tem
+**uma** preventiva com o escopo somado; a escolha à mão em Contratos fica para
+o contrato que não é de preventiva ou para o prédio com duas preventivas por
+cadastro. ✅ **Aplicada em 27/11/2026** a For You Moema, Nex One Vila Nova e
+Edge, que tinham duas preventivas no mesmo endereço (setores cadastrados como
+prédios separados): ficaram a nº 3, a nº 9 e a nº 79, o contrato do outro setor
+foi ligado à mão ao prédio delas e as nº 2, 8 e 80 foram desativadas. Os
+cadastros dos setores e o histórico de chamados e O.S. ficaram como estavam.
 
 **A primeira passada em produção (27/11/2026)** mostrou, e o Pedro resolveu:
 

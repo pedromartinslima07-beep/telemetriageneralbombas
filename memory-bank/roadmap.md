@@ -1113,8 +1113,15 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
   comercial e studios do Bem Moema ligados ao cadastro #7 (o #149 ficou sem
   uso); preventiva nº 91 criada para a Maison Residencial (#125). Lote de
   dezembro: nenhuma preventiva sem contrato, só o aviso JF × RPS ✅
-- [ ] Criar a segunda preventiva do Air Club (reservatórios) e do Atua (caixa
-  coletora) e escolher em Contratos qual contrato paga qual
+- [x] ~~Segunda preventiva do Air Club e do Atua~~ — descartado pelo Pedro
+  (27/11/2026): um prédio, uma visita, uma preventiva com o escopo de todos os
+  contratos. Os dois já estão assim
+- [x] For You Moema, Nex One Vila Nova e Edge com uma preventiva cada
+  (27/11/2026, produção): ficaram a nº 3, a nº 9 e a nº 79; os contratos do
+  outro setor foram ligados ao prédio delas; desativadas a nº 2, a nº 8 e a
+  nº 80. 71 preventivas ativas
+- [x] Chamado #429 (Edge The Choice, novembro, aberto e sem técnico) da
+  preventiva nº 80, desativada: o Pedro decidiu deixar aberto (27/11/2026)
 - [ ] No Omie (Pedro): encerrar o 2024/00099 (Bradesco JF), Iconyc ×2 e Praça
   144 ×2; conferir a NF 4425 de outubro
 - [ ] Depois: checklist da O.S. do app por sistema

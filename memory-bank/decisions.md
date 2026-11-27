@@ -1828,3 +1828,16 @@ número, situação, PDF, boletos e histórico na mesma página.
   primeiro preenchimento, que não sobrescreve o que já foi conferido.
 - ❌ Ler o escopo do Omie todo mês: o cadastro da preventiva passaria a
   depender de texto digitado em outro sistema.
+
+## Um prédio, uma preventiva — mesmo com dois contratos (27/11/2026)
+
+- Regra do Pedro: *"o técnico vai uma vez e faz tudo"*. A preventiva segue a
+  **visita**, não o contrato. Prédio com dois serviços (Air Club: bombas +
+  reservatórios; Atua: bombas + caixa coletora) tem **uma** preventiva com o
+  escopo somado, e os dois contratos apontam para ela.
+- ❌ Uma preventiva por contrato de serviço (proposta de 27/11): dois cards do
+  mesmo prédio no roteiro do técnico, para uma visita só.
+- O aviso de nota em dobro continua certo nesse desenho: os dois contratos do
+  mesmo prédio têm valores diferentes.
+- Condomínios diferentes (endereço e CNPJ próprios, como Maison Studio e Maison
+  Residencial) continuam com uma preventiva cada.
