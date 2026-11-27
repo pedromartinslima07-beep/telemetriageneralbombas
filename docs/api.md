@@ -300,6 +300,31 @@ cópia do banco, nada chama nem grava no Omie;
   à mão (vale para todos os contratos do cliente; 404 se o prédio ou o cliente
   não existir).
 - `DELETE /contratos/omie/clientes/:codigo/condominio` → desfaz o elo à mão.
+- Desde a migration 109, cada contrato do `GET` traz também `plano_id`,
+  `plano_titulo`, `plano_ativo`, `plano_ligacao` (`manual`, `predio`,
+  `nenhum`, `escolher`, `sem-plano`, `sem-predio`) e `planos_do_predio`
+  (`[{ id, titulo }]`, as preventivas ativas do prédio).
+- `PUT /contratos/omie/:codigo/plano` `{ plano_id }` → diz à mão qual
+  preventiva o contrato paga; `plano_id: null` = "não é de preventiva". 400 sem
+  o campo; 404 se o contrato ou a preventiva não existe; 409 se a preventiva é
+  de outro prédio ou o contrato não tem prédio.
+- `DELETE /contratos/omie/:codigo/plano` → volta ao automático (a preventiva
+  ativa do prédio, se houver uma só).
+
+**Lote do faturamento** (`GET /agenda/faturamento/lote`, desde 27/11/2026): cada
+item traz `avisos` (`[{ tipo, texto }]`, tipos `dobro`, `sem_preventiva`,
+`escolher`, `sem_predio`) e `plano_id`/`plano_titulo`/`plano_ligacao`; o
+resumo traz `com_aviso` e `preventivas_sem_contrato`; a resposta traz
+`preventivas_sem_contrato` (`[{ plano_id, titulo, condominio_id,
+condominio_nome }]`). Aviso não muda o `estado` de ninguém.
+
+**O que a preventiva cobre** (migration 110): `GET
+/planos-manutencao/sistemas` (qualquer usuário logado) → `{ sistemas: [{
+chave, rotulo }] }`, a lista fixa na ordem de leitura. `POST`/`PATCH
+/planos-manutencao` aceitam `sistemas` (lista de chaves; desconhecida = 400;
+gravada na ordem da lista e sem repetir; PATCH sem o campo não mexe).
+`GET /planos-manutencao` traz `sistemas`; `/meu-roteiro` e `GET
+/operador/preventivas` trazem também `sistemas_rotulos` (o texto pronto).
 
 **Cobrança** (`/admin/cobranca`, **só admin** (`masterAdminOnly`), migration
 099 — os títulos em atraso **das notas que o sistema emitiu**; nada grava no

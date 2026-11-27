@@ -104,8 +104,85 @@ async function listar() {
     }
   }
 
+  await _resolverPlanos(linhas);
+
   const s = await pool.query(`SELECT ultima_em, ultimo_erro, detalhe FROM omie_sincronizacoes WHERE nome = 'faturamento_contratos'`);
   return { contratos: linhas, sincronizacao: s.rows[0] || null };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   QUAL PREVENTIVA O CONTRATO PAGA (migration 109, 27/11/2026)
+   ──────────────────────────────────────────────────────────────────────────
+   Nesta ordem:
+     1. a escolha feita à mão (`plano_contratos_omie`): um plano, ou "não é de
+        preventiva" (plano_id nulo);
+     2. a preventiva ativa do prédio, quando o prédio tem exatamente UMA — é o
+        caso de quase todos, e os setores (Bem Moema, Maison) caem juntos nela;
+     3. nada, com o motivo: o prédio não tem preventiva ativa, ou tem mais de
+        uma e ninguém disse qual.
+   `plano_ligacao`: manual · predio · nenhum (não é de preventiva) ·
+   escolher (2+ no prédio) · sem-plano · sem-predio.
+   ══════════════════════════════════════════════════════════════════════════ */
+async function _resolverPlanos(linhas) {
+  const [ligs, planos] = await Promise.all([
+    pool.query(`SELECT omie_contrato, plano_id, ligado_em FROM plano_contratos_omie`),
+    pool.query(`SELECT id, condominio_id, titulo, ativo FROM planos_manutencao`),
+  ]);
+  const lig = new Map(ligs.rows.map(x => [Number(x.omie_contrato), x]));
+  const porId = new Map(planos.rows.map(p => [p.id, p]));
+  const ativosDo = new Map();
+  for (const p of planos.rows) {
+    if (!p.ativo) continue;
+    if (!ativosDo.has(p.condominio_id)) ativosDo.set(p.condominio_id, []);
+    ativosDo.get(p.condominio_id).push(p);
+  }
+  for (const l of linhas) {
+    const m = lig.get(l.omie_codigo);
+    let plano = null, ligacao;
+    if (m) {
+      plano = m.plano_id ? porId.get(m.plano_id) || null : null;
+      ligacao = m.plano_id ? "manual" : "nenhum";
+      l.plano_ligado_em = m.ligado_em;
+    } else if (!l.condominio_id) ligacao = "sem-predio";
+    else {
+      const at = ativosDo.get(l.condominio_id) || [];
+      if (at.length === 1) { plano = at[0]; ligacao = "predio"; }
+      else ligacao = at.length ? "escolher" : "sem-plano";
+    }
+    l.plano_id = plano ? plano.id : null;
+    l.plano_titulo = plano ? plano.titulo : null;
+    l.plano_ativo = plano ? plano.ativo : null;
+    l.plano_ligacao = ligacao;
+    // As preventivas ativas do prédio, para a tela oferecer a escolha.
+    l.planos_do_predio = (ativosDo.get(l.condominio_id) || []).map(p => ({ id: p.id, titulo: p.titulo }));
+  }
+}
+
+// A escolha à mão. `planoId` nulo = "não é de preventiva". O plano tem de ser
+// do prédio do contrato: ligar contrato a preventiva de outro prédio é a
+// cobrança no lugar errado.
+async function ligarPlano(omieContrato, planoId, usuarioId) {
+  const { contratos } = await listar();
+  const k = contratos.find(c => c.omie_codigo === Number(omieContrato));
+  if (!k) return { erro: "Contrato do Omie não encontrado", status: 404 };
+  if (planoId != null) {
+    const p = await pool.query(`SELECT condominio_id FROM planos_manutencao WHERE id = $1`, [planoId]);
+    if (!p.rows.length) return { erro: "Preventiva não encontrada", status: 404 };
+    if (!k.condominio_id) return { erro: "Ligue o contrato a um prédio antes de escolher a preventiva", status: 409 };
+    if (p.rows[0].condominio_id !== k.condominio_id) return { erro: "A preventiva é de outro prédio", status: 409 };
+  }
+  await pool.query(
+    `INSERT INTO plano_contratos_omie (omie_contrato, plano_id, ligado_por, ligado_em)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (omie_contrato) DO UPDATE SET plano_id = EXCLUDED.plano_id,
+       ligado_por = EXCLUDED.ligado_por, ligado_em = NOW()`,
+    [Number(omieContrato), planoId, usuarioId || null]);
+  return { ok: true };
+}
+
+async function desligarPlano(omieContrato) {
+  const r = await pool.query(`DELETE FROM plano_contratos_omie WHERE omie_contrato = $1`, [Number(omieContrato)]);
+  return { ok: true, removido: r.rowCount > 0 };
 }
 
 // O elo à mão: vale para TODOS os contratos desse cliente do Omie.
@@ -128,4 +205,4 @@ async function desligar(omieCliente) {
   return { ok: true, removido: r.rowCount > 0 };
 }
 
-module.exports = { listar, ligar, desligar, SITUACAO };
+module.exports = { listar, ligar, desligar, ligarPlano, desligarPlano, SITUACAO };

@@ -1807,3 +1807,24 @@ número, situação, PDF, boletos e histórico na mesma página.
 - ❌ Baixar `planos.roteiro_antecedencia_dias` para 0: resolve a virada do mês
   mas tira a antecedência de preventiva que vence mais para o fim do mesmo mês.
 - A antecedência continua valendo **dentro** do mês.
+
+## Contrato do Omie ligado à preventiva: aviso, não trava (27/11/2026)
+
+- **O aviso de nota em dobro não tira o contrato do lote.** O sistema nunca
+  decide quem é faturado (decisão de 20/11). O caso que motivou (Bradesco JF ×
+  RPS, as duas notas de outubro) se resolve encerrando o contrato antigo no
+  Omie, e o aviso diz isso.
+- **"Dobro" = mesma preventiva e MESMO VALOR.** Mais de um contrato no mesmo
+  prédio quase sempre é setor (Bem Moema ×3, Maison, Edge), com valores
+  diferentes; o substituto costuma repetir o valor do antigo. Prédio com dois
+  serviços de verdade (Air Club, Atua) sai do aviso quando cada contrato ganha
+  a sua preventiva.
+- **O padrão é automático pelo prédio, sem linha no banco.** Escolher à mão
+  os ~75 prédios de uma preventiva só seria trabalho sem informação nova; a
+  tabela guarda só a exceção.
+- **Escopo em lista fixa, não em texto livre.** O texto da nota do Omie é
+  digitado à mão (asterisco, traço, "FOTOVOTAICO"), e o checklist por sistema
+  na O.S. do app precisa de chave estável. O texto do Omie serve só para o
+  primeiro preenchimento, que não sobrescreve o que já foi conferido.
+- ❌ Ler o escopo do Omie todo mês: o cadastro da preventiva passaria a
+  depender de texto digitado em outro sistema.

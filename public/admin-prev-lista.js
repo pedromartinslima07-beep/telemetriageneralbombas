@@ -87,6 +87,18 @@
 
   // ===== o painel =====
   const sec = (t, html) => `<section class="ls-sec"><h3>${t}</h3>${html}</section>`;
+  // O que a visita cobre (migration 110). A lista de rótulos carrega uma vez;
+  // até lá, o painel se redesenha quando ela chegar.
+  let pedindoSis = false;
+  function cobre(p) {
+    if (typeof _pmSistemasRotulos !== "function") return `<span class="ls-mudo">—</span>`;
+    if (typeof _pmSistemasCache !== "undefined" && !_pmSistemasCache && !pedindoSis && typeof _pmCarregarSistemas === "function") {
+      pedindoSis = true;
+      _pmCarregarSistemas().then(() => lista.desenharLado());
+    }
+    const r = _pmSistemasRotulos(p.sistemas);
+    return r.length ? esc(r.join(", ")) : `<span class="ls-txt-at">não informado</span> <span class="ls-mudo">(use Editar)</span>`;
+  }
   const fatos = arr => `<dl class="ls-fatos">${arr.filter(Boolean).map(([k, v, largo]) => `<div${largo ? ` class="is-largo"` : ""}><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
   const linkCondo = (id, txt) => id ? `<button type="button" class="ls-lk is-forte" data-pv-condo="${id}" title="Abrir a página do prédio">${esc(txt)}</button>` : esc(txt);
 
@@ -144,6 +156,7 @@
         ["Última", p.ultima_em ? fmt(p.ultima_em) : `<span class="ls-mudo">nunca executada</span>`],
         ["A cada", typeof _pmPeriodLabel === "function" ? esc(_pmPeriodLabel(p.periodicidade_dias)) : `${p.periodicidade_dias} dias`],
         ["Gera chamado", p.ativo ? "sozinho, no mês da próxima" : `<span class="ls-mudo">pausada</span>`],
+        ["Cobre", cobre(p), true],
         p.descricao ? ["O que fazer", `<span class="pv-desc">${esc(p.descricao)}</span>`, true] : null,
       ]))}
       ${sec(!z ? "Zona" : /^zona\b/i.test(z) ? esc(z) : `Zona ${esc(z)}`, blocoZona(z))}
@@ -272,6 +285,7 @@
       ["Zona", zona],
       ["Preventiva", x => (x._semPlano ? "sem preventiva" : x.titulo || "Preventiva")],
       ["A cada (dias)", x => (x._semPlano ? "" : x.periodicidade_dias)],
+      ["Cobre", x => (x._semPlano || typeof _pmSistemasRotulos !== "function" ? "" : _pmSistemasRotulos(x.sistemas).join(", "))],
       [`Situação em ${mesTxt()}`, x => (x._semPlano ? "Sem preventiva" : mes(x).txt)],
       ["Técnico", x => x.tecnico_nome || ""],
       ["Atrasada", x => (!x._semPlano && atrasada(x) ? "sim" : "")],

@@ -119,6 +119,55 @@
     await carregar();
   }
 
+  // ===== qual preventiva o contrato paga (migration 109) =====
+  // Sem escolha à mão, vale a preventiva ativa do prédio quando ele tem uma.
+  // A escolha é para o prédio com dois serviços (um plano para cada) e para o
+  // contrato que não cobra visita ("não é de preventiva").
+  const PLANO_LIG = {
+    manual: "escolhida à mão",
+    predio: "a única preventiva ativa do prédio",
+    nenhum: "marcado à mão como não sendo de preventiva",
+    escolher: "o prédio tem mais de uma preventiva ativa: escolha qual este contrato paga",
+    "sem-plano": "o prédio não tem preventiva ativa no sistema: o contrato cobra e ninguém vai",
+    "sem-predio": "ligue o contrato a um prédio primeiro",
+  };
+  const semPreventiva = k => k.ativo && !k.vigencia_vencida && (k.plano_ligacao === "sem-plano" || k.plano_ligacao === "escolher");
+  async function gravarPlano(k, valor) {
+    if (st.gravando) return;
+    st.gravando = true; lista.desenharLado();
+    try {
+      const auto = valor === "auto";
+      const r = await fetch(`/contratos/omie/${k.omie_codigo}/plano`, auto
+        ? { method: "DELETE", headers: authHeaders() }
+        : { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ plano_id: valor === "nenhum" ? null : Number(valor) }) });
+      const j = await lerRespostaJson(r, "Preventiva do contrato");
+      if (!r.ok) throw new Error(j.error || "Não consegui gravar a preventiva do contrato");
+    } catch (e) { alert(e.message); }
+    finally { st.gravando = false; }
+    await carregar();
+  }
+  function blocoPlano(k) {
+    if (!k.condominio_id) return `<p class="ls-nada">${esc(PLANO_LIG["sem-predio"])}.</p>`;
+    const alerta = k.plano_ligacao === "escolher" || k.plano_ligacao === "sem-plano";
+    const atual = k.plano_id
+      ? `${esc(k.plano_titulo || "Preventiva")} <span class="ls-mudo">nº ${k.plano_id}</span>${k.plano_ativo === false ? ` <span class="ls-selo is-cz">inativa</span>` : ""}`
+      : k.plano_ligacao === "nenhum" ? "Não é de preventiva" : `<span class="ls-mudo">nenhuma</span>`;
+    const opts = k.planos_do_predio || [];
+    const sel = k.plano_ligacao === "manual" ? String(k.plano_id) : k.plano_ligacao === "nenhum" ? "nenhum" : "auto";
+    return `${alerta ? `<p class="oc-motivo">${ico("triangle-alert")}<span>${esc(PLANO_LIG[k.plano_ligacao])}.</span></p>` : ""}
+      ${fatos([["Paga", atual], ["Como", esc(PLANO_LIG[k.plano_ligacao] || "—")]])}
+      ${gestao() ? `<div class="oc-ligar viewer-only-hide">
+        <label class="oc-campo"><span>Este contrato paga</span>
+          <select id="ocPlanoSel" class="cbx-campo">
+            <option value="auto"${sel === "auto" ? " selected" : ""}>Automático (a preventiva do prédio, se houver uma só)</option>
+            ${opts.map(p => `<option value="${p.id}"${sel === String(p.id) ? " selected" : ""}>${esc(p.titulo)} (nº ${p.id})</option>`).join("")}
+            <option value="nenhum"${sel === "nenhum" ? " selected" : ""}>Não é de preventiva</option>
+          </select></label>
+        <div class="oc-bts"><button type="button" class="ls-bt is-p is-pri" data-oc-plano ${st.gravando ? "disabled" : ""}>${st.gravando ? "Gravando…" : "Gravar"}</button></div>
+        <p class="ls-nada">Os setores do mesmo prédio pagam a mesma preventiva. Nada é gravado no Omie.</p>
+      </div>` : ""}`;
+  }
+
   // ===== o painel =====
   const sec = (t, html) => `<section class="ls-sec"><h3>${t}</h3>${html}</section>`;
   const fatos = arr => `<dl class="ls-fatos">${arr.filter(Boolean).map(([k, v, largo]) => `<div${largo ? ` class="is-largo"` : ""}><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
@@ -163,6 +212,7 @@
         <div class="ls-l-selo">${selo(k)}<span class="ls-mudo">${moeda(k.valor_mensal)} por mês</span></div>
       </div>
       ${sec("Prédio", blocoPredio(k))}
+      ${sec("Preventiva", blocoPlano(k))}
       ${sec("Cobrança", fatos([
         ["Valor por mês", `<span class="ls-mono">${moeda(k.valor_mensal)}</span>`],
         ["Fatura no dia", k.dia_faturamento ? String(k.dia_faturamento) : "—"],
@@ -200,6 +250,7 @@
     visoes: [
       ["ativos", "Ativos", k => k.ativo],
       ["sempredio", "Sem prédio", k => k.ativo && semPredio(k), "at", d => d.some(k => k.ativo && semPredio(k))],
+      ["semprev", "Sem preventiva", semPreventiva, "at", d => d.some(semPreventiva)],
       ["vencida", "Vigência vencida", k => k.vigencia_vencida, "ri", d => d.some(k => k.vigencia_vencida)],
       ["parados", "Suspensos e em elaboração", k => k.situacao === "90" || k.situacao === "00", null, d => d.some(k => k.situacao === "90" || k.situacao === "00")],
       ["encerrados", "Encerrados", k => k.situacao === "99", null, d => d.some(k => k.situacao === "99")],
@@ -208,6 +259,7 @@
     vazios: {
       ativos: "Nenhum contrato ativo no Omie.",
       sempredio: "Todo contrato ativo está ligado a um prédio.",
+      semprev: "Todo contrato em vigor paga uma preventiva (ou foi marcado como não sendo de preventiva).",
       vencida: "Nenhum contrato ativo com a vigência vencida.",
       parados: "Nenhum contrato suspenso ou em elaboração.",
       encerrados: "Nenhum contrato encerrado.",
@@ -256,6 +308,7 @@
       ["Dia de faturamento", k => k.dia_faturamento ?? ""],
       ["Vigência até", k => dataBr(k.vigencia_fim)],
       ["Vigência vencida", k => (k.vigencia_vencida ? "sim" : "")],
+      ["Preventiva", k => (k.plano_id ? `${k.plano_titulo || "Preventiva"} nº ${k.plano_id}` : k.plano_ligacao === "nenhum" ? "não é de preventiva" : "")],
       ["Última nota", k => k.ultima_nota?.numero || ""],
       ["Competência", k => k.ultima_nota?.competencia || ""],
     ],
@@ -277,6 +330,7 @@
         if (!id) { alert("Escolha o prédio na busca."); return true; }
         st.trocando = null; ligar(k, id); return true;
       }
+      if (e.target.closest("[data-oc-plano]")) { const k = sel(); const v = document.getElementById("ocPlanoSel")?.value; if (k && v) gravarPlano(k, v); return true; }
       if (e.target.closest("[data-oc-trocar]")) { st.trocando = lista.estado.sel; lista.desenharLado(); return true; }
       if (e.target.closest("[data-oc-cancelar-troca]")) { st.trocando = null; lista.desenharLado(); return true; }
       if (e.target.closest("[data-oc-desligar]")) { const k = sel(); if (k) desligar(k); return true; }

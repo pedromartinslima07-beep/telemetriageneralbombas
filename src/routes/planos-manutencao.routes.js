@@ -10,6 +10,7 @@ const { authRequired } = require("../middleware/authRequired");
 const { gestaoOnly } = require("../middleware/gestaoOnly");
 const {
   estadoDa, origemDoTecnico, competenciaValida, competenciaDe, mesDe,
+  SISTEMAS, normalizarSistemas, rotulosSistemas,
 } = require("../services/preventivas.service");
 const { executarPlano } = require("../jobs/planos-manutencao.job");
 const { getConfigInt } = require("../services/config.service");
@@ -70,6 +71,13 @@ function _validarPayload(b, { exigirObrigatorios }) {
 
   if (b.ativo !== undefined) out.ativo = !!b.ativo;
 
+  // O que a preventiva cobre (migration 110): chaves da lista fixa.
+  if (b.sistemas !== undefined) {
+    const n = normalizarSistemas(b.sistemas);
+    if (n.erro) errs.push(n.erro);
+    else out.sistemas = n.sistemas;
+  }
+
   return { out, errs };
 }
 
@@ -123,7 +131,7 @@ router.get("/", authRequired, gestaoOnly, async (req, res) => {
     const r = await pool.query(
       `SELECT pm.id, pm.condominio_id, pm.titulo, pm.descricao,
               pm.periodicidade_dias, pm.proxima_em, pm.ultima_em,
-              pm.ativo, pm.criado_em,
+              pm.ativo, pm.criado_em, pm.sistemas,
               COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
               c.bairro AS condominio_bairro,
               c.zona AS condominio_zona,
@@ -303,7 +311,7 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
     // recusa a query no parse — o 42P08 do CLAUDE.md.
     const r = await pool.query(
       `SELECT pm.id, pm.titulo, pm.descricao, pm.periodicidade_dias,
-              pm.proxima_em, pm.ultima_em,
+              pm.proxima_em, pm.ultima_em, pm.sistemas,
               c.id AS condominio_id,
               COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
               c.endereco, c.bairro, c.cidade, c.lat, c.lng, c.zona,
@@ -430,6 +438,8 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
     // técnico acha que não.
     const planosRoteiro = r.rows.map((p) => ({
       ...p,
+      // O app mostra o texto pronto: ele não carrega a lista de sistemas.
+      sistemas_rotulos: rotulosSistemas(p.sistemas),
       estado: estadoDa(p),
       chamado_meu: p.chamado_aberto_tecnico_id != null
         && p.chamado_aberto_tecnico_id === tecnicoId,
@@ -471,6 +481,10 @@ router.get("/meu-roteiro", authRequired, async (req, res) => {
 // Zonas distintas dos condomínios ativos + os técnicos responsáveis de cada uma.
 // Desde a migration 066 a zona aceita VÁRIOS técnicos (dupla saindo junta), por
 // isso a resposta traz `tecnicos: [{ id, nome }]` em vez de um único campo.
+// GET /planos-manutencao/sistemas — a lista fixa do que uma preventiva pode
+// cobrir (migration 110), na ordem de leitura. Antes de "/:id".
+router.get("/sistemas", authRequired, (req, res) => res.json({ sistemas: SISTEMAS }));
+
 router.get("/zonas-responsaveis", authRequired, gestaoOnly, async (req, res) => {
   try {
     const r = await pool.query(
@@ -632,8 +646,8 @@ router.post("/", authRequired, gestaoOnly, async (req, res) => {
   try {
     const r = await pool.query(
       `INSERT INTO planos_manutencao
-         (condominio_id, titulo, descricao, periodicidade_dias, proxima_em, ativo, criado_por)
-       VALUES ($1, $2, $3, $4, $5::date, COALESCE($6, TRUE), $7)
+         (condominio_id, titulo, descricao, periodicidade_dias, proxima_em, ativo, criado_por, sistemas)
+       VALUES ($1, $2, $3, $4, $5::date, COALESCE($6, TRUE), $7, COALESCE($8::text[], '{}'))
        RETURNING *`,
       [
         out.condominio_id,
@@ -643,6 +657,7 @@ router.post("/", authRequired, gestaoOnly, async (req, res) => {
         out.proxima_em,
         out.ativo,
         req.user.id,
+        out.sistemas ?? null,
       ]
     );
     return res.status(201).json(r.rows[0]);
@@ -721,7 +736,8 @@ router.patch("/:id", authRequired, gestaoOnly, async (req, res) => {
   const vals = [id];
   for (const [k, v] of Object.entries(out)) {
     vals.push(v);
-    const target = k === "proxima_em" ? `${k} = $${vals.length}::date` : `${k} = $${vals.length}`;
+    const target = k === "proxima_em" ? `${k} = $${vals.length}::date`
+      : k === "sistemas" ? `${k} = $${vals.length}::text[]` : `${k} = $${vals.length}`;
     sets.push(target);
   }
 

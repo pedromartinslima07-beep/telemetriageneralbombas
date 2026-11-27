@@ -22,6 +22,14 @@ aliases:
 > [roadmap](roadmap.md);
 > detalhes em [meta-tech-provider.md](../docs/modulos/meta-tech-provider.md).
 
+> 🟢 **Contrato do Omie ligado à preventiva — no ar (27/11/2026).**
+> Avisos no lote (nota em dobro, sem preventiva), lista do mês em CSV e o que
+> a visita cobre. Testes 28/28 e 15/15. 109 e 110 em produção. ⏳ **Falta:**
+> `scripts/escopo-preventivas-omie.js --prod` (conferir e
+> `--gravar`); segunda preventiva do Air Club e do Atua; no Omie, encerrar o
+> 2024/00099 (Bradesco JF) antes do lote de dezembro. Ver
+> [omie-integracao.md](../docs/modulos/omie-integracao.md).
+
 > 🟠 **Bot sem silêncio + aviso fora das 24h + telas antigas — no ar em
 > 24/11/2026.** Testes: falhas 12/12, confirmação 41/41, alertas
 > 17/17 (consertado), extravasamento 28/28. ⏳ **Falta:** cadastrar

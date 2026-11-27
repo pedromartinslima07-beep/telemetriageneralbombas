@@ -541,7 +541,9 @@ não nasce de orçamento.
 ### Outras
 
 **`planos_manutencao`** (032) — preventiva recorrente: `condominio_id (CASCADE)`,
-`periodicidade_dias`, próxima data; job gera chamado P4 ao vencer.
+`periodicidade_dias`, próxima data; job gera chamado P4 ao vencer. Desde a 110,
+`sistemas` (o que a visita cobre); desde a 109, o contrato do Omie que paga
+fica em `plano_contratos_omie`.
 
 **`contratos`** (035) — `condominio_id (CASCADE)`, `tipo (mensal|anual|avulso)`,
 `valor_mensal`, `dia_vencimento (1-28)`. Índice único parcial de contrato ativo.
@@ -753,6 +755,42 @@ estado exato porque estas três colunas lembram qual era ele.
 chamado P4 órfão do mês (senão ele fica no roteiro pedindo um serviço que já
 aconteceu); guardar o id permite reabri-lo. Chamado **com técnico** não entra
 nessa conta: ali o serviço está andando e a rota recusa com 409.
+
+## 110 — o que a preventiva cobre (27/11/2026)
+
+Fluxo em [omie-integracao.md](modulos/omie-integracao.md#2b-a-preventiva-de-cada-contrato-e-os-avisos-do-lote--no-código-27112026-migrations-109-e-110).
+
+- **`planos_manutencao.sistemas`** TEXT[] NOT NULL DEFAULT `'{}'`: as chaves da
+  lista fixa `SISTEMAS` de `src/services/preventivas.service.js` (bombas,
+  quadro, valvula_redutora, gerador, trocador_calor, exaustao_churrasqueira,
+  exaustao_piscina, pressurizacao_escadas, fotovoltaico, ralos_caixas,
+  reservatorios_prumadas, caixa_coletora), sempre na ordem da lista.
+- Vazia = **ainda não informado**, e as telas dizem isso. Não é "bombas" por
+  padrão: seria afirmar o que ninguém conferiu.
+- Primeiro preenchimento: `scripts/escopo-preventivas-omie.js`, que lê o texto
+  das notas no Omie e só grava em preventiva vazia.
+
+✅ Teste e ✅ **produção** (27/11/2026, conferida no `information_schema`, antes do push).
+
+## 109 — qual preventiva cada contrato do Omie paga (27/11/2026)
+
+Fluxo no mesmo [omie-integracao.md](modulos/omie-integracao.md#2b-a-preventiva-de-cada-contrato-e-os-avisos-do-lote--no-código-27112026-migrations-109-e-110).
+
+**`plano_contratos_omie`**: só a escolha feita **à mão**. Sem linha, o contrato
+paga a preventiva ativa do prédio quando o prédio tem exatamente uma.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `omie_contrato` | BIGINT | PK; `omie_contratos.omie_codigo` (sem FK: a cópia é refeita) |
+| `plano_id` | INTEGER | FK `planos_manutencao` **CASCADE**. **NULL = "não é de preventiva"** |
+| `ligado_por` | INTEGER | FK `usuarios`, SET NULL |
+| `ligado_em` | TIMESTAMPTZ | |
+
+Um contrato paga no máximo uma preventiva; uma preventiva pode ser paga por
+vários contratos (os setores do mesmo prédio). O plano escolhido tem de ser do
+prédio do contrato (a rota recusa com 409).
+
+✅ Teste e ✅ **produção** (27/11/2026, conferida no `information_schema`, antes do push).
 
 ## 108 — orçamento: limpeza de reservatório com robô aspirador (26/11/2026)
 

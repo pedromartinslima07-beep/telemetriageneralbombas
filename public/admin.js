@@ -16104,8 +16104,29 @@ function _pmAtualizarBadge() {
 // escolhido, porque a pessoa clicou justamente naquele predio. Sem isso ela
 // teria de procurar o nome de novo numa lista de 88 — logo depois de apontar
 // para ele.
+// O que a preventiva cobre (migration 110). A lista fixa vem do servidor
+// (GET /planos-manutencao/sistemas), uma vez por sessão.
+let _pmSistemasCache = null;
+async function _pmCarregarSistemas() {
+  if (_pmSistemasCache) return _pmSistemasCache;
+  try {
+    const r = await fetch("/planos-manutencao/sistemas", { headers: authHeaders() });
+    const j = await r.json();
+    if (r.ok) _pmSistemasCache = j.sistemas || [];
+  } catch (e) { /* sem a lista, o modal abre sem o bloco */ }
+  return _pmSistemasCache || [];
+}
+function _pmSistemasRotulos(chaves) {
+  const m = new Map((_pmSistemasCache || []).map(s => [s.chave, s.rotulo]));
+  return (chaves || []).map(k => m.get(k)).filter(Boolean);
+}
+
 async function _pmAbrirModal(plano, condoPre) {
-  await _pmCarregarCondos();
+  await Promise.all([_pmCarregarCondos(), _pmCarregarSistemas()]);
+  const sistemasAtuais = new Set(plano?.sistemas || []);
+  const sistemasHtml = (_pmSistemasCache || []).map(s =>
+    `<label class="pm-sis"><input type="checkbox" data-pm-sis="${s.chave}" ${sistemasAtuais.has(s.chave) ? "checked" : ""}> ${_waEscaparHtml(s.rotulo)}</label>`
+  ).join("");
   const isEdit = !!plano;
   document.getElementById("pmModalTitulo").textContent = isEdit ? "Editar preventiva" : "Nova preventiva";
   document.getElementById("pmModalSubtitulo").textContent = isEdit ? "Atualize a manutenção preventiva deste prédio" : "Defina a manutenção preventiva de um prédio";
@@ -16148,6 +16169,12 @@ async function _pmAbrirModal(plano, condoPre) {
         <span class="lbl">Descrição <span style="color:var(--muted);font-weight:400;">(opcional)</span></span>
         <textarea id="pmFDescricao" class="input" rows="2" maxlength="2000" placeholder="Detalhes do serviço a executar" style="resize:vertical;">${_waEscaparHtml(plano?.descricao || "")}</textarea>
       </div>
+
+      ${sistemasHtml ? `
+      <div class="field">
+        <span class="lbl">O que a visita cobre <span style="color:var(--muted);font-weight:400;">(o que está no contrato)</span></span>
+        <div class="pm-sis-grade">${sistemasHtml}</div>
+      </div>` : ""}
 
       <div style="border-top:1px solid var(--border);margin:2px 0;"></div>
 
@@ -16216,6 +16243,10 @@ async function _pmSalvar(idEdit) {
     proxima_em:         document.getElementById("pmFProxima").value,
   };
   if (idEdit) payload.ativo = document.getElementById("pmFAtivo")?.checked ?? true;
+  // Só manda o escopo se o bloco foi desenhado: sem a lista (falha ao
+  // carregar), mandar vazio apagaria o que estava gravado.
+  const caixasSis = document.querySelectorAll("#pmModalBody [data-pm-sis]");
+  if (caixasSis.length) payload.sistemas = [...caixasSis].filter(c => c.checked).map(c => c.dataset.pmSis);
 
   try {
     const url = idEdit ? `/planos-manutencao/${idEdit}` : "/planos-manutencao";

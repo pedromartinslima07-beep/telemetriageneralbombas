@@ -389,7 +389,47 @@ async function darBaixaPorOS(client, { osId, condominioId, quando }) {
   };
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   O QUE A PREVENTIVA COBRE (27/11/2026, migration 110)
+   ──────────────────────────────────────────────────────────────────────────
+   A lista fixa saiu do texto das notas do Omie de outubro/novembro de 2026
+   (a O.S. de cada faturamento, `cDadosAdicNF`), lida contrato por contrato.
+   ⚠️ LISTA FIXA, NÃO TEXTO LIVRE: o texto do Omie é digitado à mão, com
+   asterisco, traço e variações ("VALVULA", "VÁLVULA"), e um checklist por
+   sistema na O.S. do app precisa de chave estável. Sistema novo entra aqui.
+   ⚠️ A ORDEM É A DE LEITURA na tela e no app: o básico primeiro.
+   ══════════════════════════════════════════════════════════════════════════ */
+const SISTEMAS = [
+  { chave: "bombas", rotulo: "Sistema de bombas" },
+  { chave: "quadro", rotulo: "Quadro de comando elétrico" },
+  { chave: "valvula_redutora", rotulo: "Válvula redutora de pressão" },
+  { chave: "gerador", rotulo: "Grupo gerador" },
+  { chave: "trocador_calor", rotulo: "Trocador de calor" },
+  { chave: "exaustao_churrasqueira", rotulo: "Exaustão da churrasqueira" },
+  { chave: "exaustao_piscina", rotulo: "Exaustão da piscina" },
+  { chave: "pressurizacao_escadas", rotulo: "Pressurização de escadas" },
+  { chave: "fotovoltaico", rotulo: "Sistema fotovoltaico" },
+  { chave: "ralos_caixas", rotulo: "Ralos e caixas" },
+  { chave: "reservatorios_prumadas", rotulo: "Reservatórios, caixa de inspeção, ralos e prumadas" },
+  { chave: "caixa_coletora", rotulo: "Caixa de passagem coletora" },
+];
+const _SIS = new Map(SISTEMAS.map(s => [s.chave, s]));
+
+// Valida e põe na ordem da lista. Devolve { sistemas } ou { erro }.
+function normalizarSistemas(v) {
+  if (!Array.isArray(v)) return { erro: "sistemas deve ser uma lista" };
+  const fora = v.filter(x => !_SIS.has(String(x)));
+  if (fora.length) return { erro: `sistema desconhecido: ${fora.join(", ")}` };
+  const set = new Set(v.map(String));
+  return { sistemas: SISTEMAS.filter(s => set.has(s.chave)).map(s => s.chave) };
+}
+
+const rotulosSistemas = lista => (lista || []).map(k => _SIS.get(k)?.rotulo).filter(Boolean);
+
 module.exports = {
+  SISTEMAS,
+  normalizarSistemas,
+  rotulosSistemas,
   ESTADOS,
   MARCA_PREVENTIVA,
   darBaixaPorOS,

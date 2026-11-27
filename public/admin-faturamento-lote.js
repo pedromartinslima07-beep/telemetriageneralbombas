@@ -39,11 +39,15 @@
       : `<button type="button" class="fl-nome" data-fl-contrato="${i.omie_codigo}">${esc(n)}</button>`;
   }
   const contrato = i => `<span class="fl-sub">${esc(i.numero || "")}${i.banco ? " · " + esc(i.banco) : ""}</span>`;
+  // Os avisos do servidor (migration 109). Nota em dobro em vermelho; o resto
+  // (preventiva faltando ou por escolher, sem prédio) em âmbar. Aviso não tira
+  // ninguém do lote: quem decide é o Pedro.
+  const avisosDe = i => (i.avisos || []).map(a => `<span class="${a.tipo === "dobro" ? "fl-msg" : "fl-av"}">${esc(a.texto)}</span>`).join("");
 
   function linhasLote(lista) {
     return lista.map(i => `<tr class="${i.estado === "erro" ? "is-erro" : ""}">
       <td class="fl-ck"><input type="checkbox" data-fl-marca="${i.omie_codigo}" ${st.marcados.has(i.omie_codigo) ? "checked" : ""} ${st.confirmando || st.dados.rodando ? "disabled" : ""} aria-label="Faturar agora"></td>
-      <td>${nome(i)}${contrato(i)}${i.estado === "erro" && i.mensagem ? `<span class="fl-msg">Da última vez: ${esc(i.mensagem)}</span>` : ""}</td>
+      <td>${nome(i)}${contrato(i)}${i.estado === "erro" && i.mensagem ? `<span class="fl-msg">Da última vez: ${esc(i.mensagem)}</span>` : ""}${avisosDe(i)}</td>
       <td class="fl-num">${moeda(i.valor)}</td>
       <td class="fl-acao"><button type="button" class="btn btn-sm" data-fl-tirar="${i.omie_codigo}" ${st.dados.rodando ? "disabled" : ""}>Tirar do lote</button></td>
     </tr>`).join("");
@@ -73,6 +77,8 @@
     const fora = de(["fora"]).filter(i => i.motivo_tipo !== "nota"), noOmie = de(["fora"]).filter(i => i.motivo_tipo === "nota");
     const marc = lote.filter(i => st.marcados.has(i.omie_codigo));
     const totalMarc = Math.round(marc.reduce((s, i) => s + (i.valor || 0), 0) * 100) / 100;
+    const marcAviso = marc.filter(i => i.avisos?.length), marcDobro = marc.filter(i => i.avisos?.some(a => a.tipo === "dobro"));
+    const semContrato = d.preventivas_sem_contrato || [];
     const comNota = d.resumo.faturados + d.resumo.com_nota_omie;
     const sinc = d.sincronizacao?.ultima_em ? new Date(d.sincronizacao.ultima_em).toLocaleString("pt-BR") : "nunca";
     const bancos = [...new Set(marc.map(i => i.banco).filter(Boolean))].join(" e ");
@@ -82,6 +88,8 @@
     if (!d.competencia_atual) avisos.push(`<div class="fl-aviso">Este não é o mês corrente. O Omie fatura o contrato no mês em que é chamado, então daqui só se acompanha.</div>`);
     if (st.erro) avisos.push(`<div class="fl-aviso is-risco" role="alert">${esc(st.erro)}</div>`);
     if (st.ok) avisos.push(`<div class="fl-aviso is-ok" role="status">${esc(st.ok)}</div>`);
+    const comAviso = lote.filter(i => i.avisos?.length), dobro = lote.filter(i => i.avisos?.some(a => a.tipo === "dobro"));
+    if (comAviso.length) avisos.push(`<div class="fl-aviso${dobro.length ? " is-risco" : ""}"><b>${comAviso.length} contrato${comAviso.length === 1 ? "" : "s"} do lote com aviso${dobro.length ? `, ${dobro.length} de possível nota em dobro` : ""}.</b> O aviso está na linha de cada um. Ninguém sai do lote sozinho: confira e tire quem não deve ir.</div>`);
     if (d.resumo.sem_boleto) avisos.push(`<div class="fl-aviso is-risco"><b>${d.resumo.sem_boleto} nota${d.resumo.sem_boleto === 1 ? "" : "s"} sem boleto.</b> O Omie gerou a nota e o título, mas não o boleto. Veja em "Faturados pelo sistema" e use "Gerar boleto".</div>`);
 
     const rodando = d.rodando
@@ -91,13 +99,15 @@
     const pe = st.confirmando
       ? `<div class="fl-confirma" role="alertdialog" aria-labelledby="flConfTit">
           <p id="flConfTit"><b>Faturar ${marc.length} contrato${marc.length === 1 ? "" : "s"} no Omie, total ${moeda(totalMarc)}${bancos ? `, cobrando no ${esc(bancos)}` : ""}?</b></p>
+          ${marcAviso.length ? `<p class="${marcDobro.length ? "fl-msg" : "fl-av"}"><b>${marcAviso.length} dos marcados ${marcAviso.length === 1 ? "tem" : "têm"} aviso${marcDobro.length ? `, ${marcDobro.length} de possível nota em dobro` : ""}.</b> Volte e confira se não tiver certeza.</p>` : ""}
           <p>O Omie gera a nota de cada um na prefeitura e o boleto do cliente. Isso não se desfaz por aqui: cancelar nota é no Omie.</p>
           <div class="fl-bts"><button type="button" class="btn btn-sm" data-fl="voltar">Voltar</button>
             <button type="button" class="btn btnAccent" data-fl="faturar">Sim, faturar ${marc.length}</button></div>
         </div>`
       : `<div class="fl-pe">
           <span class="fl-sinc">Copiado do Omie em ${esc(sinc)}${d.sincronizacao?.ultimo_erro ? ` · último erro: ${esc(d.sincronizacao.ultimo_erro)}` : ""}</span>
-          <div class="fl-bts"><button type="button" class="btn btn-sm" data-fl="atualizar">Atualizar do Omie</button>
+          <div class="fl-bts"><button type="button" class="btn btn-sm" data-fl="baixar">Baixar a lista do mês</button>
+            <button type="button" class="btn btn-sm" data-fl="atualizar">Atualizar do Omie</button>
             ${lote.length ? `<button type="button" class="btn btnAccent" data-fl="confirmar" ${pode && marc.length ? "" : "disabled"}>Faturar ${marc.length} · ${moeda(totalMarc)}</button>` : ""}</div>
         </div>`;
 
@@ -121,16 +131,19 @@
         <table class="fl-tab"><tbody>${linhasLote(lote)}</tbody></table>`
         : `<p class="fl-vazio">${feitos.length ? "Todos os contratos do mês já foram faturados ou estão fora do lote." : "Nenhum contrato para faturar."}</p>`}
       ${tirados.length ? `<h3 class="fl-h">Tirados do lote (${tirados.length})</h3>
-        <table class="fl-tab"><tbody>${tirados.map(i => `<tr><td>${nome(i)}${contrato(i)}</td><td class="fl-num">${moeda(i.valor)}</td>
+        <table class="fl-tab"><tbody>${tirados.map(i => `<tr><td>${nome(i)}${contrato(i)}${avisosDe(i)}</td><td class="fl-num">${moeda(i.valor)}</td>
           <td class="fl-acao"><button type="button" class="btn btn-sm" data-fl-devolver="${i.omie_codigo}" ${d.rodando ? "disabled" : ""}>Devolver</button></td></tr>`).join("")}</tbody></table>` : ""}
       ${fora.length ? `<h3 class="fl-h">Fora do lote (${fora.length})</h3>
         <table class="fl-tab"><tbody>${fora.map(i => `<tr><td>${nome(i)}${contrato(i)}<span class="fl-msg">${esc(i.motivo)}</span></td><td class="fl-num">${moeda(i.valor)}</td></tr>`).join("")}</tbody></table>` : ""}
       ${noOmie.length ? `<details class="fl-det"><summary class="fl-h">Já faturados pela tela do Omie (${noOmie.length})</summary>
         <p class="fl-exp">Têm nota do mês feita direto no Omie. Ficam fora do lote para não sair nota em dobro.</p>
-        <table class="fl-tab"><tbody>${noOmie.map(i => `<tr><td>${nome(i)}${contrato(i)}<span class="fl-sub">${esc(i.motivo)}</span></td><td class="fl-num">${moeda(i.valor)}</td></tr>`).join("")}</tbody></table></details>` : ""}
+        <table class="fl-tab"><tbody>${noOmie.map(i => `<tr><td>${nome(i)}${contrato(i)}<span class="fl-sub">${esc(i.motivo)}</span>${avisosDe(i)}</td><td class="fl-num">${moeda(i.valor)}</td></tr>`).join("")}</tbody></table></details>` : ""}
+      ${semContrato.length ? `<details class="fl-det"><summary class="fl-h">Preventivas sem contrato no Omie (${semContrato.length})</summary>
+        <p class="fl-exp">Preventiva ativa no sistema que nenhum contrato em vigor neste mês paga: o técnico vai e ninguém cobra. Ou o contrato acabou e a preventiva ficou ligada, ou o contrato está no Omie e não foi ligado ao prédio (veja em Contratos).</p>
+        <table class="fl-tab"><tbody>${semContrato.map(p => `<tr><td><button type="button" class="fl-nome" data-fl-predio="${p.condominio_id}">${esc(p.condominio_nome)}</button><span class="fl-sub">${esc(p.titulo)} · preventiva nº ${p.plano_id}</span></td></tr>`).join("")}</tbody></table></details>` : ""}
       ${feitos.length ? `<h3 class="fl-h is-ok">Faturados pelo sistema (${feitos.length})</h3>
         <table class="fl-tab"><thead><tr><th>Prédio</th><th>Nota</th><th>Boleto</th><th class="fl-num">Valor</th></tr></thead>
-        <tbody>${feitos.map(i => `<tr><td>${nome(i)}${contrato(i)}<span class="fl-sub">${i.enviado_em ? "em " + esc(new Date(i.enviado_em).toLocaleString("pt-BR")) : ""}${i.por ? " · " + esc(i.por) : ""}</span></td>
+        <tbody>${feitos.map(i => `<tr><td>${nome(i)}${contrato(i)}<span class="fl-sub">${i.enviado_em ? "em " + esc(new Date(i.enviado_em).toLocaleString("pt-BR")) : ""}${i.por ? " · " + esc(i.por) : ""}</span>${avisosDe(i)}</td>
           <td>${i.nfse ? `NFS-e ${esc(i.nfse)}` : `<span class="fl-sub">aguardando a prefeitura (OS ${esc(i.omie_os || "")})</span>`}</td>
           <td>${boletoHtml(i)}</td>
           <td class="fl-num">${moeda(i.valor)}</td></tr>`).join("")}</tbody></table>` : ""}
@@ -181,6 +194,7 @@
       st.marcados = new Set(qual === "todos" ? d.itens.filter(i => i.estado === "entra" || i.estado === "erro").map(i => i.omie_codigo) : []);
       return desenhar();
     }
+    if (qual === "baixar") return baixar();
     if (qual === "mudar-dia") { st.mudandoDia = true; return desenhar(); }
     if (qual === "cancelar-dia") { st.mudandoDia = false; return desenhar(); }
     if (qual === "salvar-dia") {
@@ -213,6 +227,32 @@
       if (!r.ok) st.erro = j.error || "O Omie não foi chamado.";
       return carregar();
     }
+  }
+
+  // A lista do mês em planilha (27/11/2026): o que era a "NF PREV <MÊS>" feita
+  // à mão no Dropbox, agora tirada do que o sistema já sabe — cada contrato,
+  // o valor, o que aconteceu no mês e os avisos. CSV com ";" e vírgula decimal,
+  // com BOM, para o Excel em português abrir direto.
+  function baixar() {
+    const d = st.dados;
+    if (!d) return;
+    const SIT = { entra: "No lote", erro: "No lote (erro da última vez)", tirado: "Tirado do lote", enviando: "Enviando", incerto: "Envio sem resposta" };
+    const sit = i => i.estado === "faturado" ? `Faturado pelo sistema${i.nfse ? ` (NFS-e ${i.nfse})` : ""}`
+      : i.motivo_tipo === "nota" ? `Nota pela tela do Omie: ${i.motivo}` : i.estado === "fora" ? `Fora do lote: ${i.motivo}` : SIT[i.estado] || i.estado;
+    const cel = v => { const s = String(v ?? ""); return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const num = v => (v == null ? "" : Number(v).toFixed(2).replace(".", ","));
+    const linhas = [["Prédio", "Cliente no Omie", "Contrato", "Valor", "No mês", "Preventiva", "Avisos"]];
+    for (const i of d.itens) {
+      linhas.push([i.condominio_nome || "", i.cliente || "", i.numero || "", num(i.valor), sit(i),
+        i.plano_id ? `${i.plano_titulo || "Preventiva"} nº ${i.plano_id}` : "", (i.avisos || []).map(a => a.texto).join(" | ")]);
+    }
+    for (const p of d.preventivas_sem_contrato || []) linhas.push([p.condominio_nome, "", "", "", "Preventiva sem contrato no Omie", `${p.titulo} nº ${p.plano_id}`, ""]);
+    const csv = "﻿" + linhas.map(l => l.map(cel).join(";")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `contratos-${d.competencia}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   async function porItem(url, corpo) {

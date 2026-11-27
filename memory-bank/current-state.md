@@ -180,6 +180,14 @@ Condomínios e na página do prédio. Plano das outras fases em
 (`admin-faturamento-lote.js`): o sistema prepara, o Pedro confere e confirma,
 e só então o Omie fatura (`FaturarContrato`). Nenhuma nota real emitida ainda;
 migration 097.
+**Contrato ligado à preventiva (27/11, ✅ no ar):** cada contrato do Omie
+sabe qual preventiva paga (automático pelo prédio ou escolha em Contratos,
+migration 109). O lote avisa nota em dobro, contrato sem preventiva, prédio com
+duas preventivas sem escolha e contrato sem prédio, sem tirar ninguém do lote;
+lista as preventivas sem contrato e baixa a lista do mês em CSV (no lugar da
+planilha "NF PREV"). A preventiva tem o que a visita cobre (12 sistemas,
+migration 110), no admin, no operador e no roteiro do app. 109 e 110 em
+produção. Ver [omie-integracao.md](../docs/modulos/omie-integracao.md).
 **Omie, fase 3 — cobrança (23/11):** Financeiro → "Em atraso" (só o admin,
 `admin-cobranca.js`): os títulos vencidos **das notas que o sistema emitiu**
 (orçamento por OS/pedido, contrato pelo lote), copiados de hora em hora com a

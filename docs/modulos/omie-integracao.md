@@ -156,6 +156,89 @@ como o de 18/11. O script fica pronto (só aceita chamadas `Listar`/`Pesquisar`/
 > simulado (`omie-lote.test.js` 48/48) e na tela; **nunca chamado de
 > verdade**.
 
+### 2b. A preventiva de cada contrato e os avisos do lote ✅ no código (27/11/2026, migrations 109 e 110)
+
+**O que motivou** (levantamento de 27/11/2026, só leitura no Omie, cruzando com
+a planilha "NF PREV NOVEMBRO" do Dropbox):
+
+- O contrato **RPS** (2026/00020) substituiu o do **Bradesco JF** (2024/00099),
+  ninguém encerrou o antigo, e **as duas notas de outubro saíram** (NF 4425 e
+  4431, R$ 597,50 cada). O lote do sistema teria proposto as duas de novo.
+- **77 dos 83 itens** de contrato ativo dizem "CONSERTO" ou "Serviços
+  prestados". O que a visita cobre está no campo "dados adicionais da NF" da
+  O.S. que o Omie gera a cada faturamento (`ConsultarOS` →
+  `InformacoesAdicionais.cDadosAdicNF`); o `cDadosAdicNF` do contrato vem vazio
+  e `ConsultarNFSe` não existe na API.
+- Mais de um contrato no mesmo prédio quase sempre é **setor** (Bem Moema
+  residencial, comercial e studios; Maison; Edge), não serviço diferente. Serviço
+  diferente de verdade: **Air Club** (bombas 980 + reservatórios e ralos 990) e
+  **Atua** (bombas 1.000 + caixa coletora 1.600).
+- Há prédio **sem bomba nenhuma** no contrato: Malbec (exaustão da
+  churrasqueira e pressurização de escadas), Parkway (exaustão da piscina),
+  Habita Sustentável (fotovoltaico), Praça das Águas (trocador de calor).
+- ⚠️ "Ativo" é **situação 10 E vigência em curso**: Iconyc e Praça 144 seguem
+  na situação 10 com a vigência vencida em 2025 (não são mais clientes), e o
+  Habitat Bradesco começa em 09/11/2026.
+
+**Qual preventiva o contrato paga** (`plano_contratos_omie`, migration 109),
+resolvido em `omie-contratos.service.js` (`_resolverPlanos`), nesta ordem: a
+escolha à mão; senão, a preventiva ativa do prédio quando ele tem **uma só**;
+senão, nada, com o motivo (`escolher`, `sem-plano`, `sem-predio`). Em
+**Contratos**, o painel do contrato tem o bloco **Preventiva** com
+"Automático", as preventivas ativas do prédio e "Não é de preventiva"; a visão
+**Sem preventiva** lista o contrato em vigor sem preventiva resolvida.
+
+**Os avisos do lote** (`_avisar` em `omie-lote.service.js`):
+
+| Aviso | Quando |
+|---|---|
+| `dobro` (vermelho) | outro contrato paga a **mesma preventiva** (ou o mesmo prédio, sem preventiva resolvida) com o **mesmo valor** e também é cobrado no mês ou já tem nota. O valor igual separa isso dos setores |
+| `sem_preventiva` | cobra prédio sem preventiva ativa (ou a escolhida foi desativada) |
+| `escolher` | o prédio tem mais de uma preventiva ativa e ninguém disse qual |
+| `sem_predio` | o contrato não está ligado a prédio |
+
+⚠️ **Aviso não trava.** O sistema nunca decide quem é faturado (decisão de
+20/11): o contrato com aviso continua marcado no lote. O aviso aparece na
+linha, no topo ("N contratos do lote com aviso") e na confirmação ("N dos
+marcados têm aviso"). Escolher à mão preventivas diferentes para dois
+contratos do mesmo prédio desliga o `dobro`.
+
+**O outro lado:** a seção **Preventivas sem contrato no Omie** lista a
+preventiva ativa que nenhum contrato em vigor no mês paga (o técnico vai e
+ninguém cobra). O prédio que só espera a escolha não entra aqui, para o mesmo
+problema não aparecer duas vezes.
+
+**A lista do mês no lugar da planilha:** "Baixar a lista do mês", no rodapé do
+lote, gera o CSV (`;`, vírgula decimal, BOM para o Excel): prédio, cliente no
+Omie, contrato, valor, o que houve no mês (faturado, nota pela tela do Omie, no
+lote, tirado, fora e o motivo), preventiva e avisos, mais as preventivas sem
+contrato.
+
+**O que a visita cobre** (`planos_manutencao.sistemas`, migration 110): lista
+fixa `SISTEMAS` em `preventivas.service.js`, servida por `GET
+/planos-manutencao/sistemas`. Caixas no formulário da preventiva (admin),
+linha "Cobre" no painel da preventiva e na exportação, o texto no lugar do
+título na tela de Preventivas do operador e embaixo do título no roteiro do app
+(`sistemas_rotulos` no `/meu-roteiro`; **só com APK novo**). Vazio = "não
+informado".
+
+**O primeiro preenchimento:** `node scripts/escopo-preventivas-omie.js [--prod]
+[--gravar]` lê a nota mais recente de cada contrato (60 dias) e a O.S. dela,
+traduz o texto para as chaves e, com `--gravar`, só grava em preventiva **vazia**.
+Avisa quando dois contratos caem na mesma preventiva (setores ou dois
+serviços?). O leitor reconheceu os 83 textos de out/nov de 2026 sem sobra.
+
+**Testado:** `scripts/testes/lote-avisos-preventiva.test.js` 28/28 (JF × RPS
+avisa dobro, inclusive com a nota do outro já emitida; setores não; o mesmo
+valor em outro prédio não; sem preventiva; escolher; escolha à mão apaga o
+aviso; preventiva sem contrato; 403/400/409; DELETE volta ao automático) e
+`plano-sistemas.test.js` 15/15 (rotas e o leitor do texto com os casos reais).
+Os testes de preventivas e do Omie que já existiam seguem passando. Na tela
+(banco de teste): o lote com os avisos e a seção nova, o bloco Preventiva do
+contrato gravando "Não é de preventiva" e voltando, o formulário com as 12
+caixas. ✅ **109 e 110 em produção (27/11/2026).** ⏳ **Falta:** rodar o script do
+escopo em produção, e criar a segunda preventiva do Air Club e do Atua.
+
 - Já existe: "Faturar contratos no Omie: 77 de 81" na Agenda. Vira uma tela
   do mês: **quem foi faturado, quem não foi e por quê** (vigência vencida,
   contrato pausado, nota rejeitada), com o número da nota e o PDF.

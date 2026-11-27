@@ -1095,6 +1095,25 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
   paredes? laudo leva fotos/vídeo?)
 - Ver [ordens-servico.md](../docs/modulos/ordens-servico.md)
 
+## Contrato do Omie ligado à preventiva (27/11/2026)
+
+- [x] Qual preventiva cada contrato paga (automático pelo prédio, escolha à
+  mão, "não é de preventiva") ✅ (teste)
+- [x] Avisos no lote: nota em dobro, sem preventiva, escolher, sem prédio; e
+  "Preventivas sem contrato no Omie" ✅ (teste)
+- [x] "Baixar a lista do mês" no lote, no lugar da planilha "NF PREV" ✅ (teste)
+- [x] O que a visita cobre (12 sistemas) no admin, no operador e no app ✅
+  (teste; o app só com APK novo)
+- [x] Migrations 109 e 110 em produção (27/11/2026) e push ✅
+- [ ] Rodar `scripts/escopo-preventivas-omie.js --prod` (conferir) e depois
+  `--gravar`
+- [ ] Criar a segunda preventiva do Air Club (reservatórios) e do Atua (caixa
+  coletora) e escolher em Contratos qual contrato paga qual
+- [ ] No Omie (Pedro): encerrar o 2024/00099 (Bradesco JF), Iconyc ×2 e Praça
+  144 ×2; conferir a NF 4425 de outubro
+- [ ] Depois: checklist da O.S. do app por sistema
+- Ver [omie-integracao.md](../docs/modulos/omie-integracao.md)
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para

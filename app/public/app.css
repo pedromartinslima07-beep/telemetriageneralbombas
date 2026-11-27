@@ -3012,6 +3012,8 @@ body::after {
   background: var(--muted);
 }
 .rt-plano-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* O que a visita cobre (migration 110): quebra linha, ao contrário do nome. */
+.rt-plano-cobre { display: block; white-space: normal; font-size: 12px; color: var(--muted); line-height: 1.35; margin-top: 1px; }
 .rt-plano-tag { flex: none; font-size: 10.5px; color: var(--muted); }
 .rt-plano-tag.is-link {
   background: none; border: none; padding: 0;

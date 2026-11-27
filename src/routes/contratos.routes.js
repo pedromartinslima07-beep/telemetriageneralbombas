@@ -261,6 +261,37 @@ router.delete("/omie/clientes/:codigo/condominio", authRequired, gestaoOnly, asy
   }
 });
 
+// PUT /contratos/omie/:codigo/plano  { plano_id }  (migration 109)
+// Diz À MÃO qual preventiva este contrato paga. `plano_id: null` = "não é de
+// preventiva". Sem linha, vale a preventiva ativa do prédio quando ele tem uma.
+router.put("/omie/:codigo/plano", authRequired, gestaoOnly, async (req, res) => {
+  const codigo = Number(req.params.codigo);
+  if (!Number.isSafeInteger(codigo) || codigo <= 0) return res.status(400).json({ error: "código do contrato inválido" });
+  if (!req.body || !("plano_id" in req.body)) return res.status(400).json({ error: "plano_id é obrigatório (null = não é de preventiva)" });
+  const planoId = req.body.plano_id == null ? null : Number(req.body.plano_id);
+  if (planoId != null && (!Number.isInteger(planoId) || planoId <= 0)) return res.status(400).json({ error: "plano_id inválido" });
+  try {
+    const r = await omieContratos.ligarPlano(codigo, planoId, req.user?.id);
+    if (r.erro) return res.status(r.status).json({ error: r.erro });
+    return res.json(r);
+  } catch (err) {
+    console.error("[contratos] PUT /omie/:codigo/plano:", err);
+    return res.status(500).json({ error: "Erro ao ligar o contrato à preventiva" });
+  }
+});
+
+// DELETE /contratos/omie/:codigo/plano — volta a valer a preventiva do prédio.
+router.delete("/omie/:codigo/plano", authRequired, gestaoOnly, async (req, res) => {
+  const codigo = Number(req.params.codigo);
+  if (!Number.isSafeInteger(codigo) || codigo <= 0) return res.status(400).json({ error: "código do contrato inválido" });
+  try {
+    return res.json(await omieContratos.desligarPlano(codigo));
+  } catch (err) {
+    console.error("[contratos] DELETE /omie/:codigo/plano:", err);
+    return res.status(500).json({ error: "Erro ao desfazer a escolha" });
+  }
+});
+
 // GET /contratos/:id — detalhe
 router.get("/:id", authRequired, gestaoOnly, async (req, res) => {
   const id = Number(req.params.id);

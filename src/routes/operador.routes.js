@@ -18,7 +18,7 @@ const { getConfigInt } = require("../services/config.service");
 const { registrarCriacao, registrarMudancas } = require("../services/chamado-historico.service");
 const { resolverTecnico } = require("../services/chamado-atribuicao.service");
 const {
-  competenciaValida, competenciaDe, mesDe, estadoDa, origemDoTecnico,
+  competenciaValida, competenciaDe, mesDe, estadoDa, origemDoTecnico, rotulosSistemas,
 } = require("../services/preventivas.service");
 
 const router = express.Router();
@@ -645,7 +645,7 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
     const r = await pool.query(
       `SELECT
          pm.id, pm.titulo, pm.descricao, pm.periodicidade_dias,
-         pm.proxima_em, pm.ultima_em,
+         pm.proxima_em, pm.ultima_em, pm.sistemas,
          c.id     AS condominio_id,
          COALESCE(NULLIF(c.nome_fantasia,''), c.nome) AS condominio_nome,
          c.nome   AS condominio_razao_social,
@@ -874,6 +874,8 @@ router.get("/preventivas", authRequired, adminOnly, async (req, res) => {
 
     const planos = r.rows.map((p) => ({
       ...p,
+      // O que a preventiva cobre, já em texto (migration 110).
+      sistemas_rotulos: rotulosSistemas(p.sistemas),
       estado: estadoDa(p),
       // ⚠️ UM OBJETO, NAO TRES CAMPOS SOLTOS: a tela pergunta "houve
       // devolucao?" uma vez so, e `devolucao && ...` e mais dificil de

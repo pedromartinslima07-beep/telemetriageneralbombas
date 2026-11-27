@@ -291,7 +291,9 @@ function osDaPlaca(p) {
 }
 
 function rodape(p) {
-  const partes = [escapar(p.titulo)];
+  // O que a visita cobre (migration 110) no lugar do título, que é
+  // "Preventiva" em quase todos e não diz nada. Sem escopo cadastrado, o título.
+  const partes = [escapar(p.sistemas_rotulos?.length ? p.sistemas_rotulos.join(", ") : p.titulo)];
   if (p.bairro) partes.push(escapar(p.bairro));
 
   let quem;

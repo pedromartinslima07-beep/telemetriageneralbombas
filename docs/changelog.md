@@ -99,6 +99,8 @@ calibração ADC, `bomba_rms`/`limiar_bomba`.
 | 102 | cobranca_avisos | `orcamentos.nota_emails`; tabelas **`omie_cliente_emails`** (para quem o Omie manda a nota de cada cliente), **`omie_receber_avencer`** (títulos do sistema a vencer) e **`cobranca_avisos`** (a fila e o histórico dos avisos, um por título/etapa/vencimento). **Aplicada em teste e em produção em 23/11/2026** (conferida no `information_schema`). Ver a entrada de 23/11/2026 abaixo |
 | 106 | reservatorio_extravasor | `reservatorios.altura_extravasor_m` (altura do ladrão, liga a detecção de extravasamento), `extravasor_desde` e `extravasor_bomba_desde` (o relógio da regra de tempo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
 | 108 | orcamento_metodo_reservatorio | `orcamentos.metodo_reservatorio` (`manual` \| `robo`, default `manual`): a limpeza de reservatório com robô aspirador, com cláusulas próprias no PDF. ✅ **Aplicada em teste e em produção em 26/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 26/11/2026 abaixo |
+| 109 | plano_contratos_omie | tabela **`plano_contratos_omie`** (qual preventiva o contrato do Omie paga, só a escolha à mão; `plano_id` nulo = "não é de preventiva"). ✅ **Aplicada em teste e em produção em 27/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 27/11/2026 abaixo |
+| 110 | plano_sistemas | `planos_manutencao.sistemas` TEXT[] (o que a visita cobre, chaves da lista fixa). ✅ **Aplicada em teste e em produção em 27/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 27/11/2026 abaixo |
 | 107 | guias_emissores | `guias_tributos.emissor_chave` (quem cobra: `cnpj:` / `arr:` / `bol:`) e a tabela **`guias_emissores`** (fornecedor/categoria/conta do Omie por emissor, para conta que não é tributo). ✅ **Aplicada em teste e em produção em 24/11/2026**, antes do push (conferida no `information_schema`). Ver a entrada de 24/11/2026 abaixo |
 | 090 | nota_fiscal_omie | `orcamento_linhas.natureza` (`servico`/`peca`/NULL); em `orcamentos`: `nota_tipo`, `nota_status`, `nota_numero`, `nota_url`, `nota_valor`, `nota_erro`, `nota_solicitada_em`, `nota_emitida_em`, `nota_emitida_por` (SET NULL), `omie_os_codigo`; `condominios.omie_cliente_codigo`. **Aplicada em teste em 17/11/2026. ⏳ Falta produção — rodar ANTES do push** (o GET da lista de orçamentos lê as colunas novas). Ver a entrada de 17/11/2026 abaixo |
 | 091 | nota_fiscal_danfe | `orcamento_linhas.omie_produto_codigo` (o produto do Omie da peça); `orcamentos.omie_pedido_codigo` e `omie_nf_codigo`; tabelas **`omie_produtos`** (cópia do catálogo + `vezes_faturado`/`ultimo_cfop` dos pedidos faturados) e **`omie_produto_vinculos`** (memória descrição → produto). **Aplicada em teste em 18/11/2026. ⏳ Falta produção — rodar ANTES do push, junto com a 090** (a nota lê `omie_produto_codigo`). Ver a entrada de 18/11/2026 abaixo |
@@ -19006,3 +19008,35 @@ desinfecção; mesmas normas, periodicidade e laudo com ART. No combo, o
 cabeçalho vira "Limpeza de Reservatório de Água Potável (Robô Aspirador)".
 Migration 108 (`orcamentos.metodo_reservatorio`). Ver
 [modulos/ordens-servico.md](modulos/ordens-servico.md).
+
+## 2026-11-27 — O contrato do Omie ligado à preventiva, os avisos do lote e o escopo da visita
+
+Levantamento feito no mesmo dia, só com leitura no Omie e cruzando com a
+planilha "NF PREV NOVEMBRO" do Dropbox. Três achados: o contrato antigo do
+Bradesco JF e o do RPS, que o substituiu, **faturaram os dois em outubro**;
+quase todo item de contrato no Omie diz "CONSERTO", e o que a visita cobre só
+está no texto da O.S. do faturamento; e o sistema não sabia qual contrato paga
+qual preventiva.
+
+- **Contrato → preventiva** (migration 109): por padrão, a preventiva ativa do
+  prédio quando ele tem uma só. Em Contratos, o painel do contrato ganhou o
+  bloco **Preventiva**, com a escolha à mão (para o prédio com dois serviços)
+  e "Não é de preventiva". Visão nova **Sem preventiva**. Rotas `PUT`/`DELETE
+  /contratos/omie/:codigo/plano`.
+- **Avisos no lote do faturamento**: possível **nota em dobro** (mesma
+  preventiva, mesmo valor, outro contrato cobrado no mês), contrato que cobra
+  prédio **sem preventiva ativa**, prédio com **duas preventivas sem escolha**,
+  contrato **sem prédio**. Aviso não tira ninguém do lote; aparece na linha,
+  no topo e na confirmação. Seção nova **Preventivas sem contrato no Omie**.
+- **"Baixar a lista do mês"** no lote: o CSV que substitui a planilha
+  "NF PREV" feita à mão (prédio, cliente, contrato, valor, o que houve no mês,
+  preventiva, avisos).
+- **O que a visita cobre** (migration 110): lista fixa de 12 sistemas, com as
+  caixas no formulário da preventiva, a linha "Cobre" no painel, o texto na
+  tela de Preventivas do operador e no roteiro do app (o app só com APK novo).
+  `GET /planos-manutencao/sistemas`. O primeiro preenchimento sai do texto das
+  notas do Omie por `scripts/escopo-preventivas-omie.js`.
+
+Testes novos: `lote-avisos-preventiva.test.js` 28/28, `plano-sistemas.test.js`
+15/15; os de preventivas e do Omie seguem passando. Ver
+[modulos/omie-integracao.md](modulos/omie-integracao.md).

@@ -162,6 +162,11 @@ async function montar(competencia) {
       } : null,
       enviado_em: x.enviado_em || null,
       por: x.por_nome || null,
+      plano_id: c.plano_id,
+      plano_titulo: c.plano_titulo,
+      plano_ligacao: c.plano_ligacao,
+      plano_ativo: c.plano_ativo,
+      vigente: c.ativo && !(c.vigencia_fim && _data(c.vigencia_fim) < inicioMes),
     };
 
     let estado, motivo = null, tipo = null;
@@ -179,6 +184,9 @@ async function montar(competencia) {
 
     itens.push({ ...base, estado, motivo, motivo_tipo: tipo });
   }
+
+  _avisar(itens);
+  const semContrato = await _preventivasSemContrato(itens);
 
   const ORDEM = { incerto: 0, erro: 1, enviando: 2, entra: 3, tirado: 4, fora: 5, faturado: 6 };
   itens.sort((a, b) => ORDEM[a.estado] - ORDEM[b.estado] || String(a.condominio_nome || a.cliente || a.numero).localeCompare(String(b.condominio_nome || b.cliente || b.numero), "pt-BR"));
@@ -203,11 +211,84 @@ async function montar(competencia) {
       esperados: itens.filter(i => i.motivo_tipo !== "situacao").length,
       incertos: de(["incerto"]).length, enviando: de(["enviando"]).length,
       sem_boleto: itens.filter(i => i.titulo?.pode_gerar_boleto).length,
+      com_aviso: vaoNoLote.filter(i => i.avisos.length).length,
+      preventivas_sem_contrato: semContrato.length,
     },
     contas: CONTAS,
     itens,
+    preventivas_sem_contrato: semContrato,
     sincronizacao,
   };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   OS AVISOS DO LOTE (27/11/2026, migration 109)
+   ──────────────────────────────────────────────────────────────────────────
+   ⚠️ AVISO, NÃO TRAVA. O sistema nunca decide quem é faturado (decisão do
+   Pedro, 20/11): o contrato com aviso continua no lote e marcado, e o Pedro
+   tira se quiser. A tela mostra o aviso na linha e conta na confirmação.
+
+   - `dobro`: outro contrato paga a MESMA preventiva (ou, sem preventiva
+     resolvida, o mesmo prédio) com o MESMO valor, e também vai ser cobrado
+     neste mês ou já foi. É o caso Bradesco JF × RPS de outubro/2026: o RPS
+     substituiu o contrato antigo, ninguém encerrou o antigo, e as duas notas
+     saíram. O valor igual é o que separa isso dos setores (Bem Moema
+     residencial/comercial/studios pagam o mesmo plano com valores
+     diferentes). Escolher à mão planos diferentes para os dois contratos
+     (prédio com dois serviços) desliga o aviso.
+   - `sem_preventiva`: cobra um prédio que não tem preventiva ativa, ou cuja
+     preventiva escolhida foi desativada — cobra e ninguém vai.
+   - `escolher`: o prédio tem mais de uma preventiva ativa e ninguém disse
+     qual este contrato paga.
+   - `sem_predio`: não dá para conferir nada.
+   "Não é de preventiva" (escolhido à mão) não gera aviso de preventiva.
+   ══════════════════════════════════════════════════════════════════════════ */
+const _vaiCobrar = i => ["entra", "erro", "tirado"].includes(i.estado);
+const _cobrou = i => i.estado === "faturado" || i.motivo_tipo === "nota";
+
+function _avisar(itens) {
+  const chave = i => (i.plano_id ? `p${i.plano_id}` : i.condominio_id && i.plano_ligacao !== "nenhum" ? `c${i.condominio_id}` : null);
+  const nomeDe = i => i.cliente || i.condominio_nome || "outro cliente";
+  for (const i of itens) {
+    i.avisos = [];
+    if (!_vaiCobrar(i) && !_cobrou(i)) continue;
+    const k = chave(i);
+    if (k) {
+      const outros = itens.filter(o => o !== i && chave(o) === k && (_vaiCobrar(o) || _cobrou(o))
+        && Math.abs((o.valor || 0) - (i.valor || 0)) < 0.005);
+      if (outros.length) {
+        const o = outros[0];
+        const ja = _cobrou(o) ? ", que já tem nota deste mês" : "";
+        i.avisos.push({ tipo: "dobro", texto: `Mesmo valor e mesma preventiva do contrato ${o.numero} (${nomeDe(o)})${ja}. Se um substituiu o outro, encerre o antigo no Omie, ou sai nota em dobro.` });
+      }
+    }
+    if (!_vaiCobrar(i)) continue;
+    if (i.plano_ligacao === "sem-plano" || (i.plano_ligacao === "manual" && i.plano_id && i.plano_ativo === false)) {
+      i.avisos.push({ tipo: "sem_preventiva", texto: "O prédio não tem preventiva ativa no sistema: o contrato cobra e ninguém está escalado para ir." });
+    } else if (i.plano_ligacao === "escolher") {
+      i.avisos.push({ tipo: "escolher", texto: "O prédio tem mais de uma preventiva ativa. Diga em Contratos qual este contrato paga." });
+    } else if (i.plano_ligacao === "sem-predio") {
+      i.avisos.push({ tipo: "sem_predio", texto: "Contrato sem prédio no sistema: não dá para conferir a preventiva. Ligue o contrato a um prédio em Contratos." });
+    }
+  }
+}
+
+// O outro lado: preventiva ativa que nenhum contrato em vigor no mês paga —
+// o técnico vai e ninguém cobra. Contrato "não é de preventiva" não cobre.
+async function _preventivasSemContrato(itens) {
+  const cobertos = new Set(itens.filter(i => i.vigente && i.plano_id).map(i => i.plano_id));
+  // Prédio com contrato em vigor que ainda pede escolha: a preventiva dele
+  // não é "sem contrato" — é "contrato sem escolha", e esse aviso já está no
+  // contrato. Contar dos dois lados seria o mesmo problema duas vezes.
+  const pendentes = new Set(itens.filter(i => i.vigente && i.plano_ligacao === "escolher").map(i => i.condominio_id));
+  const r = await pool.query(
+    `SELECT pm.id, pm.titulo, pm.condominio_id, COALESCE(NULLIF(c.nome_fantasia, ''), c.nome) AS condominio_nome
+       FROM planos_manutencao pm JOIN condominios c ON c.id = pm.condominio_id
+      WHERE pm.ativo = TRUE
+      ORDER BY 4`);
+  return r.rows
+    .filter(p => !cobertos.has(p.id) && !pendentes.has(p.condominio_id))
+    .map(p => ({ plano_id: p.id, titulo: p.titulo, condominio_id: p.condominio_id, condominio_nome: p.condominio_nome }));
 }
 
 // Tirar do lote (ou devolver). Só mexe em quem está para entrar: o que já foi

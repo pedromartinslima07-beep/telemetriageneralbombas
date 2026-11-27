@@ -7394,7 +7394,7 @@ function rtCardPredio(g, ordem) {
            de propósito — ele é iniciável pelo rodapé (o Iniciar adota), e
            apagá-lo diria o contrário. -->
       <li class="rt-plano${sit === "andando" || sit === "de_outro" ? " is-andamento" : ""}">
-        <span class="rt-plano-nome">${escapeHtml(p.titulo || "—")}</span>
+        <span class="rt-plano-nome">${escapeHtml(p.titulo || "—")}${p.sistemas_rotulos && p.sistemas_rotulos.length ? `<small class="rt-plano-cobre">${escapeHtml(p.sistemas_rotulos.join(", "))}</small>` : ""}</span>
         ${tag}
       </li>`;
   }).join("");
