@@ -19050,3 +19050,33 @@ sem registro, cada aviso fora das 24 h que a Meta recusa (ou que nem sai, sem
 conversa só nasce depois do envio aceito. `whatsapp-falhas.test.js` 14/14 (o
 caso novo falha no código antigo). Ver
 [modulos/whatsapp-ia.md](modulos/whatsapp-ia.md).
+
+## 2026-11-27 — Hoje: uma linha por problema, grupos honestos e sem redesenho à toa
+
+Revisão da tela Hoje (`public/admin-carteira.js`, `admin.css`, `admin.html`),
+sem endpoint nem migration novos. Detalhe em
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#a-tela-hoje).
+
+- **Redesenho só quando muda.** O polling de 7 s trocava o HTML inteiro: o
+  menu Novo fechava sozinho e o foco do teclado voltava ao começo da página.
+  Agora compara com o último desenho, espera o menu fechar e devolve o foco.
+  O menu também fecha com Esc.
+- **Água por prédio.** Quatro caixas sem sinal no mesmo prédio viram uma linha
+  ("4 reservatórios sem sinal"), com o chamado [AUTO] daquele prédio dentro
+  dela (a ação passa a "Atribuir técnico" quando ele está sem ninguém). Na
+  atividade, alertas iguais do mesmo prédio também viram uma linha. No banco
+  de teste a fila caiu de 22 para 18 linhas.
+- **Grupos:** Agora · Para resolver · Parado há mais de 30 dias · Nos
+  próximos dias. Antes, um chamado de julho aparecia em "Agora" e um aprovado
+  de agosto em "Hoje". A idade tem um formato só ("3 meses", não "30/07").
+- **Equipe hoje** junta "Em campo agora" e "Agenda de hoje": cada técnico com
+  as visitas dele embaixo (pelo técnico do chamado ou pelo responsável do
+  compromisso), e o que não é de técnico em "Sem técnico na agenda". O "sem
+  GPS" repetido saiu (só aparece "visto há…" quando há posição).
+- "Aconteceu há pouco" mostra só os últimos 7 dias.
+- **Celular:** linha mais baixa (título em até 2 linhas, detalhe numa só,
+  botão ao lado da idade), 8 itens antes do "Mostrar mais"; a página do Hoje
+  caiu de 3.419 para 2.277 px. A barra de baixo troca Alertas e Chamados
+  por **Monitoramento** e **Atendimento**, as telas do menu novo.
+- A busca dos dados não se repete mais em carteira sem orçamento nenhum.
+- `admin.css?v=403`, `admin-carteira.js?v=15`.

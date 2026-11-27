@@ -164,8 +164,11 @@ Ver [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 **Redesenho estrutural, etapa 1 (19/11/2026, mesma branch):** o menu lateral
 é um elemento novo (`admin-nav.js`, 11 itens + menu do usuário, recolhe pelo
 ícone do topo, gaveta no celular), a busca é o Ctrl+K (`admin-busca.js`) e o
-Início virou **Hoje** (fila única do que pede ação, em campo agora, agenda de
-hoje). O aside antigo continua escondido e é a fonte de perfil e badges.
+Início virou **Hoje** (fila única do que pede ação, equipe do dia, o que
+aconteceu nos últimos 7 dias). Desde 27/11 a fila tem uma linha por problema
+(a água por prédio, com o chamado [AUTO] dentro), os grupos são Agora · Para
+resolver · Parado há mais de 30 dias · Nos próximos dias, e a tela só é
+redesenhada quando o conteúdo muda. O aside antigo continua escondido e é a fonte de perfil e badges.
 **Limpeza (20/11):** os layouts antigos que as seis telas do molde guardavam
 escondidos no HTML saíram (Condomínios, O.S., Orçamentos, Preventivas,
 Equipamentos, Colaboradores), com as funções e o CSS que só serviam a eles; as

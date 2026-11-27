@@ -13,6 +13,12 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
+> 🟡 **Hoje do admin revisado (27/11/2026) — no código, SEM commit.**
+> `admin-carteira.js`, `admin.css`, `admin.html` (barra de baixo do celular).
+> Testado no banco de teste; falta o Pedro olhar e o commit. Sem migration,
+> então o push não depende de nada em produção. Ver
+> [redesenho-admin.md](../docs/modulos/redesenho-admin.md#a-tela-hoje).
+
 > 🎯 **Foco: Meta Tech Provider (desde 24/11/2026).** Base na Meta pronta
 > (número +55 na WABA General Bombas, usuário do sistema, webhook assinado).
 > Próximo: configuração do Login do Facebook para Empresas e vídeo 2; em

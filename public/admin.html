@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/static/leaflet.css">
   <!-- ⚠️ Ao mexer em admin.js ou admin.css, bumpe o ?v=N aqui E no <script>
        lá embaixo. Ver CLAUDE.md raiz. -->
-  <link rel="stylesheet" href="/static/admin.css?v=402">
+  <link rel="stylesheet" href="/static/admin.css?v=403">
 </head>
 <body>
   <div id="appLoader">
@@ -2121,12 +2121,14 @@
     </svg>
     <span>Início</span>
   </button>
-  <button class="mob-nav-item" data-mob-section="alertas">
+  <!-- 27/11/2026: Alertas deixou de ser tela no redesenho (virou Monitoramento)
+       e Chamados virou Atendimento. O badge continua o mesmo: o navBadgeAlertas
+       é o número que acende o Monitoramento no menu lateral. -->
+  <button class="mob-nav-item" data-mob-section="monitoramento">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
     </svg>
-    <span>Alertas</span>
+    <span>Monitoramento</span>
     <span class="mob-nav-badge" id="mobBadgeAlertas"></span>
   </button>
   <button class="mob-nav-item" data-mob-section="cadastros">
@@ -2142,7 +2144,7 @@
       <polyline points="14 2 14 8 20 8"/>
       <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
     </svg>
-    <span>Chamados</span>
+    <span>Atendimento</span>
     <span class="mob-nav-badge" id="mobBadgeChamados"></span>
   </button>
   <button class="mob-nav-item" id="mobBtnSair">
@@ -2414,7 +2416,7 @@
 <script src="/static/admin-busca.js?v=5" defer></script>
 <script src="/static/admin-monitoramento.js?v=7" defer></script>
 <script src="/static/admin-atendimento.js?v=5" defer></script>
-<script src="/static/admin-carteira.js?v=14" defer></script>
+<script src="/static/admin-carteira.js?v=15" defer></script>
 <script src="/static/admin-agenda.js?v=8" defer></script>
 <script src="/static/admin-despacho.js?v=3" defer></script>
 <script src="/static/admin-financeiro.js?v=6" defer></script>

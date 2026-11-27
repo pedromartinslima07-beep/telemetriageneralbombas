@@ -41,6 +41,13 @@ aliases:
 
 ## Em andamento / pendente
 
+- ✅ **Hoje revisado** (27/11/2026, código, sem commit). Uma linha por problema
+  (água por prédio com o chamado [AUTO] dentro), grupos pelo tempo de verdade
+  (Parado há mais de 30 dias), Equipe hoje no lugar de Em campo + Agenda, sem
+  redesenho a cada 7 s, barra de baixo do celular com Monitoramento e
+  Atendimento. Ver
+  [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md#a-tela-hoje).
+
 - ✅ **O escritório e o painel do turno** (20/11/2026, código). Hoje na
   agenda no trilho do turno, "Pedido do escritório" (selo) e "Precisa do
   escritório" (volta ao Hoje do admin). Migration 098: ✅ produção (20/11/2026). Ver

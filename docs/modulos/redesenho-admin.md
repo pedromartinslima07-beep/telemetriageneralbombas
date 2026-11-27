@@ -1365,6 +1365,59 @@ novo escuta na captura da `window` e para a propagação.
 - Tempo curto com plural certo (`_icRel`: "1 dia", não "1 dias"; passou de 30
   dias, a data).
 
+> **Revisão de 27/11/2026** (análise da tela + "resolve tudo" do Pedro). O que
+> está acima sobre os grupos, "Em campo agora", "Agenda de hoje" e o formato da
+> idade vale para antes desta data.
+
+- **Uma linha por problema.** A água entra **por prédio** (`_icAguaDoPredio`):
+  4 caixas sem sinal são um gateway caído, não 4 problemas. O título resume
+  ("4 reservatórios sem sinal", "Cisterna em 12% · 2 reservatórios sem
+  sinal"), o detalhe lista os nomes e diz desde quando calou. O chamado
+  `[AUTO]` que a telemetria abriu para aquele prédio **entra na mesma linha**
+  ("chamado #18 aberto · sem técnico") e sai da lista de chamados; sem técnico
+  nele, a ação vira "Atribuir técnico". Em "Aconteceu há pouco", alertas do
+  mesmo prédio e do mesmo tipo viram uma linha ("em 4 reservatórios").
+- **Grupos pelo tempo de verdade:** **Agora** (água, chamado urgente, o turno
+  pediu, nota com erro) · **Para resolver** (dar baixa, emitir nota, peças sem
+  cobrança, O.S. a enviar, contrato vencido) · **Parado há mais de 30 dias**
+  (qualquer um desses com mais de 30 dias, rótulo em âmbar) · **Nos próximos
+  dias** (contrato a vencer). A água nunca é "parada": é estado de agora. A
+  idade tem um formato só: "3 dias", "4 meses", "1 ano".
+- **Equipe hoje** (`_icEquipeHtml`) substitui "Em campo agora" + "Agenda de
+  hoje", o "quadro do dia por técnico" da arquitetura de 19/11. Cada técnico
+  tem o estado de agora e, embaixo, as visitas do dia: o compromisso é dele
+  pelo técnico do chamado (`chamado_tecnico_id`) ou por ele ser o responsável
+  (`responsavel_id` = `tecnicos.usuario_id`). O resto da agenda (faturamento,
+  resumo das preventivas, compromisso sem técnico) fica em "Sem técnico na
+  agenda". "sem GPS" não aparece mais; só "visto há…" quando há posição.
+- **"Aconteceu há pouco"** mostra só os últimos 7 dias.
+- ⚠️ **Redesenho só quando muda.** `renderInicio` compara o HTML com o do
+  último desenho (`_icUltimoHtml`) e não troca nada se for igual; com o menu
+  Novo aberto, espera ele fechar (`_icRedesenhoPendente`) e devolve o foco ao
+  elemento que o tinha. Antes o polling (7 s) fechava o menu e jogava o foco
+  do teclado para o começo da página. O menu fecha no **clique** fora (não no
+  mousedown: o redesenho pendente trocaria o botão antes do clique chegar) e
+  com Esc.
+- **Preventiva não entra na fila**, e já não entrava: `_chamadosAlertaAbertos`
+  corta pelo `plano_manutencao_id` (`_alContaComoAlerta`, admin.js). Chamado
+  "Preventiva mensal" que aparece na fila é chamado **sem preventiva ligada**
+  (no banco de teste são três, sem prédio, sobra de teste).
+- **Celular:** ícone de 28 px, título em até 2 linhas, detalhe numa linha só,
+  botão e idade na mesma linha, 8 itens antes do "Mostrar mais". A barra de
+  baixo troca **Alertas** e **Chamados** por **Monitoramento** e
+  **Atendimento** (`admin.html`); o badge do Monitoramento continua sendo o
+  `navBadgeAlertas`.
+
+**Testado (banco de teste, 27/11/2026):** 1440×900 e 375×812, sem erro novo no
+console. Fila 22 → 18 linhas (o Aurora de 5 para 1). Menu Novo continua aberto
+depois de 9 s, fecha com Esc; o foco num chip sobrevive a um ciclo do polling;
+filtro O.S. → 3 linhas. Equipe hoje com agenda **simulada** (o teste não tem
+compromisso hoje): as duas visitas do Carlos embaixo dele, uma pelo chamado e
+outra pelo responsável, e o faturamento em "Sem técnico na agenda". Celular:
+página de 3.419 para 2.277 px, sem rolagem lateral, os cinco rótulos da barra
+cabem, Monitoramento e Atendimento navegam e acendem. **Não testado:** a
+agenda de um dia real com compromissos, e contrato a vencer (o teste não tem).
+
 ### Testado (banco de teste, 19/11/2026)
 
 Admin em 1440×900 e 375×812, sem erro no console: menu aberto e recolhido,
