@@ -238,7 +238,10 @@ Telemetria + Mapa + Alertas de telemetria, lista ou mapa e o reservatório ao
 lado; as telas antigas seguem alcançáveis por link.
 **Etapa 3:** Atendimento é uma caixa de entrada (`admin-atendimento.js`): fila
 de chamados e conversas, e o painel do chamado / chat do WhatsApp de sempre,
-movidos para a tela nova.
+movidos para a tela nova. Desde 27/11 o chamado no palco tem desenho próprio
+(`gbAtChDetalhe`, chamado por `renderChDetalhe` quando o bloco está no palco),
+com as mesmas ações e ids; a fila ficou mais calma (chips no "Mais", só o P1
+vermelho) e o histórico mostra nomes, não `#id`.
 **Etapa 6 (20/11):** o molde de lista da maquete existe no código
 (`admin-lista.js`, `GBLista.criar`) e a lista de **O.S.** já está nele
 (`admin-os-lista.js`): chips, busca, Exportar, lote, ordem, paginação e a O.S.

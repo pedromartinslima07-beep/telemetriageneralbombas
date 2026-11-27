@@ -19,6 +19,14 @@ aliases:
 > agenda real nem contrato a vencer (o banco de teste não tem). Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md#a-tela-hoje).
 
+> 🟡 **Atendimento redesenhado (27/11/2026) — no código, sem commit.**
+> O chamado no palco ganhou desenho próprio, na língua da fila; fila mais
+> calma; histórico com nomes. `admin-atendimento.js`, `admin.js`, `admin.css`,
+> `admin.html`. Sem migration. Testado no banco de teste, gravando (resolver,
+> reabrir, cancelar, trocar técnico, turno) e com WhatsApp simulado; falta o
+> perfil operador. Ver
+> [redesenho-admin.md](../docs/modulos/redesenho-admin.md).
+
 > 🎯 **Foco: Meta Tech Provider (desde 24/11/2026).** Base na Meta pronta
 > (número +55 na WABA General Bombas, usuário do sistema, webhook assinado).
 > Próximo: configuração do Login do Facebook para Empresas e vídeo 2; em

@@ -308,7 +308,7 @@ body *:not(
   .tec-pin, .tg-pin,
   /* casca nova (19/11/2026): o menu, a busca e o Hoje têm raio próprio */
   .gb-sb, .gb-sb *, .gb-menu, .gb-menu *, .gb-cmdk-veu *, .gb-topo-busca, .gb-topo-busca *, .hj *, .mn *,
-  .at-cab *, .at-caixa, .at-fila *, .at-abas *, .at-centro-vazio *, .at-voltar-bar *,
+  .at-cab *, .at-caixa, .at-fila *, .at-abas *, .at-centro-vazio *, .at-voltar-bar *, .atc, .atc *,
   .dq *, .dq-pop, .dq-pop *, .dq-toast, .dq-toast *, .fn-cab *, .fn-faixa, .fn-faixa *,
   .rd, .rd *, .ls *, .ls-placa, .av-pc *, .av-pc-drop, .av-pc-drop *, .av-pc-nota, .av-pc-os, .av-pc-os *
 ) {
@@ -11978,13 +11978,21 @@ body.gb-cmdk-aberta { overflow: hidden; }
 .at-chip:hover { border-color: rgba(6,16,51,.3); }
 .at-chip.is-on { background: var(--mar-700); border-color: var(--mar-700); color: #fff; }
 .at-chip.is-on span { color: #c4cee9; }
+.at-chip-mais svg.lucide { width: 14px; height: 14px; margin-right: -3px; }
+.at-fila-topo { position: relative; }
+.at-mais { position: absolute; z-index: 20; top: calc(100% - 6px); right: 12px; min-width: 190px; padding: 6px; background: #fff; border: 1px solid rgba(6,16,51,.12); border-radius: 9px; box-shadow: 0 8px 24px rgba(6,16,51,.12); display: flex; flex-direction: column; }
+.at-mais[hidden] { display: none; }
+.at-mais button { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; font: inherit; font-size: 13px; color: var(--tinta); text-align: left; cursor: pointer; }
+.at-mais button:hover, .at-mais button.is-on { background: #f2f4f8; }
+.at-mais button span { font: 600 11px/1.6 "Martian Mono", ui-monospace, monospace; color: #6b7795; }
 .at-pt { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .at-pt.is-ri { background: var(--at-ri); } .at-pt.is-at { background: var(--at-at); }
 
 .at-itens { flex: 1; min-height: 0; overflow-y: auto; }
-.at-item { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 11px; padding: 12px 14px; border-bottom: 1px solid rgba(6,16,51,.06); cursor: pointer; background: #fff; transition: background .1s; }
+.at-item { position: relative; display: block; padding: 11px 14px 11px 16px; border-bottom: 1px solid rgba(6,16,51,.06); cursor: pointer; background: #fff; transition: background .1s; }
 .at-item:hover { background: #f5f7fb; }
-.at-item.is-sel { background: #e6edf8; box-shadow: inset 0 0 0 1px rgba(13,39,117,.12); }
+.at-item.is-sel { background: #e6edf8; }
+.at-item.is-sel::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--mar-700); }
 .at-item:focus-visible { outline: 2px solid var(--mar-600); outline-offset: -2px; }
 .at-canal { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #eef1f6; color: #3a4669; }
 .at-canal.wa { background: #dcf5e4; color: #0d6b34; }
@@ -11992,19 +12000,27 @@ body.gb-cmdk-aberta { overflow: hidden; }
 .at-canal.prev { background: #e2f3e9; color: #105c31; }
 .at-item-txt { min-width: 0; }
 .at-l1 { display: flex; align-items: baseline; gap: 8px; }
-.at-predio { flex: 1; min-width: 0; font-weight: 600; font-size: 13.5px; color: var(--tinta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.at-l1 time { font: 500 11px/1 "Martian Mono", ui-monospace, monospace; color: #7783a3; white-space: nowrap; }
-.at-titulo { display: block; margin: 2px 0 6px; color: var(--tinta-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.at-predio { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; color: var(--tinta); overflow: hidden; white-space: nowrap; }
+.at-predio > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+/* O canal, só quando informa (27/11/2026): pequeno, ao lado do prédio. */
+.at-canal-ic { display: inline-flex; color: #6b7795; }
+.at .at-canal-ic svg.lucide { width: 13px; height: 13px; }
+.at-canal-ic.wa { color: #0d8a43; } .at-canal-ic.sensor { color: #8a1010; } .at-canal-ic.prev { color: #105c31; }
+.at-l1 time { font-size: 12px; color: #6b7795; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.at-titulo { display: block; margin: 3px 0 7px; color: var(--tinta-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .at-item.is-nao-lido .at-titulo { color: var(--tinta); font-weight: 600; }
 .at-l3 { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.at-prio { font: 700 10px/1 "Martian Mono", ui-monospace, monospace; padding: 4px 5px; border-radius: 4px; background: #eef1f6; color: #3a4669; }
-.at-prio.is-p1 { background: var(--at-ri); color: #fff; }
-.at-prio.is-p2 { background: #fbf0d3; color: #7a5410; }
-.at-estado { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; }
-.at-estado svg.lucide { width: 13px; height: 13px; }
-.at-estado.is-ri { color: #8a1010; font-weight: 600; }
-.at-estado.is-at { color: #7a5410; font-weight: 600; }
-.at-estado.is-info { color: #0d2775; font-weight: 600; }
+/* Só o P1 é preenchido (27/11/2026). P2–P4 são contorno: a prioridade comum
+   não grita, e o crítico volta a se destacar numa fila em que tudo atrasou. */
+.at-prio { font: 600 10px/1 "Martian Mono", ui-monospace, monospace; padding: 3px 5px; border-radius: 4px; background: transparent; color: #414f74; box-shadow: inset 0 0 0 1px rgba(6,16,51,.16); white-space: nowrap; }
+.at-prio.is-p1 { background: var(--at-ri); color: #fff; box-shadow: none; }
+.at-estado { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #6b7795; white-space: nowrap; }
+.at-estado svg.lucide { width: 12px; height: 12px; }
+.at-estado.is-ri { color: #8a1010; }
+.at-estado.is-at { color: #7a5410; }
+.at-estado.is-info { color: #0d2775; }
+.at-estado.is-ok { color: #105c31; }
+.at-tec { font-size: 12px; color: var(--tinta-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .at-av { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #e6edf8; color: #0d2775; font-size: 9.5px; font-weight: 700; flex: none; }
 .at-semtec { font-size: 12px; color: #7a5410; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .at-tag-wa { font-size: 11px; font-weight: 600; color: #0d6b34; background: #dcf5e4; padding: 2px 6px; border-radius: 4px; }
@@ -12038,6 +12054,127 @@ body.gb-cmdk-aberta { overflow: hidden; }
 }
 .main .at-palco > .ch-detail-col::before { display: none; }
 .main .at-palco > .ch-detail-col .ch-detail { padding: 20px 24px 32px; max-width: 920px; }
+/* ── O CHAMADO NO PALCO (27/11/2026) ──────────────────────────────────────
+   Desenhado por gbAtChDetalhe (admin-atendimento.js), no lugar do painel da
+   tela Chamados. Maquete aprovada: /dev/_atendimento-preview.html. As peças
+   que vêm do admin.js (histórico, avaliação, marcas do turno, o seletor do
+   "Trocar") são reaproveitadas e ganham aqui o desenho desta tela. */
+.main .at-palco > .ch-detail-col:has(> .atc) { height: 100%; }
+.atc { --ri-t: #8a1010; --at-t: #7a5410; --ok-t: #105c31; --in-t: #0d2775; --mu: #6b7795; --fio: rgba(6,16,51,.1);
+  display: grid; grid-template-columns: minmax(0, 1fr) 280px; min-height: 100%; color: var(--tinta); }
+.atc svg.lucide { width: 16px; height: 16px; stroke-width: 1.9; flex: none; }
+.atc-corpo { padding: 20px 24px 40px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.atc-lado { padding: 20px 20px 40px; background: #f8f9fc; border-left: 1px solid var(--fio); display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.atc-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.atc-id { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 12.5px; color: var(--mu); }
+.atc-id code { font: 500 11.5px/1 "Martian Mono", ui-monospace, monospace; color: var(--tinta-2); }
+.atc-id span { display: inline-flex; align-items: center; gap: 4px; }
+.atc .atc-id svg.lucide { width: 13px; height: 13px; }
+.atc-titulo { margin: 6px 0; font-size: 22px; line-height: 1.25; font-weight: 700; letter-spacing: -.015em; color: var(--tinta); }
+.atc-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; color: var(--tinta-2); }
+.atc-acoes { display: flex; gap: 8px; margin-top: 14px; }
+.atc-link { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--in-t); cursor: pointer; }
+.atc-link:hover { text-decoration: underline; }
+.atc-sub .atc-link { font-size: 13.5px; }
+.at-bt.is-ico { width: 34px; height: 34px; padding: 0; justify-content: center; }
+.atc-menu-wrap { position: relative; }
+.atc-menu { position: absolute; top: 40px; right: 0; z-index: 20; min-width: 230px; padding: 6px; background: #fff; border: 1px solid var(--fio); border-radius: 9px; box-shadow: 0 8px 24px rgba(6,16,51,.12); display: flex; flex-direction: column; }
+.atc-menu[hidden] { display: none; }
+.atc-menu button { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; font: inherit; font-size: 13px; color: var(--tinta); text-align: left; cursor: pointer; }
+.atc-menu button:hover { background: #f2f4f8; }
+.atc-menu hr { border: 0; border-top: 1px solid rgba(6,16,51,.07); margin: 4px 0; }
+.atc-menu .is-perigo { color: var(--ri-t); }
+
+/* O prazo num lugar só, e só quando há o que dizer. */
+.atc-faixa { display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border-radius: 9px; background: #f2f4f8; color: var(--tinta); font-size: 13.5px; line-height: 1.45; }
+.atc-faixa svg.lucide { margin-top: 1px; }
+.atc-faixa b { font-weight: 600; }
+.atc-faixa span { color: var(--tinta-2); }
+.atc-faixa.is-ri { background: #fdf0ee; color: var(--ri-t); }
+.atc-faixa.is-at { background: #fdf6e6; color: var(--at-t); }
+.atc-faixa.is-ok { background: #eaf6ef; color: var(--ok-t); }
+
+/* A linha do tempo numa linha. */
+.atc-tempo { display: grid; grid-template-columns: repeat(4, 1fr); list-style: none; margin: 0; padding: 0; }
+.atc-tempo li { position: relative; padding: 16px 8px 0 0; font-size: 12.5px; color: var(--mu); min-width: 0; }
+.atc-tempo li::before { content: ""; position: absolute; top: 4px; left: 0; right: 0; height: 2px; background: #e1e5ee; }
+.atc-tempo li:last-child::before { display: none; }
+.atc-tempo li::after { content: ""; position: absolute; top: 0; left: 0; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2px #c5ccdb; }
+.atc-tempo li.is-feito::before { background: #1f9d57; }
+.atc-tempo li.is-feito::after { background: #1f9d57; box-shadow: none; }
+.atc-tempo li.is-atual::after { box-shadow: inset 0 0 0 2px #d99411; }
+.atc-tempo b { display: block; font-size: 13px; font-weight: 600; color: var(--tinta); }
+.atc-tempo li:not(.is-feito):not(.is-atual) b { color: var(--mu); font-weight: 500; }
+.atc-tempo li.is-atual span { color: var(--at-t); }
+
+/* Seções: título em frase, sem caixa alta e sem fio em cima de cada uma. */
+.atc-sec h3, .atc .ch-det-sec-title { margin: 0 0 8px; font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--mu); }
+.atc-sec p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--tinta); white-space: pre-line; }
+.atc .ch-det-section { border-top: 0; padding-top: 0; margin-top: 0; }
+.atc-wa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px; border-radius: 9px; background: #eef7f0; font-size: 13.5px; color: var(--tinta-2); }
+.atc-wa svg.lucide { color: #0d8a43; }
+
+/* Histórico (desenhado pelo admin.js): ponto, frase, quem e quando. */
+.atc .ch-hist-list { display: flex; flex-direction: column; gap: 0; border: 0; padding: 0; max-height: none; background: none; }
+.atc .ch-hist-list::before { display: none; }
+.atc .ch-hist-item { display: grid; grid-template-columns: 14px 1fr; gap: 10px; padding: 7px 0; border: 0; background: none; }
+.atc .ch-hist-dot { position: static; width: 7px; height: 7px; margin: 6px 0 0 3px; border: 0; border-radius: 50%; background: #c5ccdb; }
+.atc .ch-hist-dot-criado { background: var(--amarelo); }
+.atc .ch-hist-titulo { font-size: 13.5px; font-weight: 400; color: var(--tinta); }
+.atc .ch-hist-titulo b { font-weight: 600; }
+.atc .ch-hist-meta { font-size: 12px; color: var(--mu); }
+.atc .ch-hist-autor { color: var(--tinta-2); font-weight: 600; }
+.atc .ch-hist-sistema { color: var(--mu); }
+.atc .ch-hist-loading { font-size: 13px; color: var(--mu); }
+.atc .ch-st, .atc .ch-prio, .atc .ch-cat-badge { font-size: 11.5px; }
+
+/* Avaliação e marcas do turno (desenhadas pelo admin.js). */
+.atc .ch-aval-nota { color: var(--tinta); }
+.atc .ch-aval-coment { color: var(--tinta-2); }
+.atc .ch-esc-linha { margin-top: 0; border-color: #e9cf8f; background: #fdf6e6; border-radius: 9px; }
+.atc .ch-esc-linha.is-pede { border-color: #e9cf8f; }
+.atc .ch-esc-txt { color: var(--tinta); }
+.atc .ch-esc-txt small, .atc .ch-esc-nota { color: var(--mu); }
+.atc-turno-form { padding: 12px 14px; border: 1px solid rgba(6,16,51,.14); border-radius: 9px; background: #fff; }
+.atc-turno-form[hidden] { display: none; }
+.atc-turno-form .ch-esc-campo > b { font-size: 13.5px; }
+.atc .ch-esc-campo textarea { border: 1px solid rgba(6,16,51,.2); border-radius: 7px; background: #fff; color: var(--tinta); padding: 8px 10px; font: inherit; font-size: 13.5px; }
+
+/* Coluna lateral: definição em lista, "Trocar" como link. */
+.atc-dl { display: flex; flex-direction: column; gap: 14px; margin: 0; }
+.atc-dl > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.atc-dl dt { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--mu); }
+.atc-dl dt .atc-link { font-size: 12px; }
+.atc-dl dd { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--tinta); min-width: 0; overflow-wrap: anywhere; }
+.atc-ri { color: var(--ri-t); }
+.atc-av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #e6edf8; color: var(--in-t); font-size: 10px; font-weight: 700; flex: none; }
+.atc-ninguem { color: var(--at-t); font-weight: 600; }
+/* O "Trocar" do admin.js troca a linha por rótulo + seletor + Ok/✕. */
+.atc-dl .ch-met-lbl { font-size: 12px; color: var(--mu); }
+.atc-dl > div > div { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.atc-dl select { flex: 1 1 140px; min-width: 0; height: 32px; border: 1px solid rgba(6,16,51,.2); border-radius: 7px; background: #fff; color: var(--tinta); font: inherit; font-size: 13px; }
+.atc-res { display: flex; flex-direction: column; gap: 10px; }
+.atc-res > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; font-size: 12.5px; color: var(--tinta-2); }
+.atc-res > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atc-res b { font-variant-numeric: tabular-nums; color: var(--tinta); font-weight: 600; }
+.atc-res > div > i { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: #e4e8f0; overflow: hidden; display: block; }
+.atc-res > div > i > i { display: block; height: 100%; border-radius: 3px; background: #a9b2c9; }
+.atc-res > div > i.is-ok > i { background: #1f9d57; }
+.atc-res > div > i.is-at > i { background: #d99411; }
+.atc-res > div > i.is-ri > i { background: #d23a2c; }
+.atc-res small { grid-column: 1 / -1; margin-top: -2px; font-size: 11.5px; color: var(--mu); }
+.atc-lado .atc-link { margin-top: 12px; }
+
+@media (max-width: 1240px) {
+  .atc { grid-template-columns: 1fr; }
+  .atc-lado { border-left: 0; border-top: 1px solid var(--fio); }
+}
+@media (max-width: 900px) {
+  .atc-corpo, .atc-lado { padding: 16px; }
+  .atc-tempo { grid-template-columns: repeat(2, 1fr); row-gap: 12px; }
+  .atc-tempo li:nth-child(2)::before { display: none; }
+}
+
 /* O chat do WhatsApp, hospedado: conversa e informações lado a lado. */
 .at-wa { display: grid; grid-template-columns: minmax(0, 1fr) 300px; height: 100%; min-height: 0; }
 .at-wa > .wa-chat-col { display: flex; flex-direction: column; min-height: 0; border: 0; border-radius: 0; }

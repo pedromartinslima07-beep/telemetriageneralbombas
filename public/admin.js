@@ -4448,6 +4448,11 @@ function _chRenderStars(nota, size = "md") {
 
 // Histórico de mudanças (Fase backlog #3 — auditoria)
 // Cache por chamadoId: { items: [], loaded: bool, loading: bool }
+// ⚠️ TODA AÇÃO QUE GRAVA NO CHAMADO APAGA A ENTRADA DELE (27/11/2026). Só as
+// marcas do turno apagavam; resolver, reabrir, cancelar e trocar técnico ou
+// prédio gravavam no historico_chamados e a tela seguia mostrando a cópia
+// antiga até o F5. Ação nova que grava: `_chHistCache.delete(id)` antes do
+// carregarTudo.
 const _chHistCache = new Map();
 
 function _chFmtCampo(campo) {
@@ -4470,7 +4475,14 @@ function _chFmtValor(campo, valor) {
   if (campo === "status")     return `<span class="ch-st ch-st-${valor}">${_chStNome[valor] || valor}</span>`;
   if (campo === "prioridade") return `<span class="ch-prio ch-prio-${valor}">${_chPrioNome[valor] || valor}</span>`;
   if (campo === "categoria")  return `<span class="ch-cat-badge">${_chCatNome[valor] || valor}</span>`;
-  if (campo === "responsavel_id" || campo === "tecnico_id" || campo === "condominio_id") return `#${_waEscaparHtml(valor)}`;
+  // ⚠️ NOME, NÃO NÚMERO (27/11/2026). O histórico grava o id e a linha saía
+  // "Técnico: #1 → #2", que ninguém lê. O nome vem das listas que o painel já
+  // carrega; o "#N" fica só para quem não está mais nelas (técnico apagado).
+  if (campo === "responsavel_id" || campo === "tecnico_id" || campo === "condominio_id") {
+    const lista = campo === "tecnico_id" ? _tecnicosData : campo === "condominio_id" ? _condominios : _usuariosData;
+    const achou = (Array.isArray(lista) ? lista : []).find(x => String(x.id) === String(valor));
+    return achou?.nome ? `<b>${_waEscaparHtml(achou.nome)}</b>` : `#${_waEscaparHtml(valor)}`;
+  }
   return _waEscaparHtml(String(valor));
 }
 
@@ -4693,6 +4705,17 @@ function renderChDetalhe(ch) {
     return;
   }
 
+  // ⚠️ NO PALCO DO ATENDIMENTO, O DESENHO É OUTRO (27/11/2026): o desta tela
+  // (`gbAtChDetalhe`, em admin-atendimento.js), na língua da fila. As ações,
+  // os ids de linha e o histórico são os mesmos daqui; só muda o desenho. A
+  // tela Chamados e a página do chamado seguem com o de baixo.
+  if (!naPagina && col.closest(".at-palco") && typeof window.gbAtChDetalhe === "function") {
+    col.innerHTML = window.gbAtChDetalhe(ch);
+    window.lucide?.createIcons?.({ root: col });
+    _chCarregarHistorico(ch.id);
+    return;
+  }
+
   // Telemetria snapshot do condomínio
   let telHtml = "";
   if (ch.condominio_id) {
@@ -4757,9 +4780,11 @@ function renderChDetalhe(ch) {
   // logo abaixo (aberto, a caminho, chegou, resolvido), e só depois as
   // informações. As datas que viraram etapa da linha do tempo saíram da
   // lista de "Informações": continuam na tela, uma vez só.
+  // ⚠️ Reabrir não apaga o `fechado_em` no banco (27/11/2026): sem a checagem
+  // do status, um chamado reaberto aparecia com "Resolvido" feito.
   const fim = cancelado
     ? { rot: "Cancelado", em: ch.cancelado_em }
-    : { rot: "Resolvido", em: ch.fechado_em };
+    : { rot: "Resolvido", em: fechado ? ch.fechado_em : null };
   const etapas = [
     { rot: "Aberto", em: ch.criado_em },
     { rot: "Técnico a caminho", em: ch.tecnico_a_caminho_em },
@@ -7140,6 +7165,7 @@ async function fecharChamadoAction(id) {
     body: JSON.stringify({ status: "fechado" }),
   });
   if (!r.ok) { alert("Erro ao fechar chamado"); return; }
+  _chHistCache.delete(id); // a mudança entrou no histórico: buscar de novo
   await carregarTudo();
 }
 
@@ -7199,6 +7225,7 @@ async function confirmarCancelarChamado() {
       return;
     }
     fecharModalCancelarChamado();
+    _chHistCache.delete(id);
     await carregarTudo();
   } finally {
     btn.disabled = false;
@@ -7221,6 +7248,7 @@ async function reabrirChamadoAction(id) {
     body: JSON.stringify({ status: "aberto" }),
   });
   if (!r.ok) { alert("Erro ao reabrir chamado"); return; }
+  _chHistCache.delete(id);
   await carregarTudo();
 }
 
@@ -11225,6 +11253,7 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ condominio_id: condoId }),
       }).then(r => {
         if (!r.ok) { alert("Erro ao vincular condomínio"); return; }
+        _chHistCache.delete(chId);
         carregarTudo();
       });
       return;
@@ -11264,7 +11293,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "PATCH",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ tecnico_id: tecId ? Number(tecId) : null })
-      }).then(r => { if (!r.ok) r.json().then(e => alert(e.error)); else carregarTudo(); });
+      }).then(r => { if (!r.ok) r.json().then(e => alert(e.error)); else { _chHistCache.delete(chId); carregarTudo(); } });
       return;
     }
 

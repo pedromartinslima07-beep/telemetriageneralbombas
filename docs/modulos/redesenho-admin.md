@@ -2606,3 +2606,108 @@ responder: é justamente o intervalo que o esboço cobre. Conferido com e sem o
 atraso artificial; o conteúdo substitui o esboço sem pular de lugar.
 `admin.css?v=400`, `admin.js?v=439`, `admin-nota.js?v=8`,
 `admin-condominio.js?v=19`.
+
+---
+
+## Atendimento: o chamado na língua da fila (27/11/2026)
+
+O Pedro achava que a tela incomodava. O diagnóstico: **eram duas telas
+costuradas**. A fila vinha do redesenho de 19/11, e o palco mostrava o painel
+da tela Chamados transplantado, com outra língua visual (selos chapados, botão
+em toda linha, seções em caixa alta, uma linha do tempo de meia tela). Na
+fila, o vermelho estava em todo lugar e não marcava mais nada, e a mesma
+contagem aparecia três vezes: frase do topo, chips e linhas. Maquete aprovada
+em `/dev/_atendimento-preview.html` (`public/_atendimento-preview.{html,js}`).
+
+### O chamado (`gbAtChDetalhe`, em `public/admin-atendimento.js`)
+
+- `renderChDetalhe` (admin.js) continua desenhando o `#chDetailCol`. **Quando
+  o bloco está no palco do Atendimento**, chama `window.gbAtChDetalhe(ch)` no
+  lugar do desenho antigo. A tela Chamados e a página `#/chamados/<id>` seguem
+  com o de sempre.
+- ⚠️ **A lógica é a mesma, só o desenho muda.** O detalhe novo usa os mesmos
+  `data-action` (fechar, reabrir, cancelar, vincular técnico/condomínio,
+  ver-condo, `data-ch-abrir-pagina`), os mesmos ids de linha que o "Trocar"
+  substitui por um seletor (`chTecnicoRow-N`, `chCondoRow-N`), o histórico
+  que se redesenha sozinho (`chHistSec-N`, `_chRenderHistoricoCard`), a
+  avaliação (`_chRenderAvaliacaoCard`) e as marcas do turno (`data-ch-esc`,
+  `_chRenderEscritorio`). Quem mexer em um desses no admin.js mexe nos dois
+  desenhos.
+- **Cabeçalho:** CH-0000 · canal · aberto há X, e o menu **⋯** (abrir em página
+  própria, marcar para o turno, cancelar por último e separado por um fio).
+  Título de 22 px; embaixo, prioridade, prédio (abre a ficha) e categoria.
+  Só depois a ação principal: Marcar como resolvido, ou Reabrir.
+- **Faixa do prazo**, uma só e só quando há o que dizer: sem primeira
+  resposta, fora do prazo de solução (com o limite), ninguém com ele,
+  resolvido em, cancelado em + motivo. Antes eram dois selos dentro de "Quem
+  está com ele".
+- **Linha do tempo numa linha** (Aberto · A caminho · Chegou · Resolvido).
+- **Marcar para o turno** abre pelo ⋯ um campo no corpo (`.atc-turno-form`). Se
+  já existe marca, aparece o bloco de sempre, com "Pedido atendido" ou
+  "Retirar".
+- **Como chegou:** o chamado com conversa no WhatsApp mostra "Pelo WhatsApp,
+  com fulano" e um atalho para a aba da conversa.
+- **Coluna lateral** (280 px; abaixo de 1240 px desce para baixo do corpo):
+  técnico, condomínio, responsável, quem pediu, primeira resposta e "O prédio
+  agora" (reservatórios com barra e bomba). "Trocar" virou link. Chamado
+  resolvido sem técnico mostra "— Registrar", não "Atribuir técnico".
+- "Mudar a prioridade" estava na maquete e **não entrou**: não existe ação
+  para isso hoje.
+
+### A fila
+
+- **A frase de contagem do topo saiu** (repetia os chips).
+- **Chips à vista:** Em aberto · Sem técnico · Fora do prazo · P1 (os de alarme
+  somem quando vazios). Preventivas, Resolvidos, Cancelados e Todos (e, nas
+  conversas, Encerradas e Todas) foram para **Mais ▾** (`NO_MAIS`). Na largura
+  da fila são duas linhas, não três.
+- **Sem a bolinha de canal em toda linha.** O ícone só aparece, pequeno e ao
+  lado do prédio, para WhatsApp, sensor e preventiva. Nas conversas saiu a
+  etiqueta "WhatsApp", que era a mesma em todas.
+- **Só o P1 é preenchido;** P2 a P4 são contorno. "Fora do prazo" é texto,
+  sem negrito. O técnico aparece pelo nome curto ("Carlos T."), não pelas
+  iniciais. O tempo tem um formato só ("5 h", "3 d", "120 d").
+- O item escolhido ganha um fio à esquerda.
+
+### Histórico com nome (vale para todas as telas)
+
+`_chFmtValor` (admin.js) trocava técnico, condomínio e responsável por `#id`
+("Técnico: #1 → #2"). Agora busca o nome em `_tecnicosData`, `_condominios` e
+`_usuariosData`; o `#N` fica só para quem não está mais nessas listas.
+
+### Testado (banco de teste, 27/11/2026)
+
+1440×900 e 375×812, sem erro novo no console: chamado aberto fora do prazo,
+resolvido, resolvido sem data de fechamento; menu ⋯; campo do turno abrir e
+cancelar; "Trocar" técnico abre o seletor e o ✕ volta; Mais → Resolvidos;
+`#/chamados` continua com o painel antigo e a volta ao Atendimento hospeda o
+bloco de novo; celular com "← Fila" e sem rolagem lateral.
+
+**Segunda rodada, gravando de verdade (chamado 13 do banco de teste,
+27/11/2026):** resolver e reabrir; atribuir técnico, trocar e voltar a "sem
+técnico"; marcar para o turno pelo ⋯ e retirar; cancelar pelo ⋯ (modal com
+motivo) e reabrir. Todas gravaram (conferido no `GET /chamados/13` e no
+`/historico`) e a tela redesenhou sozinha. O chamado voltou ao estado de antes
+(aberto, sem técnico, sem marca); só `fechado_em` e `cancelado_em` ficaram
+preenchidos, porque o servidor não os apaga ao reabrir.
+
+**WhatsApp com conversa simulada só na memória da página** (o banco de teste
+não tem conversa nem a integração ligada; `fetch` interceptado, nada foi ao
+banco): chamado com telefone ganha as abas, canal "WhatsApp", "Como chegou" e
+"Quem pediu"; "Ver a conversa →" abre o chat hospedado com as mensagens; a
+volta para a aba Chamado redesenha o detalhe; a fila de Conversas mostra
+"Sem resposta · Com a IA · Mais" e abre em `#/atendimento/c<id>`. O chat em si
+continua com o desenho antigo (não fazia parte deste redesenho).
+
+Dois defeitos antigos achados nesse teste e corrigidos (valem para o painel
+antigo também):
+- **Histórico parado até o F5.** O `_chHistCache` só era apagado pelas marcas
+  do turno; resolver, reabrir, cancelar e trocar técnico/prédio gravavam no
+  `historico_chamados` e a tela seguia mostrando a cópia velha. Agora todas
+  apagam a entrada do chamado antes do `carregarTudo`.
+- **"Resolvido" feito em chamado reaberto.** Reabrir não apaga o `fechado_em`;
+  a linha do tempo lia só a data. A etapa final agora só conta com o status
+  fechado/cancelado.
+
+**Não testado:** o perfil operador; uma conversa real do WhatsApp.
+`admin.css?v=404`, `admin.js?v=444`, `admin-atendimento.js?v=11`.

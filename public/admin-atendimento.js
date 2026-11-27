@@ -77,7 +77,7 @@
     ["abertos", "Em aberto", ch => aberto(ch) && !preventiva(ch)],
     ["semtec", "Sem técnico", ch => aberto(ch) && !ch.tecnico_id && !preventiva(ch), "at"],
     ["prazo", "Fora do prazo", foraPrazo, "ri"],
-    ["p1", "Críticos (P1)", ch => aberto(ch) && String(ch.prioridade).toLowerCase() === "p1", "ri"],
+    ["p1", "P1", ch => aberto(ch) && String(ch.prioridade).toLowerCase() === "p1", "ri"],
     ["preventivas", "Preventivas", ch => aberto(ch) && preventiva(ch)],
     ["resolvidos", "Resolvidos", ch => ch.status === "fechado"],
     ["cancelados", "Cancelados", ch => ch.status === "cancelado"],
@@ -91,6 +91,10 @@
     ["encerradas", "Encerradas", cv => waClasse(cv) === "resolv"],
     ["todas", "Todas", () => true],
   ];
+  // ⚠️ AS VISÕES DE CONSULTA FICAM NO "MAIS" (27/11/2026). Eram oito chips em
+  // três linhas em cima da fila. À vista fica o trabalho do dia; o arquivo
+  // (e as preventivas, que têm tela própria) abre num menu.
+  const NO_MAIS = new Set(["preventivas", "resolvidos", "cancelados", "todos", "encerradas", "todas"]);
   const modoWa = () => st.modo === "conversas" && waLigada();
   const visoesAtivas = () => (modoWa() ? VISOES_WA : VISOES_CH);
   const visaoAtual = () => (modoWa() ? st.visaoWa : st.visao);
@@ -126,17 +130,19 @@
     });
   }
 
+  // Um formato só na fila (27/11/2026): "5 h", "3 d", "120 d". Antes passava
+  // a data ("30/07") depois de 30 dias, e a coluna lia em dois idiomas.
   function rel(iso) {
     if (!iso) return "";
     const s = (Date.now() - new Date(iso).getTime()) / 1000;
     if (s < 60) return "agora";
     if (s < 3600) return `${Math.floor(s / 60)} min`;
     if (s < 86400) return `${Math.floor(s / 3600)} h`;
-    const d = Math.floor(s / 86400);
-    if (d <= 30) return `${d} dia${d === 1 ? "" : "s"}`;
-    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    return `${Math.floor(s / 86400)} d`;
   }
   const iniciais = n => String(n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+  // "Carlos Técnico" → "Carlos T." (cabe na linha da fila; as iniciais sozinhas não diziam quem era).
+  const nomeCurto = n => { const p = String(n || "").trim().split(/\s+/); return p[0] + (p[1] ? ` ${p[1][0]}.` : ""); };
 
   function canal(ch) {
     if (ch.cliente_telefone) return ["wa", "message-circle", "WhatsApp"];
@@ -155,7 +161,6 @@
     root.innerHTML = `
       <header class="at-cab">
         <div class="at-modo" id="atModo" role="group" aria-label="O que ver"></div>
-        <p class="at-frase" id="atFrase"></p>
         <span class="at-esp"></span>
         <button type="button" class="at-bt is-pri viewer-only-hide" data-at-novo>${ico("plus")}Novo chamado</button>
       </header>
@@ -164,6 +169,7 @@
           <div class="at-fila-topo">
             <label class="at-busca">${ico("search")}<input type="search" id="atBusca" placeholder="Prédio, assunto, nº ou telefone" value="${esc(st.busca)}"></label>
             <div class="at-chips" id="atChips" role="group" aria-label="Visões"></div>
+            <div class="at-mais" id="atMais" role="menu" hidden></div>
           </div>
           <div class="at-itens" id="atItens" role="listbox" aria-label="Chamados e conversas"></div>
         </aside>
@@ -198,28 +204,23 @@
       if (waLigada()) icones(modoEl);
     }
 
-    chipsEl.innerHTML = visoesAtivas().map(([k, n, , pt]) => {
+    // ⚠️ A FRASE "N em aberto · N sem técnico · N fora do prazo" SAIU do
+    // cabeçalho (27/11/2026): repetia, palavra por palavra, os números dos
+    // chips logo abaixo. A contagem mora nos chips.
+    const visoes = visoesAtivas();
+    const naMais = visoes.find(v => v[0] === vAtual && NO_MAIS.has(v[0]));
+    chipsEl.innerHTML = visoes.filter(v => !NO_MAIS.has(v[0])).map(([k, n, , pt]) => {
       const c = itensDa(k).length;
-      if (!c && k !== vAtual && ["prazo", "p1", "semtec", "cancelados", "assumidas"].includes(k)) return "";
+      if (!c && k !== vAtual && ["prazo", "p1", "semtec", "assumidas"].includes(k)) return "";
       return `<button type="button" class="at-chip${vAtual === k ? " is-on" : ""}" data-at-visao="${k}" aria-pressed="${vAtual === k}">${pt && c ? `<i class="at-pt is-${pt}"></i>` : ""}${n}<span>${c}</span></button>`;
-    }).join("");
-
-    const frase = document.getElementById("atFrase");
-    if (frase) {
-      if (modoWa()) {
-        const abertas = conversas().filter(cv => cv.status !== "fechada");
-        const nao = semRespostaN();
-        const ia = abertas.filter(cv => !cv.assumida_por_id && waClasse(cv) !== "naoresp").length;
-        frase.innerHTML = `<b>${abertas.length}</b> conversa${abertas.length === 1 ? "" : "s"} aberta${abertas.length === 1 ? "" : "s"}${nao ? ` · <span class="at-vermelho"><b>${nao}</b> sem resposta</span>` : ""}${ia ? ` · <b>${ia}</b> com a IA` : ""}`;
-      } else {
-        const abertos = chamados().filter(ch => aberto(ch) && !preventiva(ch));
-        const sem = abertos.filter(ch => !ch.tecnico_id).length;
-        const fora = abertos.filter(foraPrazo).length;
-        frase.innerHTML = st.carregou || chamados().length
-          ? `<b>${abertos.length}</b> chamado${abertos.length === 1 ? "" : "s"} em aberto${sem ? ` · <b>${sem}</b> sem técnico` : ""}${fora ? ` · <span class="at-vermelho"><b>${fora}</b> fora do prazo</span>` : ""}`
-          : "";
-      }
+    }).join("") + `<button type="button" class="at-chip at-chip-mais${naMais ? " is-on" : ""}" data-at-mais aria-haspopup="menu" aria-expanded="false">${naMais ? `${naMais[1]}<span>${itensDa(naMais[0]).length}</span>` : "Mais"}${ico("chevron-down")}</button>`;
+    const maisEl = document.getElementById("atMais");
+    if (maisEl) {
+      maisEl.hidden = true;
+      maisEl.innerHTML = visoes.filter(v => NO_MAIS.has(v[0])).map(([k, n]) =>
+        `<button type="button" role="menuitem" data-at-visao="${k}" class="${vAtual === k ? "is-on" : ""}">${n}<span>${itensDa(k).length}</span></button>`).join("");
     }
+    icones(chipsEl);
     const busca = document.getElementById("atBusca");
     if (busca) busca.placeholder = modoWa() ? "Nome, telefone, prédio ou mensagem" : "Prédio, assunto, nº ou telefone";
 
@@ -240,24 +241,28 @@
     icones(itensEl);
   }
 
+  // ⚠️ SEM A BOLINHA DE CANAL EM TODA LINHA (27/11/2026). Era o mesmo envelope
+  // cinza em quase todos os itens, ou seja, não dizia nada. O ícone só aparece,
+  // pequeno e ao lado do prédio, quando o canal informa: WhatsApp, sensor,
+  // preventiva. E só o P1 é preenchido de vermelho: com tudo gritando, o
+  // crítico de verdade não se destacava.
   function itemChamado(ch) {
     const [cls, ic, nome] = canal(ch);
     const sel = st.sel?.tipo === "ch" && st.sel.id === ch.id;
     const p = String(ch.prioridade || "p3").toLowerCase();
     let estado;
-    if (ch.status === "fechado") estado = `<span class="at-estado">resolvido ${rel(ch.fechado_em)}</span>`;
+    if (ch.status === "fechado") estado = `<span class="at-estado is-ok">resolvido${ch.fechado_em ? ` há ${rel(ch.fechado_em)}` : ""}</span>`;
     else if (ch.status === "cancelado") estado = `<span class="at-estado">cancelado</span>`;
     else if (foraPrazo(ch)) estado = `<span class="at-estado is-ri">${ico("clock")}fora do prazo</span>`;
     else if (ch.tecnico_chegou_em) estado = `<span class="at-estado is-info">técnico no local</span>`;
     else if (ch.tecnico_a_caminho_em) estado = `<span class="at-estado is-info">técnico a caminho</span>`;
-    else estado = `<span class="at-estado">aberto há ${rel(ch.criado_em)}</span>`;
+    else estado = `<span class="at-estado">aberto</span>`;
     return `<div class="at-item${sel ? " is-sel" : ""}" role="option" aria-selected="${sel}" tabindex="0" data-at-ch="${ch.id}">
-      <span class="at-canal ${cls}" title="${nome}">${ico(ic)}</span>
       <div class="at-item-txt">
-        <div class="at-l1"><span class="at-predio">${esc(ch.condominio_nome || "Sem condomínio")}</span><time>${rel(ch.criado_em)}</time></div>
+        <div class="at-l1"><span class="at-predio">${cls ? `<span class="at-canal-ic ${cls}" title="${nome}">${ico(ic)}</span>` : ""}<span>${esc(ch.condominio_nome || "Sem condomínio")}</span></span><time>${rel(ch.criado_em)}</time></div>
         <span class="at-titulo">${esc(ch.titulo || "Sem título")}</span>
         <div class="at-l3"><span class="at-prio is-${p}">${p.toUpperCase()}</span>${estado}<span class="at-esp"></span>
-          ${ch.tecnico_nome ? `<span class="at-av" title="${esc(ch.tecnico_nome)}">${esc(iniciais(ch.tecnico_nome))}</span>` : aberto(ch) ? `<span class="at-semtec">sem técnico</span>` : ""}</div>
+          ${ch.tecnico_nome ? `<span class="at-tec" title="${esc(ch.tecnico_nome)}">${esc(nomeCurto(ch.tecnico_nome))}</span>` : aberto(ch) ? `<span class="at-semtec">sem técnico</span>` : ""}</div>
       </div>
     </div>`;
   }
@@ -266,17 +271,171 @@
     const sel = st.sel?.tipo === "wa" && st.sel.id === cv.id;
     const classe = waClasse(cv);
     return `<div class="at-item${sel ? " is-sel" : ""}${cv.unread_count ? " is-nao-lido" : ""}" role="option" aria-selected="${sel}" tabindex="0" data-at-wa="${cv.id}">
-      <span class="at-canal wa" title="Conversa no WhatsApp">${ico("message-circle")}</span>
       <div class="at-item-txt">
         <div class="at-l1"><span class="at-predio">${esc(cv.cliente_nome || cv.telefone || "Contato")}</span><time>${rel(cv.ultima_mensagem_em || cv.atualizado_em || cv.criado_em)}</time></div>
         <span class="at-titulo">${esc(cv.ultima_mensagem || "Conversa sem mensagens")}</span>
-        <div class="at-l3"><span class="at-tag-wa">WhatsApp</span>
+        <div class="at-l3">
           <span class="at-estado${classe === "naoresp" ? " is-at" : ""}">${classe === "naoresp" ? "sem resposta" : classe === "atend" ? "em atendimento" : "encerrada"}</span>
           ${cv.condominio_nome ? `<span class="at-esp"></span><span class="at-semtec">${esc(cv.condominio_nome)}</span>` : ""}
           ${cv.unread_count ? `<span class="at-n">${cv.unread_count}</span>` : ""}</div>
       </div>
     </div>`;
   }
+
+  // ===== O CHAMADO, DESENHADO PARA ESTA TELA (27/11/2026) =====
+  //
+  // ⚠️ ATÉ AQUI O PALCO MOSTRAVA O PAINEL DA TELA CHAMADOS, TRANSPLANTADO: outra
+  // língua visual (selos chapados, botão em toda linha, seções em caixa alta,
+  // uma linha do tempo de meia tela) ao lado da fila nova, e o Pedro sentia
+  // que eram dois produtos. Maquete aprovada: /dev/_atendimento-preview.html.
+  //
+  // O `#chDetailCol` continua sendo o bloco hospedado, e `renderChDetalhe`
+  // (admin.js) continua sendo quem desenha. Quando o bloco está no palco, ela
+  // chama esta função em vez do desenho antigo. Por isso tudo que grava
+  // continua igual: os mesmos `data-action` (fechar, reabrir, cancelar,
+  // vincular técnico/condomínio, ver-condo), os mesmos ids de linha que o
+  // "Trocar" substitui por um seletor (`chTecnicoRow-N`, `chCondoRow-N`), o
+  // histórico que se redesenha sozinho (`chHistSec-N`) e as marcas do turno
+  // (`data-ch-esc`). Mudou o desenho, não a lógica.
+  function limite(min) {
+    if (min == null) return "";
+    return min % 60 === 0 ? `${min / 60} h` : `${min} min`;
+  }
+  function telemetria(ch) {
+    if (!ch.condominio_id || typeof _statusData === "undefined") return "";
+    const item = (_statusData || []).find(g => Number(g.condominio?.id) === Number(ch.condominio_id));
+    const reservs = item?.reservatorios?.slice(0, 6) || [];
+    if (!reservs.length) return "";
+    const cor = { alto: "is-ok", medio: "is-ok", baixo: "is-at", muito_baixo: "is-ri" };
+    return `<div class="atc-sec"><h3>O prédio agora</h3><div class="atc-res">${reservs.map(r => {
+      const u = r.ultima_leitura;
+      const pct = u?.nivel_pct ?? null;
+      const bomba = u?.bomba_ligada === true ? "bomba ligada" : u?.bomba_ligada === false ? "bomba desligada" : "";
+      return `<div><span>${esc(r.nome || "Reservatório")}</span><b>${pct != null ? pct + "%" : "—"}</b>
+        <i class="${cor[String(u?.nivel || "").toLowerCase()] || ""}"><i style="width:${pct ?? 0}%"></i></i>${bomba ? `<small>${bomba}</small>` : ""}</div>`;
+    }).join("")}</div>
+      <button type="button" class="atc-link" data-action="ver-condo" data-id="${ch.condominio_id}">Abrir a ficha do condomínio →</button></div>`;
+  }
+  function faixa(ch) {
+    const fechado = ch.status === "fechado", cancelado = ch.status === "cancelado";
+    if (fechado) return `<div class="atc-faixa is-ok">${ico("circle-check")}<div><b>Resolvido${ch.fechado_em ? ` em ${fmtData(ch.fechado_em)}` : ""}</b>${ch.tecnico_nome ? ` <span>· ${esc(ch.tecnico_nome)}</span>` : ""}</div></div>`;
+    if (cancelado) return `<div class="atc-faixa">${ico("circle-slash")}<div><b>Cancelado${ch.cancelado_em ? ` em ${fmtData(ch.cancelado_em)}` : ""}.</b>${ch.cancelado_motivo ? ` <span>${esc(ch.cancelado_motivo)}</span>` : ""}</div></div>`;
+    const semTec = !ch.tecnico_id && !preventiva(ch);
+    const resto = semTec ? " E ninguém está com ele ainda." : "";
+    // O prazo num lugar só (antes: dois selos dentro de "Quem está com ele").
+    if (ch.sla_ttfr_estourado) return `<div class="atc-faixa is-ri">${ico("clock")}<div><b>Sem primeira resposta.</b> <span>Aberto há ${rel(ch.criado_em)}; o limite era ${limite(ch.sla_ttfr_min)}.${resto}</span></div></div>`;
+    if (foraPrazo(ch)) return `<div class="atc-faixa is-ri">${ico("clock")}<div><b>Fora do prazo de solução.</b> <span>Aberto há ${rel(ch.criado_em)}${ch.sla_ttr_min ? `; o limite era ${limite(ch.sla_ttr_min)}` : ""}.${resto}</span></div></div>`;
+    if (semTec) return `<div class="atc-faixa is-at">${ico("user-x")}<div><b>Ninguém está com ele.</b> <span>Atribua um técnico na coluna ao lado.</span></div></div>`;
+    return "";
+  }
+  function linhaTempo(ch) {
+    const fechado = ch.status === "fechado", cancelado = ch.status === "cancelado";
+    const etapas = [
+      ["Aberto", ch.criado_em], ["Técnico a caminho", ch.tecnico_a_caminho_em], ["Técnico chegou", ch.tecnico_chegou_em],
+      // ⚠️ Reabrir não apaga o `fechado_em` no banco: a etapa final só conta
+      // com o chamado de fato fechado/cancelado (achado no teste de 27/11).
+      cancelado ? ["Cancelado", ch.cancelado_em] : ["Resolvido", fechado ? ch.fechado_em : null],
+    ];
+    const atual = (fechado || cancelado) ? -1 : etapas.findIndex(e => !e[1]);
+    return `<ol class="atc-tempo" aria-label="Andamento do chamado">${etapas.map(([rot, em], i) => {
+      const cls = em ? "is-feito" : i === atual ? "is-atual" : "";
+      const q = em ? fmtData(em) : (fechado || cancelado) ? "não registrado" : i === atual ? "a seguir" : "";
+      return `<li class="${cls}"><b>${rot}</b><span>${q}</span></li>`;
+    }).join("")}</ol>`;
+  }
+  function turno(ch) {
+    if (typeof _isOperador !== "undefined" && _isOperador) return "";
+    // Já tem marca (do turno ou do escritório): o bloco de sempre, que mostra
+    // o motivo e tem "Pedido atendido" / "Retirar".
+    if (ch.escritorio_motivo || ch.pede_escritorio_motivo) return typeof _chRenderEscritorio === "function" ? _chRenderEscritorio(ch) : "";
+    if (!(ch.status === "aberto" || ch.status === "em_atendimento")) return "";
+    // Sem marca: o campo fica escondido e abre pelo "Marcar para o turno" do ⋯.
+    return `<div class="ch-esc-novo atc-turno-form" data-ch-esc-form="${ch.id}" hidden>
+      <button type="button" class="btn btn-sm" data-ch-esc="abrir" data-ch-id="${ch.id}" hidden>Marcar para o turno</button>
+      <div class="ch-esc-campo">
+        <b>Marcar para o turno</b>
+        <textarea class="input" rows="2" maxlength="300" placeholder="O que o turno precisa saber? Ex.: cliente reclamou, ir hoje"></textarea>
+        <div class="ch-esc-acoes">
+          <button type="button" class="at-bt" data-ch-esc="cancelar" data-ch-id="${ch.id}">Cancelar</button>
+          <button type="button" class="at-bt is-pri" data-ch-esc="marcar" data-ch-id="${ch.id}">Marcar</button>
+        </div>
+        <small class="ch-esc-nota">Aparece como selo no item e na ficha do painel do turno. Não muda a ordem da fila, que é pelo prazo.</small>
+      </div>
+    </div>`;
+  }
+  function detalheChamado(ch) {
+    const fechado = ch.status === "fechado", cancelado = ch.status === "cancelado";
+    const operador = typeof _isOperador !== "undefined" && _isOperador;
+    const [, ic, nomeCanal] = canal(ch);
+    const p = String(ch.prioridade || "p3").toLowerCase();
+    const prioNome = (typeof _chPrioNome !== "undefined" && _chPrioNome[ch.prioridade]) || p.toUpperCase();
+    const catNome = ch.categoria ? ((typeof _chCatNome !== "undefined" && _chCatNome[ch.categoria]) || ch.categoria) : "";
+    const cv = waLigada() ? conversaDoChamado(ch) : null;
+    const podeTurno = !operador && !fechado && !cancelado && !ch.escritorio_motivo;
+
+    const acao = (fechado || cancelado)
+      ? `<button type="button" class="at-bt viewer-only-hide" data-action="reabrir-chamado" data-id="${ch.id}">${ico("rotate-ccw")}Reabrir</button>`
+      : `<button type="button" class="at-bt is-pri viewer-only-hide" data-action="fechar-chamado" data-id="${ch.id}">${ico("check")}Marcar como resolvido</button>`;
+    // ⚠️ Cancelar continua longe do verde e por último (ver renderChDetalhe):
+    // aqui, no fim do ⋯, separado por um fio. Escondido para o operador (403).
+    const menu = `<div class="atc-menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-ch-abrir-pagina="${ch.id}">${ico("external-link")}Abrir em página própria</button>
+      ${podeTurno ? `<button type="button" role="menuitem" class="viewer-only-hide" data-at-turno>${ico("flag")}Marcar para o turno</button>` : ""}
+      ${(!operador && !fechado && !cancelado) ? `<hr><button type="button" role="menuitem" class="is-perigo viewer-only-hide" data-action="cancelar-chamado" data-id="${ch.id}">${ico("x")}Cancelar chamado</button>` : ""}
+    </div>`;
+
+    const tecDd = ch.tecnico_nome
+      ? `<dd><span class="atc-av">${esc(iniciais(ch.tecnico_nome))}</span>${esc(ch.tecnico_nome)}</dd>`
+      : (fechado || cancelado)
+        ? `<dd>—<button type="button" class="atc-link viewer-only-hide" data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Registrar</button></dd>`
+        : `<dd><span class="atc-ninguem">Ninguém ainda</span></dd><dd><button type="button" class="at-bt viewer-only-hide" data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">${ico("user-plus")}Atribuir técnico</button></dd>`;
+    const condoDd = ch.condominio_nome
+      ? `<dd>${esc(ch.condominio_nome)}</dd>`
+      : `<dd><button type="button" class="at-bt viewer-only-hide" data-action="vincular-ch-condo" data-ch-id="${ch.id}">${ico("building-2")}Vincular condomínio</button></dd>`;
+    let resposta = "";
+    if (ch.primeira_resposta_em) {
+      const min = Math.max(0, Math.round((new Date(ch.primeira_resposta_em) - new Date(ch.criado_em)) / 60000));
+      resposta = `em ${min < 60 ? min + " min" : min < 2880 ? Math.round(min / 60) + " h" : Math.round(min / 1440) + " d"}`;
+    } else if (!fechado && !cancelado && ch.sla_ttfr_min != null) {
+      resposta = `<span class="${ch.sla_ttfr_estourado ? "atc-ri" : ""}">aguardando · limite ${limite(ch.sla_ttfr_min)}</span>`;
+    }
+
+    return `<div class="atc">
+      <div class="atc-corpo">
+        <div>
+          <div class="atc-cab">
+            <div class="atc-id"><code>CH-${String(ch.id).padStart(4, "0")}</code>·<span>${ico(ic)}${nomeCanal}</span>·<span>aberto há ${rel(ch.criado_em)}</span></div>
+            <div class="atc-menu-wrap"><button type="button" class="at-bt is-ico" data-at-menu aria-haspopup="menu" aria-expanded="false" aria-label="Mais ações">${ico("ellipsis")}</button>${menu}</div>
+          </div>
+          <h2 class="atc-titulo">${esc(ch.titulo || "Sem título")}</h2>
+          <div class="atc-sub">
+            <span class="at-prio is-${p}">${esc(prioNome)}</span>
+            ${ch.condominio_id ? `<button type="button" class="atc-link" data-action="ver-condo" data-id="${ch.condominio_id}">${esc(ch.condominio_nome || "Condomínio")}</button>` : `<span>sem condomínio</span>`}
+            ${catNome ? `<span>${esc(catNome)}</span>` : ""}
+          </div>
+          <div class="atc-acoes">${acao}</div>
+        </div>
+        ${faixa(ch)}
+        ${linhaTempo(ch)}
+        ${turno(ch)}
+        ${ch.descricao ? `<div class="atc-sec"><h3>O que está acontecendo</h3><p>${esc(ch.descricao)}</p></div>` : ""}
+        ${cv ? `<div class="atc-sec"><h3>Como chegou</h3><div class="atc-wa">${ico("message-circle")}<span>Pelo WhatsApp${ch.cliente_nome ? `, com ${esc(ch.cliente_nome)}` : ""}.</span><button type="button" class="atc-link" data-at-aba="conversa">Ver a conversa →</button></div></div>` : ""}
+        ${typeof _chRenderAvaliacaoCard === "function" ? _chRenderAvaliacaoCard(ch) : ""}
+        ${typeof _chRenderHistoricoCard === "function" ? _chRenderHistoricoCard(ch.id) : ""}
+      </div>
+      <aside class="atc-lado">
+        <dl class="atc-dl">
+          <div id="chTecnicoRow-${ch.id}"><dt>Técnico${ch.tecnico_nome ? `<button type="button" class="atc-link viewer-only-hide" data-action="vincular-ch-tecnico" data-ch-id="${ch.id}">Trocar</button>` : ""}</dt>${tecDd}</div>
+          <div id="chCondoRow-${ch.id}"><dt>Condomínio${ch.condominio_nome ? `<button type="button" class="atc-link viewer-only-hide" data-action="vincular-ch-condo" data-ch-id="${ch.id}">Trocar</button>` : ""}</dt>${condoDd}</div>
+          ${ch.responsavel_nome ? `<div><dt>Responsável</dt><dd>${esc(ch.responsavel_nome)}</dd></div>` : ""}
+          ${ch.cliente_nome || ch.cliente_telefone ? `<div><dt>Quem pediu</dt><dd>${esc([ch.cliente_nome, ch.cliente_telefone].filter(Boolean).join(" · "))}</dd></div>` : ""}
+          ${resposta ? `<div><dt>Primeira resposta</dt><dd>${resposta}</dd></div>` : ""}
+        </dl>
+        ${telemetria(ch)}
+      </aside>
+    </div>`;
+  }
+  window.gbAtChDetalhe = detalheChamado;
 
   // ===== CENTRO: hospeda os blocos que já existem =====
   const origem = new WeakMap(); // elemento → { pai, proximo }
@@ -370,6 +529,35 @@
     if (!e.target.closest('.section[data-section="atendimento"]')) return;
     const t = e.target;
     let el;
+    // Menus que abrem por cima: qualquer clique fora fecha.
+    const maisEl = document.getElementById("atMais");
+    const menuEl = document.querySelector(".atc-menu");
+    if ((el = t.closest("[data-at-mais]"))) {
+      if (maisEl) { maisEl.hidden = !maisEl.hidden; el.setAttribute("aria-expanded", String(!maisEl.hidden)); }
+      return;
+    }
+    if ((el = t.closest("[data-at-menu]"))) {
+      if (menuEl) { menuEl.hidden = !menuEl.hidden; el.setAttribute("aria-expanded", String(!menuEl.hidden)); }
+      return;
+    }
+    if (maisEl && !maisEl.hidden && !t.closest("#atMais")) maisEl.hidden = true;
+    if (menuEl && !menuEl.hidden) menuEl.hidden = true;
+    if ((el = t.closest("[data-at-turno]"))) {
+      const form = document.querySelector(".atc-turno-form");
+      if (form) { form.hidden = false; form.querySelector("textarea")?.focus(); }
+      return;
+    }
+    // O "Cancelar" do campo é tratado no admin.js (data-ch-esc); aqui só some
+    // com a caixa inteira, que no Atendimento abre pelo menu ⋯.
+    if (t.closest('.atc-turno-form [data-ch-esc="cancelar"]')) {
+      const form = t.closest(".atc-turno-form");
+      setTimeout(() => {
+        form.hidden = true;
+        const c = form.querySelector(".ch-esc-campo"); if (c) c.hidden = false;
+        const a = form.querySelector('[data-ch-esc="abrir"]'); if (a) a.hidden = true;
+      }, 0);
+      return;
+    }
     if ((el = t.closest("[data-at-visao]"))) { if (modoWa()) st.visaoWa = el.dataset.atVisao; else st.visao = el.dataset.atVisao; desenharFila(); return; }
     if ((el = t.closest("[data-at-modo]"))) {
       if (st.modo === el.dataset.atModo) return;

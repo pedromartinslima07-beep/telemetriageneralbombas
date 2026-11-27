@@ -1134,6 +1134,24 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 - [ ] Depois: checklist da O.S. do app por sistema
 - Ver [omie-integracao.md](../docs/modulos/omie-integracao.md)
 
+## Atendimento: o chamado na língua da fila (27/11/2026)
+
+- [x] Maquete aprovada pelo Pedro (`/dev/_atendimento-preview.html`) ✅
+- [x] Detalhe do chamado próprio do palco (`gbAtChDetalhe`), com as mesmas
+  ações e ids de antes ✅ (teste)
+- [x] Fila: sem a frase repetida, visões de consulta no "Mais", ícone de canal
+  só quando informa, só o P1 preenchido ✅ (teste)
+- [x] Histórico do chamado com nome no lugar de `#id` ✅ (teste)
+- [ ] Commit e push (o Pedro decide); sem migration
+- [x] Gravando no banco de teste: resolver, reabrir, cancelar, trocar técnico,
+  marcar e retirar do turno ✅; aba do WhatsApp com conversa simulada ✅
+- [x] Histórico que só atualizava no F5 e "Resolvido" em chamado reaberto,
+  achados nesse teste, corrigidos ✅
+- [ ] Perfil operador; conversa real do WhatsApp
+- [ ] Depois, se o Pedro quiser: o chat do WhatsApp no mesmo desenho (ainda é
+  o antigo)
+- Ver [redesenho-admin.md](../docs/modulos/redesenho-admin.md)
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para

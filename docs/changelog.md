@@ -19080,3 +19080,28 @@ sem endpoint nem migration novos. Detalhe em
   por **Monitoramento** e **Atendimento**, as telas do menu novo.
 - A busca dos dados não se repete mais em carteira sem orçamento nenhum.
 - `admin.css?v=403`, `admin-carteira.js?v=15`.
+
+## 2026-11-27 — Atendimento: o chamado na língua da fila
+
+Redesenho da tela Atendimento (`public/admin-atendimento.js`, `admin.js`,
+`admin.css`, `admin.html`), sem endpoint nem migration. Maquete em
+`/dev/_atendimento-preview.html`. Detalhe em
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#atendimento-o-chamado-na-língua-da-fila-27112026).
+
+- **O chamado ganhou desenho próprio no palco** (`gbAtChDetalhe`), no lugar
+  do painel da tela Chamados transplantado: título grande, ação principal
+  depois do contexto, o resto no menu ⋯, o prazo numa faixa só, linha do
+  tempo numa linha, coluna lateral com quem, onde e o prédio agora. As ações
+  e os ids são os mesmos de antes; a tela Chamados e a página do chamado não
+  mudaram.
+- **Fila mais calma:** saiu a frase que repetia os chips; visões de consulta
+  no "Mais"; ícone de canal só quando informa; só o P1 preenchido; técnico
+  pelo nome; tempo num formato só.
+- **Histórico com nome:** "Técnico: Carlos Técnico → Marina Técnica", não
+  "#1 → #2" (em todas as telas que mostram o histórico do chamado).
+- **Histórico atualiza na hora:** resolver, reabrir, cancelar e trocar
+  técnico ou prédio passaram a buscar o histórico de novo (antes só as marcas
+  do turno faziam isso; o resto só aparecia depois do F5).
+- **Chamado reaberto não aparece mais com "Resolvido" feito** na linha do
+  tempo (o `fechado_em` continua no banco depois de reabrir).
+- `admin.css?v=404`, `admin.js?v=444`, `admin-atendimento.js?v=11`.
