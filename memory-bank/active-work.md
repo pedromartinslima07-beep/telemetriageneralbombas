@@ -19,7 +19,7 @@ aliases:
 > agenda real nem contrato a vencer (o banco de teste não tem). Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md#a-tela-hoje).
 
-> 🟡 **Chat do WhatsApp no Atendimento (27/11/2026) — no código, sem commit.**
+> 🟢 **Chat do WhatsApp no Atendimento (27/11/2026) — no ar** (`0e92b15`).
 > Cabeçalho e informações no desenho do chamado; mensagens restilizadas.
 > Testado com conversa simulada. Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md).
