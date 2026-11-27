@@ -13,10 +13,10 @@ aliases:
 > Última sessão registrada: **2026-09-11**.
 > Roadmap completo em [`roadmap.md`](roadmap.md); decisões em [`decisions.md`](decisions.md).
 
-> 🟡 **Hoje do admin revisado (27/11/2026) — no código, SEM commit.**
+> 🟢 **Hoje do admin revisado (27/11/2026) — na main e no ar** (`e146220`).
 > `admin-carteira.js`, `admin.css`, `admin.html` (barra de baixo do celular).
-> Testado no banco de teste; falta o Pedro olhar e o commit. Sem migration,
-> então o push não depende de nada em produção. Ver
+> Sem migration. Só vale para os logins da `PAINEL_NOVO`. Não testado com
+> agenda real nem contrato a vencer (o banco de teste não tem). Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md#a-tela-hoje).
 
 > 🎯 **Foco: Meta Tech Provider (desde 24/11/2026).** Base na Meta pronta

@@ -41,7 +41,7 @@ aliases:
 
 ## Em andamento / pendente
 
-- ✅ **Hoje revisado** (27/11/2026, código, sem commit). Uma linha por problema
+- ✅ **Hoje revisado** (27/11/2026, no ar em `e146220`). Uma linha por problema
   (água por prédio com o chamado [AUTO] dentro), grupos pelo tempo de verdade
   (Parado há mais de 30 dias), Equipe hoje no lugar de Em campo + Agenda, sem
   redesenho a cada 7 s, barra de baixo do celular com Monitoramento e
