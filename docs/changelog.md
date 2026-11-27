@@ -19146,3 +19146,7 @@ Detalhe em
 - Sem e-mail para enviar, o aviso sai do meio do trilho e fica logo abaixo
   do total, em âmbar (`#avEnvioSec.is-falta`).
 - `admin.css?v=410`, `admin.js?v=448`.
+- Correção: em 34px o total quebrava em duas linhas a partir de
+  "R$ 1.000,00". Agora fica numa linha e a fonte desce conforme o número de
+  caracteres até caber no trilho (`--av-total-n` + `cqi`, teto 34px).
+  `admin.css?v=411`, `admin.js?v=449`.

@@ -2840,3 +2840,13 @@ do total, em âmbar. Com e-mail nada muda.
 
 CSS no bloco "PÁGINA DO ORÇAMENTO: HIERARQUIA" no fim de `admin.css`, tudo
 escopado em `#avModal.is-pagina`. `admin.css?v=410`, `admin.js?v=448`.
+
+**O total cabe sempre numa linha.** Em 34px a Martian Mono ocupa ~0,68em por
+caractere: "R$ 1.000,00" media 254px num trilho de 255px e quebrava no
+espaço. `_avAtualizarTotalRail` grava o número de caracteres em
+`--av-total-n`, o trilho é container (`container-type: inline-size`) e a
+fonte é `min(34px, 100cqi / (n × 0,7))`, com `nowrap`. Medido: R$ 0,00 em
+34px, R$ 12.345,67 em 30px, R$ 1.234.567,89 em 24px, todos sem estourar.
+⚠️ Ao medir isso por script, espere um quadro entre trocar o texto e ler o
+`getComputedStyle`: lido no mesmo tique, o Chrome devolve o tamanho antigo.
+`admin.css?v=411`, `admin.js?v=449`.

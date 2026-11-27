@@ -13840,6 +13840,9 @@ function _avAtualizarTotalRail() {
     return;
   }
   el.textContent = _orcFmtValor(usaManual ? _avParseMoeda(manualVal) : Math.max(0, soma - desc));
+  // Quantos caracteres o número tem: o CSS encolhe a fonte para caber numa
+  // linha só no trilho (27/11/2026 — "R$ 1.000,00" quebrava em duas).
+  el.style.setProperty("--av-total-n", el.textContent.length);
   el.classList.toggle("is-manual", usaManual);
 
   if (!sub) return;
