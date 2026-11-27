@@ -24,10 +24,11 @@ aliases:
 
 > 🟢 **Contrato do Omie ligado à preventiva — no ar (27/11/2026).**
 > Avisos no lote (nota em dobro, sem preventiva), lista do mês em CSV e o que
-> a visita cobre. Testes 28/28 e 15/15. 109 e 110 em produção. ⏳ **Falta:**
-> `scripts/escopo-preventivas-omie.js --prod` (conferir e
-> `--gravar`); segunda preventiva do Air Club e do Atua; no Omie, encerrar o
-> 2024/00099 (Bradesco JF) antes do lote de dezembro. Ver
+> a visita cobre. Testes 28/28 e 15/15. 109 e 110 em produção; escopo gravado
+> em 72 preventivas; 3 preventivas de contrato encerrado desativadas; Bem
+> Moema e Maison acertados. ⏳ **Falta:** segunda preventiva do Air Club e do
+> Atua; no Omie, encerrar o 2024/00099 (Bradesco JF) antes do lote de
+> dezembro (é o único aviso do lote hoje). Ver
 > [omie-integracao.md](../docs/modulos/omie-integracao.md).
 
 > 🟠 **Bot sem silêncio + aviso fora das 24h + telas antigas — no ar em

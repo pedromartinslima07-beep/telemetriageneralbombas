@@ -236,8 +236,25 @@ aviso; preventiva sem contrato; 403/400/409; DELETE volta ao automático) e
 Os testes de preventivas e do Omie que já existiam seguem passando. Na tela
 (banco de teste): o lote com os avisos e a seção nova, o bloco Preventiva do
 contrato gravando "Não é de preventiva" e voltando, o formulário com as 12
-caixas. ✅ **109 e 110 em produção (27/11/2026).** ⏳ **Falta:** rodar o script do
-escopo em produção, e criar a segunda preventiva do Air Club e do Atua.
+caixas. ✅ **109 e 110 em produção (27/11/2026).** ✅ **Escopo gravado em
+produção** pelo script (72 preventivas; o Habitat Bradesco espera a primeira
+nota). ⏳ **Falta:** criar a segunda preventiva do Air Club e do Atua.
+
+**A primeira passada em produção (27/11/2026)** mostrou, e o Pedro resolveu:
+
+- três preventivas ativas **sem contrato** (Ilha Maui, Bradesco Alphabuilding,
+  Terra Nostra IV): os contratos acabaram, as preventivas foram desativadas e
+  o chamado de novembro da Alphabuilding (#432, sem técnico) foi cancelado;
+- **Bem Moema** cadastrado duas vezes (#7 com a preventiva, #149 sem): é um
+  prédio só (mesmo endereço, filiais do mesmo CNPJ, as três linhas na
+  planilha). Os setores comercial e studios foram ligados à mão ao #7;
+- **Maison**: o #50 (Studio, Apinajés 185) e o #125 (Residencial, Apiacás 200)
+  são condomínios diferentes, com CNPJ, chamados e O.S. próprios, e a planilha
+  cobra os dois. O #125 ganhou a preventiva nº 91 (bombas + quadro, como diz a
+  nota do contrato 2025/00083).
+
+Com isso o lote de dezembro fica com **um aviso só** (JF × RPS, que some ao
+encerrar o 2024/00099 no Omie) e nenhuma preventiva sem contrato.
 
 - Já existe: "Faturar contratos no Omie: 77 de 81" na Agenda. Vira uma tela
   do mês: **quem foi faturado, quem não foi e por quê** (vigência vencida,

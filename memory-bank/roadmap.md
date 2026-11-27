@@ -1105,8 +1105,14 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 - [x] O que a visita cobre (12 sistemas) no admin, no operador e no app ✅
   (teste; o app só com APK novo)
 - [x] Migrations 109 e 110 em produção (27/11/2026) e push ✅
-- [ ] Rodar `scripts/escopo-preventivas-omie.js --prod` (conferir) e depois
-  `--gravar`
+- [x] Escopo gravado em produção pelo script (27/11/2026): 72 preventivas;
+  falta só a do Habitat Bradesco (contrato novo, sem nota ainda) ✅
+- [x] Limpeza de 27/11/2026 em produção, com o Pedro: desativadas as
+  preventivas 27 (Ilha Maui), 77 (Bradesco Alphabuilding, chamado #432
+  cancelado) e 82 (Terra Nostra IV), cujos contratos acabaram; setores
+  comercial e studios do Bem Moema ligados ao cadastro #7 (o #149 ficou sem
+  uso); preventiva nº 91 criada para a Maison Residencial (#125). Lote de
+  dezembro: nenhuma preventiva sem contrato, só o aviso JF × RPS ✅
 - [ ] Criar a segunda preventiva do Air Club (reservatórios) e do Atua (caixa
   coletora) e escolher em Contratos qual contrato paga qual
 - [ ] No Omie (Pedro): encerrar o 2024/00099 (Bradesco JF), Iconyc ×2 e Praça
