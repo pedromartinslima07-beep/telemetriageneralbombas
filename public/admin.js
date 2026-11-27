@@ -13186,7 +13186,7 @@ function _avRenderPainel() {
             <div class="ap-section">
               <div class="ap-section-title">Constatação</div>
               <textarea id="avInputConstatacao" class="input" rows="2" maxlength="1000"
-                style="resize:vertical;font-size:12px;padding:8px 10px;min-height:52px;width:100%;"
+                style="resize:vertical;font-size:14px;line-height:1.5;padding:10px 12px;min-height:64px;width:100%;"
                 placeholder="Descreva o serviço ou problema constatado… (sai impresso no PDF, acima da tabela)">${_waEscaparHtml(o.constatacao || '')}</textarea>
             </div>
           </div><!-- /av-setup-col -->
@@ -13294,7 +13294,7 @@ function _avRenderPainel() {
              mesmo lugar. Os campos e os ids são os mesmos de antes. -->
         <section class="av-rail-sec">
           <div class="av-rail-h">Para o cliente</div>
-          <div class="av-rail-kv"><span>Validade</span><b>${validadeVal ? _orcFmtData(o.valido_ate) : "—"}</b></div>
+          ${_avValidadeKv(o, validadeVal)}
           <div class="av-rail-kv"><span>Pagamento</span><b>${_waEscaparHtml(o.forma_pagamento || "Via boleto bancário")}</b></div>
           <div class="av-rail-kv"><span>Prazo</span><b>${_waEscaparHtml(o.prazo_entrega || "5 dias úteis após aprovação")}</b></div>
           <div class="av-rail-kv"><span>Garantia</span><b>${_avEhSemGarantia(o.garantia) ? "sem garantia" : _waEscaparHtml(o.garantia || "12 meses")}</b></div>
@@ -13565,6 +13565,30 @@ function _avRenderPainel() {
 // As condições comerciais (forma de pagamento, prazo, garantia, data e
 // validade), no trilho desde 26/11/2026. Os ids são os de sempre: _avAcao lê
 // por getElementById. O resumo fica nas linhas "Para o cliente" acima dele.
+// ⚠️ A VALIDADE AVISA (27/11/2026). Ela era um texto comum no trilho, e um
+// orçamento vencido ontem ficava igual a um que vale por mais um mês: o Pedro
+// olhou um vencido e não viu. Rascunho e enviado (os que ainda vão ao cliente
+// ou esperam resposta) mostram "venceu…" em vermelho e "vence em N dias"
+// (até 5, o mesmo prazo do lembrete do job de vencimento) em âmbar, com
+// "renovar", que abre as condições já no campo da data.
+// A conta é pela data em texto (YYYY-MM-DD), sem passar por new Date() na
+// validade: é DATE, e o fuso deslocaria um dia.
+function _avValidadeKv(o, validadeVal) {
+  if (!validadeVal) return `<div class="av-rail-kv"><span>Validade</span><b>—</b></div>`;
+  const dataTxt = validadeVal.split("-").reverse().join("/");
+  const h = new Date();
+  const hoje = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}-${String(h.getDate()).padStart(2, "0")}`;
+  const dias = Math.round((Date.parse(validadeVal) - Date.parse(hoje)) / 864e5);
+  const conta = ["rascunho", "enviado"].includes(o.status || "rascunho");
+  let aviso = "", cls = "";
+  if (conta && dias < 0) { cls = "is-venc"; aviso = dias === -1 ? "venceu ontem" : `venceu há ${-dias} dias`; }
+  else if (conta && dias === 0) { cls = "is-perto"; aviso = "vence hoje"; }
+  else if (conta && dias <= 5) { cls = "is-perto"; aviso = `vence em ${dias} ${dias === 1 ? "dia" : "dias"}`; }
+  if (!aviso) return `<div class="av-rail-kv"><span>Validade</span><b>${dataTxt}</b></div>`;
+  return `<div class="av-rail-kv av-validade ${cls}"><span>Validade</span><b>${dataTxt}</b></div>
+    <div class="av-validade-aviso ${cls}"><span>${aviso}</span><button type="button" class="av-lk" data-av-renovar>renovar</button></div>`;
+}
+
 function _avCondicoesHtml(o, validadeVal, dataDocVal) {
   return `
         <!-- ⚠️ As condições comerciais nascem TODAS preenchidas com o padrão
@@ -13644,9 +13668,16 @@ function _avAtualizarDestinatario() {
     // dizer nada; o modal diz, e diz certo.
     alvo.textContent = "";
   } else {
-    alvo.textContent = avulso
-      ? "Preencha o e-mail do cliente para habilitar o envio."
-      : "Este condomínio não tem e-mail cadastrado. Cadastre em Clientes para habilitar o envio.";
+    // ⚠️ A FRASE LEVA AO CAMPO (27/11/2026). Era "Preencha o e-mail do
+    // cliente" e mais nada: o campo mora no bloco do cliente, fechado, e quem
+    // lia não sabia onde. Avulso abre o bloco no e-mail; condomínio abre a
+    // ficha de cadastro (o e-mail é do condomínio, não do orçamento).
+    const condoId = document.getElementById("avInputCondo")?.value;
+    alvo.innerHTML = avulso
+      ? `Falta o e-mail do cliente para enviar. <button type="button" class="av-lk" data-av-preencher-email>preencher o e-mail</button>`
+      : condoId
+        ? `Este condomínio não tem e-mail cadastrado. <button type="button" class="av-lk" data-action="editar-condominio" data-id="${Number(condoId)}">cadastrar o e-mail</button>`
+        : "Escolha o cliente para poder enviar.";
   }
 
   // O bloco Envio do trilho: no rascunho com e-mail não tem o que dizer.
@@ -13932,7 +13963,17 @@ function _avNum(v) {
 function _avItemTipoHtml(l) {
   if (l.natureza === "peca" || l.omie_produto_codigo) return `<span class="av-it-tipo is-peca">Peça</span>`;
   if (l.natureza === "servico") return `<span class="av-it-tipo is-serv">Serviço</span>`;
-  return `<span class="av-it-tipo is-sem">marcar</span>`;
+  // ⚠️ SEM MARCA, A ESCOLHA FICA NA LINHA (27/11/2026). Era um "marcar"
+  // amarelo que parecia link e obrigava a abrir o item, mais uma caixa de
+  // explicação embaixo da tabela. Os dois botões usam o data-pc-nat do
+  // admin-orc-pecas.js (o mesmo da linha aberta), e botão dentro da linha
+  // fechada não abre o item (ver o clique em tr.av-it).
+  const travado = ["emitida", "processando"].includes(_avSelecionado?.nota_status);
+  const grava = (typeof _myRole === "undefined" || _myRole === "admin") && !travado;
+  if (!grava) return `<span class="av-it-tipo is-sem">—</span>`;
+  return `<span class="av-it-escolha" role="group" aria-label="Peça ou serviço">
+    <button type="button" data-pc-nat="peca" data-pc-linha="${l.id}">Peça</button><button type="button" data-pc-nat="servico" data-pc-linha="${l.id}">Serviço</button>
+  </span>`;
 }
 // Embaixo da descrição: o produto do Omie, ou o que falta para a nota.
 function _avItemSubHtml(l) {
@@ -13949,8 +13990,11 @@ function _avItemSubHtml(l) {
   }
   if (l.peca_usada) partes.push(`<span>usada na visita</span>`);
   const ficha = String(l.ficha_tecnica || "").trim();
-  if (ficha) partes.push(`<span class="av-it-ficha-resumo" title="${_waEscaparHtml(ficha)}">${_waEscaparHtml(ficha.length > 70 ? ficha.slice(0, 69) + "…" : ficha)}</span>`);
-  return partes.length ? `<div class="av-it-sub">${partes.join('<span class="av-it-sep">·</span>')}</div>` : "";
+  // A ficha técnica é o que o cliente paga ("selo mecânico, rolamentos,
+  // rebobinamento…"): inteira, em linha própria, até 3 linhas (27/11/2026).
+  // Antes saía cortada em 70 caracteres, em itálico, no fim da linha do Omie.
+  const sub = partes.length ? `<div class="av-it-sub">${partes.join('<span class="av-it-sep">·</span>')}</div>` : "";
+  return sub + (ficha ? `<div class="av-it-ficha-resumo" title="${_waEscaparHtml(ficha)}">${_waEscaparHtml(ficha)}</div>` : "");
 }
 function _avAbrirItem(id, { buscar = false } = {}) {
   _avItemAberto = id;
@@ -15315,6 +15359,21 @@ function _avBindEventos() {
       sel.value = resp.dataset.avResposta;
       _avSujo = true;
       _avAcao("salvar");
+      return;
+    }
+    // "renovar" a validade: abre as condições já no campo da data.
+    if (e.target.closest("[data-av-renovar]")) {
+      const det = document.querySelector("#avModalBody details.av-cond");
+      if (det) det.open = true;
+      const inp = document.getElementById("avInputValidade");
+      if (inp) { inp.focus(); inp.showPicker?.(); }
+      return;
+    }
+    // "preencher o e-mail" do cliente avulso: abre o bloco do cliente no campo.
+    if (e.target.closest("[data-av-preencher-email]")) {
+      const painel = document.getElementById("avClientePainel");
+      if (painel && painel.hidden) document.querySelector("[data-av-cliente-abrir]")?.click();
+      document.getElementById("avInputClienteEmail")?.focus();
       return;
     }
     if (e.target.closest("[data-av-situacao-mao]")) {

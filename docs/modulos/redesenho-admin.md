@@ -2765,3 +2765,48 @@ rolagem lateral. **Não testado:** conversa real, vincular de verdade, abrir
 chamado a partir da conversa, apagar. ⚠️ Abaixo de 1180 px a coluna de
 informações continua escondida (já era assim): vincular e IA só no
 computador. `admin.css?v=406`, `admin.js?v=446`, `admin-atendimento.js?v=13`.
+
+## Orçamento: o que estava passando despercebido (27/11/2026)
+
+Pergunta do Pedro com um print do formulário: *"precisa dá uma melhorada no
+visual do orçamento, n sei se está com a melhor visibilidade possível"*. A
+estrutura de 26/11 ficou; o que mudou é o que a tela não deixava ver. Sem
+maquete, a pedido dele ("pode ir direto").
+
+- **A validade avisa** (`_avValidadeKv`, admin.js). Rascunho e enviado
+  vencidos mostram a data em vermelho e uma faixa "venceu ontem / venceu há N
+  dias"; até 5 dias antes (o prazo do lembrete do job de vencimento), em
+  âmbar, "vence em N dias". "renovar" abre as condições já no campo da data
+  (`data-av-renovar`). A conta é pela data em texto (`YYYY-MM-DD`), sem
+  `new Date()` na validade, que é DATE.
+- **O envio leva ao campo.** "Preencha o e-mail do cliente" não dizia onde.
+  Avulso: "preencher o e-mail" abre o bloco do cliente no campo
+  (`data-av-preencher-email`). Condomínio sem e-mail: "cadastrar o e-mail"
+  abre a ficha de cadastro (`data-action="editar-condominio"`). Sem cliente:
+  "Escolha o cliente para poder enviar."
+- **Peça | Serviço na linha.** O "marcar" amarelo parecia link e obrigava a
+  abrir o item. Agora a linha sem marca mostra os dois botões (âmbar de
+  pendência), com o mesmo `data-pc-nat` do admin-orc-pecas.js; botão dentro da
+  linha fechada não abre o item. A caixa "Marque Peça ou Serviço…" embaixo da
+  tabela some quando nada está marcado (os botões já dizem), e com marcação
+  parcial vira "Falta marcar N linhas…".
+- **A ficha técnica inteira** (`_avItemSubHtml`): linha própria, até 3 linhas,
+  sem itálico. Antes, cortada em 70 caracteres no fim da linha do Omie.
+- **Menos fios:** os títulos de seção sem sublinhado (fica só o fio entre as
+  seções), linhas da tabela mais claras, e o traço solto embaixo de "Editar
+  condições" saiu.
+- **"Adicionar" com cara de botão** (sem amarelo, que é da ação do topo) e o
+  campo de descrição do item novo sem tracejado.
+- **Constatação** em 14 px (estava fixada em 12 px no HTML).
+
+### Testado (banco de teste, 27/11/2026)
+
+OR-000056 em 1440×900, 1100×800 e 375×812, sem rolagem lateral. Validade de
+ontem, cliente avulso sem e-mail e ficha técnica longa **simulados na memória
+da página** (recarregado em seguida; conferido que nada foi gravado): faixa
+"venceu ontem", "renovar" abre as condições no campo da data, "preencher o
+e-mail" abre o bloco do cliente no campo. "Peça" na linha **gravou de
+verdade** (natureza = peça, a linha não abriu, o rodapé passou a DANFE) e foi
+desfeito pela mesma rota. **Não testado:** "cadastrar o e-mail" de condomínio
+sem e-mail (o do teste tem), o aviso "vence em N dias", o perfil operador.
+`admin.css?v=408`, `admin.js?v=447`, `admin-orc-pecas.js?v=9`.

@@ -13684,7 +13684,15 @@ a.ls-bt { text-decoration: none; }
 .av-it-cod { font-family: var(--mono); font-size: 11px; }
 .av-it-falta { color: var(--atencao-t); font-weight: 600; }
 .av-it-falta .av-lk { font-size: 12px; }
-.av-it-ficha-resumo { font-style: italic; }
+/* A ficha técnica inteira, em linha própria, até 3 linhas (27/11/2026):
+   é o que o cliente paga. Sem itálico, que deixava a caixa alta ilegível. */
+.av-it-ficha-resumo { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--tinta-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+/* Peça | Serviço direto na linha, quando falta marcar (27/11/2026). Âmbar de
+   pendência, não de link: são dois botões, e um deles precisa ser escolhido. */
+.av-it-escolha { display: inline-flex; border: 1px solid #e3c27a; border-radius: 7px; overflow: hidden; background: #fdf6e6; }
+.av-it-escolha button { border: 0; background: transparent; padding: 4px 9px; font: inherit; font-size: 12px; font-weight: 600; color: #7a5410; cursor: pointer; }
+.av-it-escolha button + button { border-left: 1px solid #e3c27a; }
+.av-it-escolha button:hover, .av-it-escolha button:focus-visible { background: #fbecc6; color: #5c3f0a; }
 .av-it-tipo { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-top: 1px; }
 .av-it-tipo.is-peca { background: #e9eef9; color: #0d2775; }
 .av-it-tipo.is-serv { background: #eef1f6; color: var(--muted); }
@@ -13713,9 +13721,35 @@ a.ls-bt { text-decoration: none; }
 #avModal.is-pagina .av-itens-scroll .orc-add-item-form.av-it-novo { background: #fff; clip-path: none; box-shadow: 0 -1px 0 var(--border); padding: 10px 0 4px; margin-top: 0; }
 #avModal.is-pagina .av-itens-scroll .av-it-novo .orc-add-item-row { grid-template-columns: 34px minmax(0, 1fr) 64px 112px 152px; }
 #avModal.is-pagina .av-it-novo .orc-add-item-row > .av-it-mais { margin: 0; text-align: center; color: #0d2775; font-weight: 700; font-size: 16px; }
-#avModal.is-pagina .av-it-novo #avNewDesc { border-style: dashed; font-size: 13.5px; }
-#avModal.is-pagina .av-it-novo #avNewDesc:focus { border-style: solid; }
+#avModal.is-pagina .av-it-novo #avNewDesc { font-size: 13.5px; }
 #avModal.is-pagina .av-it-novo :is(#avNewQtd, #avNewVal) { text-align: right; font-size: 13.5px; }
+/* O "Adicionar" com cara de botão (27/11/2026): tinha a mesma borda dos
+   campos e parecia um campo vazio. Continua sem amarelo (o amarelo é a ação
+   da vez, no topo). */
+#avModal.is-pagina .av-it-novo .orc-add-item-row > .btn { height: 34px; border: 1px solid rgba(6,16,51,.3); border-radius: 7px; background: #fff; color: var(--tinta); font-size: 13px; font-weight: 600; }
+#avModal.is-pagina .av-it-novo .orc-add-item-row > .btn:hover { background: #f4f6fa; border-color: rgba(6,16,51,.45); }
+
+/* ── Menos fios no formulário (27/11/2026) ──
+   Cada seção tinha fio em cima E embaixo do título, mais o da tabela e o de
+   cada linha: seis traços em meia tela. Fica o fio entre as seções; o título
+   não tem mais sublinhado, e as linhas da tabela ficam claras. */
+#avModal.is-pagina .av-col-form .ap-section-title { border-bottom: 0; padding-bottom: 0; margin-bottom: 10px; font-size: 14px; }
+#avModal.is-pagina .orc-itens-table th { border-bottom-color: rgba(6,16,51,.12); }
+#avModal.is-pagina .orc-itens-table td { border-bottom-color: rgba(6,16,51,.07); }
+
+/* A validade que venceu ou está para vencer (27/11/2026, _avValidadeKv). */
+.av-validade.is-venc b { color: #8a1010; }
+.av-validade.is-perto b { color: #7a5410; }
+.av-validade-aviso { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -2px 0 6px; padding: 6px 10px; border-radius: 7px; font-size: 12.5px; font-weight: 600; }
+.av-validade-aviso.is-venc { background: #fdf0ee; color: #8a1010; }
+.av-validade-aviso.is-perto { background: #fdf6e6; color: #7a5410; }
+.av-validade-aviso .av-lk { font-size: 12.5px; font-weight: 600; }
+/* "Editar condições" no trilho: o fio de cima do details só cobria a largura
+   do resumo e parecia um traço solto. */
+.av-rail .av-cond { border-top: 0; box-shadow: none; padding-top: 4px; }
+#avModal .av-rail .av-cond-sum .ap-section-title { border-bottom: 0; padding-bottom: 0; }
+/* Envio: o caminho para o e-mail que falta. */
+.av-envio-to .av-lk { font-size: inherit; font-weight: 600; }
 
 /* ── trilho ── */
 #avModal.is-pagina .av-rail { gap: 0; }

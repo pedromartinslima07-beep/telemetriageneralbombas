@@ -244,8 +244,12 @@
       if (semProduto) txt += ` ${semProduto} ${semProduto === 1 ? "peça ainda sem produto do Omie" : "peças ainda sem produto do Omie"}: escolha antes de emitir a nota.`;
     } else if (!semMarca) {
       txt = `Só serviço: a nota sai em <b>NFS-e</b>.`;
+    } else if (semMarca === L.length) {
+      // Nada marcado: os botões Peça | Serviço já estão na linha (27/11/2026).
+      // A caixa que explicava isso repetia a tela.
+      return "";
     } else {
-      txt = `Marque Peça ou Serviço ${semMarca === 1 ? "na linha" : "nas " + semMarca + " linhas"} para saber qual nota sai (com peça, DANFE; só serviço, NFS-e).`;
+      txt = `Falta marcar ${semMarca === 1 ? "1 linha" : semMarca + " linhas"} como peça ou serviço para saber qual nota sai.`;
     }
     return `<div class="av-pc-nota"><span>${txt}</span></div>`;
   }

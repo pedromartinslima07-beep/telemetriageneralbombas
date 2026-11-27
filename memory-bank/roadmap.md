@@ -1154,6 +1154,13 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
   e IA só no computador)
 - Ver [redesenho-admin.md](../docs/modulos/redesenho-admin.md)
 
+## Orçamento: visibilidade (27/11/2026)
+
+- [x] Validade vencida avisa, envio leva ao campo do e-mail, Peça | Serviço na
+  linha, ficha técnica inteira, menos fios ✅ (teste)
+- [ ] Commit e push (o Pedro decide); sem migration
+- Ver [redesenho-admin.md](../docs/modulos/redesenho-admin.md)
+
 ## Backlog futuro (ideias não-MVP já mapeadas)
 
 Itens levantados durante o desenvolvimento, conscientemente deixados para

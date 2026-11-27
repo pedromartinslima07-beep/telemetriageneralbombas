@@ -19120,3 +19120,16 @@ endpoint nem migration. Detalhe em
 - Corrigido: caixa de escrever aparecendo em conversa encerrada; conversa sem
   condomínio listando chamados sem prédio de outros clientes (no palco).
 - `admin.css?v=406`, `admin.js?v=446`, `admin-atendimento.js?v=13`.
+
+## 2026-11-27 — Orçamento: o que estava passando despercebido
+
+`public/admin.js`, `admin-orc-pecas.js`, `admin.css`, `admin.html`; sem
+endpoint nem migration. Detalhe em
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#orçamento-o-que-estava-passando-despercebido-27112026).
+
+- Validade vencida (ou a 5 dias de vencer) avisa no trilho, com "renovar".
+- Envio sem e-mail leva ao campo: "preencher o e-mail" ou "cadastrar o e-mail".
+- Peça | Serviço direto na linha do item; a caixa de explicação some.
+- Ficha técnica inteira, sem itálico; menos fios; "Adicionar" com cara de
+  botão; constatação em letra maior.
+- `admin.css?v=408`, `admin.js?v=447`, `admin-orc-pecas.js?v=9`.
