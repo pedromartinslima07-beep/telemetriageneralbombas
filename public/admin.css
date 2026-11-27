@@ -308,7 +308,7 @@ body *:not(
   .tec-pin, .tg-pin,
   /* casca nova (19/11/2026): o menu, a busca e o Hoje têm raio próprio */
   .gb-sb, .gb-sb *, .gb-menu, .gb-menu *, .gb-cmdk-veu *, .gb-topo-busca, .gb-topo-busca *, .hj *, .mn *,
-  .at-cab *, .at-caixa, .at-fila *, .at-abas *, .at-centro-vazio *, .at-voltar-bar *, .atc, .atc *,
+  .at-cab *, .at-caixa, .at-fila *, .at-abas *, .at-centro-vazio *, .at-voltar-bar *, .atc, .atc *, .at-wa *,
   .dq *, .dq-pop, .dq-pop *, .dq-toast, .dq-toast *, .fn-cab *, .fn-faixa, .fn-faixa *,
   .rd, .rd *, .ls *, .ls-placa, .av-pc *, .av-pc-drop, .av-pc-drop *, .av-pc-nota, .av-pc-os, .av-pc-os *
 ) {
@@ -12176,9 +12176,75 @@ body.gb-cmdk-aberta { overflow: hidden; }
 }
 
 /* O chat do WhatsApp, hospedado: conversa e informações lado a lado. */
-.at-wa { display: grid; grid-template-columns: minmax(0, 1fr) 300px; height: 100%; min-height: 0; }
+.at-wa { display: grid; grid-template-columns: minmax(0, 1fr) 280px; height: 100%; min-height: 0; }
 .at-wa > .wa-chat-col { display: flex; flex-direction: column; min-height: 0; border: 0; border-radius: 0; }
 .at-wa > .wa-info-col { border-left: 1px solid rgba(6,16,51,.1); overflow-y: auto; border-radius: 0; }
+
+/* ── A CONVERSA NO PALCO (27/11/2026) ─────────────────────────────────────
+   Cabeçalho e informações vêm de gbAtWaCabecalho / gbAtWaInfo
+   (admin-atendimento.js), no mesmo desenho do chamado. As mensagens e a
+   caixa de escrever são as do admin.js, só restilizadas aqui (.at-wa).
+   As classes atw-* valem fora do palco também: se a conversa voltar para a
+   tela WhatsApp antes de se redesenhar, não fica sem estilo. */
+.at-wa svg.lucide, .atw-cab svg.lucide, .atw-info svg.lucide { width: 16px; height: 16px; stroke-width: 1.9; flex: none; }
+.at-wa > .wa-chat-col { background: #fff; }
+.at-wa .wa-chat-head { padding: 14px 20px; background: #fff; border-bottom: 1px solid rgba(6,16,51,.1); }
+.atw-cab { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; width: 100%; min-width: 0; }
+.atw-av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #dcf5e4; color: #0d6b34; font-size: 13px; font-weight: 700; }
+.atw-cab-txt { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.atw-cab-txt b { font-size: 16px; font-weight: 700; color: var(--tinta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atw-cab-txt > span:not(.atw-estado) { font-size: 12.5px; color: #6b7795; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atw-estado { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 12.5px; font-weight: 600; color: #105c31; }
+.atw-cab .atw-estado svg.lucide { width: 13px; height: 13px; }
+.atw-estado.is-ia { color: #0d2775; }
+.atw-estado.is-pessoa { color: #7a5410; }
+.atw-cab-acoes { display: flex; gap: 6px; flex: none; }
+.atw-apagar { color: #8a1010; }
+.atw-apagar:hover { background: #fdf0ee; border-color: rgba(138,16,16,.3); }
+
+/* As mensagens. */
+.at-wa .wa-chat-body { padding: 20px 24px; gap: 8px; background: #f3f5f1; }
+.at-wa .wa-msg { max-width: 68%; padding: 8px 11px 6px; border: 0; border-radius: 9px; font-size: 14px; line-height: 1.45; color: var(--tinta); box-shadow: 0 1px 0 rgba(6,16,51,.08); }
+.at-wa .wa-msg.in { background: #fff; border-bottom-left-radius: 3px; }
+.at-wa .wa-msg.out { background: #dcf5e4; border-bottom-right-radius: 3px; }
+.at-wa .wa-msg-time { font-size: 11px; opacity: 1; color: #6b7795; margin-top: 2px; }
+.at-wa .wa-msg-date-sep { font-size: 11.5px; color: #414f74; background: #e4e8e0; padding: 3px 11px; border-radius: 10px; }
+.at-wa .wa-media-card { color: var(--tinta-2); }
+.at-wa .wa-msg-ia-card { background: #eef2fb; border: 1px solid rgba(13,39,117,.12); border-radius: 9px; color: var(--tinta); font-size: 13px; }
+.at-wa .wa-msg-ia-card-title { color: var(--tinta); }
+.at-wa .wa-msg-ia-badge { background: #0d2775; border-radius: 4px; }
+.at-wa .wa-chat-closed-banner { color: #105c31; background: #eaf6ef; border-color: rgba(16,92,49,.18); font-size: 12.5px; border-radius: 12px; }
+.at-wa .wa-chat-empty { color: #6b7795; }
+
+/* A caixa de escrever. */
+.at-wa .wa-chat-input { padding: 12px 16px; gap: 8px; background: #fff; border-top: 1px solid rgba(6,16,51,.1); align-items: flex-end; }
+.at-wa .wa-chat-input textarea { min-height: 40px; padding: 9px 12px; border: 1px solid rgba(6,16,51,.2); border-radius: 7px; background: #fff; color: var(--tinta); font-size: 14px; }
+.at-wa .wa-chat-input textarea:focus { outline: 0; border-color: var(--mar-700); }
+.at-wa .wa-chat-input .btn { height: 40px; padding: 0 16px; border-radius: 7px; border: 1px solid var(--amarelo); background: var(--amarelo); color: var(--mar-900); font-size: 13.5px; font-weight: 600; }
+
+/* A coluna de informações. */
+.at-wa > .wa-info-col { padding: 20px; background: #f8f9fc; }
+.atw-info { display: flex; flex-direction: column; gap: 22px; }
+.atw-info .atc-dl dd small { font-size: 12.5px; color: #6b7795; }
+.atw-acoes { display: flex; flex-direction: column; gap: 6px; }
+.atw-acoes .at-bt { width: 100%; justify-content: flex-start; }
+.atw-acoes select { width: 100%; height: 34px; border: 1px solid rgba(6,16,51,.2); border-radius: 7px; background: #fff; color: var(--tinta); font: inherit; font-size: 13px; }
+.atw-info .wa-ia-result { margin-top: 10px; padding: 12px; border: 1px solid rgba(13,39,117,.12); border-radius: 9px; background: #fff; }
+.atw-info .wa-ia-result-title { font-size: 12.5px; font-weight: 600; color: #6b7795; text-transform: none; letter-spacing: 0; }
+.atw-info .wa-ia-result-text { font-size: 13.5px; line-height: 1.5; color: var(--tinta); }
+.atw-hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.atw-hist li { display: grid; grid-template-columns: 10px 1fr; gap: 9px; }
+.atw-hist b { display: block; font-size: 13px; font-weight: 500; color: var(--tinta); }
+.atw-hist small { font-size: 12px; color: #6b7795; }
+.atw-pt { width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; background: #c5ccdb; }
+.atw-pt.is-ok { background: #1f9d57; } .atw-pt.is-at { background: #d99411; } .atw-pt.is-ri { background: #d23a2c; }
+.atw-vazio { margin: 0; font-size: 13px; color: #6b7795; }
+@media (max-width: 900px) {
+  .at-wa .wa-chat-head { padding: 12px 14px; }
+  .atw-cab-acoes { width: 100%; }
+  .at-wa .wa-chat-body { padding: 14px; }
+  .at-wa .wa-msg { max-width: 85%; }
+}
 
 @media (max-width: 1180px) {
   .at-caixa { grid-template-columns: 320px minmax(0, 1fr); }

@@ -437,6 +437,81 @@
   }
   window.gbAtChDetalhe = detalheChamado;
 
+  // ===== A CONVERSA DO WHATSAPP, NO MESMO DESENHO (27/11/2026) =====
+  //
+  // Mesma técnica do chamado: `_waRenderChat` e `_waRenderInfo` (admin.js)
+  // continuam desenhando o cabeçalho e a coluna de informações, e chamam estas
+  // duas quando o bloco está no palco. ⚠️ Os listeners moram nos próprios
+  // elementos (`waChatHead`, `waInfoCol`, `_waAcaoHandler`), então os
+  // `data-wa-action`/`data-conv-id`/`data-condo-id` daqui são os mesmos de lá,
+  // e os ids que o admin.js procura também: `waIaSection`, `waIaResult`, e o
+  // `.wa-info-acoes` em volta do "Vincular", que vira o seletor de condomínio.
+  // As mensagens e a caixa de escrever não mudam de markup, só de CSS.
+  function waCabecalho(conv) {
+    const fechada = conv.status === "fechada";
+    const assumida = !!conv.assumida_por_id;
+    const quando = d => (typeof _waFmtDataLonga === "function" ? _waFmtDataLonga(d) : fmtData(d));
+    const estado = fechada
+      ? `<span class="atw-estado">${ico("circle-check")}Encerrada${conv.fechado_em ? ` em ${esc(quando(conv.fechado_em))}` : ""}</span>`
+      : assumida
+        ? `<span class="atw-estado is-pessoa">${ico("user")}Assumida por ${esc(conv.assumida_por_nome || "você")}</span>`
+        : `<span class="atw-estado is-ia">${ico("bot")}A IA está atendendo</span>`;
+    const principal = fechada
+      ? `<button type="button" class="at-bt" data-wa-action="reabrir-conversa" data-conv-id="${conv.id}">${ico("rotate-ccw")}Reabrir</button>`
+      : assumida
+        ? `<button type="button" class="at-bt" data-wa-action="devolver-ia" data-conv-id="${conv.id}" title="A IA volta a responder">${ico("bot")}Devolver à IA</button>`
+        : `<button type="button" class="at-bt is-pri" data-wa-action="assumir" data-conv-id="${conv.id}" title="A IA para de responder e você assume">${ico("hand")}Assumir conversa</button>`;
+    const encerrar = fechada ? "" : `<button type="button" class="at-bt" data-wa-action="fechar-conversa" data-conv-id="${conv.id}" title="Encerrar o atendimento">${ico("check")}Encerrar</button>`;
+    return `<div class="atw-cab">
+      <span class="atw-av">${esc(iniciais(String(conv.cliente_nome || "").replace(/[^\p{L}\s]/gu, " ").trim() || "?"))}</span>
+      <div class="atw-cab-txt">
+        <b>${esc(conv.cliente_nome || "Sem nome")}</b>
+        <span>${esc([conv.canal === "app" ? "via App" : conv.telefone, conv.condominio_nome].filter(Boolean).join(" · "))}</span>
+        ${estado}
+      </div>
+      <div class="atw-cab-acoes">${principal}${encerrar}
+        <button type="button" class="at-bt is-ico atw-apagar" data-wa-action="apagar-conversa" data-conv-id="${conv.id}" title="Apagar conversa" aria-label="Apagar conversa">${ico("trash-2")}</button>
+      </div>
+    </div>`;
+  }
+  function waInfo(conv, condo, historico) {
+    const st = { fechado: "resolvido", cancelado: "cancelado", aberto: "aberto", em_atendimento: "em atendimento" };
+    // ⚠️ Sem condomínio, o filtro do admin.js (condominio_id === null) pescava
+    // os chamados sem prédio de qualquer cliente. Aqui fica vazio.
+    if (!conv.condominio_id) historico = [];
+    const hist = historico.length
+      ? `<ul class="atw-hist">${historico.map(ch => `<li><span class="atw-pt ${ch.status === "fechado" || ch.status === "cancelado" ? "is-ok" : String(ch.prioridade).toLowerCase() === "p1" ? "is-ri" : "is-at"}"></span>
+          <div><b>${esc(ch.titulo || "Chamado #" + ch.id)}</b><small>${esc(typeof _waFmtDataLonga === "function" ? _waFmtDataLonga(ch.criado_em) : "")} · ${esc(st[ch.status] || String(ch.status || "").replaceAll("_", " "))}</small></div></li>`).join("")}</ul>`
+      : `<p class="atw-vazio">Nenhum chamado deste prédio.</p>`;
+    const endereco = condo ? [condo.endereco, condo.bairro, condo.cidade].filter(Boolean).join(", ") : "";
+    return `<div class="atw-info">
+      <dl class="atc-dl">
+        <div><dt>Contato</dt><dd>${esc(conv.cliente_nome || "Sem nome")}</dd><dd><small>${esc(conv.canal === "app" ? "via App" : conv.telefone || "—")}</small></dd></div>
+        <div><dt>Condomínio</dt>${conv.condominio_nome
+          ? `<dd>${esc(conv.condominio_nome)}</dd>${endereco ? `<dd><small>${esc(endereco)}</small></dd>` : ""}`
+          : `<dd class="atc-ninguem">Sem condomínio</dd>`}</div>
+      </dl>
+      <div class="atc-sec"><h3>O que fazer</h3>
+        <div class="wa-info-acoes atw-acoes">${conv.condominio_id ? `
+          <button type="button" class="at-bt" data-wa-action="abrir-chamado" data-condo-id="${conv.condominio_id}">${ico("plus")}Abrir chamado</button>
+          <button type="button" class="at-bt" data-wa-action="ver-condo" data-condo-id="${conv.condominio_id}">${ico("activity")}Ver a telemetria do prédio</button>` : `
+          <button type="button" class="at-bt is-pri" data-wa-action="vincular-condo" data-conv-id="${conv.id}">${ico("link")}Vincular a um condomínio</button>
+          <button type="button" class="at-bt" data-wa-action="abrir-chamado-sem-condo">${ico("plus")}Abrir chamado sem condomínio</button>`}
+        </div>
+      </div>
+      <div class="atc-sec" id="waIaSection"><h3>Pedir à IA</h3>
+        <div class="wa-info-acoes atw-acoes">
+          <button type="button" class="at-bt" data-wa-action="resumir" data-conv-id="${conv.id}">${ico("sparkles")}Resumir a conversa</button>
+          <button type="button" class="at-bt" data-wa-action="sugerir-resposta" data-conv-id="${conv.id}">${ico("lightbulb")}Sugerir uma resposta</button>
+        </div>
+        <div id="waIaResult"></div>
+      </div>
+      <div class="atc-sec"><h3>Chamados deste prédio</h3>${hist}</div>
+    </div>`;
+  }
+  window.gbAtWaCabecalho = waCabecalho;
+  window.gbAtWaInfo = waInfo;
+
   // ===== CENTRO: hospeda os blocos que já existem =====
   const origem = new WeakMap(); // elemento → { pai, proximo }
   function hospedar(el, destino) {
@@ -449,6 +524,19 @@
     if (!o || el.parentElement === o.pai) return;
     if (o.proximo && o.proximo.parentElement === o.pai) o.pai.insertBefore(el, o.proximo);
     else o.pai.appendChild(el);
+  }
+  // O chat só se redesenha quando muda de conversa. Ao trocar de tela com a
+  // mesma conversa (Atendimento ↔ WhatsApp), o cabeçalho e as informações
+  // ficariam no desenho da outra; isto os redesenha onde estão agora.
+  function redesenharConversa() {
+    const id = typeof _waSelecionadaId !== "undefined" ? _waSelecionadaId : null;
+    const conv = id != null && typeof _waConversaCache !== "undefined" ? _waConversaCache.get(id) : null;
+    if (!conv) return;
+    const ia = document.getElementById("waIaResult")?.innerHTML || "";
+    if (typeof _waRenderChat === "function") _waRenderChat(conv);
+    if (typeof _waRenderInfo === "function") _waRenderInfo(conv);
+    const iaDiv = document.getElementById("waIaResult");
+    if (ia && iaDiv) iaDiv.innerHTML = ia;
   }
   const blocoCh = () => document.getElementById("chDetailCol");
   const blocoWaChat = () => document.querySelector(".wa-chat-col");
@@ -495,6 +583,7 @@
       hospedar(blocoWaChat(), wrap);
       hospedar(blocoWaInfo(), wrap);
       if ((typeof _waSelecionadaId === "undefined" || _waSelecionadaId !== cv.id) && typeof _waSelecionar === "function") _waSelecionar(cv.id);
+      else redesenharConversa(); // a mesma conversa, vinda da tela WhatsApp: trocar de desenho
     } else {
       [blocoWaChat(), blocoWaInfo()].forEach(devolver);
       palco.querySelector(".at-wa")?.remove();
@@ -616,7 +705,9 @@
       } else if (name === "chamados" || name === "chamado-detalhe") {
         devolver(blocoCh());
       } else if (name === "whatsapp") {
+        const estava = blocoWaChat()?.closest(".at-palco");
         devolver(blocoWaChat()); devolver(blocoWaInfo());
+        if (estava) redesenharConversa();
       }
       return r;
     };

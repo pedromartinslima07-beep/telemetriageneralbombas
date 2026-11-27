@@ -19,7 +19,12 @@ aliases:
 > agenda real nem contrato a vencer (o banco de teste não tem). Ver
 > [redesenho-admin.md](../docs/modulos/redesenho-admin.md#a-tela-hoje).
 
-> 🟡 **Atendimento redesenhado (27/11/2026) — no código, sem commit.**
+> 🟡 **Chat do WhatsApp no Atendimento (27/11/2026) — no código, sem commit.**
+> Cabeçalho e informações no desenho do chamado; mensagens restilizadas.
+> Testado com conversa simulada. Ver
+> [redesenho-admin.md](../docs/modulos/redesenho-admin.md).
+
+> 🟢 **Atendimento redesenhado (27/11/2026) — no ar** (`80eb5cb`).
 > O chamado no palco ganhou desenho próprio, na língua da fila; fila mais
 > calma; histórico com nomes. `admin-atendimento.js`, `admin.js`, `admin.css`,
 > `admin.html`. Sem migration. Testado no banco de teste, gravando (resolver,

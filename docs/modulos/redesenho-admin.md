@@ -2711,3 +2711,57 @@ antigo também):
 
 **Não testado:** o perfil operador; uma conversa real do WhatsApp.
 `admin.css?v=404`, `admin.js?v=444`, `admin-atendimento.js?v=11`.
+
+## Atendimento: a conversa do WhatsApp no mesmo desenho (27/11/2026)
+
+Continuação do redesenho do chamado: com ele novo ao lado, o chat ainda
+era o da tela WhatsApp (botões com emoji, cartões escuros, mensagens
+pequenas). Pedido do Pedro: *"faz o chat do whats agr"*.
+
+- **Mesma técnica do chamado.** `_waRenderChat` e `_waRenderInfo` (admin.js)
+  continuam desenhando; quando o bloco está no palco, chamam
+  `gbAtWaCabecalho(conv)` e `gbAtWaInfo(conv, condo, historico)`
+  (admin-atendimento.js). ⚠️ Os listeners moram nos próprios elementos
+  (`_waAcaoHandler` em `waChatHead` e `waInfoCol`), então os
+  `data-wa-action`/`data-conv-id`/`data-condo-id` são os mesmos, e os ids que o
+  admin.js procura também: `waIaSection`, `waIaResult` e o `.wa-info-acoes` em
+  volta do "Vincular", que o `_waAbrirSelecaoCondominio` troca pelo seletor.
+- **Cabeçalho:** iniciais (sem parênteses e afins), nome, telefone ·
+  condomínio, e o estado em palavras: "A IA está atendendo", "Assumida por
+  fulano", "Encerrada em…". Uma ação principal (Assumir conversa, Devolver à
+  IA ou Reabrir), Encerrar, e apagar num botão só de ícone, em vermelho. As
+  ações descem de linha quando o chat está estreito.
+- **Mensagens e caixa de escrever:** o markup é o do admin.js; só o CSS muda
+  dentro de `.at-wa` (fundo claro, balões brancos e verdes, texto 14 px, hora
+  legível, "Enviar" amarelo).
+- **Coluna de informações (280 px):** Contato, Condomínio (com endereço), "O
+  que fazer" (abrir chamado, telemetria do prédio, ou vincular/abrir sem
+  condomínio), "Pedir à IA" (resumir, sugerir resposta) e "Chamados deste
+  prédio". Sem emoji; ícones Lucide.
+- **Troca de tela com a mesma conversa** (Atendimento ↔ `#/whatsapp`): o chat
+  só se redesenhava ao mudar de conversa, então ficaria no desenho da outra
+  tela. `redesenharConversa()` redesenha onde ele está, guardando o resultado
+  da IA. As classes `atw-*` também têm estilo fora do palco.
+
+Defeitos antigos achados no teste e corrigidos:
+- **Caixa de escrever aparecendo em conversa encerrada.** O `_waRenderChat`
+  escondia e o `_waSelecionar` mostrava de novo logo depois, com um `flex`
+  fixo. Agora respeita o status (vale para a tela WhatsApp também).
+- **"Histórico de chamados" de conversa sem condomínio** listava os chamados
+  sem prédio de qualquer cliente (`condominio_id === null`). No palco fica
+  vazio. (A tela WhatsApp antiga continua com o filtro de antes.)
+
+### Testado (banco de teste, 27/11/2026)
+
+Com uma conversa **simulada só na memória da página** (`fetch` interceptado
+e com estado; o banco de teste não tem conversa nem a integração ligada) e o
+`confirm` da página respondendo "sim" (assumir, devolver e encerrar pedem
+confirmação do navegador, e o navegador automatizado responde "não"):
+assumir, devolver à IA, encerrar (cabeçalho, aviso no fim e caixa escondida),
+reabrir, sugerir resposta → "Usar essa resposta" → Enviar (mensagem nova no
+fim), resumir, abrir e cancelar o seletor de condomínio, Atendimento →
+`#/whatsapp` → Atendimento (cada tela no seu desenho), 1440×900 e 375×812 sem
+rolagem lateral. **Não testado:** conversa real, vincular de verdade, abrir
+chamado a partir da conversa, apagar. ⚠️ Abaixo de 1180 px a coluna de
+informações continua escondida (já era assim): vincular e IA só no
+computador. `admin.css?v=406`, `admin.js?v=446`, `admin-atendimento.js?v=13`.

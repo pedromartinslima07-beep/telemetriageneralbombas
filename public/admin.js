@@ -6562,8 +6562,10 @@ async function _waSelecionar(id) {
     if (cvLocal) cvLocal.unread_count = 0;
     _waRenderLista();
     atualizarBadgesWhatsapp();
+    // ⚠️ Respeita a conversa encerrada (27/11/2026): o _waRenderChat esconde a
+    // caixa, e este "flex" fixo a mostrava de novo logo depois.
     const inp = document.getElementById("waChatInput");
-    if (inp) inp.style.display = "flex";
+    if (inp) inp.style.display = conv.status === "fechada" ? "none" : "flex";
   } catch (e) {
     if (chatBody) chatBody.innerHTML = `<div class="wa-chat-empty"><p style="color:var(--danger);">Erro ao carregar conversa: ${_waEscaparHtml(e.message)}</p></div>`;
   }
@@ -6615,7 +6617,13 @@ function _waRenderConteudo(m) {
 
 function _waRenderChat(conv) {
   const head = document.getElementById("waChatHead");
-  if (head) {
+  // ⚠️ NO PALCO DO ATENDIMENTO O CABEÇALHO É OUTRO (27/11/2026): o desenho
+  // daquela tela (`gbAtWaCabecalho`, admin-atendimento.js), com os mesmos
+  // data-wa-action. A tela WhatsApp segue com o de baixo.
+  if (head && head.closest(".at-palco") && typeof window.gbAtWaCabecalho === "function") {
+    head.innerHTML = window.gbAtWaCabecalho(conv);
+    window.lucide?.createIcons?.({ root: head });
+  } else if (head) {
     const fechada = conv.status === "fechada";
     const assumida = !!conv.assumida_por_id;
 
@@ -6723,6 +6731,13 @@ function _waRenderInfo(conv) {
   const historico = (Array.isArray(_chamadosData) ? _chamadosData : [])
     .filter(ch => ch.condominio_id === conv.condominio_id)
     .slice(0, 5);
+
+  // No palco do Atendimento, o desenho daquela tela (ver _waRenderChat).
+  if (wrap.closest(".at-palco") && typeof window.gbAtWaInfo === "function") {
+    wrap.innerHTML = window.gbAtWaInfo(conv, condo, historico);
+    window.lucide?.createIcons?.({ root: wrap });
+    return;
+  }
 
   const histHtml = historico.length
     ? historico.map(ch => {

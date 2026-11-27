@@ -1148,8 +1148,10 @@ Fluxo em [telemetria.md](../docs/modulos/telemetria.md#extravasamento).
 - [x] Histórico que só atualizava no F5 e "Resolvido" em chamado reaberto,
   achados nesse teste, corrigidos ✅
 - [ ] Perfil operador; conversa real do WhatsApp
-- [ ] Depois, se o Pedro quiser: o chat do WhatsApp no mesmo desenho (ainda é
-  o antigo)
+- [x] O chat do WhatsApp no mesmo desenho (27/11/2026) ✅ (teste, conversa
+  simulada); corrigida a caixa de escrever em conversa encerrada
+- [ ] Coluna de informações da conversa abaixo de 1180 px (hoje some: vincular
+  e IA só no computador)
 - Ver [redesenho-admin.md](../docs/modulos/redesenho-admin.md)
 
 ## Backlog futuro (ideias não-MVP já mapeadas)

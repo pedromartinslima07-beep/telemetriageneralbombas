@@ -19105,3 +19105,18 @@ Redesenho da tela Atendimento (`public/admin-atendimento.js`, `admin.js`,
 - **Chamado reaberto não aparece mais com "Resolvido" feito** na linha do
   tempo (o `fechado_em` continua no banco depois de reabrir).
 - `admin.css?v=404`, `admin.js?v=444`, `admin-atendimento.js?v=11`.
+
+## 2026-11-27 — Atendimento: a conversa do WhatsApp no mesmo desenho
+
+`public/admin-atendimento.js`, `admin.js`, `admin.css`, `admin.html`; sem
+endpoint nem migration. Detalhe em
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#atendimento-a-conversa-do-whatsapp-no-mesmo-desenho-27112026).
+
+- No palco do Atendimento, cabeçalho e informações da conversa ganham o
+  desenho do chamado (`gbAtWaCabecalho`, `gbAtWaInfo`): estado em palavras
+  ("A IA está atendendo", "Assumida por…"), uma ação principal, sem emoji.
+  Mensagens e caixa de escrever restilizadas. Mesmas ações e ids de antes; a
+  tela WhatsApp não muda.
+- Corrigido: caixa de escrever aparecendo em conversa encerrada; conversa sem
+  condomínio listando chamados sem prédio de outros clientes (no palco).
+- `admin.css?v=406`, `admin.js?v=446`, `admin-atendimento.js?v=13`.
