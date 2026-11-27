@@ -127,6 +127,25 @@ const texto = (t) => ({ choices: [{ finish_reason: "stop", message: { role: "ass
     const depois = (await pool.query(`SELECT COUNT(*)::int n FROM mensagens_whatsapp WHERE conversa_id = $1`, [cRecente])).rows[0].n;
     meta.recusa = false;
     ok("Meta recusou: nada gravado como enviado", depois === antes && !res.enviado);
+
+    // e) Meta recusa fora da janela, sem conversa aberta: não cria conversa vazia.
+    await pool.query(`UPDATE conversas_whatsapp SET status = 'fechada' WHERE cliente_whatsapp_id = $1`, [clienteId]);
+    await pool.query(`UPDATE mensagens_whatsapp SET criado_em = NOW() - interval '2 days'
+                       WHERE conversa_id IN (SELECT id FROM conversas_whatsapp WHERE cliente_whatsapp_id = $1)`, [clienteId]);
+    const contaConversas = async () => (await pool.query(
+      `SELECT COUNT(*)::int n FROM conversas_whatsapp WHERE cliente_whatsapp_id = $1`, [clienteId])).rows[0].n;
+    const convAntes = await contaConversas();
+    meta.recusa = true;
+    res = await _notificarClienteWhatsApp(condoId, "outra", ctx);
+    meta.recusa = false;
+    ok("Meta recusou o modelo: nenhuma conversa vazia criada", !res.enviado && (await contaConversas()) === convAntes);
+
+    // f) o mesmo caso aceito: cria a conversa e grava o modelo nela.
+    res = await _notificarClienteWhatsApp(condoId, "outra", ctx);
+    const convNova = (await pool.query(
+      `SELECT id FROM conversas_whatsapp WHERE cliente_whatsapp_id = $1 AND status = 'aberta' ORDER BY id DESC LIMIT 1`, [clienteId])).rows[0];
+    ok("modelo aceito: conversa criada com o modelo gravado", res.enviado && res.via === "modelo"
+      && (await contaConversas()) === convAntes + 1 && (await ultimaSaida(convNova?.id))?.tipo === "template");
   } catch (err) {
     ok("sem exceção: " + err.message, false);
   } finally {

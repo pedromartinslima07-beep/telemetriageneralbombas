@@ -133,7 +133,13 @@ sensor sem comunicação (`offline.job.js` → `_notificarClienteWhatsApp`) olha
 
 A mensagem só é gravada na conversa **depois** que a Meta aceitou (antes era
 gravada antes de enviar, e a central mostrava como enviada a que a Meta
-recusou). Por modelo, entra com `tipo = 'template'`. `evolution.service.js`
+recusou). Por modelo, entra com `tipo = 'template'`. A **conversa nova**
+(quando o contato não tem uma aberta) também só é criada depois do envio
+aceito: criada antes, cada aviso recusado deixava uma conversa vazia na central
+(27/11/2026, quando o modelo entrou no Railway com o número ainda sem
+registro). Modelo em produção: `alerta_sensor_sem_comunicacao`, Ativo na Meta
+desde 27/11; o envio só liga com `WHATSAPP_PHONE_NUMBER_ID`, que espera o
+registro do número. `evolution.service.js`
 ganhou `enviarTemplate` e tempo-limite de 15 s em toda requisição; as duas
 funções devolvem `{ ok, http }`.
 

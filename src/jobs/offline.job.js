@@ -48,18 +48,11 @@ async function _notificarClienteWhatsApp(condominio_id, mensagem, { condominioNo
     return { enviado: false, motivo: "fora da janela, sem modelo" };
   }
 
-  // Cria conversa nova se não houver aberta
-  let convId = conversa_id;
-  if (!convId) {
-    const nova = await pool.query(
-      `INSERT INTO conversas_whatsapp (cliente_whatsapp_id) VALUES ($1) RETURNING id`,
-      [cliente_id]
-    );
-    convId = nova.rows[0].id;
-  }
-
   // Envia (não bloqueia o job em caso de falha) e só então grava, com o que
   // de fato saiu: o painel não pode mostrar como enviada a que a Meta recusou.
+  // ⚠️ A conversa nova também só nasce DEPOIS do envio aceito: criada antes,
+  // cada aviso recusado (número ainda não registrado, sem cartão, Meta fora)
+  // deixava uma conversa vazia na central (27/11/2026).
   let envio = null;
   try {
     envio = dentroDaJanela
@@ -70,6 +63,15 @@ async function _notificarClienteWhatsApp(condominio_id, mensagem, { condominioNo
     console.error("[offline.job] erro ao enviar WhatsApp:", e.message);
   }
   if (!envio?.ok) return { enviado: false, motivo: envio?.configurado === false ? "whatsapp não configurado" : "meta recusou ou falhou" };
+
+  let convId = conversa_id;
+  if (!convId) {
+    const nova = await pool.query(
+      `INSERT INTO conversas_whatsapp (cliente_whatsapp_id) VALUES ($1) RETURNING id`,
+      [cliente_id]
+    );
+    convId = nova.rows[0].id;
+  }
 
   await pool.query(
     `INSERT INTO mensagens_whatsapp (conversa_id, direcao, tipo, conteudo)

@@ -19040,3 +19040,13 @@ qual preventiva.
 Testes novos: `lote-avisos-preventiva.test.js` 28/28, `plano-sistemas.test.js`
 15/15; os de preventivas e do Omie seguem passando. Ver
 [modulos/omie-integracao.md](modulos/omie-integracao.md).
+
+## 2026-11-27 — Aviso de sensor recusado não cria conversa vazia
+
+`_notificarClienteWhatsApp` (`offline.job.js`) criava a conversa nova antes de
+enviar; com `WHATSAPP_TEMPLATE_SENSOR` no Railway desde 27/11 e o número ainda
+sem registro, cada aviso fora das 24 h que a Meta recusa (ou que nem sai, sem
+`WHATSAPP_PHONE_NUMBER_ID`) deixaria uma conversa vazia na central. Agora a
+conversa só nasce depois do envio aceito. `whatsapp-falhas.test.js` 14/14 (o
+caso novo falha no código antigo). Ver
+[modulos/whatsapp-ia.md](modulos/whatsapp-ia.md).
