@@ -13277,7 +13277,7 @@ function _avRenderPainel() {
              Ele so para de dizer que alguem pediu. -->
         ${o.os_id ? `
         <div>
-          <div class="av-total-lbl">${o.os_orcamento_necessario ? "O que o técnico pediu" : "O.S. vinculada"}</div>
+          <div class="av-rail-h">${o.os_orcamento_necessario ? "O que o técnico pediu" : "O.S. vinculada"}</div>
           ${o.os_orcamento_necessario
             ? (o.orcamento_observacoes
                 ? `<p class="orc-rail-obs">${_waEscaparHtml(o.orcamento_observacoes)}</p>`
@@ -13331,7 +13331,7 @@ function _avRenderPainel() {
         ${o.nota_status ? `
         <div class="av-envio av-nota" id="avNotaWrap">${_avNotaRailHtml(o)}</div>` : ""}
 
-        <section class="av-rail-sec">
+        <section class="av-rail-sec av-rail-meta">
           <div class="av-rail-h">Histórico</div>
           <div class="av-rail-kv"><span>Criado em</span><b>${_orcFmtData(o.criado_em)}</b></div>
           <!-- Quem MONTOU o documento. A coluna sempre foi gravada; até
@@ -13684,6 +13684,9 @@ function _avAtualizarDestinatario() {
   const sec = document.getElementById("avEnvioSec");
   const st = document.getElementById("avInputStatus")?.value || _avSelecionado?.status || "rascunho";
   if (sec) sec.hidden = st === "rascunho" && !!email && !_avSelecionado?.enviado_em;
+  // Sem e-mail o botão do topo fica apagado: o motivo sobe para logo abaixo
+  // do total, em âmbar (27/11/2026), em vez de ficar cinza no meio do trilho.
+  if (sec) sec.classList.toggle("is-falta", !email);
 
   if (btn) {
     btn.disabled = !email;

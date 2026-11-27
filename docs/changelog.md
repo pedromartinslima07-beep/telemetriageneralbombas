@@ -19133,3 +19133,16 @@ endpoint nem migration. Detalhe em
 - Ficha técnica inteira, sem itálico; menos fios; "Adicionar" com cara de
   botão; constatação em letra maior.
 - `admin.css?v=408`, `admin.js?v=447`, `admin-orc-pecas.js?v=9`.
+
+## 2026-11-27 — Orçamento: hierarquia
+
+`public/admin.js`, `admin.css`, `admin.html`; sem endpoint nem migration.
+Detalhe em
+[modulos/redesenho-admin.md](modulos/redesenho-admin.md#orçamento-hierarquia-27112026).
+
+- Três níveis de leitura na página do orçamento: número (mono), cliente,
+  itens e total na frente; constatação e condições no meio; linha do tempo,
+  fotos e histórico recuados. Mais espaço entre seções que dentro delas.
+- Sem e-mail para enviar, o aviso sai do meio do trilho e fica logo abaixo
+  do total, em âmbar (`#avEnvioSec.is-falta`).
+- `admin.css?v=410`, `admin.js?v=448`.

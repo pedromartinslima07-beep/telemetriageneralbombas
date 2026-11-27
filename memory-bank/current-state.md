@@ -286,6 +286,9 @@ situação, e **salva sozinho** (sem botão Salvar). A nota mostra a própria
 nota na coluna principal, com o que falta marcado, e "Para emitir" no
 trilho. Ver a seção "Orçamento e nota: a estrutura nova" em
 [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
+**Hierarquia (27/11):** a página do orçamento ganhou três níveis de leitura
+(cliente, itens e total na frente; histórico e linha do tempo recuados), e a
+falta de e-mail para enviar sobe para baixo do total, em âmbar.
 Ver a seção "O voltar das páginas de registro" em
 [`../docs/modulos/redesenho-admin.md`](../docs/modulos/redesenho-admin.md).
 

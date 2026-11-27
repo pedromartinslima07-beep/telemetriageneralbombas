@@ -13986,3 +13986,76 @@ span.esq-cx .esq, .cp-fato .esq { display: inline-block; vertical-align: middle;
 
 @media (max-width: 900px) { .esq-cp-grade { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .esq, .esq-cx { animation: none; } }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PÁGINA DO ORÇAMENTO: HIERARQUIA (27/11/2026)
+   Pedido do Pedro: "falta hierarquia, ta tudo mt chapado". Tudo tinha o
+   mesmo corpo (13px) e o mesmo peso (600-700): título de seção, rótulo,
+   valor, linha do tempo e histórico disputavam o olho por igual.
+   Três níveis agora:
+     1. quem e o quê — o número e o cliente no cabeçalho, os itens, o total;
+     2. o que acompanha — constatação, condições, o pedido do técnico;
+     3. o que se consulta — fotos, histórico, linha do tempo.
+   E o que trava o envio ("falta o e-mail") sobe para logo abaixo do total,
+   em âmbar: era a razão do botão apagado e morava cinza no meio do trilho.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── cabeçalho: o número é código (mono), o cliente é o assunto ── */
+#avModal.is-pagina .av-modal-num {
+  font-family: var(--mono); font-size: 20px; font-weight: 700; letter-spacing: -.02em;
+}
+#avModal.is-pagina .av-cab-sub { margin-top: 6px; font-size: 13.5px; }
+#avModal.is-pagina .av-cab-sub b { font-size: 15px; }
+
+/* ── linha do tempo: referência, não manchete ── */
+#avModal.is-pagina .av-tempo .os-tempo-rot { font-size: 12.5px; font-weight: 600; color: var(--tinta-2); }
+#avModal.is-pagina .av-tempo li.is-atual .os-tempo-rot { color: var(--tinta); font-weight: 700; }
+#avModal.is-pagina .av-tempo li:not(.is-feito):not(.is-atual) .os-tempo-rot { color: var(--muted); font-weight: 500; }
+#avModal.is-pagina .av-tempo .os-tempo-em { font-size: 11.5px; }
+
+/* ── coluna do documento: mais ar ENTRE as seções que dentro delas ── */
+#avModal.is-pagina .av-col-form { gap: 28px; padding: 24px 26px 28px; }
+#avModal.is-pagina .av-itens-zone,
+#avModal.is-pagina .av-fotos { padding-top: 24px; }
+#avModal.is-pagina .av-col-form .ap-section-title { font-size: 15px; margin-bottom: 10px; }
+#avModal.is-pagina #avInputConstatacao { font-size: 14.5px !important; color: var(--tinta); }
+
+/* tabela: descrição e total na frente; quantidade e unitário recuados */
+#avModal.is-pagina .orc-itens-table th {
+  background: transparent; font-size: 11.5px; font-weight: 600; color: var(--muted);
+  border-bottom: 1px solid rgba(6,16,51,.16);
+}
+#avModal.is-pagina .av-it-desc { font-size: 14px; }
+#avModal.is-pagina .orc-itens-table td.orc-it-num:not(.av-it-tot) { color: var(--tinta-2); font-weight: 400; }
+#avModal.is-pagina .orc-itens-table td.av-it-tot { font-size: 14px; font-weight: 700; color: var(--tinta); }
+
+/* fotos: material de apoio, um degrau abaixo dos itens */
+#avModal.is-pagina .av-fotos .ap-section-title { font-size: 14px; color: var(--tinta-2); }
+
+/* ── trilho ── */
+#avModal.is-pagina .av-rail { padding: 20px 22px; }
+#avModal.is-pagina .av-rail > * { order: 2; }
+#avModal.is-pagina .av-rail > div:first-child { order: 0; padding-bottom: 16px; }
+#avModal.is-pagina .av-total { font-size: 34px; margin-top: 4px; }
+#avModal.is-pagina .av-total-lbl { font-size: 12.5px; color: var(--tinta-2); }
+
+#avModal.is-pagina .av-rail-sec { padding: 16px 0; }
+#avModal.is-pagina .av-rail-h { font-size: 13.5px; font-weight: 700; color: var(--tinta); margin-bottom: 8px; }
+
+/* o que trava o envio: logo abaixo do total, em âmbar */
+#avModal.is-pagina #avEnvioSec.is-falta {
+  order: 1; margin: 0 0 16px; padding: 10px 12px;
+  background: #fdf6e6; border: 1px solid #ecd29a; border-radius: 8px;
+}
+#avModal.is-pagina #avEnvioSec.is-falta .av-rail-h { margin-bottom: 2px; color: #7a5410; }
+#avModal.is-pagina #avEnvioSec.is-falta .av-envio-to { margin: 0; color: #5c3f0a; font-size: 12.5px; }
+#avModal.is-pagina #avEnvioSec.is-falta .av-lk { color: #5c3f0a; text-decoration: underline; text-underline-offset: 3px; }
+
+/* histórico: consulta, um degrau abaixo */
+#avModal.is-pagina .av-rail-meta .av-rail-h { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+#avModal.is-pagina .av-rail-meta .av-rail-kv { font-size: 12px; }
+#avModal.is-pagina .av-rail-meta .av-rail-kv > b { font-weight: 500; color: var(--tinta-2); }
+@media (max-width: 640px) {
+  #avModal.is-pagina .av-col-form { gap: 22px; padding: 18px 14px 22px; }
+  #avModal.is-pagina .av-rail { padding: 16px 14px; }
+}

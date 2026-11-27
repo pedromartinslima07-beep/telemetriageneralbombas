@@ -2810,3 +2810,33 @@ verdade** (natureza = peça, a linha não abriu, o rodapé passou a DANFE) e foi
 desfeito pela mesma rota. **Não testado:** "cadastrar o e-mail" de condomínio
 sem e-mail (o do teste tem), o aviso "vence em N dias", o perfil operador.
 `admin.css?v=408`, `admin.js?v=447`, `admin-orc-pecas.js?v=9`.
+
+## Orçamento: hierarquia (27/11/2026)
+
+Pedido do Pedro: *"falta hierarquia, ta tudo mt chapado"*. O diagnóstico:
+título de seção, rótulo, valor, linha do tempo e histórico tinham o mesmo
+corpo (~13px) e o mesmo peso (600–700), e as seções eram separadas pelo mesmo
+intervalo que separava título e conteúdo. Nada liderava.
+
+Três níveis, só com corpo, peso, cor e espaço (sem caixa nova, sem cor nova):
+
+1. **Quem e o quê** — número do orçamento em Martian Mono 20px (é código);
+   nome do cliente 15px; descrição e total de cada item 14px, com
+   quantidade e unitário recuados em `--tinta-2`; total do trilho 34px.
+2. **O que acompanha** — títulos de seção 15px; constatação 14,5px;
+   "O que o técnico pediu" passou a usar o mesmo título de seção do trilho
+   (`.av-rail-h`) em vez do rótulo cinza do total.
+3. **O que se consulta** — linha do tempo em 12,5px (só a etapa da vez em
+   tinta cheia); Fotos um degrau abaixo dos Itens; Histórico
+   (`.av-rail-meta`) com título e valores em cinza.
+
+Ritmo: 28px entre as seções da coluna, 10px do título ao conteúdo; o
+cabeçalho da tabela perdeu a faixa cinza.
+
+**O que trava o envio sobe.** Sem e-mail, o "Enviar ao cliente" fica apagado
+e o motivo morava cinza no meio do trilho. Agora `_avAtualizarDestinatario`
+marca `#avEnvioSec.is-falta`, e o CSS (`order: 1` no trilho) o põe logo abaixo
+do total, em âmbar. Com e-mail nada muda.
+
+CSS no bloco "PÁGINA DO ORÇAMENTO: HIERARQUIA" no fim de `admin.css`, tudo
+escopado em `#avModal.is-pagina`. `admin.css?v=410`, `admin.js?v=448`.
